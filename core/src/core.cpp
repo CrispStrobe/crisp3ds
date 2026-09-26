@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include <array>
-#include <charconv>
+#include <clocale>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iomanip>
 #include <limits>
+#include <locale.h>
 #include <numeric>
 #include <map>
 #include <set>
@@ -191,9 +192,30 @@ class Parser {
         if (position_ == size_ || data_[position_] < '0' || data_[position_] > '9') fail("invalid exponent");
         while (position_ < size_ && data_[position_] >= '0' && data_[position_] <= '9') ++position_;
       }
-      auto parsed = std::from_chars(data_ + start, data_ + position_, v.n, std::chars_format::general);
-      if (parsed.ec != std::errc() || parsed.ptr != data_ + position_) fail("number out of range");
-      if (!std::isfinite(v.n)) fail("number out of range");
+      // Floating-point from_chars is absent in the Apple libc++ used by CI.
+      // Use a per-call C numeric locale, never the process-wide mutable locale.
+      // Grammar was checked above, and the returned end pointer checks conversion.
+      std::string token(data_ + start, position_ - start);
+      char *end = nullptr;
+#ifdef _WIN32
+      _locale_t numeric_locale = _create_locale(LC_NUMERIC, "C");
+      if (!numeric_locale) fail("number out of range");
+      v.n = _strtod_l(token.c_str(), &end, numeric_locale);
+      _free_locale(numeric_locale);
+#else
+      locale_t numeric_locale = newlocale(LC_NUMERIC_MASK, "C", nullptr);
+      if (!numeric_locale) fail("number out of range");
+      v.n = strtod_l(token.c_str(), &end, numeric_locale);
+      freelocale(numeric_locale);
+#endif
+      if (end != token.c_str() + token.size() || !std::isfinite(v.n)) fail("number out of range");
+      // strtod_l may round tiny nonzero decimals down to zero without failure.
+      if (v.n == 0) {
+        bool nonzero_mantissa = false;
+        for (size_t i = start; i < position_ && data_[i] != 'e' && data_[i] != 'E'; ++i)
+          nonzero_mantissa |= data_[i] >= '1' && data_[i] <= '9';
+        if (nonzero_mantissa) fail("number out of range");
+      }
       v.kind = Value::number;
     } else fail("invalid JSON value");
     return v;

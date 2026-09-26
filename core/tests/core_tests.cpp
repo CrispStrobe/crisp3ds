@@ -6,10 +6,14 @@
 #include <cassert>
 #include <cstring>
 #include <iostream>
+#include <locale>
 #include <string>
 #include <vector>
 
 namespace {
+struct CommaDecimal : std::numpunct<char> {
+  char do_decimal_point() const override { return ','; }
+};
 std::pair<crisp3ds_status,std::string> run(const std::string &s, bool reconstruct=false) {
   auto fn = reconstruct ? crisp3ds_reconstruct_json : crisp3ds_validate_project_json;
   size_t needed=0;
@@ -42,6 +46,27 @@ int main() {
   check_invalid(R"({"schemaVersion":1,"id":"x","name":"x","units":"mm","images":[],"stages":{"dense":"complete","dense":"failed"}})","duplicate object key");
   check_invalid(R"({"schemaVersion":1,"id":"x","name":"x","units":"mm","images":[],"stages":{"dense":"done"}})","invalid stage state");
   check_invalid(R"({"schemaVersion":1,"id":"x","name":"x","units":"mm","images":[],"stages":{},"calibration":{"width":0,"height":480,"fx":100,"fy":100,"cx":320,"cy":240,"distortion":[]}})","calibration.width");
+  const std::string numeric_prefix=R"({"schemaVersion":1,"id":"x","name":"x","units":"mm","images":[],"stages":{},"calibration":{"width":640,"height":480,"fx":100,"fy":100,"cx":)";
+  const std::string numeric_suffix=R"(,"cy":240,"distortion":[]}})";
+  for (const char *number : {"-0", "0e4000", "-0e-4000", "1e0", "1.7976931348623157e308", "4.9406564584124654e-324"}) {
+    auto [numeric_status, numeric_report]=run(numeric_prefix+number+numeric_suffix);
+    if (numeric_status != CRISP3DS_OK) {
+      std::cerr << "Expected finite JSON number " << number << ", got: " << numeric_report << '\n';
+      std::abort();
+    }
+  }
+  for (const char *number : {"1e309", "-1e309", "1e-4000", "-1e-4000"})
+    check_invalid(numeric_prefix+number+numeric_suffix,"number out of range");
+  for (const char *number : {"01", "1.2.3", "1x", "1,5", "1e+", "-"})
+    check_invalid(numeric_prefix+number+numeric_suffix,"");
+  const auto original_locale = std::locale();
+  std::locale::global(std::locale(std::locale::classic(), new CommaDecimal));
+  auto [dot_status, dot_report] = run(numeric_prefix+"1.5"+numeric_suffix);
+  std::locale::global(original_locale);
+  if (dot_status != CRISP3DS_OK) {
+    std::cerr << "Expected JSON dot decimal under comma locale, got: " << dot_report << '\n';
+    std::abort();
+  }
   check_invalid(R"({"schemaVersion":1,"id":"x","name":"   ","units":"mm","images":[],"stages":{}})","whitespace only");
   check_invalid(R"({"schemaVersion":1,"id":"x","name":"\u00a0","units":"mm","images":[],"stages":{}})","whitespace only");
   check_invalid(R"({"schemaVersion":1,"id":"x","name":"x","units":"mm","images":[{"id":"a","path":" images/a.jpg"}],"stages":{}})","edge whitespace");
