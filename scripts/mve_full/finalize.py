@@ -107,6 +107,8 @@ def finalize(failed_run: Path, output: Path, max_gib: float = 1.0,
         if sha256(raw_mesh) != EXPECTED_RAW_SHA256 or sha256(result_path) != old_hash:
             raise ValueError("failed run changed during finalization")
         report["output_bytes"] = tree_bytes(output)
+        if time.monotonic() - started > timeout_minutes * 60:
+            raise ValueError("final validation exceeded continuation timeout")
         if report["output_bytes"] > cap or shutil.disk_usage(output).free < RESERVE:
             raise ValueError("final output cap or disk reserve breached")
         report["status"] = "succeeded"

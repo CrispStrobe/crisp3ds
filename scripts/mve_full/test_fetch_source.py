@@ -1,5 +1,6 @@
 """No-network checks for the bounded pinned-source fetcher."""
 
+import os
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -28,9 +29,15 @@ class SourceFetchTests(unittest.TestCase):
             archive = root / "archive.tar.gz"
             archive.write_bytes(b"bad")
             link = root / "link.tar.gz"
-            link.symlink_to(archive)
-            with self.assertRaisesRegex(ValueError, "symlink"):
-                fetch(link)
+            try:
+                link.symlink_to(archive)
+            except OSError:
+                if os.name != "nt":
+                    raise
+                # Hosted Windows runners may lack the symlink creation privilege.
+            else:
+                with self.assertRaisesRegex(ValueError, "symlink"):
+                    fetch(link)
             with self.assertRaisesRegex(ValueError, "wrong SHA-256"):
                 fetch(archive)
 

@@ -89,9 +89,22 @@ def extract(archive: Path, root: Path) -> Path:
                 raise ValueError("unexpected source archive root")
             if member.issym() or member.islnk() or not (member.isfile() or member.isdir()):
                 raise ValueError("unexpected link or special archive member")
-            if ".." in Path(relative).parts:
+            if "\\" in relative or ".." in relative.split("/"):
                 raise ValueError("archive path traversal")
-        package.extractall(path=root, filter="data")
+        if hasattr(tarfile, "data_filter"):
+            package.extractall(path=root, filter="data")
+        else:
+            # Python 3.11 lacks the data filter. The pinned hash and checks
+            # above restrict members to ordinary files/directories under one
+            # root; extract those exact bytes without tarfile's old defaults.
+            for member in members:
+                target = root.joinpath(*member.name.split("/"))
+                if member.isdir():
+                    target.mkdir(parents=True, exist_ok=True)
+                else:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with package.extractfile(member) as source_file, target.open("xb") as output:
+                        shutil.copyfileobj(source_file, output)
     return source
 
 

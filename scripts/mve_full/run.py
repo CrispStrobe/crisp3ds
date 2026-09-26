@@ -348,6 +348,8 @@ def run(args: argparse.Namespace) -> dict:
                     raise ValueError("cleaned mesh has zero faces")
         report["status"] = "succeeded"
         report["output_bytes"] = tree_bytes(out)
+        if time.monotonic() - started > args.timeout_minutes * 60:
+            raise ValueError("final validation exceeded total timeout")
         if report["output_bytes"] > cap or shutil.disk_usage(out).free < RESERVE:
             raise ValueError("final output breached byte cap or free-space reserve")
     except Exception as exc:

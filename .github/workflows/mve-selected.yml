@@ -31,11 +31,11 @@ jobs:
       - name: Fetch, patch and verify pinned MVE source
         shell: bash
         run: |
-          mkdir -p .local-tools/mve-spike
+          mkdir -p .local-tools/mve-spike .local-tools/tmp
           python -m scripts.mve_full.fetch_source \
             --destination .local-tools/mve-spike/mve-bf2279f.tar.gz \
             --extract-root .local-tools/mve-spike
-          git apply --unidiff-zero \
+          git -c core.autocrlf=false apply --unidiff-zero \
             --directory=.local-tools/mve-spike/mve-bf2279f161ba962072ecac85224c15e82bc5f52e \
             scripts/mve_full/sift_only.patch
           python -m scripts.mve_full.verify_source \
