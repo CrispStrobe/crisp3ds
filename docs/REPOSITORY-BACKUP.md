@@ -1,6 +1,6 @@
 # Repository backup and visibility
 
-On 2026-09-27 the owner requested public visibility and AGPL licensing.
+On 2026-09-27 the repository was made public at the owner's explicit request.
 The project-owned code is now licensed under AGPL-3.0-only; third-party
 code, assets and datasets retain their own terms. Repository publication
 includes its Git history. Downloaded datasets, build outputs and credentials

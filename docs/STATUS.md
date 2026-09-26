@@ -1,5 +1,14 @@
 # Implementation status
 
+## Public repository and project license
+
+On 2026-09-27, at the owner's request, the repository became public and original
+project code was licensed under AGPL-3.0-only. Third-party licenses are unchanged;
+this does not automatically clear App Store distribution. The new
+[Windows CI retry](https://github.com/CrispStrobe/crisp3ds/actions/runs/36275507360)
+started successfully after publication, superseding the billing-startup block
+recorded below. Its compilation and test outcome are not yet verified here.
+
 ## CPU photo-to-mesh integration and real object reference
 
 The [current milestone](CPU-E2E-PLAN.md) now targets ordinary overlapping photos
