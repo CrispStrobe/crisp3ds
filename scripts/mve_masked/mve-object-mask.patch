@@ -1,0 +1,228 @@
+--- a/libs/dmrecon/image_pyramid.h
++++ b/libs/dmrecon/image_pyramid.h
+@@ -29,6 +29,7 @@
+ {
+     int width, height;
+     mve::ByteImage::ConstPtr image;
++    mve::ByteImage::ConstPtr valid;
+     math::Matrix3f proj;
+     math::Matrix3f invproj;
+ 
+--- a/libs/dmrecon/image_pyramid.cc
++++ b/libs/dmrecon/image_pyramid.cc
+@@ -11,6 +11,7 @@
+ 
+ #include "mve/image_tools.h"
+ #include <cassert>
++#include <stdexcept>
+ 
+ MVS_NAMESPACE_BEGIN
+ 
+@@ -60,6 +61,17 @@
+             return;
+ 
+         mve::ByteImage::Ptr img = view->get_byte_image(embeddingName);
++        mve::ByteImage::Ptr valid;
++        if (view->has_image("object-mask", mve::IMAGE_TYPE_UINT8))
++        {
++            valid = view->get_byte_image("object-mask");
++            if (valid->channels() != 1 || valid->width() != img->width()
++                || valid->height() != img->height())
++                throw std::invalid_argument("object-mask must be one channel and match image dimensions");
++            for (int64_t p = 0; p < valid->get_value_amount(); ++p)
++                if (valid->at(p) != 0 && valid->at(p) != 255)
++                    throw std::invalid_argument("object-mask must contain only 0 or 255");
++        }
+         int channels = img->channels();
+ 
+         /* Remove alpha channel. */
+@@ -82,13 +94,35 @@
+ 
+             if (i > 0)
+             {
++                if (valid != nullptr)
++                {
++                    mve::ByteImage::Ptr next = mve::ByteImage::create(
++                        (valid->width() + 1) / 2, (valid->height() + 1) / 2, 1);
++                    for (int y = 0; y < next->height(); ++y)
++                        for (int x = 0; x < next->width(); ++x)
++                        {
++                            bool all = true;
++                            for (int dy = -1; dy <= 2; ++dy)
++                                for (int dx = -1; dx <= 2; ++dx)
++                                {
++                                    int sx = std::max(0, std::min<int>(valid->width() - 1, 2 * x + dx));
++                                    int sy = std::max(0, std::min<int>(valid->height() - 1, 2 * y + dy));
++                                    all = all && valid->at(sy * valid->width() + sx) == 255;
++                                }
++                            next->at(y * next->width() + x) = all ? 255 : 0;
++                        }
++                    valid = next;
++                }
+                 img = mve::image::rescale_half_size_gaussian<uint8_t>(img, 1.f);
+                 curr_width = img->width();
+                 curr_height = img->height();
+             }
+ 
+             if (minLevel <= i)
++            {
+                 levels[i].image = img;
++                levels[i].valid = valid;
++            }
+         }
+ 
+         view->cache_cleanup();
+--- a/libs/dmrecon/single_view.h
++++ b/libs/dmrecon/single_view.h
+@@ -11,6 +11,7 @@
+ #define DMRECON_SINGLE_VIEW_H
+ 
+ #include <cassert>
++#include <cmath>
+ #include <set>
+ #include <iostream>
+ #include <utility>
+@@ -41,6 +42,9 @@
+     int clampLevel(int level) const;
+     mve::ByteImage::ConstPtr const& getScaledImg() const;
+     mve::ByteImage::ConstPtr const& getPyramidImg(int level) const;
++    bool validPixel(int x, int y, int level) const;
++    bool validSample(float x, float y, int level) const;
++    bool validScaledPixel(int x, int y) const;
+     mve::View::Ptr getMVEView() const;
+ 
+     std::string createFileName(float scale) const;
+@@ -134,6 +138,35 @@
+     return this->img_pyramid->at(level).image;
+ }
+ 
++inline bool
++SingleView::validPixel(int x, int y, int level) const
++{
++    ImagePyramidLevel const& l = this->img_pyramid->at(level);
++    if (x < 0 || y < 0 || x >= l.width || y >= l.height)
++        return false;
++    return l.valid == nullptr || l.valid->at(y * l.width + x) == 255;
++}
++
++inline bool
++SingleView::validSample(float x, float y, int level) const
++{
++    if (!std::isfinite(x) || !std::isfinite(y))
++        return false;
++    int left = static_cast<int>(std::floor(x));
++    int top = static_cast<int>(std::floor(y));
++    return validPixel(left, top, level) && validPixel(left + 1, top, level)
++        && validPixel(left, top + 1, level) && validPixel(left + 1, top + 1, level);
++}
++
++inline bool
++SingleView::validScaledPixel(int x, int y) const
++{
++    return this->target_level.valid == nullptr
++        || (x >= 0 && y >= 0 && x < this->target_level.width
++            && y < this->target_level.height
++            && this->target_level.valid->at(y * this->target_level.width + x) == 255);
++}
++
+ inline mve::ByteImage::ConstPtr const&
+ SingleView::getScaledImg() const
+ {
+--- a/libs/dmrecon/patch_sampler.cc
++++ b/libs/dmrecon/patch_sampler.cc
+@@ -48,6 +48,10 @@
+         || bottomRight[0] > masterImg->width()-1
+         || bottomRight[1] > masterImg->height()-1)
+         return;
++    for (int j = topLeft[1]; j <= bottomRight[1]; ++j)
++        for (int i = topLeft[0]; i <= bottomRight[0]; ++i)
++            if (!refV->validScaledPixel(i, j))
++                return;
+ 
+     /* initialize viewing rays from master view */
+     std::size_t count = 0;
+@@ -114,7 +118,8 @@
+         imgPos[i] = views[v]->worldToScreen(p0, mmLevel);
+         // imgPos should be away from image border
+         if (!(imgPos[i][0] > 0 && imgPos[i][0] < w-1 &&
+-                imgPos[i][1] > 0 && imgPos[i][1] < h-1)) {
++                imgPos[i][1] > 0 && imgPos[i][1] < h-1)
++            || !views[v]->validSample(imgPos[i][0], imgPos[i][1], mmLevel)) {
+             return;
+         }
+         gradDir[i] = views[v]->worldToScreen(p1, mmLevel) - imgPos[i];
+@@ -384,7 +389,8 @@
+         imgPos[i] = views[v]->worldToScreen(patchPoints[i], mmLevel);
+         // imgPos should be away from image border
+         if (!(imgPos[i][0] > 0 && imgPos[i][0] < w-1 &&
+-                imgPos[i][1] > 0 && imgPos[i][1] < h-1)) {
++                imgPos[i][1] > 0 && imgPos[i][1] < h-1)
++            || !views[v]->validSample(imgPos[i][0], imgPos[i][1], mmLevel)) {
+             return;
+         }
+     }
+--- a/libs/dmrecon/dmrecon.cc
++++ b/libs/dmrecon/dmrecon.cc
+@@ -289,6 +289,8 @@
+         math::Vec2f pixPosF = refV->worldToScreenScaled(featPos);
+         int const x = math::round(pixPosF[0]);
+         int const y = math::round(pixPosF[1]);
++        if (!refV->validScaledPixel(x, y))
++            continue;
+         float initDepth = (featPos - refV->camPos).norm();
+         PatchOptimization patch(views, settings, x, y, initDepth,
+             0.f, 0.f, neighViews, IndexSet());
+@@ -368,6 +370,8 @@
+         float x = tmpData.x;
+         float y = tmpData.y;
+         int index = y * this->width + x;
++        if (!refV->validScaledPixel(x, y))
++            continue;
+         if (refV->confImg->at(index) > tmpData.confidence) {
+             continue ;
+         }
+@@ -400,32 +404,36 @@
+             // left
+             tmpData.x = x - 1; tmpData.y = y;
+             index = tmpData.y * this->width + tmpData.x;
+-            if (refV->confImg->at(index) < tmpData.confidence - 0.05f ||
+-                refV->confImg->at(index) == 0.f)
++            if (refV->validScaledPixel(tmpData.x, tmpData.y) &&
++                (refV->confImg->at(index) < tmpData.confidence - 0.05f ||
++                refV->confImg->at(index) == 0.f))
+             {
+                 prQueue.push(tmpData);
+             }
+             // right
+             tmpData.x = x + 1; tmpData.y = y;
+             index = tmpData.y * this->width + tmpData.x;
+-            if (refV->confImg->at(index) < tmpData.confidence - 0.05f ||
+-                refV->confImg->at(index) == 0.f)
++            if (refV->validScaledPixel(tmpData.x, tmpData.y) &&
++                (refV->confImg->at(index) < tmpData.confidence - 0.05f ||
++                refV->confImg->at(index) == 0.f))
+             {
+                 prQueue.push(tmpData);
+             }
+             // top
+             tmpData.x = x; tmpData.y = y - 1;
+             index = tmpData.y * this->width + tmpData.x;
+-            if (refV->confImg->at(index) < tmpData.confidence - 0.05f ||
+-                refV->confImg->at(index) == 0.f)
++            if (refV->validScaledPixel(tmpData.x, tmpData.y) &&
++                (refV->confImg->at(index) < tmpData.confidence - 0.05f ||
++                refV->confImg->at(index) == 0.f))
+             {
+                 prQueue.push(tmpData);
+             }
+             // bottom
+             tmpData.x = x; tmpData.y = y + 1;
+             index = tmpData.y * this->width + tmpData.x;
+-            if (refV->confImg->at(index) < tmpData.confidence - 0.05f ||
+-                refV->confImg->at(index) == 0.f)
++            if (refV->validScaledPixel(tmpData.x, tmpData.y) &&
++                (refV->confImg->at(index) < tmpData.confidence - 0.05f ||
++                refV->confImg->at(index) == 0.f))
+             {
+                 prQueue.push(tmpData);
+             }

@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.16)
+project(tree_dense_seed LANGUAGES CXX)
+find_package(OpenCV 4.12 CONFIG REQUIRED COMPONENTS core imgcodecs imgproc features2d calib3d)
+add_executable(tree_dense_seed seed_tracks.cc)
+target_compile_features(tree_dense_seed PRIVATE cxx_std_17)
+target_link_libraries(tree_dense_seed PRIVATE ${OpenCV_LIBS})

@@ -1,0 +1,19 @@
+{
+  "name": "middlebury-2003-cones-teddy-quarter",
+  "source": "https://vision.middlebury.edu/stereo/data/scenes2003/",
+  "mirror_commit": "https://github.com/beaupreda/semi-global-matching/tree/6643cf4b6a5ab197aace8b766c6ab139e281ae8e",
+  "upstream_equivalence_verified": false,
+  "independent_mirror_byte_match": "https://github.com/Soumyabrata/Stereo-Matching/tree/09be6059026e4f831d5360083fcb02afddcccf63/Data",
+  "files": [
+    {"path": "cones/im2.png", "size": 362946, "sha256": "e9875cec273b9c7a36ab8a0556b5c8451dd90cf50b5c8f30f4ab3bc8f201da92", "url": "https://raw.githubusercontent.com/beaupreda/semi-global-matching/6643cf4b6a5ab197aace8b766c6ab139e281ae8e/cones/im2.png"},
+    {"path": "cones/im6.png", "size": 364420, "sha256": "a3795d564445b1e041a88fec490d4140efec87c9a4c64c1b56f7240c3a4fc727", "url": "https://raw.githubusercontent.com/beaupreda/semi-global-matching/6643cf4b6a5ab197aace8b766c6ab139e281ae8e/cones/im6.png"},
+    {"path": "cones/disp2.png", "size": 29279, "sha256": "d082b192d7893ef597dfaa9af5c7fea9cb0196808be42d40b80fbf47bb96f561", "url": "https://raw.githubusercontent.com/beaupreda/semi-global-matching/6643cf4b6a5ab197aace8b766c6ab139e281ae8e/cones/disp2.png"},
+    {"path": "teddy/im2.png", "size": 342036, "sha256": "092142723fd63f1f4867daaf66d85e8228a4fe2c704becd0091b7b599e618f00", "url": "https://raw.githubusercontent.com/beaupreda/semi-global-matching/6643cf4b6a5ab197aace8b766c6ab139e281ae8e/teddy/im2.png"},
+    {"path": "teddy/im6.png", "size": 343316, "sha256": "b13366171eaa15cbb30c1cfb6bb0d18bec7a3977c92c49a641245dc40f75ec9b", "url": "https://raw.githubusercontent.com/beaupreda/semi-global-matching/6643cf4b6a5ab197aace8b766c6ab139e281ae8e/teddy/im6.png"},
+    {"path": "teddy/disp2.png", "size": 26939, "sha256": "695e92dd08819e82e22a0001cd5a34e67859246475db5df38a0ab55e66d1f412", "url": "https://raw.githubusercontent.com/beaupreda/semi-global-matching/6643cf4b6a5ab197aace8b766c6ab139e281ae8e/teddy/disp2.png"}
+  ],
+  "derived": [
+    {"source": "cones/disp2.png", "path": "cones/disp0GT.pfm", "width": 450, "height": 375, "divisor": 4, "size": 675016, "sha256": "220c9acb2be64228b083e21be9a6208b3ebc0c94191fc234803165d7ca58bbd5", "rule": "8-bit gray / 4 pixels; zero => +infinity; rows bottom-first"},
+    {"source": "teddy/disp2.png", "path": "teddy/disp0GT.pfm", "width": 450, "height": 375, "divisor": 4, "size": 675016, "sha256": "bccdcd346bccb878d65e32eb4402e65c2100890f7918be54fa4912e08078254f", "rule": "8-bit gray / 4 pixels; zero => +infinity; rows bottom-first"}
+  ]
+}

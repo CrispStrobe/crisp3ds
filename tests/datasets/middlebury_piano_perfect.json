@@ -1,0 +1,12 @@
+{
+  "name": "middlebury-2014-piano-perfect-full",
+  "source": "https://vision.middlebury.edu/stereo/data/scenes2014/",
+  "mirror_commit": "https://github.com/ztliu62/stereo3D/tree/91a4aef04c9d46955073281f4555278819b6b589/images/Piano-perfect",
+  "upstream_equivalence_verified": false,
+  "files": [
+    {"path": "Piano-perfect/calib.txt", "size": 209, "sha256": "e9a1f7990c912fa7fe8ec766157ce96b2f024e5054dfc6d913d39f65bd5fe63b", "url": "https://raw.githubusercontent.com/ztliu62/stereo3D/91a4aef04c9d46955073281f4555278819b6b589/images/Piano-perfect/calib.txt"},
+    {"path": "Piano-perfect/im0.png", "size": 6001619, "sha256": "78cb8443ff3f7b23967f10c4253c3dcc56a96b75572e450e09150f2893bea2ea", "url": "https://raw.githubusercontent.com/ztliu62/stereo3D/91a4aef04c9d46955073281f4555278819b6b589/images/Piano-perfect/im0.png"},
+    {"path": "Piano-perfect/im1.png", "size": 6030361, "sha256": "b0eefcb015e7914ea18b6e973a5930794b0b2339d24a831d60312395b32b21bf", "url": "https://raw.githubusercontent.com/ztliu62/stereo3D/91a4aef04c9d46955073281f4555278819b6b589/images/Piano-perfect/im1.png"},
+    {"path": "Piano-perfect/disp0.pfm", "size": 21657623, "sha256": "e93f9efd2f31cd544330fe0310d0098edb41e7762663515229bc6d7a8e8eae9a", "url": "https://raw.githubusercontent.com/ztliu62/stereo3D/91a4aef04c9d46955073281f4555278819b6b589/images/Piano-perfect/disp0.pfm"}
+  ]
+}

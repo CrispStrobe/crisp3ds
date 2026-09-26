@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.16)
+project(tree_tracks LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+find_package(OpenCV REQUIRED COMPONENTS core imgcodecs features2d calib3d)
+add_executable(tree_tracks tracks.cc)
+target_link_libraries(tree_tracks PRIVATE ${OpenCV_LIBS})

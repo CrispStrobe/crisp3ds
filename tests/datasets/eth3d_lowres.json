@@ -1,0 +1,26 @@
+{
+  "name": "eth3d-low-res-two-view-training-subset",
+  "source": "https://www.eth3d.net/datasets",
+  "license": "CC BY-NC-SA 4.0 (dataset site; local noncommercial evaluation only)",
+  "archives": [
+    {"name": "two_view_training.7z", "size": 14283045, "sha256": "cb7683a01ba037759f30b5a4f561d302453e20f1f7095cbdc51c8564b218224b", "url": "https://www.eth3d.net/data/two_view_training.7z"},
+    {"name": "two_view_training_gt.7z", "size": 14863383, "sha256": "e440f7ec4444dfd2af33a44495f325a3aed06762432e2419277596ba7dcb9b40", "url": "https://www.eth3d.net/data/two_view_training_gt.7z"}
+  ],
+  "files": [
+    {"archive": "two_view_training.7z", "path": "delivery_area_1s/calib.txt", "size": 158, "sha256": "d598abc61b9bfbe9a508cb09f8e4c25fe4481e9ef16a2dc0fd33ce8c69ac90e2"},
+    {"archive": "two_view_training.7z", "path": "delivery_area_1s/im0.png", "size": 218835, "sha256": "3fa446b84934096075944771cc508c848a20391dc415434f5452f259931d4b58"},
+    {"archive": "two_view_training.7z", "path": "delivery_area_1s/im1.png", "size": 218937, "sha256": "fe25098df6637410d4a438892c4f693b9ec5a30f80c1982b1effa3fc651e8769"},
+    {"archive": "two_view_training_gt.7z", "path": "delivery_area_1s/disp0GT.pfm", "size": 1237154, "sha256": "a27bc3bd1d65173768e23b35932c061b8fd6b10540a15573bf492b68b0c1283d"},
+    {"archive": "two_view_training_gt.7z", "path": "delivery_area_1s/mask0nocc.png", "size": 26617, "sha256": "42f29598d957bbbe6e39273b85e85f64fff6c3aa243a1cb7268169795ac85f6c"},
+    {"archive": "two_view_training.7z", "path": "forest_1s/calib.txt", "size": 154, "sha256": "4f1617c31f09161540a78a0f75bebf0f1d9702a1673d31baf88bc5859fd0e40f"},
+    {"archive": "two_view_training.7z", "path": "forest_1s/im0.png", "size": 347554, "sha256": "19f45b60f1cfb90cefb4bb3ec91ffd0e2d2d75ffd48f0542b38a3a4d15542415"},
+    {"archive": "two_view_training.7z", "path": "forest_1s/im1.png", "size": 326943, "sha256": "d2645550182830cbe8177a08620e5c7fa86baac79bcba70656bc7f0f7e311243"},
+    {"archive": "two_view_training_gt.7z", "path": "forest_1s/disp0GT.pfm", "size": 1261274, "sha256": "94eb065e31bf5a4719a6bfca5722ed738e57ce1ca2f56b3b8d4775c21859e951"},
+    {"archive": "two_view_training_gt.7z", "path": "forest_1s/mask0nocc.png", "size": 31631, "sha256": "86987eeda46a865220a975790c0236b7a84f2260e652605de8d04bb75f3e2656"},
+    {"archive": "two_view_training.7z", "path": "playground_1s/calib.txt", "size": 158, "sha256": "8b1135cd83939b7f93fee5af4a94c2f6d0554d3b8cedd5a2ca5cf7db3bebf70a"},
+    {"archive": "two_view_training.7z", "path": "playground_1s/im0.png", "size": 240002, "sha256": "51d0af55b774d17bb671df244a6894385c1a5b8e8933d04cc3a8ea75a9e60736"},
+    {"archive": "two_view_training.7z", "path": "playground_1s/im1.png", "size": 229444, "sha256": "6dd472cebf55a2c5b72f5a371bff49e6798e24208684512b2dbc2be98fe33b69"},
+    {"archive": "two_view_training_gt.7z", "path": "playground_1s/disp0GT.pfm", "size": 1241742, "sha256": "a66eda1c3346baf951d2853278962e75290c869585cf4a5576a639aab8e52a45"},
+    {"archive": "two_view_training_gt.7z", "path": "playground_1s/mask0nocc.png", "size": 23855, "sha256": "dad4dc0819317ccca890987f8a6fa9cb245b2a7ef5213252fca591b82b583ca2"}
+  ]
+}

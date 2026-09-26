@@ -1,0 +1,12 @@
+.pose-report-card { margin-top: 15px; padding: 20px; }
+.pose-report-card h3 { font-size: 14px; margin: 0 0 12px; }
+.pose-report-card .issues { margin: 0 0 15px; }
+.pose-report-summary { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; color: #53666e; font-size: 12px; }
+.pose-table { overflow-x: auto; margin-top: 16px; border: 1px solid #e6ebed; border-radius: 8px; }
+.pose-header, .pose-row { display: grid; grid-template-columns: 1.5fr 1fr 1.2fr 1.1fr; gap: 12px; min-width: 650px; align-items: start; padding: 11px 13px; }
+.pose-header { background: #f8faf9; color: #8b9da4; font-size: 9px; font-weight: 800; letter-spacing: .1em; }
+.pose-row { border-top: 1px solid #edf1f2; color: #344b55; font-size: 11px; }
+.pose-row small { display: block; margin-top: 4px; color: #83949d; overflow-wrap: anywhere; }
+.pose-row details { margin-top: 6px; color: #6e838d; }
+.pose-row details summary { cursor: pointer; }
+.pose-row details code { display: block; margin-top: 7px; line-height: 1.6; white-space: nowrap; }

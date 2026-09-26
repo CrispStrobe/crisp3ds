@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.16)
+project(tree_pair_oracle LANGUAGES CXX)
+find_package(OpenCV 4.12 CONFIG REQUIRED COMPONENTS core imgcodecs imgproc calib3d)
+add_executable(tree_pair_oracle pair_oracle.cc)
+target_compile_features(tree_pair_oracle PRIVATE cxx_std_17)
+target_link_libraries(tree_pair_oracle PRIVATE ${OpenCV_LIBS})

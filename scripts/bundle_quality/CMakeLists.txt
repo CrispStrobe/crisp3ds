@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.16)
+project(bundle_quality LANGUAGES CXX)
+find_package(Ceres 2.2 REQUIRED)
+add_executable(bundle_quality_optimize optimize.cc)
+target_compile_features(bundle_quality_optimize PRIVATE cxx_std_17)
+target_link_libraries(bundle_quality_optimize PRIVATE Ceres::ceres)

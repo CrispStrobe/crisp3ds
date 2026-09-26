@@ -1,0 +1,319 @@
+# Implementation status
+
+## Measured pipes baseline: geometric outliers remain
+
+The ETH3D pipes archives are now safely extracted and validated. The frozen
+[four-view protocol](PIPES-EVALUATION-PROTOCOL.md) uses supplied cameras and
+image-only SIFT matches, never laser points or supplied SfM seeds for fitting.
+The [live sparse run](PIPES-SPARSE.md) produced **258 points, 52 with at least
+three views, and 568 observations in 2.817 seconds**. The fourth selected
+image contributes no accepted observations. Independent forward projection
+checks all 568 positive depths and reproduces the saved residuals.
+
+The separate [laser proximity scorer](PIPES-SCORE.md) exhaustively compares
+each point against all 11,482,717 measured reference points in float64,
+applying the published scan transform once without ICP or scale fitting.
+Median distance is **12.8 mm**, p90 **90.3 mm**, and maximum **7.45 m**;
+**151/258 (58.5%)** are within 20 mm. Scoring took 68.605 seconds with
+approximately 546 MiB peak RSS. These are one-way point proximity diagnostics,
+not official ETH3D accuracy, completeness, or end-to-end application accuracy.
+The supplied cameras are an oracle input, not recovered scanner poses.
+
+The first FLANN scorer failed its independent nearest-neighbor audit; its
+failed run remains preserved and no score was published. Exhaustive scoring
+replaced it without relaxing tolerances. Two initial sparse executions failed
+before matching because OpenCV's GCD backend did not honor a positive thread
+limit; the successful execution explicitly disables that worker pool.
+
+Supervisor Chromium inspection loaded all six original-photo crops for the
+three largest outliers. Repeated valves/collars appear to support false
+correspondences despite subpixel reprojection errors; this is a visual
+diagnosis, not ground-truth correspondence labeling. The post-hoc three-view
+subset removes the extreme tail but retains only 52 points and has a worse
+median distance (17.1 versus 12.8 mm overall). No filter is promoted.
+
+Next: predeclare image-only ambiguity/third-view verification experiments,
+report rejected support and coverage alongside geometric errors, and reserve
+another reference for acceptance. This scene has now informed development.
+Then evaluate dense geometry with appropriate visibility and completeness
+accounting. No production backend or full photo-to-mesh quality claim changed.
+
+Verification: **88 Python tests and 11 native CTests pass**; live extraction,
+reconstruction, exact scoring, and browser contact inspection completed.
+Approximately **26 GiB** remains free. No packages or remote jobs were added.
+ETH3D's noncommercial asset restrictions remain subject to use review.
+
+## Fixed-camera object support and measured-reference acquisition
+
+Historical checkpoint; extraction and evaluation status below is superseded
+by the measured pipes baseline above.
+
+The [fixed-camera diagnostic](FIXED-CAMERA-OBJECT.md) retains all nine baseline
+camera poses and uses the same triangulator/screens on two sets of verified,
+object-region training matches. Existing matches yield **666 tracks (160 with
+three or more views)**; foreground rematching yields **707 (173)**. Accepted
+observations increase from 1,562 to 1,658, but image support drops from nine to
+eight: the sole baseline observation in Tree-46 is absent after rematching.
+Camera count remains nine by construction; this is not new pose recovery.
+
+Root's independent verifier checks source hashes, graph membership, track
+accounting, original feature IDs, heldout exclusion, positive depths,
+reprojection, parallax, conditioning, and the fixed-ray least-squares solution.
+It checks rejected-track accounting but does not independently reclassify
+every rejection reason. The live run took 2.702 seconds. Neither the larger
+point count nor unchanged heldout camera scores establishes surface accuracy;
+the custom triangulation screens also differ from COLMAP's mapper, so the
+earlier 151-point subset is not a comparable quality baseline.
+
+The [ETH3D pipes reference](RIGID-REFERENCE-PLAN.md) is now downloaded in an
+isolated research directory: 199,173,411 bytes compressed, 286,754,145 bytes
+declared after extraction, comprising 14 images with supplied calibration
+and a separate evaluation laser cloud. It is **not extracted or evaluated**.
+CC BY-NC-SA restrictions require review for commercial use; this is not a
+shipping asset. The initial Python CA failure was resolved using the system
+CA bundle with TLS verification kept enabled; the empty failed destination
+is preserved. No global packages or production dependencies changed.
+
+The original download inventory's directory flag was corrected in a separate
+hash-bound `inventory-reviewed.json`; original archives and manifest remain
+unchanged. The reviewed archive members are 19 regular files and six
+directories. Nothing has been extracted. A fresh fixed-camera replay produced
+byte-identical point/report files. Final verification: **73 Python tests and
+11 native CTests pass**; approximately 25 GiB remains free.
+
+## Foreground evidence: baseline is mostly background; filter not promoted
+
+The [manual tree-envelope audit](FOREGROUND-ROI.md) finds only **151/1,773**
+baseline points with every observation centre inside the target envelope,
+**82/1,121** held-out pairs with both centres inside, and **2/181** closed
+cycles with all three inside. Root inspected all ten overlays before any
+support scoring; the polygons and exact PNG hashes are frozen. These are
+approximate post-hoc development annotations, not segmentation ground truth.
+
+The [foreground-centre training experiment](COLMAP-FOREGROUND.md) rematched
+after removing outside training centres, preserving the exact held-out
+observations and pairs. It finished in **3.53 seconds** using cached features:
+**5/10 cameras, 192 points**, versus the baseline's 9/10 and 1,773. On the
+same 82-pair foreground population, >4 px errors or unavailable predictions
+worsen from **8 to 23**. Lower finite residuals do not compensate for missing
+coverage. This experiment is **not promoted** and does not establish a better
+object reconstruction. Independent verification passes database/track/split
+integrity with 594 positive-depth observations and zero split overlap;
+quality acceptance remains false.
+
+Current regression verification: **56 Python tests and 11 native CTests
+pass**. No new image downloads, dependencies, remote jobs, or shipping
+backend changes were made; approximately 25 GiB remains free.
+
+Next work should separate reliable camera estimation from object-only
+reconstruction support: calibrated board anchors for the real turntable,
+fixed-camera object matching/triangulation for controlled diagnostics, and a
+small rigid multi-view reference with trustworthy independent geometry.
+Do not weaken COLMAP's filters to turn this failure into a nominal success.
+
+## Three-view failure audit
+
+The [per-cycle audit](THREE-VIEW-AUDIT.md) and independent NumPy checker
+reproduce the frozen errors; root's fresh audit report is byte-identical.
+No triangulation-convention bug was found. The 21 >4 px cases span 16 raw
+match components, and only two lie in components with conflicting same-image
+features. Cycle closure and conflict checks alone therefore do not explain
+or remove the failures.
+
+An exploratory camera-only longest-baseline policy gives 12 missing-inclusive
+bad cases rather than 21 on the fixed 106 cycles, but changes the predicted
+image in 89 cases and introduces one nonpositive-depth result. It is **not**
+a paired same-pixel accuracy improvement or a production change.
+
+The local contact sheet loaded all 93 image crops in Chromium. Supervisor
+spot-checks reveal background building/grass/sky support in several gross
+failures and even the lowest-error control. These are visual observations,
+not ground-truth labels. Foreground-supported geometry now needs explicit
+measurement before a scene-wide camera screen can justify object meshing.
+Current verification: **45 Python tests and 11 native CTests pass**.
+
+## Clean held-out camera screen: pass, not surface acceptance
+
+The new [clean observation-holdout run](COLMAP-HELDOUT-V2.md) registered 9/10
+images and retained 1,773 points. Root independently verified the database,
+feature exclusion, tracks and 7,046 positive-depth observations. Of 1,121 raw
+held-out matches, 1,104 are scoreable; median/p90 epipolar error is
+0.385/1.867 px. All predeclared development camera-screen checks pass with
+zero spatial leakage. This replaces neither the full-feature baselines nor
+the invalid first holdout artifact.
+
+The three-view diagnostic still has a large error tail: 106 usable cycles,
+median/p90 third-view reprojection 1.355/16.261 px, 21 above 4 px. Another
+73 registered cycles are low-parallax and two lack registered cameras.
+No surface or production-quality claim follows from the epipolar pass.
+Current root verification: **35 Python tests and 11 native CTests pass**.
+
+## Mapper replay and feature-split repair
+
+The [mapper-only diagnostic](COLMAP-POINT-LOSS.md) reuses a copied original-photo
+database without extraction or rematching. It records 123 points after initial
+pair refinement and 16 after the third image; the final model remains 3 cameras
+and 16 points. Root's fresh replay produced byte-identical final model files,
+and an independent audit verified 41 positive-depth observations and reciprocal
+track links. This is not a reproduction of the original 7-camera/zero-point
+trajectory: the random seed is reset at a different pipeline stage. The exact
+cause of the original point loss remains open, and no filter was weakened.
+
+The repaired [feature splitter](FEATURE-HOLDOUT.md) groups spatial connected
+components rather than interpreting affine columns as scale. A live read-only
+audit and independent supervisor repeat agree exactly on 53,546 original
+features, 44,062 groups and 10,664 withheld rows, with zero train/held-out
+centres within 0.25 px. Source database hashes were unchanged. This proves
+split integrity, not reconstruction accuracy; the old contaminated run is
+still invalid and its runner remains quarantined.
+
+## Latest sparse-oracle audit correction
+
+The first isolated PyCOLMAP 3.11.1 CPU experiment registered 3/10 reduced
+tree images and 12 points, but **its held-out benchmark is invalid**. Our
+wrapper misread six-column affine keypoints as position/scale rows, leaking
+duplicate orientations between training and validation. It also marked a
+heuristic focal length as a known prior. Earlier claims of clean feature-group
+exclusion are retracted. The failed experiment is preserved; it must not be
+used to judge stock COLMAP or to supply production camera poses. See
+[the upstream-checked sparse experiment](COLMAP-SPARSE.md) and
+[independent audit](SPARSE-ORACLE-VERIFY.md). Full COLMAP + OpenMVS remains
+unrun, and no shipping dependency approval is implied by installing PyCOLMAP
+in an isolated research environment.
+
+Following the [upstream usage audit](COLMAP-USAGE-AUDIT.md), a conventional
+full-feature CPU baseline on the same reduced images registered **9/10 cameras
+and 2,369 points** in 19.496 seconds. Its 10,310 observations have positive
+depth and reciprocal track links; training reprojection median/p90 is
+0.568/1.270 px, not independent accuracy. The original-JPEG/EXIF baseline
+finished in 149.037 seconds with 7 cameras but zero retained points, an
+unresolved failed reconstruction. Neither result is a finished scan.
+Root verification passes 23 Python tests and all 11 native CTests.
+An unchanged-settings fresh replay again registered the same nine images,
+with 2,376 points and 10,425 positive-depth observations. Model consistency
+passes, but it is not a bitwise-identical reconstruction. About 25 GiB remains
+free; the isolated environment/data is 134 MiB and sparse run artifacts total
+60 MiB. No new photographs or remote jobs were used.
+
+Updated 2026-09-26 after expanded stereo/oracle evaluation. Sol agents implemented the test-only evaluator, dataset tooling and independent unit/live tests under main-agent supervision. Review covered numerical/input boundaries, metric denominators, PFM conventions, resource bounds, output preservation, benchmark provenance and repeatable CLI-to-browser behavior.
+
+| Task | Delivered behavior | Limit |
+| --- | --- | --- |
+| F01 | Versioned project contract, JSON Schema, board layout/distortion model, pose and sparse report contracts, shared validation cases and coordinate convention | Depth and persisted artifact contracts remain to be added |
+| F02 | C++20 static core, C ABI, CLI, manifest validation, synthetic projection/triangulation diagnostic, explicit unavailable full reconstruction | Image poses require the optional OpenCV build; no dense reconstruction or mesh export |
+| F03 | Tauri 2 host, project library, calibration-model and marker-grid editors, explicit corner JSON, CLI pose-report inspection | Native worker not connected; image paths only in GUI; reports imported for inspection and cleared on edits |
+| F04 | Exact locked package metadata inventory, selected-license policy checker, parser tests, native CI matrix and macOS web/host checks | No full source-file/artifact audit, license/source screen or release source archives yet |
+| R03 MVE spike | Selected headless MVE libraries/tool built and actually executed on three rendered views with estimated poses and sparse seeds; loaded-camera convention check and radial-depth scorer; supervisor replay reproduced counts/errors | One reference depth map, synthetic only; 36,927 valid depths outside object planes demonstrate missing object isolation; default-build GPL utility excluded; no shipping approval |
+| R01 implementation | Pinned OpenCV 4.12.0 PNG/JPEG ArUco detection → planar pose candidates/refinement → metric pose/residual JSON through CLI and C ABI | Synthetic-image verification passes; no measured real dataset; only DICT_4X4_50, planar square markers, known opencv-radtan calibration |
+| R02 implementation | Binary-mask validation, eroded-mask ORB matching, conflict-free tracks, metric triangulation, structured CLI/C ABI sparse report | Synthetic-image verification only; 64 views, acquisition-order pair window 2, single-scale features, no bundle adjustment |
+| D02 partial | Validated sparse-report import, interactive point cloud, millimetre bounds, residuals and view coverage | Manual inspection only; no worker or mesh viewer; imported results remain unverified and clear on edits |
+| R03a evaluation | Separate OpenCV stereo evaluator, calibrated depth conversion, external-prediction scoring, four measured stereo references, checksummed fetcher, separate libELAS oracle and project-authored Census comparison; fixed-profile quality/performance runner and spatial error diagnostics | Mirrored development scenes, no held-out backend winner; upstream file equivalence unverified; test-only oracle is not an approved shipping dependency |
+| R03b/e experiments | Calibrated horizontal/vertical rectification and geometric search bounds, object-frame triangulation, visibility-aware track fusion with masked-centroid revalidation; three-view rendered-image stereo experiment | Separate test library, not production dense reconstruction; image fixture masks after matching, not within matcher costs; generic depth-to-fusion integration and measured object acceptance remain open |
+
+## Verification evidence
+
+- Release CMake build and 4 CTest tests pass locally on Apple Silicon.
+- Core agent additionally ran AddressSanitizer/UndefinedBehaviorSanitizer with all 4 tests passing.
+- 43 manifests/mutations agree between native and TypeScript validation, for both native build configurations.
+- 30 web project/report validation tests pass; TypeScript checking and Vite production build pass.
+- Chromium smoke checks passed for project creation, image-path entry, reload, JSON download, saved-project switching, valid import, invalid-import preservation and narrow layout. Downloaded JSON was accepted by the CLI. No browser runtime errors were observed in those checks.
+- The locked dependency metadata gate passes for 530 entries (including seven optional native source entries); its 3 parser-policy tests pass. This is not a shipped-source or legal audit.
+- `cargo check --locked` and `cargo build --locked` pass for the Tauri 2.11.6 host on macOS. The native application has not been interactively launched or packaged.
+- The optional OpenCV build passes 10 CTests, including stereo-unit tests with assertions enabled in Release builds, prepared-input CLI parity/provenance checks, and the new geometry/fusion and image-derived depth regressions. Actual rendered PNG/JPEG images are detected and solved; tests also check blank frames, wrong dimensions, oversized inputs, path escape and failure of a mixed valid/invalid image run. Synthetic PNG translation was approximately `[-55.118,-54.980,530.695]` mm against `[-55,-55,530]` mm ground truth; RMS reprojection residual was about 0.608 px. These are fixture results, not promised scanner accuracy.
+- The independent three-view sparse fixture produces 1,189 points, all near the two known textured panels, including 465 three-view tracks. Depth error is 2.05 mm median and 5.70 mm at the 95th percentile. Tests check eroded-mask containment and structured failures for missing masks, wrong dimensions, nonbinary masks, escaped symlinks, empty masks and degenerate baseline. Images, truth and quality reports are retained under `build-opencv/synthetic-sparse-fixture/`.
+- Independent Chromium smoke checks loaded the actual sparse CLI report, verified visible point-cloud rotation, retained a valid report after foreign-project rejection, left stage metadata unchanged, cleared results after calibration edits, and checked narrow layout without runtime errors.
+- `otool -L` on the optional CLI shows only AppKit, libc++ and libSystem dynamic dependencies on this Apple Silicon host. OpenCV and selected codecs are built statically from the pinned source archive.
+- Independent Chromium checks passed for selecting the calibration model, generating/saving board geometry, reload/export, invalid-board-edit preservation, importing the actual CLI report, retaining a report after foreign-project import rejection, leaving stage metadata unchanged, clearing stale results after calibration edits, and narrow layout.
+- `scripts/live_browser_test.mjs` now reproduces sparse CLI-to-browser checks, including pixel changes after orbit/zoom, report rejection/preservation, calibration invalidation and 390px layout. Both agent and supervisor ran it successfully with Playwright 1.63.0 / Chromium 153.0.8010.12; it cleans up its Vite process.
+- Python discovery reports 31 tests with 30 passing and one ETH3D noncommercial-data check intentionally skipped when dataset and stereo-CLI opt-ins are enabled. Checks include hand-calculated metric/depth expectations, PFM conventions, dataset conversion, quality diagnostics, profile failure reporting and benchmark failure/timeout/input-mutation handling. Separate ELAS and Census known-shift checks also pass. ETH3D assets are separately gated and are not part of the default benchmark.
+- A live measured-reference Piano stereo run yielded 83.86% coverage, 31.32% all-reference bad-2/missing rate and 1.59 px matched MAE at derived 705×480 resolution. It caught a PFM scale interpretation bug that synthetic unit-scale files did not expose. Corrected results repeat across agent/supervisor runs. See [DENSE-EVALUATION.md](DENSE-EVALUATION.md) for exact settings, provenance and limitations; this is not a passing production-quality gate.
+- The expanded common-input matrix completed all 12 engine/scene combinations in both agent and supervisor runs. The supervisor report is `build-opencv/benchmarks/run-20260926T105006Z-1737152e/benchmark.json`: fixed search ranges 0–79 for Piano and 0–95 for Cones/Teddy/Venus. ELAS all-reference bad-2/missing rates were 18.36%, 10.76%, 15.04% and 3.70%, respectively. Its interpolation-heavy preset yields full reference coverage; that is not equivalent to every pixel being independently supported. See [ORACLES.md](ORACLES.md) for comparative results and limits.
+- The selected MVE tool reconstructed 44,152 depth pixels at 400×300 from three rendered images and estimated sparse geometry. A supervisor fresh-scene replay produced identical counts and radial-depth errors: 94.20% of object-plane rays had a depth, with 3.10 mm matched mean absolute error. This is a different fixture from the pairwise depth test and must not be ranked directly against it. Two independent converter/scorer unit tests pass. [MVE-DENSE-SPIKE.md](MVE-DENSE-SPIKE.md) documents the radial-vs-axial depth correction, synthetic scoring scope and unmasked background output.
+
+CI configuration includes Windows/Linux/macOS core builds. Those remote jobs have not been run from this workspace. Local browser checks do not establish native WebKit interactions or mobile support. Native parser rejects duplicate object keys; the browser's JSON.parse currently keeps the last value. Native validation must remain authoritative at the future worker boundary.
+
+## Next delivery
+
+Small real-image follow-up: [ten pinned tree photographs](REAL-DATA.md), 202.1 MB including metadata, now feed a [test-only COLMAP-pose/ORB/MVE path](TREE-DENSE.md). The source export has no observation tracks and no verified metric scale; actual image matching produced 575 independent two-view seeds, with 1.055 px loaded-camera RMS reprojection. The fixed dense test **failed**: reference views at 768×512 produced zero and two valid pixels respectively. Both agent and supervisor fresh-scene replays reproduced this result. No physical accuracy or usable real reconstruction is claimed. This case demonstrates why a successful process exit and synthetic tests are insufficient acceptance. CPU VPS and private Kaggle [staging tools](REMOTE-QUALITY.md) are local preparations only; no remote run, upload or GPU quota consumption occurred.
+
+Further real-image diagnostics corrected the COLMAP/OpenCV principal-point convention; a fresh baseline still yields 0/2 depth pixels. The [multiview refinement trial](TREE-REFINE.md) is rejected: only nine of 423 retained tracks span three views, reserved-observation RMS is already 574.5 px before refinement and worsens to 839.3 px despite better training fit. Dense output remains effectively empty. This identifies inconsistent multiview support, not its unique cause. Separately, the [fixed-pair SGBM/ELAS comparison](TREE-PAIR-ORACLE.md) produces nonempty disparity on the same corrected cameras: SGBM has 21.31% finite coverage and ELAS 100% including filling. These are image-space diagnostics without dense ground truth or verified metric scale; neither establishes a usable mesh. [The three-pipeline comparison](PIPELINE-COMPARISON.md) separates this evidence from unmeasured estimates against COLMAP+OpenMVS, Metashape and RealityScan.
+
+Supervisor reruns reproduce the tree stereo metrics and refinement residuals. The fixed-pose multiview-track control produces 0/0 depth pixels, versus 7/0 after refinement: neither is accepted. Geometry and anchored-optimization self-tests pass, as do the 19 existing acquisition, tree and remote-staging Python checks. The latter require discovery from `scripts/remote_quality` because their imports are local. No new photographs or external services were needed; about 29 GiB remains free.
+
+Three additional exporter tests pass: a valid fresh export, refusal to overwrite,
+nonfinite-RMS rejection and changed-anchor rejection (22 Python tests total in
+this supervisor verification batch).
+
+The next supervised quality batch diagnoses the real-tree track failure and
+connects image-derived depth maps to the actual fusion function. [Track
+diagnostics](TREE-TRACKS.md) reproduce all 575 ORB links: all 75 multiview
+components are open chains, with no triangle support. A single frozen SIFT
+trial gives 1,203 pair links and 16 cycle-supported components, but none meets
+the unchanged 4 px all-view gate. More matches therefore do not establish
+valid multiview geometry; supplied-camera accuracy versus correspondence
+failure remains unresolved.
+
+The new [image-to-fusion regression](DEPTH-IMAGE-FUSION.md) uses independently
+matched camera-a and camera-b depth maps, with shared-photo correlation stated,
+outside-mask mutation checks, left/right checks and fixed full-foreground
+scoring. On 9,519 sampled foreground pixels, bad-or-missing >2 mm counts are
+813 raw, 827 after filtering and 854 after two-candidate equal-weight fusion.
+Boundary counts also worsen (206, 215, 232). Neither variant is accepted as
+a quality improvement; a passing wiring regression is not a quality pass.
+
+[Oracle readiness](PIPELINE-ORACLE-READINESS.md) verifies the ten pinned images
+and records a CPU-only run plan. All six COLMAP/OpenMVS commands are absent
+from PATH; no full-pipeline oracle was installed or run. Supervisor verification
+passes all 11 native CTests and four new preflight unit tests; the live preflight
+checks source hashes and preserves a 10 GiB reserve under its proposed 4 GiB
+output allowance. This is admission planning, not an implemented runtime quota.
+
+Independent supervisor ORB and SIFT reruns reproduce the complete diagnostic
+JSON exactly, with all recorded inputs unchanged. The final fusion-report
+revision also passes its targeted test. About 29 GiB remains free; no new
+photographs, external installs or remote jobs were needed.
+
+The next [camera audit](CAMERA-AUDIT.md) independently verifies the ten pinned
+image/camera associations, quaternion-to-matrix conversion, intrinsics resize,
+MVE metadata and analytic relative geometry; it finds no local conversion
+defect. That does not validate the supplied physical poses.
+
+The [epipolar experiment](TREE-EPIPOLAR.md) matches images before any supplied-pose
+filter and reserves every fifth descriptor-ordered match. Of 45 pairs, 30 meet
+the frozen sample gate; image-fitted fundamental matrices have lower held-out
+median error in all 30. The unweighted median of pair medians is 7.305 px for
+supplied cameras versus 0.282 px for train-only image fits. On the same 1,693
+held-out matches pooled across those pairs, 475 versus 1,580 are within 2 px.
+These are full-frame epipolar diagnostics, not object surface accuracy.
+
+On preselected pair 1/4, a separately fitted calibrated essential model lowers
+held-out median/p90 error from 1.831/5.323 px to 0.252/0.778 px, but only 146 of
+309 training inliers triangulate with positive depth in both recovered cameras;
+six of those are beyond the fixed 50-unit-baseline distance cutoff, leaving
+140 accepted by `recoverPose`. The candidate is not accepted as a replacement
+camera pose. Low image residual alone does not validate a 3D reconstruction.
+
+Supervisor replay reproduces every pair result and match file exactly. An
+[independent standard-library checker](EPIPOLAR-VERIFY.md) verifies all 45
+pairs and the calibrated follow-up from saved observations and matrices.
+Ten new Python unit tests, the analytic camera-audit self-test, and all 11
+native CTests pass. The Python image experiment uses the pre-existing
+`/usr/local/bin/python3` (3.11), OpenCV 4.10 and NumPy 1.26.4, distinct from
+the native OpenCV 4.12 build; no dependencies were installed. Full-pipeline
+quality and physical camera calibration remain unproven.
+
+Supervisor verification for this batch: eight acquisition/patch-diagnostic tests, six tree import/dense-failure tests and five remote-staging safety tests pass (19 total). A live fetch re-verifies the pinned files without redownloading photographs. The independent live MVE replay correctly exits with `dense_failed_empty_reference` and retains both failed depth maps. Photos plus the original, agent replay and supervisor scenes occupy roughly 232 MiB on disk; about 29 GiB remains free. A read-only, unwarped-patch diagnostic finds much weaker agreement across the three selected neighbors than within recorded image pairs; it is not a substitute for MVE's warped-patch objective or proof of a particular failure cause.
+
+Quality-first follow-up: [the pose/resolution ablation](QUALITY-ABLATION.md) reduces synthetic matched surface error from 3.081 mm at L2 to 2.130 mm at L1. Known-camera oracle poses reach 0.660 mm at L1; this is a diagnostic opportunity, not an implemented pose improvement. [Independent acceptance checks](QUALITY-GATES.md) reject the mask-aware MVE experiment at both resolutions: improved object isolation comes with lost boundary coverage, while common-support accuracy barely changes. An independent correctly rasterized marker fixture supports subpixel refinement, but conflicts with the older renderer's result and is not real-capture validation. Joint observed-track/board bundle adjustment is the next experimental candidate. None of these experiments enables production reconstruction.
+
+The first fixed [Ceres bundle-adjustment candidate](BUNDLE-QUALITY.md) improves L1 finite-rectangle surface MAE from 2.130 to 1.580 mm, missing-inclusive bad-2 from 51.74% to 27.23%, coverage from 98.51% to 98.62%, and boundary bad-2 from 62.67% to 50.00%. Ground-truth geometry is used only in scoring, not optimization. It passes the provisional surface gate but **remains rejected** by the separately declared marker-fit safeguard: marker RMS rises from 1.10791 to 1.11717 px. A supervisor optimizer replay reproduced the rejection; independent world scoring reproduced the surface metrics (`build-opencv/bundle-quality/world-supervisor.json`). A separate `EIGEN_MPL2_ONLY` build reproduces the result to numerical precision; this is test-only dependency evidence, not shipping approval. This is a promising development result on two synthetic panels, not an accepted production improvement or measured scanner accuracy.
+
+Quality follow-up verification: supervisor Python discovery ran 43 tests (42 passed, one intentional dataset-license skip), with three additional ablation tests and three guarded optimizer malformed-input tests passing. Eight non-fixture-regenerating CTests passed; the pose/sparse CTests were not rerun during these experiments to preserve their frozen inputs. Supervisor runs also passed optimizer Jacobian/joint-recovery self-tests, the independent eight-view marker render, and mask parity/background-mutation checks. No UI code changed in this follow-up.
+
+The active scoped quality work is recorded in [QUALITY-IMPROVEMENT.md](QUALITY-IMPROVEMENT.md). Fixed-profile development experiments show a roughly 24–30% serial matching-time reduction and modest missing-inclusive error improvement with `fast`; this is not a production backend selection. Preserve the default baseline for regression comparisons. The new synthetic depth fixture also separates coverage, edge error, per-pair error and consistency-filtered results; its idealized geometry is not a physical tolerance claim.
+
+R01 and R02 still need measured turntable-image acceptance; camera-calibration estimation is not implemented. R03a establishes a real stereo baseline; R03b–e cover controlled rectification, reconstruction-mask propagation, dedicated-backend comparisons and oriented fusion as scoped in [DENSE-EVALUATION.md](DENSE-EVALUATION.md). MVE is not mandated. R04 completes a measured CLI scan through meshing. Capture requirements are in [CAPTURE-DATASET.md](CAPTURE-DATASET.md); implemented contracts and test scope are in [POSE-MILESTONE.md](POSE-MILESTONE.md) and [SPARSE-MILESTONE.md](SPARSE-MILESTONE.md).
+
+No rig photographs, camera-calibration dataset, measured turntable object, or hardware protocol were supplied. The downloaded stereo fixture does not fill that gap. The full scan, rig control, mesh viewer, worker cancellation/resume, installers, native mobile reconstruction and browser WASM remain open work. The foundation must not be described as a complete photogrammetry engine.
+
+The inspected 3DLiveScanner repository offers targeted capture/replay/texturing references, not a replacement portable photo-to-depth engine. See [REPOSITORY-REUSE.md](REPOSITORY-REUSE.md). No code or SDK binaries from that project have been integrated.

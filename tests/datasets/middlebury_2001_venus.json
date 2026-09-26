@@ -1,0 +1,15 @@
+{
+  "name": "middlebury-2001-venus",
+  "source": "https://vision.middlebury.edu/stereo/data/scenes2001/",
+  "mirror_commit": "https://github.com/Soumyabrata/Stereo-Matching/tree/09be6059026e4f831d5360083fcb02afddcccf63/Data/venus",
+  "upstream_equivalence_verified": false,
+  "note": "Mirror PNGs are renamed and may be re-encoded from upstream PPM/PGM; pixel values have not been independently compared with upstream files.",
+  "files": [
+    {"path": "venus/im2.png", "size": 307325, "sha256": "f5b442838ca32a3f31ceab7322898afce4c6ecb185529a5589a440024e12b636", "url": "https://raw.githubusercontent.com/Soumyabrata/Stereo-Matching/09be6059026e4f831d5360083fcb02afddcccf63/Data/venus/imL.png"},
+    {"path": "venus/im6.png", "size": 307609, "sha256": "f5b4b94e1b59b68120061ca65aa23ada1529cc93d17b9a4f5d048cc511256cc7", "url": "https://raw.githubusercontent.com/Soumyabrata/Stereo-Matching/09be6059026e4f831d5360083fcb02afddcccf63/Data/venus/imR.png"},
+    {"path": "venus/disp2.png", "size": 5681, "sha256": "706cb85034e3595a45d0b9d6e4af657ebcc489ee0e6c2892dfcf0b5dc7906a7e", "url": "https://raw.githubusercontent.com/Soumyabrata/Stereo-Matching/09be6059026e4f831d5360083fcb02afddcccf63/Data/venus/groundtruth.png"}
+  ],
+  "derived": [
+    {"source": "venus/disp2.png", "path": "venus/disp0GT.pfm", "width": 434, "height": 383, "divisor": 8, "size": 664904, "sha256": "cc9fe250fa7c8cc77a5a25beef491bb8cfd31ed23458a918e1b0c43b6410320c", "rule": "8-bit gray / 8 pixels; zero => +infinity; rows bottom-first"}
+  ]
+}

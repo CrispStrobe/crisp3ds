@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "pose-contract-fixture",
+  "name": "Synthetic pose input example",
+  "units": "mm",
+  "images": [{"id": "view-001", "path": "images/view-001.jpg", "maskPath": "masks/view-001.png"}],
+  "calibration": {
+    "width": 1920,
+    "height": 1080,
+    "fx": 1500,
+    "fy": 1500,
+    "cx": 960,
+    "cy": 540,
+    "distortion": [0, 0, 0, 0, 0],
+    "distortionModel": "opencv-radtan"
+  },
+  "board": {
+    "type": "aruco",
+    "markerSizeMm": 20,
+    "rotatesWithObject": true,
+    "dictionary": "DICT_4X4_50",
+    "markers": [
+      {"id": 0, "cornersMm": [[-22.5, -22.5, 0], [-2.5, -22.5, 0], [-2.5, -2.5, 0], [-22.5, -2.5, 0]]},
+      {"id": 1, "cornersMm": [[2.5, -22.5, 0], [22.5, -22.5, 0], [22.5, -2.5, 0], [2.5, -2.5, 0]]},
+      {"id": 2, "cornersMm": [[-22.5, 2.5, 0], [-2.5, 2.5, 0], [-2.5, 22.5, 0], [-22.5, 22.5, 0]]},
+      {"id": 3, "cornersMm": [[2.5, 2.5, 0], [22.5, 2.5, 0], [22.5, 22.5, 0], [2.5, 22.5, 0]]}
+    ]
+  },
+  "stages": {"calibration": "pending", "poses": "pending", "sparse": "pending", "dense": "unavailable", "mesh": "unavailable", "export": "unavailable"}
+}

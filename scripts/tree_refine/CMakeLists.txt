@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.16)
+project(tree_refine LANGUAGES CXX)
+find_package(OpenCV REQUIRED COMPONENTS core imgcodecs imgproc features2d calib3d)
+find_package(Ceres 2.2 REQUIRED)
+add_executable(tree_refine refine.cc)
+target_compile_features(tree_refine PRIVATE cxx_std_17)
+target_link_libraries(tree_refine PRIVATE ${OpenCV_LIBS} Ceres::ceres)

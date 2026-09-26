@@ -1,0 +1,165 @@
+"""Generated Kaggle script; staged only by prepare_kaggle.py."""
+
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import resource
+import signal
+import subprocess
+import sys
+import time
+import zipfile
+
+CONFIG = json.loads(__CONFIG_JSON__)
+HARNESS_SOURCE = __HARNESS_SOURCE__
+TEMP = Path("/kaggle/temp/remote-quality")
+OUTPUT = Path("/kaggle/working")
+MAX_INPUT = 250 * 1024**2
+MAX_SCRATCH = 8 * 1024**3
+MAX_OUTPUT = 1024**3
+MAX_LOG = 64 * 1024**2
+
+
+def tree_bytes(path):
+    total = 0
+    for root, dirs, files in os.walk(path, followlinks=False):
+        if any((Path(root) / name).is_symlink() for name in dirs + files):
+            raise RuntimeError("symlink in scratch or output")
+        total += sum((Path(root) / name).stat().st_size for name in files)
+    return total
+
+
+def load_harness():
+    repo = TEMP / "CrispASR"
+    source = repo / "tools/kaggle/kaggle_harness.py"
+    try:
+        subprocess.run(["git", "clone", "--depth", "1", "--filter=blob:none", "--sparse",
+                        "https://github.com/CrispStrobe/CrispASR.git", str(repo)],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120, check=True)
+        subprocess.run(["git", "sparse-checkout", "set", "--no-cone", "tools/kaggle/kaggle_harness.py"],
+                       cwd=repo, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60, check=True)
+        if hashlib.sha256(source.read_bytes()).hexdigest() != CONFIG["harness_sha256"]:
+            raise RuntimeError("upstream harness changed since local review")
+    except Exception:
+        source = TEMP / "fallback/kaggle_harness.py"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(HARNESS_SOURCE)
+    if hashlib.sha256(source.read_bytes()).hexdigest() != CONFIG["harness_sha256"]:
+        raise RuntimeError("bundled harness hash mismatch")
+    if not source.is_file():
+        raise RuntimeError("no CrispASR harness after clone or bundled fallback")
+    spec = importlib.util.spec_from_file_location("kaggle_harness", source)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["kaggle_harness"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def archive_path():
+    account = CONFIG["account"]
+    slug = CONFIG["input_dataset"].split("/", 1)[1]
+    candidates = [Path("/kaggle/input") / slug / CONFIG["archive_name"],
+                  Path("/kaggle/input/datasets") / account / slug / CONFIG["archive_name"]]
+    found = [path for path in candidates if path.is_file()]
+    if len(found) != 1:
+        raise RuntimeError("expected exactly one attached input archive mount")
+    return found[0]
+
+
+def unpack(archive, work):
+    if archive.stat().st_size > MAX_INPUT:
+        raise RuntimeError("input archive exceeds 250 MiB")
+    with zipfile.ZipFile(archive) as z:
+        names = z.namelist()
+        if not names or names[0] != "remote-quality-manifest.json" or len(names) > 257 or len(set(names)) != len(names):
+            raise RuntimeError("invalid package layout")
+        if z.getinfo(names[0]).file_size > 1024 * 1024:
+            raise RuntimeError("manifest too large")
+        manifest = json.loads(z.read(names[0]))
+        if set(names[1:]) != set(manifest["files"]):
+            raise RuntimeError("package manifest mismatch")
+        total = 0
+        for name in names[1:]:
+            path = Path(name)
+            entry = z.getinfo(name)
+            if path.is_absolute() or ".." in path.parts or path.as_posix() != name or entry.is_dir() or \
+                    ((entry.external_attr >> 16) & 0o170000) == 0o120000:
+                raise RuntimeError("unsafe package member")
+            if entry.file_size != manifest["files"][name]["bytes"] or entry.file_size > MAX_INPUT or \
+                    total + entry.file_size > MAX_INPUT:
+                raise RuntimeError("package member size mismatch")
+            data = z.read(name)
+            total += len(data)
+            if total > MAX_INPUT or hashlib.sha256(data).hexdigest() != manifest["files"][name]["sha256"]:
+                raise RuntimeError("package size or hash mismatch")
+            target = work / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+
+
+def main():
+    TEMP.mkdir(parents=True, exist_ok=True)
+    os.environ["TMPDIR"] = str(TEMP)
+    kh = load_harness()
+    kh.init_progress(progress_path=OUTPUT / "progress.jsonl")
+    kh.step("start", run_id=CONFIG["run_id"])
+    token = kh.resolve_hf_token(require=bool(CONFIG["hf_downloads"]))
+    for item in CONFIG["hf_downloads"]:
+        if not re.fullmatch(r"[\w.-]+/[\w.-]+", item["repo_id"]) or not re.fullmatch(r"[\w./-]+", item["filename"]):
+            raise RuntimeError("invalid HF artifact declaration")
+        from huggingface_hub import hf_hub_download
+        with kh.build_heartbeat("hf.download", 30):
+            hf_hub_download(repo_id=item["repo_id"], filename=item["filename"], token=token,
+                            local_dir=TEMP / "hf-assets")
+    work = TEMP / "work"
+    work.mkdir()
+    with kh.build_heartbeat("input.unpack", 30):
+        unpack(archive_path(), work)
+    kh.step("input.ready")
+    env = os.environ.copy()
+    env.update({key: "2" for key in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")})
+    env["TMPDIR"] = str(TEMP)
+    def limit():
+        resource.setrlimit(resource.RLIMIT_FSIZE, (MAX_SCRATCH, MAX_SCRATCH))
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+        os.setsid()
+    started = time.monotonic()
+    log_path = OUTPUT / "run.log"
+    with log_path.open("wb") as log:
+        with kh.build_heartbeat("quality.run", 30):
+            try:
+                proc = subprocess.Popen(CONFIG["command"], cwd=work, env=env, stdout=log,
+                                        stderr=subprocess.STDOUT, preexec_fn=limit)
+                status = "execution_complete"
+                while proc.poll() is None:
+                    if time.monotonic() - started > CONFIG["timeout_seconds"]:
+                        status = "timeout"
+                    elif tree_bytes(TEMP) > MAX_SCRATCH:
+                        status = "scratch_cap_exceeded"
+                    elif tree_bytes(OUTPUT) > MAX_OUTPUT or log_path.stat().st_size > MAX_LOG:
+                        status = "output_cap_exceeded"
+                    if status != "execution_complete":
+                        os.killpg(proc.pid, signal.SIGKILL)
+                        break
+                    time.sleep(1)
+                code = proc.wait()
+                if status == "execution_complete" and code:
+                    status = "failed"
+            except Exception:
+                if "proc" in locals() and proc.poll() is None:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                    proc.wait()
+                raise
+    result = {"status": status, "quality_acceptance": "not_evaluated", "returncode": code, "run_id": CONFIG["run_id"],
+              "wall_seconds": round(time.monotonic() - started, 3), "command": CONFIG["command"]}
+    (OUTPUT / "result.json").write_text(json.dumps(result, sort_keys=True, indent=2) + "\n")
+    kh.step("quality.done", status=status)
+    if status != "execution_complete":
+        raise RuntimeError(f"quality command {status}; no benchmark claim")
+
+
+if __name__ == "__main__":
+    main()

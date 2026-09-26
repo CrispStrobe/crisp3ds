@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "contract-fixture",
+  "name": "Calibrated project contract example",
+  "units": "mm",
+  "images": [
+    {"id": "view-001", "path": "images/view-001.jpg", "maskPath": "masks/view-001.png"},
+    {"id": "view-002", "path": "images/view-002.jpg", "maskPath": "masks/view-002.png"}
+  ],
+  "calibration": {
+    "width": 1920,
+    "height": 1080,
+    "fx": 1500,
+    "fy": 1500,
+    "cx": 960,
+    "cy": 540,
+    "distortion": [0, 0, 0, 0, 0]
+  },
+  "board": {"type": "aruco", "markerSizeMm": 20, "rotatesWithObject": true},
+  "stages": {"calibration": "pending", "poses": "pending", "sparse": "pending", "dense": "unavailable", "mesh": "unavailable", "export": "unavailable"}
+}
