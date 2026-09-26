@@ -1,5 +1,42 @@
 # Implementation status
 
+## CPU photo-to-mesh integration and real object reference
+
+The [current milestone](CPU-E2E-PLAN.md) now targets ordinary overlapping photos
+with unknown poses, not a mandatory marker-board workflow. Two supervised Sol
+agents added a selected SIFT-only MVE runner and a bounded real-object downloader.
+MicMac was rejected for the product path after finding noncommercial and GPL
+sources in its normal build; see [pinned source evidence](MICMAC-BACKEND.md).
+
+The [full CPU pipeline](MVE-FULL.md) has run on Apple M1: ten real CC BY tree
+photos, no supplied poses, nine registered cameras, 322,133 oriented samples and
+a 35,785-vertex / 69,897-triangle mesh. Two runs produced byte-identical final
+meshes in 51.15 and 51.64 seconds. The second run's external `/usr/bin/time -l`
+reported maximum resident set size 186,826,752 bytes; this is not a simultaneous
+whole-process-tree memory sum. Root independently parsed all geometry, checked
+finite vertices, face indices and nonzero areas, and inspected a vertex-colored
+and untextured projection. The surface is coarse, partial, and includes background;
+it is an end-to-end milestone, not accepted object quality.
+
+The [3DLF-Scan reference](OBJECT-DATASETS.md) is now actually local: 73 real
+turntable photographs plus a separately captured Revopoint mesh and metadata,
+116,672,689 bytes total. It is published under CC BY 4.0; third-party rights in
+the Stanford-derived printed shape still need review before commercial asset
+redistribution. It is not a bundled or shipping-approved dataset. Only selected ZIP members were fetched,
+not the full 9.8 GB archive. The scan has 217,505 vertices and 435,006 triangles,
+including four zero-area triangles. Its frame is not registered to the photos.
+Supplied poses, depth, masks and scan geometry do not enter our image-only run.
+
+The first raw bunny run failed after 52.52 seconds: sparse reconstruction could
+not initialize a camera pair from only 80 feature tracks. This failure is retained
+at `build-opencv/mve-full-bunny-001`; no mesh or accuracy score is claimed. A fixed
+image-only contrast-profile retry is recorded separately, with unchanged originals.
+
+This remains a separate backend CLI, not the C++ `reconstruct` command or a
+working desktop reconstruction button. A selected CMake build now compiles all
+six tools on M1; Windows/Linux execution and App Store runtime packaging remain
+unverified. No new native dependency has been marked shipping-approved.
+
 Source and written results are now backed up in the private GitHub repository;
 see [backup scope](REPOSITORY-BACKUP.md). Large datasets and raw generated run
 artifacts remain local. The [backend experiment plan](BACKEND-EXPERIMENTS.md)

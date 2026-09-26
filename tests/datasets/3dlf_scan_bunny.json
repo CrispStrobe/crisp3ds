@@ -1,0 +1,30 @@
+{
+  "name": "3dlf-scan-bunny-real-photos-independent-scan",
+  "source": "https://data.mendeley.com/datasets/ngvgpsvd8b/1",
+  "doi": "10.17632/ngvgpsvd8b.1",
+  "license": "CC BY 4.0",
+  "commercial_rights_status": "third-party Stanford model/physical-print derivative rights require review before shipping or commercial redistribution",
+  "third_party_rights_source": "https://graphics.stanford.edu/data/3Dscanrep/",
+  "authors": ["Bohdan Vodianyk", "Enrique Nava-Baro", "Anton Popov"],
+  "source_archive": {
+    "url": "https://data.mendeley.com/public-files/datasets/ngvgpsvd8b/files/d3b7c0c5-d043-45f0-80db-d4d7ccd884c6/file_downloaded",
+    "size_bytes": 9829049614,
+    "sha256_published_not_locally_verified": "95ce4c76397c47bd8091fb85a529e38896284d163de5536fd27bdc2495d02f87"
+  },
+  "subset": {
+    "camera": "PhotonicSense apiCAM PRO",
+    "image_prefix": "pro/bunny/rgb/",
+    "image_count": 73,
+    "reference": "revopoint/bunny/fuse_mesh_rgb.ply",
+    "reference_sensor": "Revopoint Miraco structured-light scanner",
+    "alignment": "unknown cross-sensor registration; no metric quality score permitted",
+    "reference_training_use": "never",
+    "root": ".local-tools/test-data/3dlf-scan-bunny"
+  },
+  "anchor_files": [
+    {"path": "calib_pro/intrinsics/rgb_optic.json", "size_bytes": 442, "sha256": "300de960c67a38247b8b47f739b33bf8927955c8a111189cd9804ea671f810d5"},
+    {"path": "pro/bunny/pcd/poses_metric.json", "size_bytes": 38592, "sha256": "446a3124234704ba649d8b16ed9938835d9e21d16764b9768e72c3a99e417ef7"},
+    {"path": "revopoint/bunny/fuse_mesh_rgb.ply", "size_bytes": 11745565, "sha256": "28ed4462b6ee84edcc87157b49aee9216ef170ddd1e176928c72c74233ef9520"},
+    {"path": "pro/bunny/rgb/bunny_10_rgb.png", "size_bytes": 1432926, "sha256": "29dc4e0e240b50ac2f59290563e4887a65b0c6c60be55e7b5ca4bd1cf4b300b9"}
+  ]
+}

@@ -1,0 +1,84 @@
+name: selected MVE CPU build
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/mve-selected.yml'
+      - 'scripts/mve_full/**'
+  pull_request:
+    paths:
+      - '.github/workflows/mve-selected.yml'
+      - 'scripts/mve_full/**'
+
+jobs:
+  selected-mve:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Install image-test dependency
+        run: python -m pip install Pillow==12.0.0
+      - name: Confirm Apple Silicon runner
+        if: runner.os == 'macOS'
+        run: test "$(uname -m)" = arm64
+      - name: Fetch, patch and verify pinned MVE source
+        shell: bash
+        run: |
+          mkdir -p .local-tools/mve-spike
+          python -m scripts.mve_full.fetch_source \
+            --destination .local-tools/mve-spike/mve-bf2279f.tar.gz \
+            --extract-root .local-tools/mve-spike
+          git apply --unidiff-zero \
+            --directory=.local-tools/mve-spike/mve-bf2279f161ba962072ecac85224c15e82bc5f52e \
+            scripts/mve_full/sift_only.patch
+          python -m scripts.mve_full.verify_source \
+            --archive .local-tools/mve-spike/mve-bf2279f.tar.gz \
+            --source .local-tools/mve-spike/mve-bf2279f161ba962072ecac85224c15e82bc5f52e
+      - name: JPEG, PNG and TIFF development libraries (macOS)
+        if: runner.os == 'macOS'
+        run: brew install jpeg-turbo libpng libtiff ninja
+      - name: JPEG, PNG and TIFF development libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libjpeg-dev libpng-dev libtiff-dev ninja-build
+      - name: JPEG, PNG and TIFF development libraries (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install libjpeg-turbo:x64-windows libpng:x64-windows tiff:x64-windows
+      - name: Configure selected targets (macOS and Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cmake -S scripts/mve_full -B .local-tools/mve-ci-build -G Ninja \
+            -DMVE_SOURCE="$PWD/.local-tools/mve-spike/mve-bf2279f161ba962072ecac85224c15e82bc5f52e" \
+            -DCMAKE_BUILD_TYPE=Release
+      - name: Configure selected targets (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $source = (Resolve-Path '.local-tools/mve-spike/mve-bf2279f161ba962072ecac85224c15e82bc5f52e').Path
+          $archive = (Resolve-Path '.local-tools/mve-spike/mve-bf2279f.tar.gz').Path
+          cmake -S scripts/mve_full -B .local-tools/mve-ci-build -G 'Visual Studio 17 2022' -A x64 `
+            "-DMVE_SOURCE=$source" "-DMVE_ARCHIVE=$archive" `
+            "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows
+      - name: Make vcpkg runtime DLLs visible to Windows CLI smoke tests
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\bin" >> $env:GITHUB_PATH
+      - name: Build and check six selected command-line tools
+        run: |
+          cmake --build .local-tools/mve-ci-build --config Release --parallel 2
+          ctest --test-dir .local-tools/mve-ci-build --build-config Release --output-on-failure
+      - name: Bounded runner validation tests
+        run: python -m unittest discover -s scripts/mve_full -p 'test_*.py'
