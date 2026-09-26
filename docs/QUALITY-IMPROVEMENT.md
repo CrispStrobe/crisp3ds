@@ -36,6 +36,12 @@ terms require separate use review.
 
 Next scoped quality tasks:
 
+The first larger-context ambiguity experiment is now complete; see
+[PIPES-CONTEXT.md](PIPES-CONTEXT.md). It detects the three inspected extreme
+outliers but discards 56 near-reference points at 20 mm, so it is not promoted
+as a hard filter. Future work must recover or independently confirm support,
+not mistake lower errors on survivors for overall geometric improvement.
+
 1. Freeze an image-only ambiguity or third-view verification policy before
    a new run; preserve the current outputs and record every rejection.
    The inspected outlier crops suggest repeated-hardware mismatches, not

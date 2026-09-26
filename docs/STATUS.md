@@ -7,6 +7,25 @@ adds a CPU full-mesh oracle and later neural comparisons, with a common
 confidence-aware depth interface. These are planned experiments, not newly
 implemented reconstruction capabilities.
 
+## Larger-context check: useful outlier signal, not a production filter
+
+The [frozen context experiment](PIPES-CONTEXT.md) completed in 2.708 seconds.
+It recomputes larger-neighborhood descriptors without changing geometry and
+retains 153/258 points, versus 231 for the unchanged-size all-pair control.
+All three inspected extreme outliers are rejected; the largest retained
+laser proximity drops from 7.45 m to 0.410 m. Retained median/p90 are
+9.843/83.315 mm, but 56 of the original 151 points within 20 mm are discarded.
+Original-population near-reference support therefore worsens to 95/258.
+This rejection policy is **not promoted**. Test confirmation/recovery next,
+not just stricter deletion. Pipes remains development evidence.
+
+Two Sol agents implemented the verifier and evaluator; a third reviewed the
+logic. Root added the unchanged-size control before execution, reviewed the
+code, ran the experiment, and independently recomputed the scores. The
+evaluator's exact-score/verdict sealing was tightened after review. Latest
+targeted regression run: **100 Python tests and 11 native CTests pass**.
+Approximately 26 GiB remains free; no new datasets, installs, or remote jobs.
+
 ## Measured pipes baseline: geometric outliers remain
 
 The ETH3D pipes archives are now safely extracted and validated. The frozen
