@@ -1,4 +1,12 @@
-# Private source backup
+# Repository backup and visibility
+
+On 2026-09-27 the owner requested public visibility and AGPL licensing.
+The project-owned code is now licensed under AGPL-3.0-only; third-party
+code, assets and datasets retain their own terms. Repository publication
+includes its Git history. Downloaded datasets, build outputs and credentials
+remain excluded by the existing ignore rules.
+
+The initial private-backup record below is historical.
 
 Created 2026-09-26: https://github.com/CrispStrobe/crisp3ds (private).
 

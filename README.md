@@ -91,4 +91,6 @@ The next work is a dense-backend comparison, followed by oriented-cloud meshing.
 - [First measured dataset requirements](docs/CAPTURE-DATASET.md)
 - [Dependency policy and audit limits](docs/DEPENDENCIES.md)
 
-Permissive licenses and MPL-2.0 are allowed by project policy; GPL/AGPL components are excluded, and LGPL/custom terms need review. Exact shipped dependencies and required source bundles remain release gates. No application distribution license has been selected here.
+## License
+
+Original Crisp3DS project code is licensed under [GNU AGPL v3 only](LICENSE) (`AGPL-3.0-only`). Third-party code, assets, and datasets retain their own licenses and attribution requirements; the project license does not relicense them. The dependency-selection policy and exact shipped dependency/source-bundle audit remain separate release gates. Distribution through the Apple App Store or another store still requires a separate compatibility and compliance review. `apps/desktop/package.json` remains `private: true` because npm publication is unrelated to GitHub repository visibility.

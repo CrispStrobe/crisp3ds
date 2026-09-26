@@ -1,6 +1,7 @@
 [package]
 name = "crisp3ds-desktop"
 version = "0.1.0"
+license = "AGPL-3.0-only"
 description = "Crisp3DS scan workspace"
 authors = ["Crisp3DS contributors"]
 edition = "2021"
