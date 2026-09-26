@@ -1,5 +1,12 @@
 # Implementation status
 
+Source and written results are now backed up in the private GitHub repository;
+see [backup scope](REPOSITORY-BACKUP.md). Large datasets and raw generated run
+artifacts remain local. The [backend experiment plan](BACKEND-EXPERIMENTS.md)
+adds a CPU full-mesh oracle and later neural comparisons, with a common
+confidence-aware depth interface. These are planned experiments, not newly
+implemented reconstruction capabilities.
+
 ## Measured pipes baseline: geometric outliers remain
 
 The ETH3D pipes archives are now safely extracted and validated. The frozen
