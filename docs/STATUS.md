@@ -7,6 +7,35 @@ adds a CPU full-mesh oracle and later neural comparisons, with a common
 confidence-aware depth interface. These are planned experiments, not newly
 implemented reconstruction capabilities.
 
+## Additional-view recovery: marginal gain, hard cases remain unresolved
+
+The [anchor recovery experiment](PIPES-RECOVERY.md) uses all ten additional
+prepared photos, keeping one original feature per point and requiring at least
+two mutually consistent new views. It re-estimates **46/258** points in
+**7.889 seconds**, leaving 212 exact baseline fallbacks (186 insufficient
+new-view support, 26 pair conflicts). These ten photos are now training data,
+not held-out validation; this is not a same-input algorithm comparison.
+
+Exact laser scoring of changed geometry took **11.691 seconds**. Across the
+fixed 258 anchors, within-20-mm support increases only **151 to 152**; median
+proximity remains **12.798 mm**, p90 changes **90.280 to 89.721 mm**, and the
+worst error remains **7.45 m**. Of 46 re-estimates, 24 move nearer and 22 farther.
+The three inspected extreme outliers are unresolved: anchor 104 finds one new
+view; anchors 212 and 214 find none. No production promotion is justified.
+
+Root independently replayed all 150 accepted feature coordinates in seven
+images and checked projections with a separate quaternion calculation:
+positive depths throughout and maximum reprojection 1.899 pixels. Three
+changed-point nearest distances were separately checked against the full scan.
+Two Sol agents implemented runner/evaluator and another performed read-only
+review. **110 targeted Python tests and 11 native CTests pass**. No installs,
+downloads or remote jobs; approximately 26 GiB remains free.
+
+Next priority is improving the image correspondence evidence itself, then
+testing it on a separate measured scene. More photos alone under the same
+SIFT policy did not recover the severe failures. Preserve both the baseline
+and this additional-data result rather than silently replacing the former.
+
 ## Larger-context check: useful outlier signal, not a production filter
 
 The [frozen context experiment](PIPES-CONTEXT.md) completed in 2.708 seconds.

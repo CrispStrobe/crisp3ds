@@ -42,6 +42,12 @@ outliers but discards 56 near-reference points at 20 mm, so it is not promoted
 as a hard filter. Future work must recover or independently confirm support,
 not mistake lower errors on survivors for overall geometric improvement.
 
+The subsequent [additional-view anchor recovery](PIPES-RECOVERY.md) re-estimates
+46 points using ten more training photos but changes within-20-mm support only
+from 151 to 152 of the fixed 258 anchors; the severe outliers remain unresolved.
+It is not promoted. Improving feature/match evidence is now the priority over
+further rejection thresholds or assuming more photos alone solve the issue.
+
 1. Freeze an image-only ambiguity or third-view verification policy before
    a new run; preserve the current outputs and record every rejection.
    The inspected outlier crops suggest repeated-hardware mismatches, not
