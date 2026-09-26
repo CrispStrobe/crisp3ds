@@ -95,9 +95,11 @@ jobs:
         shell: pwsh
         run: |
           "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\bin" >> $env:GITHUB_PATH
-      - name: Build and check six selected command-line tools
-        run: |
-          cmake --build .local-tools/mve-ci-build --config Release --parallel 2
-          ctest --test-dir .local-tools/mve-ci-build --build-config Release --output-on-failure
+      - name: Build six selected command-line tools
+        shell: bash
+        run: cmake --build .local-tools/mve-ci-build --config Release --parallel 2
+      - name: Run codec ABI and six-CLI smoke tests
+        shell: bash
+        run: ctest --test-dir .local-tools/mve-ci-build --build-config Release --output-on-failure
       - name: Bounded runner validation tests
         run: python -m unittest discover -s scripts/mve_full -p 'test_*.py'

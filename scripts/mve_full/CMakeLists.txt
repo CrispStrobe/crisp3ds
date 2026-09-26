@@ -87,6 +87,11 @@ foreach(part IN ITEMS util mve sfm dmrecon fssr)
   target_compile_features(mve_${part} PUBLIC cxx_std_17)
   target_include_directories(mve_${part} PUBLIC "${MVE_SOURCE}/libs")
   target_link_libraries(mve_${part} PUBLIC ${MVE_IMAGE_LIBS})
+  if(WIN32)
+    # windows.h min/max macros corrupt std::numeric_limits and MVE's templates.
+    # PUBLIC carries the definition into selected application translation units.
+    target_compile_definitions(mve_${part} PUBLIC NOMINMAX)
+  endif()
 endforeach()
 target_link_libraries(mve_mve PUBLIC mve_util)
 target_link_libraries(mve_sfm PUBLIC mve_mve)
