@@ -1,0 +1,44 @@
+{
+  "name": "ycb-cracker-box-real-rgb-separate-google-scan",
+  "source": "https://ycb-benchmarks.s3.amazonaws.com/index.html",
+  "license": "CC BY 4.0",
+  "license_scope": "YCB dataset data, explicitly stated on the official YCB data page; code is separately MIT",
+  "attribution": "Berk C. Calli, Arjun Singh, Aaron Walsman, Siddhartha Srinivasa, Pieter Abbeel, Aaron M. Dollar; The YCB Object and Model Set",
+  "commercial_rights_note": "CC BY 4.0 permits commercial copyright reuse with attribution, but does not grant third-party trademarks or product-packaging rights; review those before shipping image assets",
+  "archives": [
+    {
+      "role": "real Berkeley RGB-D source",
+      "url": "https://ycb-benchmarks.s3.amazonaws.com/data/berkeley/003_cracker_box/003_cracker_box_berkeley_rgbd.tgz",
+      "size_bytes": 663689364,
+      "etag": "\"0d41a398679d242541fd18d348633974-80\"",
+      "sha256_locally_verified": "15185a1e9da0f5da5264eef8dfad129437f157ea993a05ef75f80134aa86adc5"
+    },
+    {
+      "role": "separate Google scanner mesh source",
+      "url": "https://ycb-benchmarks.s3.amazonaws.com/data/google/003_cracker_box_google_64k.tgz",
+      "size_bytes": 16809373,
+      "etag": "\"dcd346be307288c58ac2ed474f0e0cd4-3\"",
+      "sha256_locally_verified": "a4d7173ef4a43c51af5df166deed85ca2b7014626ec5f6f2895561cdbf7c2cd5"
+    }
+  ],
+  "subset": {
+    "object": "003_cracker_box",
+    "photo_camera": "Berkeley RGB-D NP3",
+    "photo_count": 60,
+    "photo_format": "real 1280x1024 JPEG",
+    "angles_degrees": "0 through 354 inclusive, step 6 (full turntable rotation)",
+    "photo_bytes_total": 61113267,
+    "original_reference": "reference/google_64k_original_ascii.ply",
+    "binary_reference_geometry": "reference/google_64k_geometry_f64.ply",
+    "reference_provenance": "different Google scanning system from Berkeley photo camera; shape oracle, not metrology-certified GT",
+    "alignment": "not supplied or verified; no metric quality claim",
+    "reference_training_use": "never",
+    "root": ".local-tools/test-data/ycb-cracker-box"
+  },
+  "anchor_files": [
+    {"path": "photos/NP3_000.jpg", "size_bytes": 1012752, "sha256": "9eeb9ee32bde48486c250692bcdd319752bf16a6a582f69e85b17db20cf13db4"},
+    {"path": "photos/NP3_180.jpg", "size_bytes": 1008589, "sha256": "f1ecb5a347bd3ec76fd79a4e8907de1f7ba7a1b0a2d91d0d32bd04390439efaa"},
+    {"path": "reference/google_64k_original_ascii.ply", "size_bytes": 4096909, "sha256": "18c0be4c6eb9b18e6fd4028d394223342a109df54ab514779c3693bac6548f48"},
+    {"path": "reference/google_64k_geometry_f64.ply", "size_bytes": 1638628, "sha256": "6e0187aa961aef4fa21dfc753023a4be7e82924e6398dc0875a2b0d609363ed4"}
+  ]
+}

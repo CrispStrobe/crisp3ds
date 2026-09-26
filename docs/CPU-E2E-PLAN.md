@@ -71,3 +71,18 @@ reported as a **normalized shape diagnostic** using a declared fixed alignment
 protocol. It cannot establish independently recovered physical scale or camera
 accuracy. Retain the original unaligned reconstruction, report the fitted scale,
 and do not feed aligned scan geometry back into reconstruction.
+
+## Current milestone outcome
+
+The selected CPU photo-to-mesh runner is operational on M1, with a repeatable
+real tree mesh, separate source/binary provenance, resource guards and final
+geometry validation. A 73-photo object run reached a mesh through a preserved
+continuation after fixing cleanup integration. Its [reference-fitted shape
+diagnostic](BUNNY-EVALUATION.md) is poor; it is not production-quality acceptance.
+
+Two photo/scan objects are local: 3DLF bunny (third-party shape-rights caveat)
+and YCB cracker box (explicit data CC BY 4.0, separate Google scan). The latter
+is prepared but not reconstructed. No scanned vertices, depths or supplied
+poses have entered the image-only reconstruction lane. Cross-platform compile
+verification and App Store packaging remain separate gates, not consequences
+of a successful local CLI run.

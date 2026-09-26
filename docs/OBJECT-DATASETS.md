@@ -1,5 +1,31 @@
 # Real object photos with an independent scan
 
+## YCB cracker box: second real-object subset
+
+The [official YCB Object and Model Set](https://ycb-benchmarks.s3.amazonaws.com/index.html) explicitly licenses its **data** CC BY 4.0 (and its code separately MIT). Attribute Berk C. Calli, Arjun Singh, Aaron Walsman, Siddhartha Srinivasa, Pieter Abbeel, and Aaron M. Dollar, the dataset title, source URL, license, and changes. CC BY's copyright grant does not itself clear Cheez-It branding or packaging trademarks for asset redistribution; review those rights before shipping photos or model textures in a product.
+
+This local `003_cracker_box` subset uses 60 *real* 1280×1024 JPEGs from one Berkeley RGB-D camera, `NP3`, at turntable angles 0° through 354° in 6° steps. The reference is the same object scanned on YCB's separate Google scanner, not a reconstruction from the selected RGB photos. It is a **separate-sensor shape oracle**, not certified metrology ground truth. The datasets do not supply a verified registration between the selected photos' reconstruction and the Google mesh. A reference-fitted Sim(3) score would describe shape only, not independently recovered scale or metric accuracy. Never feed the Google mesh, depth maps, masks, or supplied camera poses into an image-only reconstruction or training run.
+
+Run from the repository root, with 10 GiB free-space reserve:
+
+```sh
+mkdir -p .local-tools/tmp
+TMPDIR="$PWD/.local-tools/tmp" python3 scripts/object_dataset/prepare_ycb.py --fetch
+python3 scripts/object_dataset/evaluate.py --reference .local-tools/test-data/ycb-cracker-box/reference/google_64k_geometry_f64.ply
+```
+
+The fetcher pins exact official archive sizes, ETags, and locally measured SHA-256 hashes. If the two archives are already present and verified, omit `--fetch`. It refuses changed or unverified existing archives and a prepared destination; no silent overwrite or re-download occurs. Source transfer is bounded to 750 million bytes and selected expansion to 200 million bytes, with a 10 GiB free-space floor and 15-minute overall deadline. The two full source `.tgz` files total 680,498,737 bytes; the selected 60 JPEGs total 61,113,267 bytes. The RGB-D tar has mixed, non-angle-ordered depth entries, so a short gzip prefix cannot guarantee 60 photos around one camera's full rotation. The extractor validates tar member types and paths, selects only named JPEGs and the original Google PLY, and records per-file SHA-256, source member, camera, and angle in the ignored local `manifest.json`; tracked [anchor hashes](../tests/datasets/ycb_cracker_box.json) identify this exact subset. The S3 ETags are multipart identifiers, **not** substitute MD5 or SHA-256 checksums.
+
+| Role | Local path | Use |
+| --- | --- | --- |
+| Real RGB input | `.local-tools/test-data/ycb-cracker-box/photos/` | Exactly 60 original NP3 JPEGs; only this folder is reconstruction input |
+| Original reference | `.local-tools/test-data/ycb-cracker-box/reference/google_64k_original_ascii.ply` | Separate Google scanner ASCII PLY, excluded from reconstruction |
+| Converted reference | `.local-tools/test-data/ycb-cracker-box/reference/google_64k_geometry_f64.ply` | Binary little-endian double-XYZ PLY for bounded evaluator; triangle indices unchanged, no scale/cleanup |
+
+The original Google PLY contains 32,770 vertices and 65,536 triangular faces. The geometry-only conversion preserves each decimal XYZ value as a binary float64 and all triangle vertex indices, while omitting normals and texture coordinates; it does not alter topology or scale. The converted mesh passes finite-coordinate/index and zero-area checks. The JPEGs show a checkerboard on the turntable that rotates with the object; image-only SfM may reconstruct that background as well as the box. Inspect object isolation before treating any output as object geometry. The generic alignment/evaluation cautions below apply equally to this subset.
+
+## 3DLF-Scan bunny: research-only rights caveat
+
 The local **3DLF-Scan bunny** subset has 73 original PNG photographs from the PhotonicSense apiCAM PRO turntable sequence and a fused Revopoint Miraco structured-light mesh of the same physical resin print. The source is [Vodianyk, Nava-Baro, and Popov, 3DLF-Scan, version 1](https://data.mendeley.com/datasets/ngvgpsvd8b/1), DOI [10.17632/ngvgpsvd8b.1](https://doi.org/10.17632/ngvgpsvd8b.1), released under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Attribute the authors, dataset title, DOI, license, and any changes when sharing derived material. The [data descriptor](https://pmc.ncbi.nlm.nih.gov/articles/PMC12969299/) explains the turntable and scanner acquisition.
 
 **Commercial-rights review remains required.** The physical bunny print is based on a Stanford model. The [Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/) permits research use and free redistribution of its own models but says commercial use or inclusion in a product for sale requires permission. The canonical Stanford STL was excluded here, yet the rights of a physical-print derivative and its rescans are not independently cleared by this project. Treat this subset as an isolated local research/test asset; do not ship it or assume commercial redistribution is approved solely from the 3DLF-Scan CC BY 4.0 label.
@@ -37,5 +63,13 @@ For the final sampled-surface report, use `--samples 4096 --seed 2027 --referenc
 For visual inspection after a transform has been saved, [preview.py](../scripts/object_dataset/preview.py) accepts the same exact-mesh-bound transform and writes a fresh PNG under `.local-tools/`. Its three XY/XZ/YZ rows show the independent reference and transformed reconstruction side by side with identical projection bounds, using at most 20,000 sampled surface points per mesh. The preview is a diagnostic image, not evidence of metric alignment or geometric accuracy.
 
 An OmniObject3D battery pair was also investigated because the [official dataset](https://github.com/omniobject3d/OmniObject3D) is CC BY 4.0 and offers real videos with raw scanner meshes. The official public Google Drive lists `raw_scans/battery.tar.gz` (78,246,728 bytes, file ID `1gAW6iciDOHiU_rBCRHMbwbL2OUrZOsvC`) and `videos_processed/battery.tar.gz` (448,166,011 bytes, ID `1-4ekYqedvqfHkmCISubXUPw6QeE9fG2l`), but anonymous download currently returns a Google quota/access error. No OmniObject3D bytes were accepted locally. Rendered-image mirrors are not a substitute for the original video frames.
+
+[ObjectFolder-Real](https://objectfolder.stanford.edu/objectfolder-real-download)
+is another technically relevant candidate: 100 real household objects, HD
+turntable videos and separately scanned meshes. The official Real download page
+does not state a license. The CC BY 4.0 statement on the separate
+[ObjectFolder 2.0 page](https://objectfolder.stanford.edu/objectfolder2-0-download)
+must not be silently transferred to Real. No Real files were downloaded or
+accepted as commercially cleared assets; explicit maintainer terms are needed.
 
 The [3DLF-Scan release](https://data.mendeley.com/datasets/ngvgpsvd8b/1) contains only seven printed Stanford figures, so another object from this ZIP would retain the same third-party rights concern. Other possible sources need separate checks: [ObjectFolder-Real](https://objectfolder.stanford.edu/objectfolder-real-download) lists real rotating videos and independently acquired meshes of 100 household objects, but its exact Real-data license scope and selective archive sizes are not yet verified; [OpenSubstance](https://opensubstance.github.io/) provides real multi-view images and scanner shapes but presents a registration/request workflow and no clear commercial data license on its project page. No alternative was downloaded or marked commercially cleared.

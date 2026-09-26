@@ -32,10 +32,53 @@ not initialize a camera pair from only 80 feature tracks. This failure is retain
 at `build-opencv/mve-full-bunny-001`; no mesh or accuracy score is claimed. A fixed
 image-only contrast-profile retry is recorded separately, with unchanged originals.
 
+That retry registered **73/73 views**, but its [measured shape result](BUNNY-EVALUATION.md)
+is **poor and rejected**. A preserved, hash-checked continuation produced a
+589,429-vertex / 1,193,446-triangle final mesh after removing 11 zero-area faces
+left by native cleanup. The original run took 944.62 s, continuation 16.25 s,
+and separately repeated preprocessing 26.80 s. This is roughly 16.5 minutes of
+measured pieces, not a fresh uninterrupted replay of the corrected runner.
+At the predeclared 1%-of-reference-diagonal threshold, the reference-fitted
+sampled F-score is **14.88%**, versus **86.25%** for the distinct-seed reference
+sampling control. Visual inspection confirms severe shape disagreement.
+This is neither physical-scale accuracy nor acceptable production object quality.
+
 This remains a separate backend CLI, not the C++ `reconstruct` command or a
 working desktop reconstruction button. A selected CMake build now compiles all
-six tools on M1; Windows/Linux execution and App Store runtime packaging remain
-unverified. No new native dependency has been marked shipping-approved.
+six tools on M1 and completes a full tree run in 54.44 s (9/10 views,
+69,676 final faces). Live testing found and fixed mixed Mono codec headers and
+Homebrew libraries; compile-only checks had missed that issue. App Store runtime
+packaging remains unverified. No new native dependency has been marked
+shipping-approved. A scoped remote platform matrix is now being tested;
+do not infer full reconstruction portability from compile/usage checks.
+
+The remote macOS arm64 and Ubuntu x64 build/smoke/unit jobs passed. Windows
+reached native compilation after fixes for patch line endings and compiler
+discovery, then failed on `min`/`max` macro collisions. The `NOMINMAX` fix is
+committed, but its [retry](https://github.com/CrispStrobe/crisp3ds/actions/runs/36275102048)
+was refused **before job startup** because GitHub reports a billing/payment or
+spending-limit issue. Windows verification remains blocked; no billing settings
+were changed. Neither mobile nor App Store packaging is verified.
+
+Latest local checks: **16 backend tests, 22 object-dataset tests, 11 native CTests
+and 2 selected-MVE CTests pass**. About 22 GiB remains free. Large photos and meshes
+are excluded from the private source backup.
+
+A fresh replay of the corrected CMake path, including final sanitation, also
+passed and produced the exact same mesh SHA as the preceding CMake run. Its
+wall time was 263.53 s under substantial observed background load (load average
+13.8 during execution), versus 54.44 s earlier; do not present this as a controlled
+speed comparison. No zero-area faces needed removal in either tree mesh.
+
+A second object is now prepared from the explicitly **CC BY 4.0 YCB dataset**:
+60 original NP3 RGB photos, 1280 × 1024, covering 360° in 6° increments, and a
+separate Google-scanner mesh with 32,770 vertices / 65,536 triangles. The two
+source archives total 680,498,737 bytes and the selected files 66,848,804 bytes.
+Full archive and per-file hashes are recorded; every photo decodes and the
+reference mesh has valid finite geometry and no zero-area triangles. It remains
+**unreconstructed**, ready for the next camera/foreground quality experiment.
+The scan is an unregistered, separate-scanner shape reference, not metrology GT.
+See [dataset provenance and preparation](OBJECT-DATASETS.md).
 
 Source and written results are now backed up in the private GitHub repository;
 see [backup scope](REPOSITORY-BACKUP.md). Large datasets and raw generated run
