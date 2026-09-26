@@ -2,6 +2,15 @@ name: selected MVE CPU build
 
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: 'Platforms to verify'
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - windows
   push:
     paths:
       - '.github/workflows/mve-selected.yml'
@@ -16,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, ubuntu-24.04, windows-2025]
+        os: ${{ fromJSON(inputs.target == 'windows' && '["windows-2025"]' || '["macos-15","ubuntu-24.04","windows-2025"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -67,7 +76,17 @@ jobs:
         run: |
           $source = (Resolve-Path '.local-tools/mve-spike/mve-bf2279f161ba962072ecac85224c15e82bc5f52e').Path
           $archive = (Resolve-Path '.local-tools/mve-spike/mve-bf2279f.tar.gz').Path
-          cmake -S scripts/mve_full -B .local-tools/mve-ci-build -G 'Visual Studio 17 2022' -A x64 `
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vswhere)) { throw 'Visual Studio installer discovery tool is missing' }
+          $version = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion
+          if (-not $version) { throw 'No Visual Studio C++ toolchain is installed' }
+          $major = [int]($version.Trim().Split('.')[0])
+          $helpText = & cmake --help | Out-String
+          $match = [regex]::Match($helpText, "(?m)^\s*\*?\s*(Visual Studio $major \d{4})\s*=")
+          if (-not $match.Success) { throw "CMake does not support installed Visual Studio major $major" }
+          $generator = $match.Groups[1].Value
+          Write-Host "Using $generator for Visual Studio $version"
+          cmake -S scripts/mve_full -B .local-tools/mve-ci-build -G $generator -A x64 `
             "-DMVE_SOURCE=$source" "-DMVE_ARCHIVE=$archive" `
             "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows
