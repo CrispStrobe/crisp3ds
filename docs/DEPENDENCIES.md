@@ -1,5 +1,18 @@
 # Dependency and release policy
 
+## Public AGPL project update (2026-09-27)
+
+Original project code is now AGPL-3.0-only. The approved
+[quality roadmap](SOTA-ROADMAP.md) permits evaluating COLMAP/OpenMVS integration
+for an AGPL desktop/server distribution. The earlier blanket exclusion below is
+retained as the existing conservative third-party shipping/App Store build policy,
+not a statement that the original project is permissively licensed. Experimental
+backend binaries remain isolated and unapproved for bundling. No automated
+allowlist is relaxed by this documentation update. Promotion needs exact source,
+dependency, notice and distribution review; App Store compatibility is not implied.
+
+## Existing shipped third-party dependency gate
+
 The shipped application may use permissive licenses and MPL-2.0. GPL and AGPL components are excluded. LGPL, custom, missing, or unclear terms require an explicit review before inclusion. This is a project policy, not a legal conclusion about an app store.
 
 The user additionally permits separate GPL **development/test oracles**, not shipped dependencies. Keep their pins, notices and data provenance separate from the app's dependency inventory; no linking, source copying, bundling or runtime requirement is authorized by that exception. See [test strategy](TESTING.md). Downloaded benchmark data likewise stays outside distribution and has its own usage terms.

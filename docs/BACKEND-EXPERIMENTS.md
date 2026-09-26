@@ -1,5 +1,11 @@
 # Backend experiments: evidence before selection
 
+2026-09-27: the approved [quality-first roadmap](SOTA-ROADMAP.md) supersedes the
+ordering and oracle-only OpenMVS restriction in this historical proposal. Original
+project code is now AGPL-3.0-only; desktop/server integration is a candidate, while
+third-party rights and App Store review remain separate. Retain the experiment
+contract below; do not mistake candidate algorithms for implemented features.
+
 Plan dated 2026-09-26. This proposes research comparisons; none of the new
 backends below has passed a same-input, measured-object scan comparison or a
 shipping review. Continue to use the [quality workstream](QUALITY-IMPROVEMENT.md)

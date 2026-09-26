@@ -1,8 +1,8 @@
 # Crisp3DS
 
-A calibrated turntable scanning application, built around a portable C++20 core and a Tauri 2 / TypeScript desktop workspace. The [implementation plan](docs/PLAN.md) defines scoped tasks, dependencies and acceptance gates for the full reconstruction pipeline.
+A rigid-object photo scanning application, built around a portable C++20 core and a Tauri 2 / TypeScript desktop workspace. Ordinary overlapping photographs with unknown poses are the target; calibrated turntable capture is an optional mode. The active [quality-first roadmap](docs/SOTA-ROADMAP.md) defines scoped tasks and acceptance gates.
 
-The workspace supports project creation, JSON import/export, calibration and marker-board geometry, pose-report inspection, and an interactive sparse point-cloud viewer. An optional pinned OpenCV build detects ArUco markers in PNG/JPEG images, estimates metric board-to-camera poses, and reconstructs masked object feature tracks. **Photo-to-mesh reconstruction is not implemented.** The `reconstruct` command returns unavailable; imported stage states are unverified metadata.
+The workspace supports project creation, JSON import/export, calibration and marker-board geometry, pose-report inspection, and an interactive sparse point-cloud viewer. An optional pinned OpenCV build detects ArUco markers in PNG/JPEG images, estimates metric board-to-camera poses, and reconstructs masked object feature tracks. A separate [experimental CPU photo-to-mesh runner](docs/MVE-FULL.md) has run on real photographs on M1, but measured object quality is not accepted. **App-integrated photo-to-mesh reconstruction is not implemented.** The `reconstruct` command returns unavailable; imported stage states are unverified metadata.
 
 ## Run the workspace
 
@@ -84,7 +84,7 @@ Run the OpenCV CTests first to generate the fixture. The browser script runs the
 
 The core owns computation and stable file contracts. The desktop host will manage isolated jobs; mobile bindings will call the library directly. Browser inspection does not imply browser-local reconstruction. Hardware capture and motor transport stay outside the core.
 
-The next work is a dense-backend comparison, followed by oriented-cloud meshing. Real-capture pose and sparse accuracy validation remain open. MVE is only one candidate; an OpenCV calibrated stereo baseline is also under consideration. Read [backend evaluation](docs/BACKEND-EVALUATION.md) for the tradeoffs and acceptance gates.
+The next work is an established COLMAP/OpenMVS CPU backend comparison, object-motion-aware camera estimation and measured surface evaluation. MVE remains a control, not a required engine. Quality acceptance precedes worker/UI integration; see the [active roadmap](docs/SOTA-ROADMAP.md) and [actual status](docs/STATUS.md).
 
 - [Task plan and acceptance gates](docs/PLAN.md)
 - [Project schema](docs/project.schema.json)

@@ -7,7 +7,38 @@ project code was licensed under AGPL-3.0-only. Third-party licenses are unchange
 this does not automatically clear App Store distribution. The new
 [Windows CI retry](https://github.com/CrispStrobe/crisp3ds/actions/runs/36275507360)
 started successfully after publication, superseding the billing-startup block
-recorded below. Its compilation and test outcome are not yet verified here.
+recorded below. Its compilation, smoke and unit checks passed. Together with
+earlier macOS arm64/Linux x64 jobs, the selected MVE build matrix now passes;
+real-photo reconstruction on Windows/Linux remains unverified.
+
+## Active quality-first implementation
+
+The user approved [SOTA-ROADMAP.md](SOTA-ROADMAP.md). Three supervised Sol tasks
+are now implementing an established COLMAP/OpenMVS CPU path, object-motion and
+shared-intrinsics experiments, and better surface evaluation. These are active
+tasks, not accepted results. MVE remains the measured control, not a mandatory
+product engine. Backend quality gates precede Tauri reconstruction integration.
+
+The first new live control, [60-photo raw YCB](YCB-COMPARISON.md), failed MVE
+camera initialization in 267.14 seconds (not a timeout), with no mesh produced.
+The classical/shared-intrinsics and foreground comparisons are in progress.
+OpenMVS v2.4.0's pinned arm64 release tools start on M1; this alone does not
+establish a working pipeline, binary dependency clearance or cross-platform use.
+
+The [new surface scorer](SURFACE-BENCHMARK.md) measures sample-to-triangle
+distances instead of distances to another finite point sample. The unchanged
+bunny scores 29.47% F at the same 1%-diagonal threshold, using the existing
+reference-fitted transform. This is a metric correction, not improved geometry;
+the mesh remains rejected. Root independently compared the distance calculation
+against 4,181 scalar point/triangle pairs (maximum squared-distance discrepancy
+2.78e-16). The YCB same-mesh control gives 100% F at its tested tolerances.
+
+Root independently reran the isolated Python suite: 183 tests passed with 8 skips;
+11 native CTests, 30 desktop tests and the desktop production build also passed.
+The generic system Python suite lacked PyCOLMAP; the complete pass uses the
+existing isolated environment with pinned NumPy, Pillow, PyCOLMAP and OpenCV.
+The new three-platform quality-harness workflow is configured, not yet remotely
+verified. Heavy photo tests are separate from these contract/unit checks.
 
 ## CPU photo-to-mesh integration and real object reference
 
@@ -67,7 +98,9 @@ discovery, then failed on `min`/`max` macro collisions. The `NOMINMAX` fix is
 committed, but its [retry](https://github.com/CrispStrobe/crisp3ds/actions/runs/36275102048)
 was refused **before job startup** because GitHub reports a billing/payment or
 spending-limit issue. Windows verification remains blocked; no billing settings
-were changed. Neither mobile nor App Store packaging is verified.
+were changed. That historical startup block was subsequently resolved by public
+visibility; run 36275507360 passed as recorded above. Neither mobile nor App Store
+packaging is verified.
 
 Latest local checks: **16 backend tests, 22 object-dataset tests, 11 native CTests
 and 2 selected-MVE CTests pass**. About 22 GiB remains free. Large photos and meshes

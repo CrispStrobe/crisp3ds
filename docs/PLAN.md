@@ -1,5 +1,16 @@
 # Crisp3DS implementation plan
 
+## Active roadmap (2026-09-27)
+
+The approved [quality-first roadmap](SOTA-ROADMAP.md) supersedes the historical
+board-first sequence and permissive/MPL-only desktop policy below. Ordinary
+rigid-object photos with unknown poses are required; markers are optional. Original
+project code is now AGPL-3.0-only. Third-party and App Store clearance remain separate.
+The current parallel batch is S02 classical CPU backend, S03 object-motion camera
+handling and S04 surface evaluation, with root review and live comparison gates.
+The following foundation plan remains historical context, not a claim that its
+later reconstruction/product tasks have shipped.
+
 ## Product and decisions
 
 Build a calibrated LEGO turntable scanner: import still photographs, verify calibration and rotating-board poses, reconstruct an object, inspect scale/coverage, and export a mesh. macOS is the first full reconstruction target; Windows and Linux share the desktop architecture. Mobile initially captures/transfers datasets; the browser initially inspects projects. Neither implies local dense reconstruction.

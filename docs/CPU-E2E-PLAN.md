@@ -1,5 +1,9 @@
 # Commercial-compatible CPU end-to-end milestone
 
+2026-09-27 update: [SOTA-ROADMAP.md](SOTA-ROADMAP.md) is the active next-stage plan.
+The selected MVE path below is now the control; COLMAP/OpenMVS is being evaluated
+for the AGPL desktop/server path. App Store compatibility is a separate gate.
+
 This plan supersedes the earlier board-first and correspondence-first priority.
 The user requires ordinary overlapping photographs of rigid objects with unknown
 poses, including rotation and translation between exposures. A marker board is

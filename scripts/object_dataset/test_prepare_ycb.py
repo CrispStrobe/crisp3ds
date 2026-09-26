@@ -79,7 +79,10 @@ class YCBPreparationTests(unittest.TestCase):
     def test_existing_archive_symlink_is_rejected(self):
         payload = self.root / "payload"
         payload.write_bytes(b"source")
-        (self.root / "archive.tgz").symlink_to(payload)
+        try:
+            (self.root / "archive.tgz").symlink_to(payload)
+        except OSError as error:
+            self.skipTest(f"symlink creation unavailable: {error}")
         with self.assertRaisesRegex(ValueError, "symlink"):
             prepare_ycb.fetch_archive(self.root, {"filename": "archive.tgz"}, time.monotonic() + 1)
 
