@@ -102,5 +102,87 @@ correct surfaces or a general segmentation solution. Root also inspected the
 exclusions and possible checkerboard leakage.
 
 The sealed binary model and producer metadata are under
-`build-opencv/object-motion/foreground`. The complete dense-backend run will
-reuse those exact cameras and photo hashes. Surface acceptance remains pending.
+`build-opencv/object-motion/foreground`. The complete dense-backend run reuses
+those exact cameras and photo hashes.
+
+### First complete classical surface: rejected, contaminated geometry
+
+`classical-ycb-foreground-002` was interrupted at 603.005 s by the wrapper's
+resource scanner racing a native temporary-file rename. Native base depth maps
+were retained. A fresh `003-continuation` copied only completed base maps, omitted
+partial geometric-pass maps, and fused them with further geometric iterations
+disabled. The reimported scene is byte-identical to the original scene. Native
+fusion succeeded with 56,684 points, but the old validator rejected OpenMVS PLY
+type aliases/visibility lists. Both failures remain recorded, not overwritten.
+
+After extending strict PLY validation, `004-finish` explicitly passed the dense
+PLY to meshing and the resulting mesh to refinement/texturing. This matters
+because the interface scene alone still contains the original sparse points.
+Meshing produced 22,320 vertices/44,561 faces; one-scale refinement and texturing
+produced 3,359 vertices/6,612 faces and one 1024-pixel JPEG texture. Stage times
+were reimport 0.51 s, mesh 3.57 s, refine 92.05 s, texture 6.18 s. These are
+composed-stage recovery times, not a fresh one-command performance benchmark.
+
+The final native geometry was normalized without changing any coordinate or
+triangle. Native SHA-256: `2b6023960367f0ded70f8840638f9cd7d0a1ea62ec6e4a157dab3d31b91adfc9`;
+normalized SHA-256: `f571ba83f2fc7c7284b1a8922af0369b3cdf041187c08e67b03e2edfcf88cfd9`.
+The frozen 1024-sample reference fit found scale 0.0827699088. At the declared
+2048-query scoring settings, whole-mesh F is 6.57%, 12.77%, 23.98% at 0.5%, 1%,
+2% diagonal. At 1%: precision 14.79%, recall 11.23%. Root's bare-shape preview
+shows substantial non-object/background geometry. This is **rejected quality**,
+not competitive object reconstruction. Alignment contamination/uncertainty also
+limits the score; do not reinterpret it as a percentage of KIRI performance.
+
+Artifacts: `build-opencv/classical-ycb-foreground-004-finish/reference-fit-v1.json`,
+`surface-metrics-v1.json`, `textured.obj`, and local
+`.local-tools/classical-ycb-shape-preview.png`.
+
+### Next frozen ablation: multi-view photo support before meshing
+
+Before inspecting any filtered result, fix the rule: project each original dense
+point into all 60 original distorted cameras and retain it only if at least
+48/60 projections fall within the frozen photo-derived pose-support masks.
+Behind-camera and outside-image projections count as unsupported. No reference
+scan, fitted scale, supplied geometry or GT-derived bounds enter this filter.
+Keep all retained original PLY record bytes (including colors/normals/visibility)
+and alter only the count and selection. Keep the same native mesh/refine/texture
+settings as `004` and score by the same frozen protocol.
+
+This is a visual-support constraint using coarse masks, not an exact silhouette
+or visibility oracle. It can remove real geometry near imperfect masks; report
+retained/rejected counts and completeness, not only improved precision. Preserve
+the unfiltered mesh and do not tune the 48-view threshold against reference scores.
+
+### Frozen filter result: improvement, still rejected
+
+The rule retained 34,172/56,684 points. Retained native vertex records are
+byte-identical; an independent repeat produced the same filtered SHA-256.
+`006-filtered` completed with 2,225 vertices/4,404 faces and one texture.
+Reimport/mesh/refine/texture took 0.51/1.53/66.45/4.62 seconds. These exclude
+camera estimation, depth reconstruction and filtering; they are not e2e times.
+
+| Whole-mesh threshold | Unfiltered F | Filtered F | Filtered precision | Filtered recall |
+| --- | ---: | ---: | ---: | ---: |
+| 0.5% reference diagonal | 6.57% | 19.48% | 22.07% | 17.43% |
+| 1% reference diagonal | 12.77% | 38.15% | 42.63% | 34.52% |
+| 2% reference diagonal | 23.98% | 63.54% | 69.68% | 58.40% |
+
+Root independently normalized, aligned, scored and inspected the bare surface.
+The box shape is much clearer, but substantial missing/distorted geometry remains:
+**quality is still rejected**. Both geometry and reference-fitted alignment change;
+this is not a physical accuracy claim or a percentage of KIRI quality. The frozen
+fit scale is 0.1638040991. Normalized geometry SHA-256:
+`b2b410156b4b2386962c9c9e88f59a5f19eef102874e6d3ae6321c3c853dbaff`.
+Reports reside in `build-opencv/classical-ycb-foreground-006-filtered/`;
+preview: `.local-tools/classical-ycb-filtered-preview.png`.
+
+### Fresh replay reliability remains unresolved
+
+`005-e2e` attempted the standalone masked pipeline from photographs and stopped
+at its registration gate with only 2/60 cameras and 357 points. The earlier
+successful camera trial and this replay have matching feature counts but slightly
+different match totals; separate-process execution/random state are hypotheses,
+not established causes. Preserve this failed replay in reliability reporting.
+Successful composed recovery through texture does not establish reliable one-command
+e2e operation. Next priority: reproduce and stabilize image-only alignment, improve
+object masks/depth support without reference leakage, then test held-out objects.

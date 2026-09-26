@@ -12,12 +12,16 @@ from scripts.colmap_sparse import diagnose
 
 class DiagnoseTests(unittest.TestCase):
     def test_mapper_options_match_saved_baseline_except_snapshots(self):
-        baseline = json.loads((diagnose.SOURCE_RUN / "provenance.json").read_text())
+        # Only the mapper options from the original ignored provenance are
+        # checked in; its source SHA-256 is recorded in this fixture.
+        fixture = diagnose.ROOT / "tests/contracts/colmap-mapper-options-baseline.json"
+        baseline = json.loads(fixture.read_text())
+        self.assertEqual(pycolmap.__version__, baseline["source_pycolmap_version"])
         options = diagnose.mapper_options(pycolmap, baseline, Path("/unused/snapshots"))
-        self.assertEqual(options.snapshot_images_freq, 1)
-        self.assertEqual(options.snapshot_path, "/unused/snapshots")
-        self.assertEqual(options.num_threads, 2)
-        self.assertEqual(options.mapper.num_threads, 2)
+        expected = json.loads(json.dumps(baseline["options"]["incremental_pipeline"]))
+        expected["snapshot_images_freq"] = 1
+        expected["snapshot_path"] = "/unused/snapshots"
+        self.assertEqual(json.loads(json.dumps(options.todict(), default=str)), expected)
 
     def test_sqlite_header_counter_change_allowed_only_when_mirrored(self):
         with tempfile.TemporaryDirectory() as tmp:

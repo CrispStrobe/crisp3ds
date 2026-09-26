@@ -11,6 +11,7 @@ import zipfile
 
 from scripts.classical_backend import run
 from scripts.classical_backend import fetch_openmvs
+from scripts.classical_backend import finish
 
 
 class SelectionAndFailureTests(unittest.TestCase):
@@ -27,6 +28,32 @@ class SelectionAndFailureTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unique basenames"):
                 run.photos(root, names, 3)
 
+    def test_native_executable_path_uses_windows_suffix(self):
+        base = Path("tools")
+        self.assertEqual(run.tool_path(base, "TextureMesh", windows=False), base / "TextureMesh")
+        self.assertEqual(run.tool_path(base, "TextureMesh", windows=True), base / "TextureMesh.exe")
+
+    def test_filtered_finish_rechecks_photo_mask_and_model_bytes(self):
+        with tempfile.TemporaryDirectory(dir=run.ROOT / ".local-tools/tmp") as tmp:
+            root = Path(tmp)
+            model = root / "model"
+            model.mkdir()
+            camera = model / "cameras.bin"
+            photo = root / "image.jpg"
+            mask = root / "image.jpg.png"
+            camera.write_bytes(b"camera")
+            photo.write_bytes(b"photo")
+            mask.write_bytes(b"mask1")
+            manifest = {"images": [{"name": "image.jpg", "path": str(photo),
+                                    "pose_support_mask": str(mask)}]}
+            filtering = {"model_dir": str(model), "model_files_sha256": {"cameras.bin": run.digest(camera)},
+                         "image_sha256": {"image.jpg": run.digest(photo)},
+                         "mask_sha256": {"image.jpg": run.digest(mask)}}
+            finish.verify_filter_files(filtering, manifest)
+            mask.write_bytes(b"mask2")
+            with self.assertRaisesRegex(ValueError, "mask changed"):
+                finish.verify_filter_files(filtering, manifest)
+
     def test_stage_timeout_is_recorded_and_process_stopped(self):
         with tempfile.TemporaryDirectory(dir=run.ROOT / ".local-tools/tmp") as tmp:
             root = Path(tmp)
@@ -37,6 +64,19 @@ class SelectionAndFailureTests(unittest.TestCase):
             self.assertEqual(result["status"], "failed")
             self.assertEqual(result["failure"], "deadline exceeded")
             self.assertTrue((root / "timeout.log").is_file())
+
+    def test_folder_size_tolerates_native_atomic_replacement(self):
+        with tempfile.TemporaryDirectory(dir=run.ROOT / ".local-tools/tmp") as tmp:
+            root = Path(tmp)
+            (root / "stable.dmap").write_bytes(b"1234")
+            (root / "vanishing.dmap").write_bytes(b"old")
+            original = Path.stat
+            def transient_stat(path, *args, **kwargs):
+                if path.name == "vanishing.dmap":
+                    raise FileNotFoundError(path)
+                return original(path, *args, **kwargs)
+            with mock.patch.object(Path, "stat", transient_stat):
+                self.assertEqual(run.folder_bytes(root), 4)
 
     def test_artifact_header_rejects_empty_geometry(self):
         with tempfile.TemporaryDirectory(dir=run.ROOT / ".local-tools/tmp") as tmp:
@@ -115,10 +155,13 @@ class SelectionAndFailureTests(unittest.TestCase):
                                            "model_files_sha256": model_hashes,
                                            "producer_provenance_sha256": run.digest(provenance)}))
             args = argparse.Namespace(images=images, output=root / "out", image_list=None,
+                                      pose_mask_dir=None,
                                       sparse_model=model, sparse_provenance=provenance,
                                       sparse_manifest=manifest, sparse_result=summary,
                                       binary_dir=root, python=Path(sys.executable), max_views=3,
                                       max_image_size=1200, max_threads=2, camera_model="SIMPLE_RADIAL",
+                                      matching="exhaustive", sequential_overlap=8,
+                                      sift_max_features=1800, sift_max_image_size=1200, seed=0,
                                       min_registered_fraction=0.7, max_gib=0.1,
                                       max_rss_gib=1, max_log_mib=1, timeout_minutes=1)
             failure = {"name": "reuse_sfm", "status": "failed", "exit_code": 99,

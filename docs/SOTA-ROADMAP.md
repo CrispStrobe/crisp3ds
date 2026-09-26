@@ -43,6 +43,14 @@ completed backend. Stop and report material new authority or infrastructure need
 
 ## Experiment contract
 
+Execution checkpoint (2026-09-27): S01 documented; S04 implemented and independently
+checked. S02/S03/S05/S06 have real YCB results, including failed controls, a recovered
+textured mesh and a fixed-mask surface improvement (12.77% to 38.15% F at 1%).
+They are not accepted as complete: fresh alignment replay failed, masks remain
+object-specific, surface quality is rejected and held-out/portable live scans are
+outstanding. See [YCB-COMPARISON.md](YCB-COMPARISON.md). Stabilizing the replay and
+improving object-only depth/support now precede learned/GPU/product expansion.
+
 - Freeze image hashes, selection, resolution, masks, camera model, parameters,
   versions, timeout, memory/output limits and evaluation scope before comparing.
 - Preserve originals. No reference scan vertices, reference-derived tracks/masks,

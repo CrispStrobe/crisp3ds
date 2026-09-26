@@ -17,7 +17,7 @@ import subprocess
 import sys
 import time
 
-from scripts.mve_full.run import ply_counts
+from scripts.classical_backend.geometry import counts as ply_counts
 
 ROOT = Path(__file__).resolve().parents[2]
 BIN = ROOT / ".local-tools/classical-backend/bin"
@@ -25,6 +25,12 @@ PYTHON = ROOT / ".local-tools/colmap-sparse/venv/bin/python"
 RESERVE = 10 << 30
 SUFFIXES = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 TOOLS = ("InterfaceCOLMAP", "DensifyPointCloud", "ReconstructMesh", "RefineMesh", "TextureMesh")
+
+
+def tool_path(directory: Path, name: str, *, windows: bool | None = None) -> Path:
+    if windows is None:
+        windows = os.name == "nt"
+    return directory / (name + (".exe" if windows else ""))
 
 
 def digest(path: Path) -> str:
@@ -38,9 +44,17 @@ def digest(path: Path) -> str:
 def folder_bytes(path: Path) -> int:
     total = 0
     for base, dirs, files in os.walk(path, followlinks=False):
-        if any((Path(base) / name).is_symlink() for name in dirs + files):
-            raise ValueError("output contains a symlink")
-        total += sum((Path(base) / name).stat().st_size for name in files)
+        for name in dirs + files:
+            entry = Path(base) / name
+            try:
+                if entry.is_symlink():
+                    raise ValueError("output contains a symlink")
+                if name in files:
+                    total += entry.stat().st_size
+            except FileNotFoundError:
+                # Native tools atomically replace depth maps; a vanished entry
+                # can be counted on the next poll or at final validation.
+                continue
     return total
 
 
@@ -64,7 +78,7 @@ def photos(directory: Path, list_file: Path | None, max_views: int) -> list[Path
 
 def checked_ply(path: Path, element: str) -> int:
     """Parse every vertex and face, including finite positions and triangle indices."""
-    vertices, faces = ply_counts(path, allow_degenerate=True)
+    vertices, faces = ply_counts(path)
     count = {"vertex": vertices, "face": faces}[element]
     if count < 1:
         raise ValueError(f"PLY has no {element}: {path}")
@@ -129,7 +143,9 @@ def obj_counts(path: Path) -> tuple[int, int]:
 
 
 def worker(kind: str, run: Path, max_pixels: int, external_model: Path | None = None,
-           camera_model: str = "SIMPLE_RADIAL") -> None:
+           camera_model: str = "SIMPLE_RADIAL", matching: str = "exhaustive",
+           sequential_overlap: int = 8, sift_max_features: int = 8192,
+           sift_max_image_size: int = 3200, seed: int = 0) -> None:
     os.environ.setdefault("OPENBLAS_NUM_THREADS", "2")
     import pycolmap
 
@@ -138,13 +154,19 @@ def worker(kind: str, run: Path, max_pixels: int, external_model: Path | None = 
     options_path = run / "pycolmap-options.json"
     recorded = json.loads(options_path.read_text()) if options_path.exists() else {
         "version": pycolmap.__version__, "binary_sha256": digest(Path(pycolmap._core.__file__)),
-        "seed": 0, "device": "cpu", "camera_mode": "SINGLE", "camera_model": camera_model}
+        "seed": seed, "device": "cpu", "camera_mode": "SINGLE", "camera_model": camera_model,
+        "matching_strategy": matching}
+    pycolmap.set_random_seed(seed)
     if kind == "features":
         reader = pycolmap.ImageReaderOptions()
         reader.camera_model = camera_model
         reader.default_focal_length_factor = 1.2
+        if (run / "masks").is_dir():
+            reader.mask_path = str(run / "masks")
         sift = pycolmap.SiftExtractionOptions()
         sift.num_threads = 2
+        sift.max_num_features = sift_max_features
+        sift.max_image_size = sift_max_image_size
         recorded.update(image_reader=reader.todict(), sift_extraction=sift.todict())
         options_path.write_text(json.dumps(recorded, indent=2, default=str) + "\n")
         pycolmap.extract_features(str(run / "database.db"), str(image_dir), names,
@@ -154,18 +176,34 @@ def worker(kind: str, run: Path, max_pixels: int, external_model: Path | None = 
     elif kind == "matching":
         sift = pycolmap.SiftMatchingOptions()
         sift.num_threads = 2
-        recorded.update(sift_matching=sift.todict(), matching="exhaustive")
-        options_path.write_text(json.dumps(recorded, indent=2, default=str) + "\n")
-        pycolmap.match_exhaustive(str(run / "database.db"), sift_options=sift,
-                                  device=pycolmap.Device.cpu)
+        verification = pycolmap.TwoViewGeometryOptions()
+        if matching == "sequential":
+            pairer = pycolmap.SequentialMatchingOptions()
+            pairer.overlap = sequential_overlap
+            pairer.quadratic_overlap = False
+            pairer.loop_detection = False
+            recorded.update(sift_matching=sift.todict(), sequential_matching=pairer.todict(),
+                            two_view_geometry=verification.todict())
+            options_path.write_text(json.dumps(recorded, indent=2, default=str) + "\n")
+            pycolmap.match_sequential(str(run / "database.db"), sift_options=sift,
+                                      matching_options=pairer, verification_options=verification,
+                                      device=pycolmap.Device.cpu)
+        else:
+            pairer = pycolmap.ExhaustiveMatchingOptions()
+            recorded.update(sift_matching=sift.todict(), exhaustive_matching=pairer.todict(),
+                            two_view_geometry=verification.todict())
+            options_path.write_text(json.dumps(recorded, indent=2, default=str) + "\n")
+            pycolmap.match_exhaustive(str(run / "database.db"), sift_options=sift,
+                                      matching_options=pairer, verification_options=verification,
+                                      device=pycolmap.Device.cpu)
     elif kind in ("sfm", "reuse_sfm"):
         if kind == "sfm":
-            pycolmap.set_random_seed(0)
             options = pycolmap.IncrementalPipelineOptions()
             options.num_threads = 2
             options.mapper.num_threads = 2
             options.multiple_models = False
             options.max_num_models = 1
+            options.min_model_size = 2
             recorded.update(incremental_pipeline=options.todict())
             options_path.write_text(json.dumps(recorded, indent=2, default=str) + "\n")
             models = pycolmap.incremental_mapping(str(run / "database.db"), str(image_dir),
@@ -286,7 +324,7 @@ def check_toolchain(binary_dir: Path, python: Path) -> dict:
         raise ValueError(f"PyCOLMAP venv missing: {python}")
     hashes = {}
     for name in TOOLS:
-        path = binary_dir / name
+        path = tool_path(binary_dir, name)
         if not path.is_file() or not os.access(path, os.X_OK):
             raise ValueError(f"OpenMVS executable missing: {path}")
         hashes[name] = digest(path)
@@ -314,7 +352,8 @@ def run(args: argparse.Namespace) -> dict:
               "inputs": [], "stages": [], "shipping_approved": False,
               "metric_scale_verified": False, "quality_accepted": False,
               "sfm_camera_mode": "from_imported_model" if args.sparse_model else "SINGLE",
-              "sfm_camera_model": "from_imported_model" if args.sparse_model else args.camera_model}
+              "sfm_camera_model": "from_imported_model" if args.sparse_model else args.camera_model,
+              "pose_masks": []}
     def save():
         (output / "result.json").write_text(json.dumps(report, indent=2) + "\n")
     save()
@@ -370,9 +409,12 @@ def run(args: argparse.Namespace) -> dict:
             else:
                 report["sfm_source"]["kind"] = "external_unverified_model"
         else:
-            report["sfm_source"] = {"kind": "internal_image_only_pycolmap", "random_seed": 0,
-                                    "matching": "exhaustive", "camera_mode": "SINGLE",
-                                    "camera_model": args.camera_model}
+            report["sfm_source"] = {"kind": "internal_image_only_pycolmap", "random_seed": args.seed,
+                                    "matching": args.matching, "camera_mode": "SINGLE",
+                                    "camera_model": args.camera_model,
+                                    "sift_max_features": args.sift_max_features,
+                                    "sift_max_image_size": args.sift_max_image_size,
+                                    "sequential_overlap": args.sequential_overlap}
         save()
         for source in selection:
             if shutil.disk_usage(output).free < RESERVE + source.stat().st_size or \
@@ -385,6 +427,24 @@ def run(args: argparse.Namespace) -> dict:
                 raise ValueError(f"copied photograph hash differs: {source}")
             report["inputs"].append({"name": source.name, "source": str(source.resolve()),
                                      "sha256": original_hash, "bytes": source.stat().st_size})
+        if args.pose_mask_dir:
+            masks = args.pose_mask_dir.resolve()
+            if not masks.is_dir() or masks.is_symlink():
+                raise ValueError("--pose-mask-dir must be a real directory")
+            (output / "masks").mkdir()
+            for item in report["inputs"]:
+                mask = masks / (item["name"] + ".png")
+                if mask.is_symlink() or not mask.is_file() or mask.stat().st_size < 1:
+                    raise ValueError(f"missing pose mask: {mask}")
+                if (shutil.disk_usage(output).free < RESERVE + mask.stat().st_size or
+                        folder_bytes(output) + mask.stat().st_size > args.max_gib * (1 << 30)):
+                    raise ValueError("pose mask copy would exceed disk reserve or output limit")
+                target = output / "masks" / mask.name
+                shutil.copyfile(mask, target)
+                mask_hash = digest(mask)
+                if digest(target) != mask_hash:
+                    raise ValueError(f"copied pose mask differs: {mask}")
+                report["pose_masks"].append({"name": mask.name, "source": str(mask), "sha256": mask_hash})
         (output / "inputs.json").write_text(json.dumps(report["inputs"], indent=2) + "\n")
         if args.sparse_model and args.sparse_provenance:
             chosen_hashes = {item["name"]: item["sha256"] for item in report["inputs"]}
@@ -421,25 +481,31 @@ def run(args: argparse.Namespace) -> dict:
             execute(kind, [args.python, "-m", "scripts.classical_backend.run", "--worker", kind,
                            "--output", output, "--max-image-size", args.max_image_size,
                            "--camera-model", args.camera_model,
+                           "--matching", args.matching, "--sequential-overlap", args.sequential_overlap,
+                           "--sift-max-features", args.sift_max_features,
+                           "--sift-max-image-size", args.sift_max_image_size,
+                           "--seed", args.seed,
                            *(["--sparse-model", args.sparse_model.resolve()] if args.sparse_model else [])], check)
             if kind in ("sfm", "reuse_sfm") and report["stages"][-1]["artifact"]["registered_images"] / len(selection) < args.min_registered_fraction:
                 raise ValueError("registered image fraction below threshold")
         dense = output / "dense"
         common = ["--max-threads", str(args.max_threads), "--working-folder", str(output)]
-        execute("import", [binary_dir / "InterfaceCOLMAP", "-i", dense,
+        execute("import", [tool_path(binary_dir, "InterfaceCOLMAP"), "-i", dense,
                            "-o", output / "scene.mvs", "--image-folder", dense / "images", *common],
                 lambda: {"bytes": nonempty_bytes(output / "scene.mvs")})
-        execute("densify", [binary_dir / "DensifyPointCloud", "-i", output / "scene.mvs",
+        execute("densify", [tool_path(binary_dir, "DensifyPointCloud"), "-i", output / "scene.mvs",
                             "-o", output / "dense.mvs", "--resolution-level", "2", *common],
                 lambda: {"points": checked_ply(output / "dense.ply", "vertex")})
-        execute("mesh", [binary_dir / "ReconstructMesh", "-i", output / "dense.mvs",
-                         "-o", output / "mesh.mvs", *common],
+        execute("mesh", [tool_path(binary_dir, "ReconstructMesh"), "-i", output / "dense.mvs",
+                         "-p", output / "dense.ply", "-o", output / "mesh.mvs", *common],
                 lambda: {"faces": checked_ply(output / "mesh.ply", "face")})
-        execute("refine", [binary_dir / "RefineMesh", "-i", output / "mesh.mvs",
-                           "-o", output / "refined.mvs", "--resolution-level", "1", *common],
+        execute("refine", [tool_path(binary_dir, "RefineMesh"), "-i", output / "dense.mvs",
+                           "-m", output / "mesh.ply", "-o", output / "refined.mvs",
+                           "--resolution-level", "1", "--scales", "1", *common],
                 lambda: {"faces": checked_ply(output / "refined.ply", "face")})
-        execute("texture", [binary_dir / "TextureMesh", "-i", output / "refined.mvs",
-                            "-o", output / "textured.mvs", "--export-type", "obj", *common],
+        execute("texture", [tool_path(binary_dir, "TextureMesh"), "-i", output / "dense.mvs",
+                            "-m", output / "refined.ply", "-o", output / "textured.mvs",
+                            "--export-type", "obj", *common],
                 lambda: dict(zip(("vertices", "faces"), obj_counts(output / "textured.obj"))))
         report["status"] = "complete"
     except StageError as error:
@@ -451,8 +517,10 @@ def run(args: argparse.Namespace) -> dict:
     report["free_bytes_after"] = shutil.disk_usage(output).free
     report["changed_source_images"] = [item["name"] for item in report["inputs"]
                                        if digest(Path(item["source"])) != item["sha256"]]
+    report["changed_pose_masks"] = [item["name"] for item in report["pose_masks"]
+                                    if digest(Path(item["source"])) != item["sha256"]]
     report["changed_binaries"] = [name for name, before in (software or {}).get("openmvs_binaries", {}).items()
-                                  if digest(binary_dir / name) != before]
+                                  if digest(tool_path(binary_dir, name)) != before]
     if args.sparse_model and report.get("sfm_source"):
         report["changed_sparse_model_files"] = [name for name, before in report["sfm_source"]["files_sha256"].items()
                                                 if digest(args.sparse_model.resolve() / name) != before]
@@ -462,7 +530,7 @@ def run(args: argparse.Namespace) -> dict:
                                ("manifest", "manifest_sha256")):
                 if digest(Path(report["sfm_source"][label + "_path"])) != report["sfm_source"][key]:
                     report.setdefault("changed_sparse_source_files", []).append(label)
-    if (report["changed_source_images"] or report["changed_binaries"] or
+    if (report["changed_source_images"] or report["changed_pose_masks"] or report["changed_binaries"] or
             report.get("changed_sparse_model_files") or report.get("changed_sparse_source_files")):
         report.update(status="failed", failure="input or OpenMVS binary changed during run")
     save()
@@ -474,6 +542,8 @@ def main() -> int:
     parser.add_argument("--images", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--image-list", type=Path)
+    parser.add_argument("--pose-mask-dir", type=Path,
+                        help="optional photo-derived pose masks named IMAGE_NAME.png")
     parser.add_argument("--sparse-model", type=Path, help="reuse an independently produced image-only COLMAP model")
     parser.add_argument("--sparse-provenance", type=Path, help="producer's object-motion raw provenance.json")
     parser.add_argument("--sparse-result", type=Path, help="producer's sealed summary.json with model hashes")
@@ -484,6 +554,11 @@ def main() -> int:
     parser.add_argument("--max-image-size", type=int, default=1600)
     parser.add_argument("--camera-model", choices=("SIMPLE_RADIAL", "SIMPLE_PINHOLE"),
                         default="SIMPLE_RADIAL")
+    parser.add_argument("--matching", choices=("exhaustive", "sequential"), default="exhaustive")
+    parser.add_argument("--sequential-overlap", type=int, default=8)
+    parser.add_argument("--sift-max-features", type=int, default=8192)
+    parser.add_argument("--sift-max-image-size", type=int, default=3200)
+    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-threads", type=int, default=2)
     parser.add_argument("--min-registered-fraction", type=float, default=0.7)
     parser.add_argument("--max-gib", type=float, default=2.0)
@@ -493,7 +568,9 @@ def main() -> int:
     parser.add_argument("--worker", choices=("features", "matching", "sfm", "reuse_sfm", "undistort"))
     args = parser.parse_args()
     if args.worker:
-        worker(args.worker, args.output, args.max_image_size, args.sparse_model, args.camera_model)
+        worker(args.worker, args.output, args.max_image_size, args.sparse_model, args.camera_model,
+               args.matching, args.sequential_overlap, args.sift_max_features,
+               args.sift_max_image_size, args.seed)
         return 0
     if (not args.images or not (3 <= args.max_views <= 200) or args.max_threads < 1
             or not math.isfinite(args.max_gib) or args.max_gib <= 0
@@ -501,6 +578,8 @@ def main() -> int:
             or not math.isfinite(args.timeout_minutes) or args.timeout_minutes <= 0
             or not math.isfinite(args.min_registered_fraction)
             or not 0 < args.min_registered_fraction <= 1 or args.max_image_size < 1
+            or args.sequential_overlap < 1 or args.sift_max_features < 1 or args.sift_max_image_size < 1
+            or args.seed < 0 or (args.pose_mask_dir and args.sparse_model)
             or bool(args.sparse_provenance) != bool(args.sparse_manifest)
             or bool(args.sparse_provenance) != bool(args.sparse_result)
             or (args.sparse_provenance and not args.sparse_model)):

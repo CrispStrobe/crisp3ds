@@ -13,6 +13,20 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
+Latest supervised checkpoint: the 60-real-photo YCB classical path has produced
+a textured mesh on M1 through explicitly recorded recovery stages. An image-only
+multi-view support filter improves whole-surface F at 1% reference diagonal from
+12.77% to 38.15%, but the mesh still fails quality acceptance. A fresh standalone
+replay registered only 2/60 views, so repeatable e2e success remains unresolved.
+See [all outcomes and failures](YCB-COMPARISON.md). No KIRI parity is established;
+the C++/Tauri production reconstruction action remains gated.
+
+Latest local validation: Python discovery ran 201 tests successfully (8 skipped);
+rebuilt native OpenCV core passed all 11 CTests. Earlier this batch, 30 desktop
+tests and the web build passed. The Mac retains about 19 GiB free. A CI-only test
+dependency on ignored local provenance was replaced with a checked-in, hash-traced
+mapper-options fixture; the next foundation run must validate that fix remotely.
+
 The user approved [SOTA-ROADMAP.md](SOTA-ROADMAP.md). Three supervised Sol tasks
 are now implementing an established COLMAP/OpenMVS CPU path, object-motion and
 shared-intrinsics experiments, and better surface evaluation. These are active
@@ -21,7 +35,11 @@ product engine. Backend quality gates precede Tauri reconstruction integration.
 
 The first new live control, [60-photo raw YCB](YCB-COMPARISON.md), failed MVE
 camera initialization in 267.14 seconds (not a timeout), with no mesh produced.
-The classical/shared-intrinsics and foreground comparisons are in progress.
+The raw COLMAP/shared-intrinsics arm registered only 2/60 views. Changing feature
+eligibility to photo-derived pose-support masks registered 60/60, with 3,939
+points and a near-planar, consistently ordered orbit. Root independently loaded
+both models. This is a camera-estimation improvement, not mesh acceptance; the
+foreground model subsequently completed the recovered surface/texturing trial above.
 OpenMVS v2.4.0's pinned arm64 release tools start on M1; this alone does not
 establish a working pipeline, binary dependency clearance or cross-platform use.
 
@@ -33,12 +51,14 @@ the mesh remains rejected. Root independently compared the distance calculation
 against 4,181 scalar point/triangle pairs (maximum squared-distance discrepancy
 2.78e-16). The YCB same-mesh control gives 100% F at its tested tolerances.
 
-Root independently reran the isolated Python suite: 183 tests passed with 8 skips;
+Root independently reran the isolated Python suite: 191 tests passed with 8 skips;
 11 native CTests, 30 desktop tests and the desktop production build also passed.
 The generic system Python suite lacked PyCOLMAP; the complete pass uses the
 existing isolated environment with pinned NumPy, Pillow, PyCOLMAP and OpenCV.
-The new three-platform quality-harness workflow is configured, not yet remotely
-verified. Heavy photo tests are separate from these contract/unit checks.
+The new [quality-harness workflow](https://github.com/CrispStrobe/crisp3ds/actions/runs/36277497472)
+passed on macOS, Linux and Windows at `bb3c80c`. Heavy photo tests are separate
+from these contract/unit checks. The dependency metadata checker also passed
+against 530 exact entries; experimental binaries remain outside shipping approval.
 
 ## CPU photo-to-mesh integration and real object reference
 
