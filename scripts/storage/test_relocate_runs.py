@@ -1,0 +1,84 @@
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+from scripts.storage.relocate_runs import ALLOWLIST, inventory, relocate
+
+
+class RelocationTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.workspace = self.root / "workspace"
+        self.destination = self.root / "external" / "code" / "crisp3ds-data" / "build-opencv"
+        self.mount = self.root / "external"
+        self.mount.mkdir()
+        self.name = sorted(ALLOWLIST)[0]
+        self.source = self.workspace / "build-opencv" / self.name
+        (self.source / "nested").mkdir(parents=True)
+        (self.source / "nested" / "result.json").write_text('{"status":"complete"}')
+        self.options = dict(workspace=self.workspace, destination_root=self.destination,
+                            mount=self.mount, min_free=0, require_mount=False)
+
+    def test_verified_copy_then_symlink_with_external_audit(self):
+        before = inventory(self.source)
+        result = relocate(self.name, **self.options)
+        self.assertTrue(result["link_verified"])
+        self.assertTrue(result["backup_removed"])
+        self.assertTrue(self.source.is_symlink())
+        self.assertEqual(inventory(self.destination / self.name), before)
+        audit = self.destination / ".relocation-audits" / (self.name + ".json")
+        self.assertEqual(json.loads(audit.read_text())["inventory"], before)
+        self.assertFalse(self.source.with_name(self.name + ".relocation-backup").exists())
+
+    def test_fresh_destination_and_allowlist(self):
+        with self.assertRaisesRegex(ValueError, "allowlist"):
+            relocate("not-allowed", **self.options)
+        (self.destination / self.name).mkdir(parents=True)
+        with self.assertRaisesRegex(ValueError, "no overwrite"):
+            relocate(self.name, **self.options)
+        self.assertFalse(self.source.is_symlink())
+
+    def test_rejects_symlink_without_copy(self):
+        (self.source / "nested" / "bad").symlink_to(self.root)
+        with self.assertRaisesRegex(ValueError, "symlink"):
+            relocate(self.name, **self.options)
+        self.assertFalse((self.destination / self.name).exists())
+
+    def test_copy_mutation_preserves_original_and_copy(self):
+        import scripts.storage.relocate_runs as mod
+        original = mod.shutil.copytree
+
+        def altered(*args, **kwargs):
+            result = original(*args, **kwargs)
+            (self.source / "nested" / "result.json").write_text("changed")
+            return result
+
+        with patch.object(mod.shutil, "copytree", side_effect=altered):
+            with self.assertRaisesRegex(ValueError, "inventory changed"):
+                relocate(self.name, **self.options)
+        self.assertTrue(self.source.is_dir())
+        self.assertFalse(self.source.is_symlink())
+        self.assertTrue((self.destination / self.name).is_dir())
+
+    def test_final_mount_failure_retains_backup_and_verified_copy(self):
+        import scripts.storage.relocate_runs as mod
+        device = self.mount.stat().st_dev
+        options = dict(self.options, require_mount=True)
+        with patch.object(mod, "verify_external_mount", side_effect=[device, ValueError("unmounted")]):
+            with self.assertRaisesRegex(ValueError, "unmounted"):
+                relocate(self.name, **options)
+        backup = self.source.with_name(self.name + ".relocation-backup")
+        self.assertTrue(self.source.is_dir())
+        self.assertFalse(self.source.is_symlink())
+        self.assertFalse(backup.exists())
+        self.assertEqual(inventory(self.source), inventory(self.destination / self.name))
+        audit = self.destination / ".relocation-audits" / (self.name + ".json")
+        self.assertFalse(json.loads(audit.read_text())["backup_removed"])
+
+
+if __name__ == "__main__":
+    unittest.main()
