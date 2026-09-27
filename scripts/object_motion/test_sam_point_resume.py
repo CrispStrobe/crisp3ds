@@ -86,6 +86,9 @@ class SAMPointResumeTests(unittest.TestCase):
                                                            "runner_sha256": resume.dependencies()["runner_sha256"]}}))
             receipt["frame_manifest_sha256"] = common.digest(path)
             receipt_path.write_text(json.dumps(receipt))
+            self.assertEqual(len(resume.verified_frames(root, rows, prompts, sealed)), 2)
+            with self.assertRaisesRegex(ValueError, "frozen resume inference"):
+                resume.verified_frames(root, rows, prompts, sealed, expected_producer_sha="1" * 64)
             (root / "frames" / "HELDOUT.jpg").mkdir()
             with self.assertRaisesRegex(ValueError, "inventory mismatch"):
                 resume.verified_frames(root, rows, prompts, sealed)

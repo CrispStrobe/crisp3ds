@@ -20,6 +20,7 @@ ALLOWLIST = frozenset({
     "classical-ycb-native-masked-011-continuation",
     "classical-ycb-calibrated-012",
     "classical-bunny-retry-dense-002",
+    "classical-bunny-native-masked-005",
 })
 MIN_EXTERNAL_FREE = 10 * 1024**3
 COPY_BUFFER = 256 * 1024**2

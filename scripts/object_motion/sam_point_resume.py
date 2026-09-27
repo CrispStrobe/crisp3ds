@@ -227,8 +227,13 @@ def import_prior(root, prior_root, rows, prompts, sealed, invocation_id, dataset
         publish_frame(root, f"import-{invocation_id}", record, raw_bytes, clean_bytes)
 
 
-def verified_frames(root, rows, prompts, sealed):
+def verified_frames(root, rows, prompts, sealed, expected_producer_sha=None):
     root = Path(root)
+    if expected_producer_sha is None:
+        expected_producer_sha = dependencies()["runner_sha256"]
+    if (not isinstance(expected_producer_sha, str) or len(expected_producer_sha) != 64 or
+            any(char not in "0123456789abcdef" for char in expected_producer_sha)):
+        raise ValueError("expected producer SHA-256 must be a lowercase digest")
     expected = {Path(row["path"]).name: (row, prompt) for row, prompt in zip(rows, prompts)}
     result = {}
     sealed_by_name = {row["name"]: (index, row) for index, row in enumerate(sealed)}
@@ -272,7 +277,7 @@ def verified_frames(root, rows, prompts, sealed):
                     record.get("cleaned_mask_sha256") != prior["cleaned_mask_sha256"]):
                 raise ValueError("first 16 must derive only from sealed prior")
         elif (producer.get("kind") != "resume_inference" or
-              producer.get("runner_sha256") != dependencies()["runner_sha256"] or
+              producer.get("runner_sha256") != expected_producer_sha or
               not isinstance(producer.get("invocation_id"), str) or
               not producer["invocation_id"].isdigit()):
             raise ValueError("later frames must derive from frozen resume inference")

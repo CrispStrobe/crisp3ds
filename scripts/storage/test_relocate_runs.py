@@ -9,6 +9,15 @@ from scripts.storage.relocate_runs import (ALLOWLIST, inventory, link_points_to_
 
 
 class RelocationTests(unittest.TestCase):
+    def test_allowlist_extension_is_only_completed_bunny_masked_run(self):
+        self.assertEqual(ALLOWLIST, frozenset({
+            "classical-ycb-native-masked-009",
+            "classical-ycb-native-masked-011-continuation",
+            "classical-ycb-calibrated-012",
+            "classical-bunny-retry-dense-002",
+            "classical-bunny-native-masked-005",
+        }))
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
