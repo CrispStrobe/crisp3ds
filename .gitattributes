@@ -1,1 +1,3 @@
 scripts/mve_full/*.patch text eol=lf
+tests/datasets/sam21_mustard_point48_prompts.json text eol=lf
+tests/datasets/sam21_mustard_point_prompts.json text eol=lf
