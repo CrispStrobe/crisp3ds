@@ -1,0 +1,39 @@
+{
+  "schema": "external_pipeline_summary_v1",
+  "run_id": "ycb_turntable_fresh_005",
+  "dataset_id": "ycb_np3_60",
+  "host": "Apple M1",
+  "pipeline": "PyCOLMAP 3.11.1 sparse followed by OpenMVS 2.4.0 CPU dense, mesh, refine, texture",
+  "composition": "fresh sparse producer and separate native dense continuation",
+  "inputs": "60 original Berkeley NP3 cracker-box RGB photos and photo-derived coarse masks; Berkeley rig metadata and Google scanner mesh excluded from reconstruction",
+  "artifacts": {
+    "result_ref": "/Volumes/backups/code/crisp3ds-data/turntable-fresh-openmvs-005/result.json",
+    "result_sha256": "dafc6ccb2a90f0c5a45748291571455237acd8ae08da01dd80adc10222a3625e",
+    "score_ref": "/Volumes/backups/code/crisp3ds-data/turntable-fresh-openmvs-score-005/score.json",
+    "score_sha256": "165b8d5169e8bdb917f008864b01c434f4e03455b6ffe688d8ae8a824b2847c9",
+    "sparse_report_ref": "/Volumes/backups/code/crisp3ds-data/turntable-sparse-fresh-fixed-004/turntable-profile.json",
+    "sparse_report_sha256": "d302084d806989d86666030c060f64380952f5503162a4b4aad295d04b846571",
+    "camera_gate_ref": "/Volumes/backups/code/crisp3ds-data/turntable-sparse-fresh-fixed-004/independent-camera-gate.json",
+    "camera_gate_sha256": "1656ac8aea32650953f4ec83413cd9022f28ad85ef69cf91af0c46026f868214"
+  },
+  "result": {
+    "status": "complete",
+    "registered_cameras": 60,
+    "native_depth_maps_audited": 60,
+    "positive_depth_pixels_outside_masks": 0,
+    "dense_points": 149337,
+    "refined_textured_vertices": 5351,
+    "refined_textured_faces": 10698,
+    "quality_accepted": false,
+    "metric_scale_verified": false,
+    "shipping_approved": false
+  },
+  "score": {
+    "reference": "independent Google scanner mesh, used only after reconstruction",
+    "metric": "surface F1 at 1% of reference bounding-box diagonal",
+    "reference_fitted_sim3": 0.4223070276497696,
+    "transported_006_gauge": 0.3091683783255086,
+    "interpretation": "Post hoc reference fit and conditional shared-gauge diagnostic; neither establishes physical metric accuracy or object-quality acceptance"
+  },
+  "license_scope": "OpenMVS AGPL-3.0 evaluation oracle; no approval to bundle or ship its binary"
+}

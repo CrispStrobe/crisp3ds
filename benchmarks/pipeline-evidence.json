@@ -14,7 +14,7 @@
       "execution_state": "executed",
       "artifact_type": "mesh",
       "camera_lanes": ["image_estimated", "calibrated_intrinsics"],
-      "doc_refs": ["docs/CLASSICAL-BACKEND.md", "docs/CALIBRATED-CONTROL.md", "docs/REGISTRATION-AUDIT.md"],
+      "doc_refs": ["docs/CLASSICAL-BACKEND.md", "docs/CALIBRATED-CONTROL.md", "docs/REGISTRATION-AUDIT.md", "docs/TURNTABLE-COMPLETE-PLAN.md"],
       "runs": [
         {
           "id": "ycb_native_masked_008",
@@ -57,6 +57,20 @@
           "result_sha256": "fa7709452b28b7ee24e3d05b5b8f51d9d681e79eb63488292816ff8a8490966f",
           "provenance_ref": "build-opencv/object-motion/calibration-ablation-002/calibrated_shifted/report.json",
           "provenance_sha256": "63cb424b390e21fe181c80ded8e61ad42a0e043bd100b4e4d4cd45c26df7bd95"
+        },
+        {
+          "id": "ycb_turntable_fresh_005",
+          "dataset_id": "ycb_np3_60",
+          "input_profile": "original_rgb_photo_masks",
+          "camera_lane": "image_estimated",
+          "artifact_type": "mesh",
+          "stage": "refined_mesh",
+          "composition": "composed",
+          "reference_scope": "independent_geometry",
+          "result_ref": "benchmarks/ycb-fresh-005-summary.json",
+          "result_sha256": "500f79c313a7e07500022d57b547f354f932dfc51dca38676cf80166bcae9757",
+          "provenance_ref": "benchmarks/ycb-fresh-005-summary.json",
+          "provenance_sha256": "500f79c313a7e07500022d57b547f354f932dfc51dca38676cf80166bcae9757"
         }
       ],
       "evidence": [
@@ -73,6 +87,13 @@
           "doc_ref": "docs/SENSOR-DEPTH-BENCHMARK.md",
           "scope": "Three fixed Berkeley depth frames on rough-mesh stages; conditional same-capture agreement, not metrology",
           "run_ids": ["ycb_native_masked_008_rough_sensor", "ycb_calibrated_014_rough"]
+        },
+        {
+          "kind": "measured_geometry",
+          "metric_target": "mesh",
+          "doc_ref": "docs/TURNTABLE-COMPLETE-PLAN.md",
+          "scope": "Fresh sparse 004 plus separate masked OpenMVS 005 continuation on M1; scanner-reference fitted F1@1%=0.4223070 and transported 006-gauge F1@1%=0.3091684 are conditional diagnostics, object quality rejected; AGPL evaluation oracle only",
+          "run_ids": ["ycb_turntable_fresh_005"]
         }
       ]
     },
@@ -167,6 +188,17 @@
       "artifact_type": "mesh",
       "camera_lanes": ["unverified"],
       "doc_refs": ["docs/BACKEND-EVALUATION.md", "docs/MTL-ALICEVISION.md"],
+      "runs": [],
+      "evidence": []
+    },
+    {
+      "id": "seedexr_alicevision_mac",
+      "name": "SeedeXR AliceVision for Mac, isolated Metal depth kernel executed",
+      "execution_state": "audited",
+      "audit_scope": "source_build_graph",
+      "artifact_type": "mesh",
+      "camera_lanes": ["unverified"],
+      "doc_refs": ["docs/ALICEVISION-MAC-ORACLE.md"],
       "runs": [],
       "evidence": []
     },
