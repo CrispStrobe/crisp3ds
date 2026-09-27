@@ -83,6 +83,20 @@ inside the fork's external `tmp`; no install, configure, network fetch,
 all-target build or cleanup is included. Save a separate one-shot build
 manifest and license closure receipt, retaining partial outputs on failure.
 
+The [sixth-target supervisor](../scripts/classical_backend/openmvg_converter_build.py)
+now implements that build gate. Its default invocation is read-only:
+
+```text
+python -m scripts.classical_backend.openmvg_converter_build
+```
+
+It pins the five-target receipt/log/source/graph hashes, requires the exact
+two-command delta and no new link library or framework, and rejects any
+existing sixth-target attempt. The separate `--build` path would create only
+`logs/07-converter-build.log`, `converter-build-manifest.json`, the converter
+binary and `converter-license-receipt.json` in the fork. **That path has not
+been run.** The manifest and receipt preserve the evaluation-only status.
+
 ## Separate one-shot conversion and neutral check
 
 Only after the sixth binary and its closure receipt pass review, a distinct
