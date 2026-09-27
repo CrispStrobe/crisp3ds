@@ -1,4 +1,6 @@
 scripts/mve_full/*.patch text eol=lf
+scripts/classical_backend/fixtures/openmvg_v21_multiview_CMakeLists.txt text eol=lf
+scripts/classical_backend/openmvg_v21_ligt_off.patch text eol=lf
 tests/datasets/sam21_mustard_point48_prompts.json text eol=lf
 tests/datasets/sam21_mustard_point_prompts.json text eol=lf
 scripts/sam_m1_setup/wheels.lock text eol=lf

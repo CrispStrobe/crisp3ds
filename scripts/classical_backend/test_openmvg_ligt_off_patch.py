@@ -13,16 +13,22 @@ from unittest import mock
 HERE = Path(__file__).parent
 PATCH = HERE / "openmvg_v21_ligt_off.patch"
 FIXTURE = HERE / "fixtures/openmvg_v21_multiview_CMakeLists.txt"
+ATTRIBUTES = HERE.parents[1] / ".gitattributes"
 SOURCE_SHA256 = "139ed9e2793e907c3fa74ea805c5b418336f51812ab7c56036aeb14e866233a3"
 
 
-def apply_fixture_patch(root: Path, check: bool = False) -> None:
+def fixture_git_env() -> dict[str, str]:
     # CI may export Git worktree/index variables. Keep `git apply` anchored to
     # this disposable fixture, never to the checkout running the tests.
     env = os.environ.copy()
     for key in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR",
                 "GIT_PREFIX", "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES"):
         env.pop(key, None)
+    return env
+
+
+def apply_fixture_patch(root: Path, check: bool = False) -> None:
+    env = fixture_git_env()
     subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True,
                    text=True, env=env)
     command = ["git", "-C", str(root), "apply"]
@@ -38,6 +44,30 @@ class LiGTOffPatchTest(unittest.TestCase):
         text = FIXTURE.read_text()
         self.assertIn("./LiGT/*.cpp", text)
         self.assertIn("file(GLOB_RECURSE REMOVEFILELIGT LiGT_*.cpp)", text)
+
+    @unittest.skipUnless(shutil.which("git"), "git needed for checkout EOL test")
+    def test_fixture_and_patch_stay_lf_with_autocrlf_checkout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = ("scripts/classical_backend/fixtures/openmvg_v21_multiview_CMakeLists.txt",
+                     "scripts/classical_backend/openmvg_v21_ligt_off.patch")
+            for path, source in ((".gitattributes", ATTRIBUTES), (paths[0], FIXTURE),
+                                 (paths[1], PATCH)):
+                target = root / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, target)
+            env = fixture_git_env()
+            subprocess.run(["git", "init", "-q", str(root)], check=True, env=env,
+                           capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(root), "add", ".gitattributes", *paths],
+                           check=True, env=env, capture_output=True, text=True)
+            for path in paths:
+                (root / path).unlink()
+            subprocess.run(["git", "-C", str(root), "-c", "core.autocrlf=true",
+                            "checkout-index", "--force", "--", *paths],
+                           check=True, env=env, capture_output=True, text=True)
+            self.assertEqual(hashlib.sha256((root / paths[0]).read_bytes()).hexdigest(), SOURCE_SHA256)
+            self.assertEqual((root / paths[1]).read_bytes(), PATCH.read_bytes())
 
     @unittest.skipUnless(shutil.which("git"), "git is needed for patch syntax check")
     def test_patch_applies_only_exclusion_fix(self):
