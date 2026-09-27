@@ -6,6 +6,7 @@ PyCOLMAP is imported only by the CLI; pure metric contracts remain CI-testable.
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import hashlib
 import json
 import math
@@ -76,7 +77,7 @@ def verified_graph(database: Path, names: list[str]) -> dict:
         raise ValueError("missing, linked, or oversized COLMAP database")
     if any(database.with_name(database.name + suffix).exists() for suffix in ("-wal", "-shm")):
         raise ValueError("database has mutable WAL/SHM sidecar; seal it first")
-    with sqlite3.connect(database.resolve().as_uri() + "?mode=ro&immutable=1", uri=True) as connection:
+    with closing(sqlite3.connect(database.resolve().as_uri() + "?mode=ro&immutable=1", uri=True)) as connection:
         image_rows = connection.execute("SELECT image_id,name FROM images").fetchall()
         ids = {int(image_id): name for image_id, name in image_rows}
         if len(ids) != len(names) or set(ids.values()) != set(names):

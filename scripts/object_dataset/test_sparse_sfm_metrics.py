@@ -1,4 +1,5 @@
 import math
+from contextlib import closing
 import importlib.util
 import json
 from pathlib import Path
@@ -46,15 +47,43 @@ class SparseSFMMetricsTests(unittest.TestCase):
         temp_root.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=temp_root) as directory:
             database = Path(directory) / "database.db"
-            with sqlite3.connect(database) as connection:
+            with closing(sqlite3.connect(database)) as connection:
                 connection.execute("CREATE TABLE images (image_id INTEGER, name TEXT)")
                 connection.execute("CREATE TABLE two_view_geometries (pair_id INTEGER, rows INTEGER)")
                 connection.executemany("INSERT INTO images VALUES (?,?)", [(1, "A"), (2, "B"), (3, "C")])
                 connection.executemany("INSERT INTO two_view_geometries VALUES (?,?)", [
                     (metrics.PAIR_BASE + 2, 10), (2 * metrics.PAIR_BASE + 3, 0)])
+                connection.commit()
             graph = metrics.verified_graph(database, ["A", "B", "C"])
             self.assertEqual(graph["component_sizes"], [2, 1])
             self.assertEqual(graph["verified_pair_edges"], 1)
+
+    def test_verified_graph_closes_connection_on_success_and_failure(self):
+        temp_root = Path(__file__).resolve().parents[2] / ".local-tools/tmp"
+        temp_root.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=temp_root) as directory:
+            database = Path(directory) / "database.db"
+            with closing(sqlite3.connect(database)) as connection:
+                connection.execute("CREATE TABLE images (image_id INTEGER, name TEXT)")
+                connection.execute("CREATE TABLE two_view_geometries (pair_id INTEGER, rows INTEGER)")
+                connection.execute("INSERT INTO images VALUES (1, 'A')")
+                connection.commit()
+            connect = sqlite3.connect
+            opened = []
+
+            def tracked_connect(*args, **kwargs):
+                connection = connect(*args, **kwargs)
+                opened.append(connection)
+                return connection
+
+            with patch.object(metrics.sqlite3, "connect", side_effect=tracked_connect):
+                self.assertEqual(metrics.verified_graph(database, ["A"])["component_count"], 1)
+                with self.assertRaisesRegex(ValueError, "inventory differs"):
+                    metrics.verified_graph(database, ["B"])
+            self.assertEqual(len(opened), 2)
+            for connection in opened:
+                with self.assertRaises(sqlite3.ProgrammingError):
+                    connection.execute("SELECT 1")
 
     def test_known_translated_cameras_tracks_and_reprojection_denominators(self):
         images = {
@@ -168,13 +197,14 @@ class SparseSFMMetricsTests(unittest.TestCase):
                                        pycolmap.Track([pycolmap.TrackElement(1, 0),
                                                       pycolmap.TrackElement(2, 0)]))
             reconstruction.write_binary(str(model_dir))
-            with sqlite3.connect(run / "database.db") as connection:
+            with closing(sqlite3.connect(run / "database.db")) as connection:
                 connection.execute("CREATE TABLE images (image_id INTEGER, name TEXT)")
                 connection.execute("CREATE TABLE two_view_geometries (pair_id INTEGER, rows INTEGER)")
                 connection.executemany("INSERT INTO images VALUES (?,?)",
                                        [(i + 1, name) for i, name in enumerate(names)])
                 connection.execute("INSERT INTO two_view_geometries VALUES (?,?)",
                                    (metrics.PAIR_BASE + 2, 10))
+                connection.commit()
             (run / "sfm.json").write_text(json.dumps({
                 "registered_images": 3, "sparse_points": 1,
                 "registered_names": names[:3], "candidate_models": [{"index": 0}]}))
