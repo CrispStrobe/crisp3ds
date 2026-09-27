@@ -1,4 +1,4 @@
-# Mustard OpenMVG ID-bearing pose export: validator awaiting seal
+# Mustard OpenMVG ID-bearing pose export: sealed validation
 
 Status: **implemented, synthetic-tested, and run read-only on the sealed export**.
 No converter, SfM, dense, or reference process was run by this validator. The
@@ -37,13 +37,15 @@ points. The named camera centers come from explicit cereal pose keys, removing
 the PLY/HTML source-order assumption in the earlier sparse diagnostic.
 
 The output keeps the **failed 48/48 registration gate** explicit even when
-46 linked poses validate. It computes the predeclared TRAIN-label 6°,
-12°/full-turn, and 180° center-chord diagnostics from the earlier
-[sparse plan](OPENMVG-MUSTARD-SPARSE-DIAGNOSTIC.md), with no reference poses
-or mesh. These are internal trajectory-shape measurements, not metric camera
-accuracy or object geometry quality. Rotations are checked for mathematical
-validity, not against supplied rig orientation. Track membership and
-independent reprojections remain outside the `-V -I -E` export.
+46 linked poses validate. It computes the TRAIN-label 6°, 12°/full-turn,
+and 180° center-chord diagnostics defined in the earlier
+[sparse diagnostic](OPENMVG-MUSTARD-SPARSE-DIAGNOSTIC.md), with no reference
+poses or mesh. Those chord flags were defined after the SfM result was seen;
+they are exploratory internal trajectory-shape measurements, not a
+predeclared acceptance gate, metric camera accuracy, or object geometry
+quality. Rotations are checked for mathematical validity, not against
+supplied rig orientation. Track membership and independent reprojections
+remain outside the `-V -I -E` export.
 
 The sealed receipt binds the source binary model SHA-256
 `dc11f9b3a74809ebc080260b360ff1dd0e6f9f9526ea151aac002ace75b2df8b`,
@@ -62,7 +64,7 @@ poses are `NP3_042.jpg` and `NP3_048.jpg`; status is
 `failed_48_of_48_gate`. Explicit `id_pose` links reproduce the earlier
 source-order orbit values exactly: median 6°/opposing chord ratio 0.5954
 (ideal circular value 0.0523), opposing chord p90/p10 21.01, and 000°–348°
-closure/other-12° median 0.3767. The first two predeclared orbit flags fail;
+closure/other-12° median 0.3767. The first two exploratory orbit flags fail;
 the local closure flag passes. This confirms the named mapping of the
 earlier diagnostic, while remaining an internal photo-only result.
 
