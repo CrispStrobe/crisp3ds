@@ -75,6 +75,13 @@ backends makes camera alignment or reflections automatically correct.
 | C07 | Sol + root, Kaggle | NeuS geometry baseline and AliceVision classical GPU control, one frozen scene each before expanding |
 | C08 | Root, acceptance | At least three untouched objects and retained failure rate; publish accuracy/completeness at fixed tolerances, normal/edge error, runtime and memory separately |
 
+C03 checkpoint: both acquisitions and full selected-file rehashes are complete;
+48/12 splits are frozen in [the evaluation protocol](YCB-EVALUATION-PROTOCOL.md).
+Reviewed masks and reference-frame registration remain open. One new M1
+[recovered-camera dense control](RECOVERED-DENSE.md) completed rough meshing;
+this is not C04's same-input VPS pipeline comparison. AliceVision's
+[SYCL build preflight](ALICEVISION-SYCL-PLAN.md) is implemented, not a built backend.
+
 C05–C07 require the remote preflight in [REMOTE-QUALITY.md](REMOTE-QUALITY.md)
 and the local usage guide before any GPU job upload. No neural run or GPU
 quota consumption has occurred. Reviewed dataset-fetch scripts were uploaded to

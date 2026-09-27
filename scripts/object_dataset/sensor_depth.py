@@ -361,14 +361,15 @@ def _load_mask(path):
 def _verified_camera_report(path, model, reference_report):
     report = json.loads(Path(path).read_text())
     if report.get("schema") not in ("ycb_berkeley_camera_oracle_v1",
-                                    "ycb_calibrated_berkeley_camera_oracle_v1"):
+                                    "ycb_calibrated_berkeley_camera_oracle_v1",
+                                    "ycb_recovered_berkeley_camera_oracle_v1"):
         raise ValueError("candidate needs Berkeley named-camera report")
     if report.get("source_archive_sha256") != reference_report["source_archive_sha256"]:
         raise ValueError("camera report uses different Berkeley reference poses or calibration")
     if report["schema"] == "ycb_berkeley_camera_oracle_v1":
         if report.get("metadata", {}).get("members") != reference_report["metadata"]["members"]:
             raise ValueError("original camera report metadata members differ")
-    else:
+    elif report["schema"] == "ycb_calibrated_berkeley_camera_oracle_v1":
         expected_members = {name: item["sha256"] for name, item in reference_report["metadata"]["members"].items()}
         producer_path = ROOT / "build-opencv/object-motion/calibration-ablation-002/calibrated_shifted/report.json"
         if (report.get("metadata_members_sha256") != expected_members
@@ -376,6 +377,36 @@ def _verified_camera_report(path, model, reference_report):
                 or report.get("calibration_h5_sha256") != sha256(CALIBRATION)
                 or report.get("producer_report_sha256") != sha256(producer_path)):
             raise ValueError("calibrated camera report lineage differs from sealed sources")
+    else:
+        from scripts.object_motion import recovered_camera_reference as recovered
+        expected_members = {name: item["sha256"] for name, item in reference_report["metadata"]["members"].items()}
+        five_path, four_path = recovered.PRODUCER_005, recovered.PRODUCER_004
+        if (sha256(five_path) != recovered.PRODUCER_005_SHA256 or
+                sha256(four_path) != recovered.PRODUCER_004_SHA256):
+            raise ValueError("recovered source 005/004 changed")
+        five, four = json.loads(five_path.read_text()), json.loads(four_path.read_text())
+        prepared = json.loads(recovered.PREPARED.read_text())
+        selected = json.loads(recovered.base.PHOTO_MANIFEST.read_text())
+        photos = {Path(item["path"]).name: item["sha256"] for item in selected["photos"]}
+        prepared_photos = {item["name"]: item["sha256"] for item in prepared["images"]}
+        if (report.get("metadata_members_sha256") != expected_members or
+                report.get("oracle_metadata_report_sha256") != sha256(REFERENCE_003) or
+                report.get("calibration_h5_sha256") != sha256(CALIBRATION) or
+                report.get("producer_005_report_sha256") != recovered.PRODUCER_005_SHA256 or
+                report.get("producer_004_report_sha256") != recovered.PRODUCER_004_SHA256 or
+                report.get("photo_manifest_sha256") != sha256(recovered.base.PHOTO_MANIFEST) or
+                report.get("prepared_manifest_sha256") != sha256(recovered.PREPARED) or
+                report.get("source_image_hashes") != photos or prepared_photos != photos or
+                four.get("source_image_hashes") != photos or
+                four.get("source_manifest_sha256") != report["prepared_manifest_sha256"] or
+                five.get("source_producer_report_sha256") != recovered.PRODUCER_004_SHA256 or
+                five.get("source_model_files_sha256") != four.get("model_files_sha256") or
+                five.get("input_model_copy_sha256") != four.get("model_files_sha256") or
+                five.get("refined_model_files_sha256") != report.get("producer_model_files_sha256") or
+                Path(five.get("refined_model_dir", "")).resolve() != Path(model).resolve() or
+                report.get("reference_mesh_used") is not False or
+                report.get("supplied_poses_used_for_mapping") is not False):
+            raise ValueError("recovered camera report lineage differs from sealed 005/004 and photos")
     for name in ("cameras.bin", "images.bin", "points3D.bin"):
         expected = report["producer_model_files_sha256"][name]
         if sha256(Path(model) / name) != expected:
@@ -399,6 +430,30 @@ def verify_dense_camera_gauge(dense_sparse, source_model):
         raise ValueError(f"dense sparse image poses differ from source model: {max_delta}")
     return {"named_registered_images": len(source_images), "max_world_to_camera_matrix_delta": max_delta,
             "dense_sparse_images_sha256": sha256(Path(dense_sparse) / "images.bin")}
+
+
+def verify_recovered_dense_lineage(producer_report, source_model, dense_sparse, camera_report):
+    """Bind recovered rough mesh's undistortion to exact 005 source binaries."""
+    from scripts.object_motion import recovered_camera_reference as recovered
+    producer = json.loads(Path(producer_report).read_text())
+    source_hashes = camera_report["producer_model_files_sha256"]
+    stages = [stage for stage in producer.get("stages", []) if stage.get("name") == "undistort"]
+    if (producer.get("schema") != "classical_recovered_dense_v1" or
+            producer.get("status") != "complete" or len(stages) != 1 or
+            stages[0].get("status") != "complete" or
+            Path(producer.get("source_model", "")).resolve() != Path(source_model).resolve() or
+            producer.get("source_model_sha256") != source_hashes or
+            producer.get("source_reports", {}).get("producer", {}).get("sha256") != recovered.PRODUCER_005_SHA256 or
+            producer.get("source_reports", {}).get("source", {}).get("sha256") != recovered.PRODUCER_004_SHA256 or
+            producer.get("source_reports", {}).get("manifest", {}).get("sha256") != camera_report.get("prepared_manifest_sha256")):
+        raise ValueError("recovered dense producer does not bind camera source 005/004")
+    expected_dense = stages[0].get("artifact", {}).get("model_sha256")
+    if set(expected_dense or {}) != {"cameras.bin", "images.bin", "points3D.bin"}:
+        raise ValueError("recovered undistortion omitted sparse binary hashes")
+    for name in expected_dense:
+        if sha256(Path(dense_sparse) / name) != expected_dense[name]:
+            raise ValueError(f"recovered dense sparse model changed: {name}")
+    return {"source_model_sha256": source_hashes, "undistorted_model_sha256": expected_dense}
 
 
 def _prepared_frames(reference_report, projection_report, deadline):
@@ -512,10 +567,13 @@ def compare_candidates(candidates, projection_path=PROJECTION_002, deadline=None
             dense_sparse = mesh.parent / "dense/sparse"
             critical = [mesh, producer_report, camera_report_path, projection_path, REFERENCE_003]
             critical += [model / name for name in ("cameras.bin", "images.bin", "points3D.bin")]
-            critical += [dense_sparse / "images.bin"]
+            critical += [dense_sparse / name for name in ("cameras.bin", "images.bin", "points3D.bin")]
             before = {str(path): sha256(path) for path in critical}
             camera_report, world_to_table = _verified_camera_report(camera_report_path, model, reference_report)
             gauge = verify_dense_camera_gauge(dense_sparse, model)
+            recovered_lineage = (verify_recovered_dense_lineage(producer_report, model, dense_sparse, camera_report)
+                                 if camera_report["schema"] == "ycb_recovered_berkeley_camera_oracle_v1"
+                                 else None)
             from scripts.classical_backend.geometry import export_geometry
             if checkpoint_path is None:
                 raise ValueError("live comparison requires checkpoint path for normalized geometry")
@@ -528,6 +586,7 @@ def compare_candidates(candidates, projection_path=PROJECTION_002, deadline=None
             row = {"label": label, "stage": "rough_mesh", "mesh_sha256": before[str(mesh)],
                    "native_mesh_path": str(mesh), "producer_result_sha256": before[str(producer_report)],
                    "normalization": conversion, "dense_camera_gauge": gauge,
+                   "recovered_dense_lineage": recovered_lineage,
                    "model_files_sha256": camera_report["producer_model_files_sha256"],
                    "camera_report_sha256": before[str(camera_report_path)], "frames": []}
             pooled_observed, pooled_predicted, pooled_interior = [], [], []

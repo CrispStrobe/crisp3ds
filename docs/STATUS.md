@@ -13,7 +13,39 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
-### Latest continuation: initialization recovery, Metal audit and VPS data
+### Latest continuation: recovered dense geometry and frozen new-object splits
+
+The [recovered-camera dense control](RECOVERED-DENSE.md) completed on M1 CPU:
+40,450 dense points and 38,440 rough faces from the sealed 005 sparse model.
+All 60 depth cameras and warped masks pass; root independently reproduced the
+checks and found no zero-area rough triangles. Densification took 47.081 s and
+rough meshing 1.541 s. This is a cached/composed-stage run, not cold e2e timing.
+Total new output was 523 MB; about 11.3 GiB remained free. No refinement or
+texturing was attempted. Subsequent fixed-ray sensor scoring **does not show a
+quality gain over earlier 008**: 015 has 80.58% ray coverage and 2.922 mm hit-only
+mean depth disagreement versus 84.08% and 2.881 mm for 008. Within 5 mm among
+all supported rays is 68.10% versus 70.72%. The supplied-intrinsics 014 control
+remains worse on depth residuals. Root reproduced old scores exactly and
+independently recomputed pooled new statistics from saved per-ray data. This is
+an assumption-qualified diagnostic, not whole-object accuracy or KIRI parity.
+
+The new [dataset protocol](YCB-EVALUATION-PROTOCOL.md) freezes 48 training and
+12 held-out photographs per new YCB object, rejects duplicate photo content
+and reference leakage, and keeps masks explicitly pending. Root rehashed all
+62 selected files per object on the VPS; both passed. This is verified input
+preparation, not completed new-object reconstruction.
+
+[SYCL preflight](ALICEVISION-SYCL-PLAN.md) makes AliceVision's missing toolchain
+and build-contract checks explicit without downloading/building dependencies.
+It remains unbuilt and unbenchmarked. Prior Windows CI found a test fixture
+SQLite handle left open; `da560e9` fixes explicit closing and adds a regression
+test. New CI results remain pending; local success is not Windows validation.
+
+Final local regression: **339 tests run, 8 skipped, remaining passed**; registry
+validation and diff checks pass. Prior `2836886` quality checks passed on Linux
+and macOS but failed on the Windows fixture issue fixed by `da560e9`.
+
+### Previous continuation: initialization recovery, Metal audit and VPS data
 
 Supervised Sol implementations and bounded live tests now provide:
 

@@ -7,9 +7,12 @@ classical, Gaussian and neural-surface lanes, actual-versus-planned oracle statu
 and two completed VPS real-object acquisitions. [Initialization recovery](INITIALIZATION-RECOVERY.md)
 now demonstrates 60/60 registration with fixed initial intrinsics, followed by
 delayed image-only self-calibration, on one cached case. This is not a cold e2e
-or mesh-quality result. [YCB expansion](YCB-EXPANSION.md) adds 120 real photographs
-and two independent scanner meshes; masks, splits and reference registration
-remain pending. [AliceVision review](MTL-ALICEVISION.md) corrects the CUDA-only
+result. [Recovered dense control](RECOVERED-DENSE.md) now produces a validated
+40,450-point dense cloud and 38,440-face rough mesh on M1 CPU; artifact validity
+is not geometry acceptance. [YCB expansion](YCB-EXPANSION.md) adds 120 real photographs
+and two independent scanner meshes. [48/12 splits](YCB-EVALUATION-PROTOCOL.md)
+are frozen and all selected assets rehashed on the VPS; masks and reference
+registration remain pending. [AliceVision review](MTL-ALICEVISION.md) corrects the CUDA-only
 assumption: upstream SYCL and the separate Metal fork merit bounded builds.
 Standalone Metal compute passed, but neither AliceVision backend has run here.
 No new neural GPU result is claimed.

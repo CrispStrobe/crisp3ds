@@ -1,5 +1,30 @@
 # Frozen three-view sensor-depth benchmark protocol
 
+## Next candidate: recovered image-only cameras (015)
+
+Pre-score plan: use the sealed `initialization-recovery-005-delayed-refinement`
+camera model for one new native rough-mesh arm, `classical-ycb-recovered-015`.
+Keep the existing 60 photo-derived masks and the 013 level-2/min600/max1600,
+two-geometric-iteration profile; warp masks anew for these estimated intrinsics.
+The bounded native run may fail and must retain that status. It is a cached
+sparse-model continuation, not fresh end-to-end reconstruction.
+
+If the rough mesh and all depth-camera/mask checks pass, compare it against
+rough 008 and rough 014 using exactly the same frozen rays, support panels,
+thresholds and depth assumptions below. First bind a new camera-only Sim(3)
+to the exact 005 model and existing Berkeley metadata. Never transfer a prior
+transform into this new gauge or fit a mesh to improve the score. Reference
+metadata is permitted only in this post-reconstruction evaluator. Report camera
+fit diagnostics alongside geometry residuals; no parameter retries are selected
+from these scores. This is a repeatedly inspected development object, not an
+unseen acceptance test.
+
+Outcome: the three-candidate `sensor-depth-004` run completed. Its rays/support
+are identical to 003, whose two baseline pooled results were reproduced exactly.
+Recovered 015 did not beat 008: coverage 80.58% versus 84.08%, hit-only mean
+absolute depth disagreement 2.922 versus 2.881 mm. See the full
+[rough-mesh comparison and limitations](RECOVERED-DENSE.md#subsequent-fixed-ray-sensor-comparison-not-a-quality-win).
+
 This protocol is fixed before any reconstructed-mesh sensor-depth score. Use
 only the already extracted Berkeley NP3 depth frames at 0°, 120° and 240°,
 the previously prepared **photo-derived** NP3 RGB pose-support masks, the
