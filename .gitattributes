@@ -9,3 +9,6 @@ tests/datasets/sam21_mustard_m1_two_view_recipe.json text eol=lf
 tests/datasets/sam21_mustard_m1_board5_review.json text eol=lf
 tests/datasets/sam21_mustard_board5_resource_audit.json text eol=lf
 tests/datasets/sam21_mustard_board5_subset_review.json text eol=lf
+tests/datasets/sam21_mustard_two_view_subset_review.json text eol=lf
+tests/datasets/sam21_mustard_candidate_selection_v2.json text eol=lf
+tests/datasets/sam21_mustard_candidate48_v2_review.json text eol=lf

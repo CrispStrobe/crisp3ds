@@ -1,0 +1,36 @@
+{
+  "schema": "sam21_mask_artifact_subset_qa_v1",
+  "status": "accepted",
+  "decision": "accepted_for_coarse_pose_support",
+  "reviewer": "root",
+  "reviewed_at": "2026-09-27",
+  "parent_manifest_sha256": "361d32f4342fa193d5bfed68289f0a44151b3768b54d2a30998dd4a6b11c6f01",
+  "parent_supervisor_sha256": "c9124c9d1fe921396fda801f15a7f2cb9a7022a6d1829494aad9bc12ff7e703d",
+  "parent_manifest_status": "generated_unreviewed",
+  "parent_supervisor_status": "generated_unreviewed",
+  "parent_supervisor_reason": null,
+  "reviewed_names": ["NP3_336.jpg", "NP3_342.jpg"],
+  "raw_mask_sha256": {
+    "NP3_336.jpg": "cc3cdec397bcc3c659df474a6e484800132d194d63f67fab2866fade89eada81",
+    "NP3_342.jpg": "e392fe893df03b677a36c8fe901317e4ecb91d89b6366297ef0d1504065b75ec"
+  },
+  "cleaned_mask_sha256": {
+    "NP3_336.jpg": "cc3cdec397bcc3c659df474a6e484800132d194d63f67fab2866fade89eada81",
+    "NP3_342.jpg": "e392fe893df03b677a36c8fe901317e4ecb91d89b6366297ef0d1504065b75ec"
+  },
+  "source_image_sha256": {
+    "NP3_336.jpg": "b38f4232499b27fd108960280fef2868ddb172d81088d7044475eceb10f24fc2",
+    "NP3_342.jpg": "59901cf97ce97b2de0b46d428818fd676d6a169e67eaf72094dcd8c4058b5998"
+  },
+  "recipe_sha256": "38f2a40af084df4c177925bfcfad7b5ebe5f131388283d14d15f5e690a8d0367",
+  "review_sheet_sha256": "58a5c387d7204099197441282f467ad4093e3e2cf44de0d048680f99dacf85b1",
+  "resource_audit_sha256": null,
+  "observations": [
+    "Root inspected the broad-context RGB/raw/cleaned sheet: both masks retain the bottle, cap and labels without visible checkerboard leakage.",
+    "Fine boundary fringe remains; acceptance is for coarse pose support, not exact silhouettes or measured geometry.",
+    "The original failed parent and rejected full-set records remain unchanged."
+  ],
+  "approved_for_direct_sfm": false,
+  "heldout_or_reference_geometry_used": false,
+  "reconstruction_quality_claim": false
+}

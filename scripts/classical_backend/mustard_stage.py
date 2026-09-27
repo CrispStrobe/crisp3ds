@@ -161,6 +161,152 @@ def validate_composed_candidate(inventory: dict, rows: list[dict], qa: dict,
             raise ValueError("composition source or metadata changed after review")
 
 
+def validate_composed_selection(inventory: dict, rows: list[dict], qa: dict,
+                                inventory_root: Path, inventory_sha256: str,
+                                package_sha256: str) -> None:
+    """Distinct 43+3+2 lane: preserve failed parent status and all per-view seals."""
+    from scripts.classical_backend import mustard_candidate48 as candidate
+
+    if (inventory.get("status") != "generated_unreviewed" or
+            inventory.get("package_sha256") != package_sha256 or
+            inventory.get("base_inventory_sha256") != candidate.BASE_SHA or
+            inventory.get("base_rejected_qa_sha256") != candidate.REJECTED_QA_SHA or
+            inventory.get("full_training_package_ready") is not False or
+            [r.get("name") for r in rows] != list(TRAIN_NAMES) or
+            inventory.get("parent_status_disclosure") != {
+                "board5_partial3_manifest_status": "partial_unusable",
+                "board5_partial3_supervisor_status": "failed",
+                "board5_partial3_supervisor_reason": "worker exit 1"}):
+        raise ValueError("composed 43+3+2 inventory lineage/status differs")
+    for key in ("selection_sha256", "composition_report_sha256"):
+        value = inventory.get(key)
+        if not isinstance(value, str) or len(value) != 64 or set(value) - set("0123456789abcdef"):
+            raise ValueError("composed 43+3+2 inventory lacks sealed selection/report")
+    report = sealed_json(inventory_root / "composition-report.json", inventory["composition_report_sha256"])
+    if (report.get("schema") != "sam21_mustard_m1_composition_report_v2" or
+            report.get("status") != "complete_unreviewed" or
+            report.get("output") != str(inventory_root) or
+            report.get("runner_sha256") != sha256(Path(candidate.__file__)) or
+            report.get("selection_sha256") != inventory["selection_sha256"] or
+            report.get("contact_sheet_sha256") != inventory.get("contact_sheet_sha256") or
+            report.get("contact_sheet_path") != "full48-contact-sheet.png" or
+            report.get("parent_status_disclosure") != inventory["parent_status_disclosure"] or
+            len(report.get("images", [])) != 48):
+        raise ValueError("composed 43+3+2 report does not seal this inventory")
+    sheet = inventory_root / "full48-contact-sheet.png"
+    if (sheet.is_symlink() or not sheet.is_file() or
+            inventory.get("contact_sheet_path") != sheet.name or
+            sha256(sheet) != inventory.get("contact_sheet_sha256")):
+        raise ValueError("composed full-frame contact sheet differs")
+    origins = {"base43": 0, "board5_partial3": 0, "roi_v2_2": 0}
+    shared = ("name", "origin", "source_sha256", "cleaned_mask_sha256",
+              "source_frame_manifest_sha256", "prompt_sha256", "prompt_row_sha256",
+              "parent_supervisor_sha256", "parent_manifest_status", "parent_supervisor_status",
+              "parent_supervisor_reason", "per_view_qa_sha256", "resource_audit_sha256")
+    for row, source in zip(rows, report["images"]):
+        origin = "base43" if row.get("name") not in candidate.CORRECTED else (
+            "board5_partial3" if row["name"] in candidate.PARTIAL_NAMES else "roi_v2_2")
+        if (row.get("origin") != origin or any(row.get(k) != source.get(k) for k in shared) or
+                row.get("cleaned_mask_path") != f"frames/{row['name']}/clean.png"):
+            raise ValueError("composed 43+3+2 per-view row/source differs")
+        origins[origin] += 1
+        for key in ("source_frame_manifest_sha256", "prompt_sha256", "prompt_row_sha256"):
+            value = row.get(key)
+            if not isinstance(value, str) or len(value) != 64 or set(value) - set("0123456789abcdef"):
+                raise ValueError("composed 43+3+2 row has missing lineage hash")
+        if origin == "base43":
+            if (row["prompt_sha256"] != PROMPTS_SHA256 or row.get("per_view_qa_sha256") is not None or
+                    row.get("parent_supervisor_sha256") is not None):
+                raise ValueError("base43 was relabelled as corrected")
+        else:
+            for key in ("parent_supervisor_sha256", "per_view_qa_sha256"):
+                value = row.get(key)
+                if not isinstance(value, str) or len(value) != 64 or set(value) - set("0123456789abcdef"):
+                    raise ValueError("corrected row lacks parent/per-view QA seal")
+            if origin == "board5_partial3" and (row.get("parent_manifest_status") != "partial_unusable" or
+                    row.get("parent_supervisor_status") != "failed" or
+                    row.get("parent_supervisor_reason") != "worker exit 1" or
+                    not row.get("resource_audit_sha256")):
+                raise ValueError("failed board5 parent was falsely promoted")
+            if origin == "roi_v2_2" and (row.get("parent_manifest_status") != "generated_unreviewed" or
+                    row.get("parent_supervisor_status") != "generated_unreviewed" or
+                    row.get("parent_supervisor_reason") is not None or
+                    row.get("resource_audit_sha256") is not None):
+                raise ValueError("ROI-v2 parent status differs")
+    if origins != {"base43": 43, "board5_partial3": 3, "roi_v2_2": 2}:
+        raise ValueError("composed candidate is not exactly 43+3+2")
+    if (qa.get("schema") != "mustard_sam_composed_candidate_qa_v2" or
+            qa.get("status") != "accepted" or
+            qa.get("decision") != "accepted_for_coarse_pose_support" or
+            qa.get("inventory_sha256") != inventory_sha256 or
+            qa.get("contact_sheet_sha256") != inventory["contact_sheet_sha256"] or
+            qa.get("reviewed_names") != list(TRAIN_NAMES) or
+            not qa.get("reviewer") or not qa.get("reviewed_at")):
+        raise ValueError("independent full-48 v2 candidate QA acceptance missing")
+    audit = report.get("source_audit")
+    if (not isinstance(audit, list) or len(audit) < 4 + 48 + 48 * 3 + 5 * 6 or
+            any(not isinstance(pair, list) or len(pair) != 2 or
+                not isinstance(pair[0], str) or not isinstance(pair[1], str) or
+                len(pair[1]) != 64 or set(pair[1]) - set("0123456789abcdef") for pair in audit) or
+            audit[1][1] != inventory["base_inventory_sha256"] or
+            audit[2][1] != inventory["base_rejected_qa_sha256"] or
+            audit[3][1] != inventory["selection_sha256"]):
+        raise ValueError("composed v2 source audit missing metadata/masks")
+    if (Path(audit[1][0]).name != "complete_inventory.json" or
+            audit[0][1] != package_sha256 or
+            [Path(audit[4 + index][0]) for index in range(48)] !=
+            [Path(report["train_photo_dir"]) / name for name in TRAIN_NAMES] or
+            [audit[4 + index][1] for index in range(48)] !=
+            [report["train_photo_sha256"][name] for name in TRAIN_NAMES]):
+        raise ValueError("composed v2 RGB source audit order differs")
+    selection = sealed_json(Path(audit[3][0]), audit[3][1])
+    if (selection.get("schema") != "sam21_mustard_candidate_selection_v2" or
+            [r.get("name") for r in selection.get("images", [])] != list(candidate.CORRECTED)):
+        raise ValueError("selected five changed after composition")
+    original = sealed_json(Path(audit[1][0]), audit[1][1])
+    original_rows = original.get("images", [])
+    if [r.get("name") for r in original_rows] != list(TRAIN_NAMES):
+        raise ValueError("original 48-view audit inventory order differs")
+    selected_rows = {r["name"]: r for r in selection["images"]}
+    cursor = 52
+    base_root = Path(audit[1][0]).parent
+    for row, source, old in zip(rows, report["images"], original_rows):
+        name = row["name"]
+        expected = [base_root / "frames" / name / "frame.json",
+                    base_root / "frames" / name / "raw.png",
+                    base_root / "frames" / name / "clean.png"]
+        if audit[cursor][1] != old.get("frame_manifest_sha256") or audit[cursor + 2][1] != old.get("cleaned_mask_sha256"):
+            raise ValueError("v2 original frame audit hashes differ")
+        if name in selected_rows:
+            chosen = selected_rows[name]
+            parent = Path(chosen["parent_root"])
+            expected.extend((parent / "manifest.json", parent / "supervisor.json",
+                             Path(chosen["recipe_path"]), Path(chosen["review_path"])))
+            if chosen.get("resource_audit_path") is not None:
+                expected.append(Path(chosen["resource_audit_path"]))
+            expected.append(parent / "review_sheet.jpg")
+            expected.extend((parent / "raw_masks" / (name + ".png"),
+                             parent / "cleaned_masks" / (name + ".png")))
+            if source.get("source_clean_path") != str(expected[-1]):
+                raise ValueError("v2 selected clean source path differs")
+        else:
+            if source.get("source_clean_path") != str(expected[-1]):
+                raise ValueError("v2 base clean source path differs")
+        if [Path(pair[0]) for pair in audit[cursor:cursor + len(expected)]] != expected:
+            raise ValueError("v2 per-frame audit source path differs")
+        cursor += len(expected)
+    if cursor != len(audit):
+        raise ValueError("v2 source audit has missing or extra entries")
+    for source, expected in audit:
+        path = Path(source)
+        if path.is_symlink() or not path.is_file() or sha256(path) != expected:
+            raise ValueError("composed v2 source or metadata changed after review")
+    for source, expected_hash in audit:
+        path = Path(source)
+        if path.is_symlink() or not path.is_file() or sha256(path) != expected_hash:
+            raise ValueError("composition source or metadata changed after review")
+
+
 def preflight(package_path: Path, train_photos: Path, inventory_path: Path, inventory_root: Path,
               inventory_sha256: str, qa_path: Path, qa_sha256: str, *,
               output: Path = OUTPUT, mount: Path = MOUNT, require_mount: bool = True,
@@ -201,7 +347,7 @@ def preflight(package_path: Path, train_photos: Path, inventory_path: Path, inve
                 inventory.get("prompt_sha256") != PROMPTS_SHA256 or
                 [row.get("name") for row in rows] != list(TRAIN_NAMES)):
             raise ValueError("full 48-view SAM inventory is incomplete or wrong source")
-    elif kind != "sam21_mustard_m1_composed_candidate_v1":
+    elif kind not in ("sam21_mustard_m1_composed_candidate_v1", "sam21_mustard_m1_composed_candidate_v2"):
         raise ValueError("unknown full-48 mask inventory schema")
     qa = sealed_json(qa_path, qa_sha256)
     if kind == "sam21_mustard_point_mask_inventory_v1":
@@ -211,8 +357,10 @@ def preflight(package_path: Path, train_photos: Path, inventory_path: Path, inve
                 qa.get("reviewed_names") != list(TRAIN_NAMES) or
                 not qa.get("reviewer") or not qa.get("reviewed_at")):
             raise ValueError("full independent visual QA acceptance missing")
-    else:
+    elif kind == "sam21_mustard_m1_composed_candidate_v1":
         validate_composed_candidate(inventory, rows, qa, inventory_root, inventory_sha256, package_sha256)
+    else:
+        validate_composed_selection(inventory, rows, qa, inventory_root, inventory_sha256, package_sha256)
     qa_mask_hashes = qa.get("cleaned_mask_sha256")
     if not isinstance(qa_mask_hashes, dict) or set(qa_mask_hashes) != set(TRAIN_NAMES):
         raise ValueError("QA must bind all 48 cleaned mask hashes")

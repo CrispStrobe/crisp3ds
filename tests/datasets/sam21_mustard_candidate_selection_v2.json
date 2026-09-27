@@ -1,0 +1,77 @@
+{
+  "schema": "sam21_mustard_candidate_selection_v2",
+  "status": "reviewed_per_view_not_full48",
+  "package_sha256": "45b6ed1430627a747eaeb8d4dff7d2c49502083cca0a7914e25aacd45b594425",
+  "base_inventory_sha256": "b47e8caec7d05fae7bb84ae9b3eec7d4a35b1457ca9df67a3b984cbaaeed8a98",
+  "rejected_full_qa_sha256": "4084e8e458b55c566dd138f9d4b8b853ab2c68bfc20f5f831447a0cc99e9528a",
+  "images": [
+    {
+      "name": "NP3_318.jpg", "origin": "board5_partial3",
+      "source_sha256": "c19d377824bc0aa7e937244f797f810b333b1e853c698688629926c066846991",
+      "parent_root": "/Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-board5-001",
+      "parent_manifest_sha256": "1008fc7bdbaa75ac33f17f8ddf44eaa275b3e98eb21466906060ebc3300c638c",
+      "parent_supervisor_sha256": "b4485b72c539d59b6b3229917f0099ceb11359cdb8c9228bd0553208989619ce",
+      "recipe_path": "tests/datasets/sam21_mustard_m1_board5_prompts.json",
+      "recipe_sha256": "8cc0b6fa49d977194870ef91f10b83a793294d6b3903cb1e08643016bdc9b4f8",
+      "recipe_row_sha256": "53e979e5c009461a02222a73dee690bb0a95eeec1a58e6b87759024af88d3651",
+      "review_path": "tests/datasets/sam21_mustard_board5_subset_review.json",
+      "review_sha256": "940f7e76be973edb74b09a73be49e254911a99a8b8a7a3b654eeada270babecd",
+      "resource_audit_path": "tests/datasets/sam21_mustard_board5_resource_audit.json",
+      "resource_audit_sha256": "bf058458fd0b5c3bc5c51b2840936c1ce9c40f41d2249867cec0b80ccef6088e"
+    },
+    {
+      "name": "NP3_330.jpg", "origin": "board5_partial3",
+      "source_sha256": "fccafec5b4b44c5b03d3c927b211b2c942d0a6e343dbbbdaba95022e83c773b5",
+      "parent_root": "/Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-board5-001",
+      "parent_manifest_sha256": "1008fc7bdbaa75ac33f17f8ddf44eaa275b3e98eb21466906060ebc3300c638c",
+      "parent_supervisor_sha256": "b4485b72c539d59b6b3229917f0099ceb11359cdb8c9228bd0553208989619ce",
+      "recipe_path": "tests/datasets/sam21_mustard_m1_board5_prompts.json",
+      "recipe_sha256": "8cc0b6fa49d977194870ef91f10b83a793294d6b3903cb1e08643016bdc9b4f8",
+      "recipe_row_sha256": "8c06bca177685ed7fcad223b004cbdee8d8b4bfe1e088f799147384c18208cda",
+      "review_path": "tests/datasets/sam21_mustard_board5_subset_review.json",
+      "review_sha256": "940f7e76be973edb74b09a73be49e254911a99a8b8a7a3b654eeada270babecd",
+      "resource_audit_path": "tests/datasets/sam21_mustard_board5_resource_audit.json",
+      "resource_audit_sha256": "bf058458fd0b5c3bc5c51b2840936c1ce9c40f41d2249867cec0b80ccef6088e"
+    },
+    {
+      "name": "NP3_336.jpg", "origin": "roi_v2_2",
+      "source_sha256": "b38f4232499b27fd108960280fef2868ddb172d81088d7044475eceb10f24fc2",
+      "parent_root": "/Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-recipe-001",
+      "parent_manifest_sha256": "361d32f4342fa193d5bfed68289f0a44151b3768b54d2a30998dd4a6b11c6f01",
+      "parent_supervisor_sha256": "c9124c9d1fe921396fda801f15a7f2cb9a7022a6d1829494aad9bc12ff7e703d",
+      "recipe_path": "tests/datasets/sam21_mustard_m1_two_view_recipe.json",
+      "recipe_sha256": "38f2a40af084df4c177925bfcfad7b5ebe5f131388283d14d15f5e690a8d0367",
+      "recipe_row_sha256": "6dbd1d7932dd3d7f5ea7aa70d4d4e601006e02f800d55c1d73aac5b075b043dc",
+      "review_path": "tests/datasets/sam21_mustard_two_view_subset_review.json",
+      "review_sha256": "fb26b831e340062267fbb8093c9ec7b1255212ac01523a75d130126ad188f656",
+      "resource_audit_path": null, "resource_audit_sha256": null
+    },
+    {
+      "name": "NP3_342.jpg", "origin": "roi_v2_2",
+      "source_sha256": "59901cf97ce97b2de0b46d428818fd676d6a169e67eaf72094dcd8c4058b5998",
+      "parent_root": "/Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-recipe-001",
+      "parent_manifest_sha256": "361d32f4342fa193d5bfed68289f0a44151b3768b54d2a30998dd4a6b11c6f01",
+      "parent_supervisor_sha256": "c9124c9d1fe921396fda801f15a7f2cb9a7022a6d1829494aad9bc12ff7e703d",
+      "recipe_path": "tests/datasets/sam21_mustard_m1_two_view_recipe.json",
+      "recipe_sha256": "38f2a40af084df4c177925bfcfad7b5ebe5f131388283d14d15f5e690a8d0367",
+      "recipe_row_sha256": "444cb0dba39894613f60c7d899bf3c8148deea2038c1f9f9d0e8429bdfdd6d89",
+      "review_path": "tests/datasets/sam21_mustard_two_view_subset_review.json",
+      "review_sha256": "fb26b831e340062267fbb8093c9ec7b1255212ac01523a75d130126ad188f656",
+      "resource_audit_path": null, "resource_audit_sha256": null
+    },
+    {
+      "name": "NP3_348.jpg", "origin": "board5_partial3",
+      "source_sha256": "fda8eed74101a71e14f8828a03b7ef29a61b2d65d928f87e783894b2b691562d",
+      "parent_root": "/Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-board5-001",
+      "parent_manifest_sha256": "1008fc7bdbaa75ac33f17f8ddf44eaa275b3e98eb21466906060ebc3300c638c",
+      "parent_supervisor_sha256": "b4485b72c539d59b6b3229917f0099ceb11359cdb8c9228bd0553208989619ce",
+      "recipe_path": "tests/datasets/sam21_mustard_m1_board5_prompts.json",
+      "recipe_sha256": "8cc0b6fa49d977194870ef91f10b83a793294d6b3903cb1e08643016bdc9b4f8",
+      "recipe_row_sha256": "516f1ab473e74551f757df5568423bfa176cc3e4a8d3f8406928fa2be24c8772",
+      "review_path": "tests/datasets/sam21_mustard_board5_subset_review.json",
+      "review_sha256": "940f7e76be973edb74b09a73be49e254911a99a8b8a7a3b654eeada270babecd",
+      "resource_audit_path": "tests/datasets/sam21_mustard_board5_resource_audit.json",
+      "resource_audit_sha256": "bf058458fd0b5c3bc5c51b2840936c1ce9c40f41d2249867cec0b80ccef6088e"
+    }
+  ]
+}

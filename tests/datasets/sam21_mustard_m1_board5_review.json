@@ -1,0 +1,31 @@
+{
+  "schema": "sam21_mustard_m1_board5_review_v1",
+  "status": "rejected",
+  "decision": "rejected_incomplete_five_view_correction",
+  "reviewer": "root visual inspection of original/raw/cleaned five-view sheet",
+  "reviewed_at": "2026-09-27",
+  "manifest_sha256": "1008fc7bdbaa75ac33f17f8ddf44eaa275b3e98eb21466906060ebc3300c638c",
+  "supervisor_sha256": "b4485b72c539d59b6b3229917f0099ceb11359cdb8c9228bd0553208989619ce",
+  "correction_prompt_sha256": "8cc0b6fa49d977194870ef91f10b83a793294d6b3903cb1e08643016bdc9b4f8",
+  "reviewed_names": [
+    "NP3_318.jpg",
+    "NP3_330.jpg",
+    "NP3_336.jpg",
+    "NP3_342.jpg",
+    "NP3_348.jpg"
+  ],
+  "review_sheet_sha256": "610936086ea359290567d6627d1bd0309e1038c6e7b2f644f70b1e636c98b9fc",
+  "rejected_names": [
+    "NP3_336.jpg",
+    "NP3_342.jpg"
+  ],
+  "observations": [
+    "318,330,348 cleaned masks visually retain bottle, cap and labels without the previous large board leakage; coarse support only.",
+    "336 raw still includes the negative checkerboard point; no cleaned mask published.",
+    "342 raw has board fragments; cleanup exceeded the unchanged ten-percent removal limit; no cleaned mask published."
+  ],
+  "approved_for_composition": false,
+  "approved_for_sfm": false,
+  "heldout_or_reference_geometry_used": false,
+  "reconstruction_quality_claim": false
+}

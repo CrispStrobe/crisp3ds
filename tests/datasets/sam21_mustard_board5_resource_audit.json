@@ -1,0 +1,23 @@
+{
+  "status": "accepted",
+  "parent_manifest_sha256": "1008fc7bdbaa75ac33f17f8ddf44eaa275b3e98eb21466906060ebc3300c638c",
+  "parent_supervisor_sha256": "b4485b72c539d59b6b3229917f0099ceb11359cdb8c9228bd0553208989619ce",
+  "parent_manifest_status": "partial_unusable",
+  "parent_supervisor_status": "failed",
+  "parent_supervisor_reason": "worker exit 1",
+  "reviewer": "root",
+  "reviewed_at": "2026-09-27",
+  "schema": "sam21_partial_parent_resource_audit_v1",
+  "seconds_total": 27.778313792005065,
+  "seconds_worker": 26.946930374993826,
+  "peak_worker_rss_kib": 1436656,
+  "resource_caps_not_triggered": true,
+  "selected_names": [
+    "NP3_318.jpg",
+    "NP3_330.jpg",
+    "NP3_348.jpg"
+  ],
+  "producer_runner_sha256": "57d6248e1c234a4ac1b5d00d2a8645594596e9a68ca104c3cad9ea61269a5c11",
+  "producer_source_commit": "c2a71e5",
+  "scope": "The frozen supervisor reported only worker exit 1 for the partial result, not a resource-cap breach. Time and sampled RSS were below caps; this is not a continuous-resource guarantee."
+}

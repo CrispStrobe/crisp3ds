@@ -1,0 +1,42 @@
+{
+  "status": "accepted",
+  "parent_manifest_sha256": "1008fc7bdbaa75ac33f17f8ddf44eaa275b3e98eb21466906060ebc3300c638c",
+  "parent_supervisor_sha256": "b4485b72c539d59b6b3229917f0099ceb11359cdb8c9228bd0553208989619ce",
+  "parent_manifest_status": "partial_unusable",
+  "parent_supervisor_status": "failed",
+  "parent_supervisor_reason": "worker exit 1",
+  "reviewer": "root",
+  "reviewed_at": "2026-09-27",
+  "schema": "sam21_mask_artifact_subset_qa_v1",
+  "decision": "accepted_for_coarse_pose_support",
+  "reviewed_names": [
+    "NP3_318.jpg",
+    "NP3_330.jpg",
+    "NP3_348.jpg"
+  ],
+  "raw_mask_sha256": {
+    "NP3_318.jpg": "f80501a1682005576ac2947b0befab1ac723337d017e2bc1eb14c19f93397480",
+    "NP3_330.jpg": "c4d5b4cbb4ea17375484cc3486c7668a7fec051ae14b1f573cbafa8bbce6a1bd",
+    "NP3_348.jpg": "db19e326b739ce4aa1c3c10d366c18dd936e7e0a0d3f0f111df11d296bd1a79d"
+  },
+  "cleaned_mask_sha256": {
+    "NP3_318.jpg": "f80501a1682005576ac2947b0befab1ac723337d017e2bc1eb14c19f93397480",
+    "NP3_330.jpg": "c4d5b4cbb4ea17375484cc3486c7668a7fec051ae14b1f573cbafa8bbce6a1bd",
+    "NP3_348.jpg": "88cb4899fc9a21f34288c187a1791c13e08e707e2afa4de7ca11f086f18cf7a6"
+  },
+  "source_image_sha256": {
+    "NP3_318.jpg": "c19d377824bc0aa7e937244f797f810b333b1e853c698688629926c066846991",
+    "NP3_330.jpg": "fccafec5b4b44c5b03d3c927b211b2c942d0a6e343dbbbdaba95022e83c773b5",
+    "NP3_348.jpg": "fda8eed74101a71e14f8828a03b7ef29a61b2d65d928f87e783894b2b691562d"
+  },
+  "review_sheet_sha256": "610936086ea359290567d6627d1bd0309e1038c6e7b2f644f70b1e636c98b9fc",
+  "resource_audit_sha256": "bf058458fd0b5c3bc5c51b2840936c1ce9c40f41d2249867cec0b80ccef6088e",
+  "observations": [
+    "Root inspected RGB/raw/cleaned sheet; selected masks retain bottle, cap and labels without the previous large checkerboard leakage.",
+    "Minor boundary fringe remains; these are coarse feature-support masks, not exact silhouettes.",
+    "The two failed views are excluded from this subset acceptance; parent status remains failed/partial."
+  ],
+  "approved_for_direct_sfm": false,
+  "heldout_or_reference_geometry_used": false,
+  "reconstruction_quality_claim": false
+}
