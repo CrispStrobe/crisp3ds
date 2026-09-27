@@ -1,0 +1,19 @@
+# Bounded mustard Berkeley pose-metadata acquisition — proposal only
+
+Status, 2026-09-27: **not authorized; no download or mustard reference pose read.** This is a prerequisite for the separate [posthoc camera evaluation](MUSTARD-CHECKERBOARD-EVALUATION-PLAN.md), not an input to checkerboard detection, PnP, or branch choice. The existing `ycb-camera-reference-003` is for **003_cracker_box** and must never be substituted.
+
+## Source and provenance gate
+
+The pinned local acquisition manifest `build-opencv/ycb-vps-acquisition-001/mustard-manifest.json` has verified SHA-256 `c48998dffc7798e7d21f275383b1c67dc2e5e9313a8bfe699f72303f61583b52`; the same hash is recorded in `tests/datasets/ycb_mustard_bottle.json`. It names the official Berkeley source:
+
+`https://ycb-benchmarks.s3.amazonaws.com/data/berkeley/006_mustard_bottle/006_mustard_bottle_berkeley_rgbd.tgz`
+
+The 2026-09-27 read-only HTTP HEAD returned 200, `Content-Length: 657272400`, `Last-Modified: Wed, 27 Apr 2016 08:50:19 GMT`, and multipart `ETag: "c15b25428f8eea3432996eb2b4565de3-79"`, matching the acquisition manifest. The ETag is **not** a cryptographic checksum. The manifest's observed archive SHA-256 is `5d9b1837eb58b0760463e99021a53fe6e82d5cd2457141945445ed6df06ff3f7`; it is not independently published upstream. Abort on a HEAD length/ETag change, HTTP failure, transferred length mismatch, or downloaded SHA-256 mismatch. Preserve URL, HEAD fields, manifest hash, exact downloaded bytes and SHA-256, timestamp, and extraction-member hashes in a small receipt.
+
+## Proposed bounded operation, requiring root approval
+
+Use a **fresh, explicit external** directory under `/Volumes/backups/code/crisp3ds-data/`, with no internal temporary files, cache, or photo copies. Preflight `df` for the internal and external filesystems and require both ≥10 GiB free; additionally reserve 1 GiB of external headroom for the LightGlue worker, so require ≥11 GiB external free after projected archive plus metadata and receipt. The sole download is the exact 657,272,400-byte archive (not more than that size); do not follow a changed redirect/source silently. Download to a fresh external partial filename, enforce a 657,272,400-byte transfer cap and bounded time, verify size and SHA-256, then seal/rename on the same filesystem. A failed partial is reported and left for review rather than retried into an uncontrolled second copy. The archive and all newly extracted/receipt files together are capped at 660 MiB.
+
+After the archive hash passes, stream the tarball once with an exact allowlist: `006_mustard_bottle/calibration.h5` plus `006_mustard_bottle/poses/NP5_{angle}_pose.h5` for the **39** already-detected exact TRAIN names in the sealed image-derived JSON, mapping `NP3_{ddd}.jpg` to integer angle `NP5_{int(ddd)}_pose.h5`. Require one regular file per member, no duplicate or unsafe path, and ≤2 MiB total extracted bytes; reject absent/extra requested members. Do not extract RGB, depth, masks, meshes, other camera angles, or other tar members. Hash each extracted H5 and bind the allowlist and source-report SHA-256 `e4b686795cc6f3bfba57ac77e9225113714d9d306b5919990191dffbd049a856` in the receipt. `NP3_000`, `300`, `306`, `312`, `318`, `330`, `336`, `342`, `348` remain unmatched and require no pose extraction. Metadata extraction is not itself a comparison: the separate evaluation needs a further convention check and approved read-only scoring step.
+
+Finally rehash the archive and sealed checkerboard report; check both disk floors and 1 GiB external reserve again. Do not alter or delete the downloaded artifact or prior artifacts without separate direction. If the source is already available on a verified remote volume, a read-only remote SHA-256 check and bounded metadata-only transfer could replace the 657 MB download, but that alternative needs its own reviewed path and provenance receipt.

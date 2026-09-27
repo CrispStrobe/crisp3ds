@@ -1,0 +1,21 @@
+# Mustard checkerboard-assisted pose diagnostic — frozen pre-run plan
+
+Status: analytic design and three TRAIN-image inspection only. No 48-image corner/PnP run, reference-camera comparison, scanner/depth input, or held-out image use. This is an assisted-capture diagnostic because the checkerboard rotates with the mustard bottle; it does not apply to ordinary board-free photos and does not provide object-only surface tracks.
+
+## Inputs and observed board
+
+Use the 48 original TRAIN JPEG paths and byte hashes in the sealed `/Volumes/backups/code/crisp3ds-data/mustard-feature-mask-pair-001-sam/inputs.json` (SHA-256 `bc8d06024627219736959c7b4a34173cdd918bb5fba666528f08ca4a7a1957ae`). Use the existing explicit 60-slot `ycb_np3_full_turn_profile.json` for cyclic capture **order** only. Do not turn filename suffixes into camera angles. Reject any unlisted filename or changed JPEG hash.
+
+Visual inspection and OpenCV 4.10 `findChessboardCornersSB` on `NP3_006`, `NP3_090`, and `NP3_180` found the full **9 columns × 8 rows of inner corners** (72 corners; a 10×9-square board). Inner-corner convex-hull fractions of 1280×1024 image area were 0.0139, 0.0238, and 0.0293. The board changes side with the bottle, demonstrating shared turntable motion. With assumed `fx=fy=1536`, `(cx,cy)=(640,512)` and zero distortion, OpenCV 4.10 `solvePnPGeneric(..., SOLVEPNP_IPPE)` returned two planar hypotheses for each detected board; the better reprojection RMS values were 0.484, 0.922, and 1.219 px. A 180° reversal of all inner-corner labels gave identical RMS values. No unmarked checkerboard corner is a physical board ID.
+
+## Frozen diagnostic algorithm
+
+Board coordinates are centered square units: `X=(column−4, row−3.5, 0)`. No square length or metric scale is supplied. Decode one 1280×1024 RGB source at a time, with OpenCV OpenCL disabled and at most two OpenCV threads. `findChessboardCornersSB` uses `(9,8)` with `CALIB_CB_EXHAUSTIVE|CALIB_CB_ACCURACY`. Require 72 finite in-image corners and inner-hull area at least 0.005 image area. For each detected frame, solve both the detector's row-major labeling and its 180° reversal with `SOLVEPNP_IPPE`; retain its two planar pose hypotheses only if all board corners have positive camera depth and finite reprojection residuals. Report each hypothesis's RMS/p95 residual, `camera_from_board` `R,t` (`x_cam = R x_board + t`), camera center `−Rᵀt`, and camera-to-board rotation `Rᵀ`.
+
+Choose relative label flips and planar branches by a cyclic dynamic program over registered capture slots. Fix the first detected frame's detector labeling as an arbitrary board-frame gauge. Unary cost is `(RMS/3 px)^2`; adjacent cost is `(rotation_step/(30°×slot_gap))² + (center_step/(0.5×median_camera_range×slot_gap))²`, including the wraparound edge. These are smoothness preferences, not known turntable angles or pose truth. A globally reversed 180° board frame remains equally valid, and the output must say so. Do not use object SfM cameras, Berkeley supplied poses, held-out photos, scanner meshes, or sensor depth to choose a branch.
+
+Per-frame quality flags are RMS >3 px, p95 >5 px, and insufficient board coverage. The report is diagnostic even when flags occur; a selected low-residual board pose is not a validated bottle pose or geometric accuracy claim. Report detection count, residual summaries, selected branch and gauge caveat, camera trajectory measures in square units, and camera orientation changes. Do not infer a board-to-bottle transform or run dense reconstruction from these poses.
+
+## Bound and review gate
+
+Implement synthetic tests for corner ordering/180° ambiguity, two planar PnP hypotheses, cyclic branch selection, similarity-free trajectory measures, and tampered input rejection. The preflight may hash all 48 source JPEGs and check both disk reserves without detecting corners. For a later approved real run, require fresh external output, ≤2 MiB JSON, no image/corner overlay files, one image in memory at a time, a 180-second wall-clock cap, and both disks ≥10 GiB free throughout. The current first evaluation is withheld until root reviews this plan, tests, and preflight; thresholds and branch costs above will not be tuned on those 48 images or any Google/reference score.
