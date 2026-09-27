@@ -31,7 +31,7 @@ focal length 1536 px, principal point (640, 512) on 1280×1024 photos, and
 radial k1 = 0. These numbers confirm that this arm held those parameters;
 they do not validate them against physical calibration.
 
-The same predeclared TRAIN-label chord diagnostics used for the free-intrinsic
+The same previously defined TRAIN-label chord diagnostics used for the free-intrinsic
 arm give median 6°/opposing chord ratio **0.3528** (ideal circular orbit
 0.0523), opposing-chord p90/p10 **43.14**, and 000°–348° closure divided by
 other 12° median **0.6587**. Closure passes its broad local flag; the adjacent
