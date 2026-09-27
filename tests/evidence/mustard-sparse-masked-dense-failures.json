@@ -1,0 +1,43 @@
+{
+  "schema": "mustard_sparse_masked_dense_failure_evidence_v1",
+  "scope": "failed bounded CPU dense controls; no mesh or quality result",
+  "source_repair_report_sha256": "32beea7955df0642cc87092afc39e96647adf9fbab582eaf14d6a6d662ef5ef8",
+  "root_repair_qa_sha256": "4a149d37ca9344a3d388bd59d6b11cedf50bc09e1fafb0f682b0fd56789af607",
+  "runs": [
+    {
+      "name": "mustard-sparse-masked-dense-001",
+      "external_result_path": "/Volumes/backups/code/crisp3ds-data/mustard-sparse-masked-dense-001/result.json",
+      "result_sha256": "b605ad2162bd9402e757deda9583d41206f873717fa0c9c483af18cd537e9499",
+      "status": "failed",
+      "stage": "undistort validation",
+      "failure": "PyCOLMAP returned SIMPLE_RADIAL with zero radial distortion rather than a PINHOLE export; exported image dimensions did not match the unchanged camera dimensions",
+      "native_densify_started": false,
+      "output_bytes": 88658782,
+      "sources_unchanged": true
+    },
+    {
+      "name": "mustard-sparse-masked-dense-002",
+      "external_result_path": "/Volumes/backups/code/crisp3ds-data/mustard-sparse-masked-dense-002/result.json",
+      "result_sha256": "f950939ffd555e33059cbd678bce29a5522b52404a887613e8e1262e3008ddcd",
+      "runner_sha256": "056300dec95c87d1ab0285839ee7e24727e6251cb17246946cb81c40e60cd87c",
+      "native_verbose_log_sha256": "9b5cd933f0cd182343e2755f7fde22a2d8ab558433bf53e5f7ce078c0dd2a923",
+      "depth0001_dmap_sha256": "29a7ccf4fd2b245af18f3439f9fd61df32a0c419fc738d33bddf8cac1d11b563",
+      "status": "failed",
+      "stage": "densify artifact validation",
+      "identity_source_images": 48,
+      "identity_zero_distortion_camera_max_projection_delta_pixels": 1.1368683772161603e-13,
+      "native_images_selected": 48,
+      "native_reference_views_with_one_neighbor": 1,
+      "native_reference_views_with_zero_neighbors": 47,
+      "base_dmap_count": 1,
+      "base_dmap_positive_depth_pixels": 20460,
+      "base_dmap_positive_depth_outside_mask_pixels": 0,
+      "native_fused_depth_maps": 0,
+      "native_fused_points": 0,
+      "native_exit_code": 0,
+      "output_bytes": 125058971,
+      "sources_unchanged": true,
+      "interpretation": "The single estimated depth map lacked a reciprocal neighbor depth map; zero fused points are observed. The camera geometry and low area-weighted view scores are possible contributors, not established unique causes."
+    }
+  ]
+}

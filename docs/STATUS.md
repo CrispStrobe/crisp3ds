@@ -13,7 +13,60 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
-### Current continuation: all 48 cameras recovered; surface accuracy still untested
+### Current continuation: sparse integrity repaired; dense trial fails neighbor support
+
+The one frozen sparse-track repair completed on the M1 in 1.05 seconds
+(sampled worker RSS 174,928 KiB). It preserved all 48 cameras and 939 points,
+removed 81 redundant same-image observations, and left the 897 originally
+clean points' XYZ and tracks unchanged. The saved model has 4,734 observations
+and zero repeated-image tracks. Root independently reloaded the binaries and
+recomputed residuals for all 4,815 original observations: mean changes from
+1.083929 to 1.084016 px, p95 from 2.758900 to 2.805505 px. These slightly worse
+common-population residuals pass the frozen 10% safeguard; this is **structural
+repair, not a demonstrated accuracy improvement**.
+
+The [root review](../tests/evidence/mustard-sparse-repair-root-qa.json) accepts
+only eligibility for one bounded, full-resolution masked OpenMVS dense/rough
+mesh trial. The [pre-score protocol](MUSTARD-DENSE-BENCHMARK-PLAN.md) freezes
+whole-mesh evaluation against the independent Google scanner shape oracle,
+with separate alignment and scoring samples. The reference never enters
+reconstruction. Native limits are 600 seconds total, 4 GiB child RSS, 3 GiB
+output, two threads and 10 GiB free on both disks. No refinement or texture
+stage is included. Neither attempted continuation produced an eligible mesh;
+surface quality is not yet measured.
+
+The first continuation stopped before OpenMVS: pinned COLMAP retained the
+zero-distortion `SIMPLE_RADIAL` model while exporting 1279×1023 images for its
+1280×1024 camera. The failed run is preserved; it is not a dense result. The
+correction for this exact-zero-distortion profile uses original, byte-identical
+1280×1024 photographs and an equivalent `PINHOLE` camera representation instead
+of resampling already distortion-free images. Nonzero distortion cannot use
+that identity path.
+
+The corrected fresh continuation passes the 48-image identity-copy, camera,
+mask and import checks. However, OpenMVS selects a neighbor for only one view
+and produces only its depth map: 20,460 positive depth pixels, all inside its
+mask. Its selected neighbor has no depth map, so fusion returns **zero points**.
+The wrapper correctly rejects this nominally exit-zero native stage. Neither
+run reaches meshing, and no reference-mesh score is reported. See the
+[dense failure evidence and next experiments](MUSTARD-DENSE-RESULTS.md).
+
+Read-only pose inspection also shows suspicious near-overlap between some
+views separated by 180 degrees in the dataset and a large camera outlier.
+Pinned native source also reveals a coverage-weighted neighbor score and an
+absolute score floor of 2.0 in `InitViews`, separate from its area filter. All
+48 views passed initial sparse-neighbor selection; most then lost every
+eligible dense neighbor. Tiny foreground coverage can therefore contribute
+even with enough sparse overlap. The relative contributions of coverage and
+pose error remain unmeasured. **48 registered images is not a validated camera solution.**
+No thresholds were relaxed and no new reconstruction was run after this
+failed dense trial.
+
+Final local regression: **531 Python tests run, 8 skipped, 523 passed** in
+28.98 seconds; **11/11 native CTests passed**. These include a tiny native
+zero-distortion handoff regression and a nonzero-distortion rejection case.
+
+### Previous continuation: all 48 cameras recovered; surface accuracy still untested
 
 The M1 CPU correction trial completed in 27.78 seconds but only three of five
 masks passed its checks. Its parent remains failed/partial. Root accepted those
@@ -70,8 +123,8 @@ or dense stages were run after this ablation.
 
 Local regression: **514 Python tests run, 8 skipped, 506 passed** in 29.67
 seconds; **11/11 native CTests passed**.
-Both CI workflows passed at the intrinsics-policy commit `7416af7`; the final
-diagnostics/evidence commit requires its own post-push CI result.
+Both CI workflows passed at the intrinsics-policy commit `7416af7` and the
+diagnostics/evidence commit `8f2b0df`.
 Large data and AI weights remain on the SSD, with the 10 GiB free-space floors
 unchanged. Sparse results are not yet a surface-quality measurement.
 
