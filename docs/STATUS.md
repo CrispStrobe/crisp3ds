@@ -1,5 +1,17 @@
 # Implementation status
 
+## Current decision snapshot (2026-09-27)
+
+**There is not yet a reliable object-only reconstruction from ordinary rotating-object photographs.** The working Sceaux COLMAP → OpenMVS run proves that a complete classical pipeline can run on this M1, but its scene coverage is incomplete and it is not the target object task. On real YCB objects, registration counts and low sparse reprojection errors have repeatedly hidden incorrect camera trajectories; neither a clean mesh nor a valid surface-accuracy score has been established for mustard.
+
+The new, separate *capture-assisted* checkerboard diagnostic detects a board rotating with the mustard bottle in **39/48 TRAIN images**. Its board-relative poses have median corner reprojection RMS **0.833 px** and a smooth observed partial arc, but the full-turn gate abstains because only 39/60 declared slots are covered. The missing late views are visibly board-occluded. No object-only tracks, dense reconstruction, or ground-truth camera comparison has yet been accepted from this branch. See [the sealed checkerboard result](MUSTARD-CHECKERBOARD-POSE-RESULT.md). A proposed comparison was paused at preflight because an old reference report was for cracker box, not mustard; provenance must be fixed before scoring.
+
+The six-pair learned-matching and robust-estimator preflights did **not** produce stable, trustworthy board-free poses: some accepted angles changed sharply under row order or leave-one-out perturbations. More tentative matches or accepted pairs are not evidence of better geometry. See [LightGlue](MUSTARD-LEARNED-MATCH-PREFLIGHT.md), [USAC](MUSTARD-USAC-ROBUSTNESS-RESULT.md), and [pair stability](MUSTARD-PAIR-STABILITY-RESULT.md). Apple Object Capture produced a valid small USDZ from the 48 mustard RGBs, but neutral review shows turntable/support leakage; its scanner fit was therefore rejected before F1 scoring. See [Apple result](MUSTARD-APPLE-SCANNER-SCORE-RESULT.md).
+
+The next bounded gates are: independently compare the 39 board-derived cameras to the **correct** mustard reference; test whether verified matches yield clean, mask-supported, multi-view object tracks under those fixed cameras; and make a pinned OpenMVG M1 baseline run if its legacy Ceres/Eigen build blockers can be cleared without license or resource-policy regressions. None of these gates is a claim that the board-free product problem is solved. OpenMVG has stopped during configuration twice, before compilation or photo processing; the current blocker is its vendored Ceres 1.13 parser against Homebrew Eigen 3.5. The [M1 attempt record](OPENMVG-MUSTARD-M1-PLAN.md) preserves both failures.
+
+Local focused regression on the checkerboard, verified-track, and fixed-pose sparse contracts: **15/15 tests pass** in the pinned PyCOLMAP environment. This is synthetic/contract coverage, not proof of photo-to-mesh quality. External SSD free space is about 14 GiB and internal free space about 22 GiB; both must remain above the 10 GiB floor. Older snapshots below are historical and should not be read as the current free-space or quality status.
+
 ## Public repository and project license
 
 On 2026-09-27, at the owner's request, the repository became public and original
