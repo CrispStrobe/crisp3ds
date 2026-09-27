@@ -34,8 +34,10 @@ and roughly box-like but had poor independent surface agreement. The hull has
 **92 nonmanifold edges** (zero boundary edges), so no watertight mesh volume
 ratio is reported. Exact X-ray parity recovers all 55,815 sealed occupied
 voxels; 4,460 centers (7.99%) fall outside the scanner AABB under the fixed
-gauge. That is a lower-bound extra-volume proxy, not an IoU or physical-mass
-claim. At 1%, the hull's extra *surface* fraction is 81.79% (`1-P`) and its
+gauge. That is an AABB-center diagnostic, not an IoU, a rigorous volume bound,
+or a physical-mass claim. The sealed score JSON calls it a "lower-bound
+extra-volume proxy"; that wording is heuristic because boundary cells can
+straddle the AABB. At 1%, the hull's extra *surface* fraction is 81.79% (`1-P`) and its
 unsupported scanner *surface* fraction is 85.21% (`1-R`).
 
 This falsifies the hoped-for quality improvement from these coarse
