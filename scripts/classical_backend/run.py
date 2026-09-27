@@ -276,7 +276,8 @@ def worker(kind: str, run: Path, max_pixels: int, external_model: Path | None = 
 
 
 def stage(run: Path, name: str, command: list[str], deadline: float,
-          max_bytes: int, max_log_bytes: int, max_rss_bytes: int) -> dict:
+          max_bytes: int, max_log_bytes: int, max_rss_bytes: int,
+          extra_reserve_paths: tuple[Path, ...] = ()) -> dict:
     log_path = run / f"{name}.log"
     started = time.monotonic()
     result = {"name": name, "command": command, "log": str(log_path), "status": "running"}
@@ -297,6 +298,8 @@ def stage(run: Path, name: str, command: list[str], deadline: float,
                     reason = "deadline exceeded"
                 elif shutil.disk_usage(run).free < RESERVE:
                     reason = "10 GiB disk reserve reached"
+                elif any(shutil.disk_usage(path).free < RESERVE for path in extra_reserve_paths):
+                    reason = "extra 10 GiB disk reserve reached"
                 elif folder_bytes(run) > max_bytes:
                     reason = "output byte limit reached"
                 elif log_path.stat().st_size > max_log_bytes:
@@ -342,6 +345,8 @@ def stage(run: Path, name: str, command: list[str], deadline: float,
         reason = "stage log byte limit reached after stage"
     if not reason and shutil.disk_usage(run).free < RESERVE:
         reason = "10 GiB disk reserve reached after stage"
+    if not reason and any(shutil.disk_usage(path).free < RESERVE for path in extra_reserve_paths):
+        reason = "extra 10 GiB disk reserve reached after stage"
     result.update(status="failed" if reason or process is None or process.returncode else "complete",
                   exit_code=process.returncode if process else None, seconds=round(time.monotonic() - started, 3),
                   output_bytes=measured_bytes, peak_sampled_child_rss_bytes=peak_rss_bytes,
