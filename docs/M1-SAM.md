@@ -184,15 +184,42 @@ reconstruction has used these masks. Any follow-on negative-point prompts
 for the five failed training views must be a separate frozen candidate and
 reviewed before inference; these generated artifacts are preserved unchanged.
 
-One bounded image-only proposal for a later, separate five-view trial is to
-keep the original box, positive point and two negatives, adding a single
-negative point at original pixel `(620,330)` **only** for `NP3_318`, `330`,
-`336`, `342` and `348`. Direct inspection of those five original TRAIN RGB
-photos places that point inside the checkerboard and above the bottle/cap in
-each. This is a proposed prompt, not a generated mask or approved threshold;
-it must be visually reviewed and frozen before any inference, and may still
-fail to exclude other connected board regions. No prompt variant was run
-after the full-set rejection.
+### Separate five-view board-negative candidate (prepared, not run)
+
+The [new prompt manifest](../tests/datasets/sam21_mustard_m1_board5_prompts.json)
+(SHA-256 `8cc0b6fa49d977194870ef91f10b83a793294d6b3903cb1e08643016bdc9b4f8`)
+keeps the original box, positive point and two negatives, adding one negative
+at original pixel `(620,330)` **only** for TRAIN views `NP3_318`, `330`,
+`336`, `342` and `348`. Root and an independent reviewer inspected the five
+original RGB photos: the new point is on checkerboard above the cap in each.
+This is an image-only candidate prompt, not a mask quality finding; it may
+still fail to exclude connected board elsewhere.
+
+The isolated [five-view runner](../scripts/object_motion/sam_m1_board5.py)
+(SHA-256 `57d6248e1c234a4ac1b5d00d2a8645594596e9a68ca104c3cad9ea61269a5c11`)
+uses the same pinned CPU SAM2 source/checkpoint and a separate exact-four-point
+predictor. It checks the frozen full48 inventory and rejection QA, all 48 base
+cleaned-mask hashes, original and new prompts, and TRAIN-only photo hashes.
+The rejected 48-mask output is never edited. A successful trial would publish
+only five new raw/cleaned masks with actual four-point prompts in a new
+`generated_unreviewed` manifest; a resource/quality failure preserves partial
+raw evidence and cannot be composed into a new 48-view set. A separate
+supervisor success report and later independent five-view visual QA are
+required before the classical adapter may compose any candidate inventory.
+
+The predeclared resource contract is one CPU/two-thread batch, ≤90 seconds
+worker, ≤240 seconds total, ≤1.5 GiB worker RSS, ≥4 GiB Mac free+inactive
+estimate at launch and ≥2.5 GiB during execution, ≤20 MiB output, ≤1 MiB log,
+and ≥10 GiB free on both internal/external volumes. Six hermetic
+[tests](../scripts/object_motion/test_sam_m1_board5.py) passed, including
+fourth-negative forwarding, board-foreground rejection, baseline tamper,
+partial raw-mask preservation and cap boundaries. Read-only input preflight
+passed on the actual Mac bundle, but free+inactive was only 3,811,184 KiB,
+below the 4,194,304 KiB launch gate. **No five-view inference has run.**
+Root approved one bounded trial conditional on that gate. The permitted
+60-second observation sampled 3,664,560–3,916,176 KiB, never reaching it;
+the proposed fresh output and supervisor sidecar remained absent. No retry or
+resource-limit change was made.
 
 Meta's [SAM2 requirements](https://github.com/facebookresearch/sam2/blob/main/setup.py)
 include Python ≥3.10, PyTorch ≥2.5.1 and matching TorchVision. The pinned

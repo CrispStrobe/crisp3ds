@@ -1,9 +1,10 @@
 # Proposed mustard sparse-SfM mask comparison
 
-Status: **plan only**. Do not stage inputs or run either arm until the frozen
-48-view SAM point-mask result is complete **and** root records a visual QA
-decision accepting its cleaned masks for coarse pose support. A successful
-inference manifest alone remains `complete_unreviewed`, not acceptance. This
+Status: **plan only**. The original 48-view SAM mask inventory was generated
+but root rejected it for checkerboard leakage in five views. Do not stage
+masks or run either SfM arm until a new complete 48-view candidate has its
+own independent root visual-QA acceptance. A successful inference manifest
+or five-view correction review alone remains unaccepted for SfM. This
 experiment compares image-estimated sparse reconstruction, not mesh quality.
 
 ## Immutable input boundary
@@ -50,6 +51,36 @@ of accepted masks has been run under this protocol yet. A separate photo-only
 `/Volumes/backups/code/crisp3ds-data/sam21-m1-train48-001` (report SHA-256
 `d6e72143fc02ee3d18dd8961ae508417bf122cbdbc24ebc4465e207a30997861`);
 it contains no masks or held-out images and does not satisfy the mask/QA gate.
+
+## Five-view correction and new full-set decision
+
+The sealed original inventory (SHA-256
+`b47e8caec7d05fae7bb84ae9b3eec7d4a35b1457ca9df67a3b984cbaaeed8a98`)
+remains rejected by the [tracked root QA](../tests/datasets/sam21_mustard_m1_full_review.json)
+(SHA-256 `4084e8e458b55c566dd138f9d4b8b853ab2c68bfc20f5f831447a0cc99e9528a`).
+Only `NP3_318.jpg`, `NP3_330.jpg`, `NP3_336.jpg`, `NP3_342.jpg`, and
+`NP3_348.jpg` may be replaced. The [separate correction prompts](../tests/datasets/sam21_mustard_m1_board5_prompts.json)
+(SHA-256 `8cc0b6fa49d977194870ef91f10b83a793294d6b3903cb1e08643016bdc9b4f8`)
+retain the original three points and add a negative board point `(620,330,0)`
+for those five. They do **not** change the original 43 prompts or make the
+original global prompt SHA a valid label for corrected masks.
+
+The [candidate composer](../scripts/classical_backend/mustard_candidate48.py)
+requires a completed five-view worker manifest **and** successful resource
+supervisor, fixed SAM checkpoint/source/runner seals, an independent root
+review accepting exactly those five corrected masks, and exact original
+photo and per-frame hashes. It checks all 48 original raw/clean masks, all
+five replacement raw/clean masks, and metadata before and after copying.
+Its fresh `sam21_mustard_m1_composed_candidate_v1` inventory records an
+ordered 43 `base43` / 5 `board5` origin and per-image prompt SHA; it remains
+`generated_unreviewed`. It cannot inherit the rejection's acceptance.
+The [stager](../scripts/classical_backend/mustard_stage.py) recognizes this
+new lane only with a *second*, independent
+`mustard_sam_composed_candidate_qa_v1` decision accepting and hashing all
+48 composed cleaned masks. The old inventory lane and its QA contract remain
+separate. Neither corrected inference, composition, staging, nor SfM has
+been run under this correction protocol yet. Tests use tiny synthetic masks
+and do not substitute for the root's image review.
 
 There is no existing mustard SfM baseline. Prior cracker-box raw/masked trials
 are settings precedent, not a cross-object baseline. The control must be a

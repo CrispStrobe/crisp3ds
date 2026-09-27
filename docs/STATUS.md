@@ -13,6 +13,33 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
+### Current continuation: five-view correction ready, RAM-gated
+
+The separately frozen [board-negative experiment](M1-SAM.md) adds the
+original-image negative point `(620,330)` only to the five rejected training
+views. Root and the independent reviewer confirmed its checkerboard placement
+in all five original photos. The new runner preserves the prior 48-mask
+artifact and records four-point provenance for any newly generated masks.
+
+The [candidate composer](../scripts/classical_backend/mustard_candidate48.py)
+requires a successful bounded run and separate five-view visual acceptance,
+then copies 43 unchanged masks plus five corrected masks into a new,
+unreviewed inventory. Staging requires another independent full-48 review.
+Tests cover incorrect lineage, changed source files, partial results and QA
+rejection; 17 focused tests and 81 classical-backend tests passed. Existing
+three-point runtimes and the paired COLMAP settings are unchanged.
+
+**No correction inference, composition, staging or SfM ran this turn.**
+Actual input preflight passed, but the permitted 60-second observation found
+only 3,664,560–3,916,176 KiB of Mac free+inactive memory, below the frozen
+4,194,304 KiB launch reserve. The proposed output remains absent. Resume the
+single bounded trial only after memory headroom recovers; do not lower the
+runtime or disk safety floors. Both CI workflows passed at `338c1fd`; these
+new changes require their own post-push CI result.
+Final full local regression: **484 tests run, 8 skipped, 476 passed** in
+27.95 seconds, with small test scratch inside the repository and large
+datasets/weights remaining on the external SSD.
+
 ### Current continuation: full-training M1 mask path
 
 The photo-only stage copied and verified exactly 48 mustard TRAIN photographs

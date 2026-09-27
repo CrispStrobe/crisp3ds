@@ -63,6 +63,104 @@ def mask_pixels(mask: Path, photo: Path, expected_size: tuple[int, int]) -> dict
         return {"kept_pixels": histogram[255], "ignored_pixels": histogram[0]}
 
 
+def validate_composed_candidate(inventory: dict, rows: list[dict], qa: dict,
+                                inventory_root: Path, inventory_sha256: str,
+                                package_sha256: str) -> None:
+    """Additional gate for the distinct 43-base/5-corrected candidate lane."""
+    from scripts.classical_backend import mustard_candidate48 as candidate
+
+    corrected = set(candidate.CORRECTED)
+    if (inventory.get("status") != "generated_unreviewed" or
+            inventory.get("package_sha256") != package_sha256 or
+            inventory.get("base_inventory_sha256") != candidate.BASE_SHA or
+            inventory.get("base_rejected_qa_sha256") != candidate.REJECTED_QA_SHA or
+            inventory.get("correction_prompt_sha256") == PROMPTS_SHA256 or
+            inventory.get("full_training_package_ready") is not False or
+            [row.get("name") for row in rows] != list(TRAIN_NAMES)):
+        raise ValueError("composed 48-view inventory lineage differs")
+    for key in ("correction_manifest_sha256", "correction_prompt_sha256",
+                "correction_qa_sha256", "correction_supervisor_sha256", "composition_report_sha256"):
+        value = inventory.get(key)
+        if not isinstance(value, str) or len(value) != 64 or set(value) - set("0123456789abcdef"):
+            raise ValueError("composed inventory lacks sealed correction lineage")
+    report = sealed_json(inventory_root / "composition-report.json", inventory["composition_report_sha256"])
+    if (report.get("schema") != "sam21_mustard_m1_composition_report_v1" or
+            report.get("status") != "complete_unreviewed" or
+            any(report.get(key) != inventory.get(key) for key in
+                ("base_inventory_sha256", "base_rejected_qa_sha256", "correction_manifest_sha256",
+                 "correction_prompt_sha256", "correction_qa_sha256", "correction_supervisor_sha256", "package_sha256")) or
+            len(report.get("images", [])) != 48):
+        raise ValueError("composition report does not seal this inventory")
+    if (report.get("output") != str(inventory_root) or
+            report.get("runner_sha256") != sha256(Path(candidate.__file__))):
+        raise ValueError("composition output or runner seal differs")
+    for row, source in zip(rows, report["images"]):
+        name = row["name"]
+        expected_origin = "board5" if name in corrected else "base43"
+        if (row.get("origin") != expected_origin or source.get("origin") != expected_origin or
+                row.get("prompt_sha256") != (inventory["correction_prompt_sha256"] if name in corrected else PROMPTS_SHA256) or
+                any(row.get(key) != source.get(key) for key in
+                    ("name", "source_sha256", "cleaned_mask_sha256", "origin",
+                     "source_frame_manifest_sha256", "prompt_sha256", "prompt_points_sha256"))):
+            raise ValueError(f"composed per-image base/correction provenance differs: {name}")
+        for key in ("source_frame_manifest_sha256", "prompt_points_sha256"):
+            value = row.get(key)
+            if not isinstance(value, str) or len(value) != 64 or set(value) - set("0123456789abcdef"):
+                raise ValueError("composed row lacks exact prompt/frame hash")
+    if (qa.get("schema") != "mustard_sam_composed_candidate_qa_v1" or
+            qa.get("status") != "accepted" or
+            qa.get("decision") != "accepted_for_coarse_pose_support" or
+            qa.get("inventory_sha256") != inventory_sha256 or
+            qa.get("reviewed_names") != list(TRAIN_NAMES) or
+            not qa.get("reviewer") or not qa.get("reviewed_at")):
+        raise ValueError("independent full-48 composed candidate QA acceptance missing")
+    audit = report.get("source_audit")
+    if (not isinstance(audit, list) or len(audit) != 161 or
+            any(not isinstance(pair, list) or len(pair) != 2 or
+                not isinstance(pair[0], str) or not isinstance(pair[1], str) or
+                len(pair[1]) != 64 or set(pair[1]) - set("0123456789abcdef")
+                for pair in audit)):
+        raise ValueError("composition did not bind all metadata and base/correction masks")
+    base_root = Path(audit[1][0]).parent
+    correction_root = Path(audit[3][0]).parent
+    if (Path(audit[1][0]).name != "complete_inventory.json" or
+            Path(audit[3][0]).name != "manifest.json" or
+            Path(audit[6][0]) != correction_root / "supervisor.json" or
+            audit[1][1] != inventory["base_inventory_sha256"] or
+            audit[2][1] != inventory["base_rejected_qa_sha256"] or
+            audit[3][1] != inventory["correction_manifest_sha256"] or
+            audit[4][1] != inventory["correction_prompt_sha256"] or
+            audit[5][1] != inventory["correction_qa_sha256"] or
+            audit[6][1] != inventory["correction_supervisor_sha256"] or
+            base_root.is_symlink() or correction_root.is_symlink()):
+        raise ValueError("composition metadata audit paths or hashes differ")
+    original_inventory = sealed_json(Path(audit[1][0]), audit[1][1])
+    original_rows = original_inventory.get("images", [])
+    if [r.get("name") for r in original_rows] != list(TRAIN_NAMES):
+        raise ValueError("composition base audit inventory order differs")
+    cursor = 7
+    for row, original in zip(rows, original_rows):
+        name = row["name"]
+        expected = [base_root / "frames" / name / "frame.json",
+                    base_root / "frames" / name / "raw.png",
+                    base_root / "frames" / name / "clean.png"]
+        if name in corrected:
+            expected.extend((correction_root / "raw_masks" / (name + ".png"),
+                             correction_root / "cleaned_masks" / (name + ".png")))
+        if [Path(pair[0]) for pair in audit[cursor:cursor + len(expected)]] != expected:
+            raise ValueError("composition per-frame source audit path differs")
+        if (audit[cursor][1] != original.get("frame_manifest_sha256") or
+                audit[cursor + 2][1] != original.get("cleaned_mask_sha256")):
+            raise ValueError("composition base frame audit hash differs")
+        cursor += len(expected)
+    if cursor != len(audit):
+        raise ValueError("composition source audit has extra entries")
+    for source, expected_hash in audit:
+        path = Path(source)
+        if path.is_symlink() or not path.is_file() or sha256(path) != expected_hash:
+            raise ValueError("composition source or metadata changed after review")
+
+
 def preflight(package_path: Path, train_photos: Path, inventory_path: Path, inventory_root: Path,
               inventory_sha256: str, qa_path: Path, qa_sha256: str, *,
               output: Path = OUTPUT, mount: Path = MOUNT, require_mount: bool = True,
@@ -96,19 +194,25 @@ def preflight(package_path: Path, train_photos: Path, inventory_path: Path, inve
         photo_hashes[name] = row["sha256"]
     inventory = sealed_json(inventory_path, inventory_sha256)
     rows = inventory.get("images", [])
-    if (inventory.get("schema") != "sam21_mustard_point_mask_inventory_v1" or
-            inventory.get("status") != "generated_unreviewed" or
-            inventory.get("package_sha256") != package_sha256 or
-            inventory.get("prompt_sha256") != PROMPTS_SHA256 or
-            [row.get("name") for row in rows] != list(TRAIN_NAMES)):
-        raise ValueError("full 48-view SAM inventory is incomplete or wrong source")
+    kind = inventory.get("schema")
+    if kind == "sam21_mustard_point_mask_inventory_v1":
+        if (inventory.get("status") != "generated_unreviewed" or
+                inventory.get("package_sha256") != package_sha256 or
+                inventory.get("prompt_sha256") != PROMPTS_SHA256 or
+                [row.get("name") for row in rows] != list(TRAIN_NAMES)):
+            raise ValueError("full 48-view SAM inventory is incomplete or wrong source")
+    elif kind != "sam21_mustard_m1_composed_candidate_v1":
+        raise ValueError("unknown full-48 mask inventory schema")
     qa = sealed_json(qa_path, qa_sha256)
-    if (qa.get("schema") != "mustard_sam_mask_qa_v1" or qa.get("status") != "accepted" or
-            qa.get("decision") != "accepted_for_coarse_pose_support" or
-            qa.get("inventory_sha256") != inventory_sha256 or
-            qa.get("reviewed_names") != list(TRAIN_NAMES) or
-            not qa.get("reviewer") or not qa.get("reviewed_at")):
-        raise ValueError("full independent visual QA acceptance missing")
+    if kind == "sam21_mustard_point_mask_inventory_v1":
+        if (qa.get("schema") != "mustard_sam_mask_qa_v1" or qa.get("status") != "accepted" or
+                qa.get("decision") != "accepted_for_coarse_pose_support" or
+                qa.get("inventory_sha256") != inventory_sha256 or
+                qa.get("reviewed_names") != list(TRAIN_NAMES) or
+                not qa.get("reviewer") or not qa.get("reviewed_at")):
+            raise ValueError("full independent visual QA acceptance missing")
+    else:
+        validate_composed_candidate(inventory, rows, qa, inventory_root, inventory_sha256, package_sha256)
     qa_mask_hashes = qa.get("cleaned_mask_sha256")
     if not isinstance(qa_mask_hashes, dict) or set(qa_mask_hashes) != set(TRAIN_NAMES):
         raise ValueError("QA must bind all 48 cleaned mask hashes")
@@ -138,6 +242,7 @@ def preflight(package_path: Path, train_photos: Path, inventory_path: Path, inve
     return {"schema": "mustard_train_only_stage_v1", "status": "preflight",
             "package_sha256": package_sha256, "acquisition_manifest_sha256": ACQUISITION_SHA256,
             "inventory_sha256": inventory_sha256, "qa_sha256": qa_sha256,
+            "inventory_schema": kind,
             "train_photo_sha256": photo_hashes, "cleaned_masks": masks,
             "train_names_sha256": hashlib.sha256(names_bytes).hexdigest(),
             "train_names": list(TRAIN_NAMES), "heldout_names_excluded": list(HELDOUT_NAMES),
