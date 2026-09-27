@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RUNNER = ROOT / "scripts/run_stereo_benchmarks.py"
 EVALUATOR = ROOT / "build-opencv/bin/crisp3ds_stereo_eval"
 CENSUS = ROOT / ".local-tools/oracles/census/census"
-SCRATCH = ROOT / ".local-tools/tmp"
+SCRATCH = Path(os.environ["TMPDIR"]) if os.environ.get("TMPDIR") else ROOT / ".local-tools/tmp"
 
 
 def pgm(path: Path, rows: list[list[int]]) -> None:
@@ -37,7 +37,7 @@ class MatrixRunnerTest(unittest.TestCase):
         if not EVALUATOR.is_file() or not CENSUS.is_file():
             raise unittest.SkipTest("Build evaluator and census first")
         SCRATCH.mkdir(parents=True, exist_ok=True)
-        if shutil.disk_usage(ROOT).free < 10 * 1024**3 + 128 * 1024**2:
+        if shutil.disk_usage(SCRATCH).free < 10 * 1024**3 + 128 * 1024**2:
             raise unittest.SkipTest("10 GiB storage reserve")
 
     def setUp(self) -> None:

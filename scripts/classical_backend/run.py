@@ -375,13 +375,23 @@ def check_toolchain(binary_dir: Path, python: Path) -> dict:
             "runner_sha256": digest(Path(__file__))}
 
 
+def reserve_paths_for_devices(output_device: int, workspace_device: int) -> tuple[Path, ...]:
+    """Monitor internal free space too when a run writes to another volume."""
+    return (ROOT,) if output_device != workspace_device else ()
+
+
 def run(args: argparse.Namespace) -> dict:
+    if args.output.is_symlink():
+        raise ValueError("output must not be a symlink")
     output = args.output.resolve()
     binary_dir = args.binary_dir.resolve()
     if output.exists():
         raise ValueError(f"output must be fresh: {output}")
+    extra_reserve_paths = reserve_paths_for_devices(output.parent.stat().st_dev, ROOT.stat().st_dev)
     if shutil.disk_usage(output.parent).free < RESERVE + (256 << 20):
         raise ValueError("insufficient free disk above 10 GiB reserve")
+    if any(shutil.disk_usage(path).free < RESERVE for path in extra_reserve_paths):
+        raise ValueError("internal 10 GiB reserve not met for external output")
     selection = photos(args.images.resolve(), args.image_list, args.max_views)
     args.sfm_min_model_size = effective_sfm_min_model_size(args.sfm_min_model_size, len(selection))
     software = None
@@ -392,7 +402,8 @@ def run(args: argparse.Namespace) -> dict:
               "limits": {"max_views": args.max_views, "max_image_size": args.max_image_size,
                          "max_output_bytes": args.max_gib * (1 << 30),
                          "max_child_rss_bytes": args.max_rss_gib * (1 << 30),
-                         "timeout_minutes": args.timeout_minutes, "min_free_bytes": RESERVE},
+                         "timeout_minutes": args.timeout_minutes, "min_free_bytes": RESERVE,
+                         "extra_reserve_paths": [str(path) for path in extra_reserve_paths]},
               "inputs": [], "stages": [], "shipping_approved": False,
               "metric_scale_verified": False, "quality_accepted": False,
               "sfm_camera_mode": "from_imported_model" if args.sparse_model else "SINGLE",
@@ -464,7 +475,8 @@ def run(args: argparse.Namespace) -> dict:
                                     "sequential_overlap": args.sequential_overlap}
         save()
         for source in selection:
-            if shutil.disk_usage(output).free < RESERVE + source.stat().st_size or \
+            if any(shutil.disk_usage(path).free < RESERVE for path in extra_reserve_paths) or \
+                    shutil.disk_usage(output).free < RESERVE + source.stat().st_size or \
                     folder_bytes(output) + source.stat().st_size > args.max_gib * (1 << 30):
                 raise ValueError("photo copy would exceed disk reserve or output limit")
             target = output / "images" / source.name
@@ -483,7 +495,8 @@ def run(args: argparse.Namespace) -> dict:
                 mask = masks / (item["name"] + ".png")
                 if mask.is_symlink() or not mask.is_file() or mask.stat().st_size < 1:
                     raise ValueError(f"missing pose mask: {mask}")
-                if (shutil.disk_usage(output).free < RESERVE + mask.stat().st_size or
+                if (any(shutil.disk_usage(path).free < RESERVE for path in extra_reserve_paths) or
+                        shutil.disk_usage(output).free < RESERVE + mask.stat().st_size or
                         folder_bytes(output) + mask.stat().st_size > args.max_gib * (1 << 30)):
                     raise ValueError("pose mask copy would exceed disk reserve or output limit")
                 target = output / "masks" / mask.name
@@ -505,7 +518,8 @@ def run(args: argparse.Namespace) -> dict:
         def execute(name, command, validate=None):
             result = stage(output, name, [str(x) for x in command], deadline,
                            int(args.max_gib * (1 << 30)), args.max_log_mib << 20,
-                           int(args.max_rss_gib * (1 << 30)))
+                           int(args.max_rss_gib * (1 << 30)),
+                           extra_reserve_paths=extra_reserve_paths)
             if validate:
                 try:
                     result["artifact"] = validate()

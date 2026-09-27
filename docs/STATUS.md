@@ -13,6 +13,47 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
+### Latest continuation: resumable masks and sparse comparison prerequisites
+
+The prompt hash failures on Windows at `1f3a077` were caused by checkout CRLF
+conversion: independently converting the two LF fixtures reproduced both exact
+CI failure hashes. Commit `3d91758` pins their checkout line endings without
+changing the byte-hash checks. Commit `4e0b22f` also makes fixture and
+`.gitattributes` changes trigger the quality-contract matrix.
+
+A separate resumable SAM runner now uses four-frame batches, strict import of
+the 16 sealed results, per-frame publication receipts, and cross-invocation
+hash checks. Six focused tests cover interruption and tampering. Remote
+read-only preflight verified the frozen 48-photo inventory and exactly 16
+sealed prior masks; the interrupted third batch's six unsealed pairs are
+excluded. No full-mask-set acceptance follows from this check.
+
+The train-only staging gate now requires all 48 photo hashes, a complete mask
+inventory and a separately hash-bound full visual-review decision. The
+classical runner monitors internal reserve as well as external output reserve
+when output devices differ. A read-only sparse diagnostic adds match-graph
+components including isolated images, registered names, track distributions,
+and finite/invalid per-observation reprojection counts. Native analytic
+PyCOLMAP tests exercise camera projection and binary-model/SQLite integration.
+See the [comparison plan](MUSTARD-SFM-COMPARISON.md). No real staging, paired
+SfM comparison, or new geometry score is claimed.
+
+VPS available RAM fluctuated from about 1.4 GiB to 3.3 GiB and back below the
+unchanged 2.5 GiB inference gate. Mac internal free space fell to about
+10.47 GiB. The first full regression encountered seven existing disk-headroom
+guard failures (452 tests, 8 skips); these guards require approximately
+10.5 GiB. Test temporary files were moved to the external drive, and the stereo
+matrix tests now honor that explicit `TMPDIR` override. Final rerun: **452 tests,
+8 skipped, the remaining 444 passed**; production resource limits are unchanged.
+
+The final immediate VPS launch gate was 1,301,820 KiB, below 2,621,440 KiB;
+no continuation inference ran and its proposed output remains uncreated. The
+user then clarified that future inference is **M1 or Kaggle only**, with the
+VPS restricted to smaller CPU tasks. A bounded M1 CPU environment and a
+three-view cross-host comparison are the next implementation task, with all
+large files on the external drive. The Linux-specific RAM monitor must not
+be reused as though it measured available memory on macOS.
+
 ### Latest continuation: prompt correction and masked Brush execution
 
 The storage relocation regressions are fixed: Windows requires a writable flush

@@ -251,3 +251,91 @@ and no semantic target switch visible in those panels. A thin pale boundary
 remains. There is no full 48-view mask set, no exact-silhouette certification,
 and no SfM/dense reconstruction used these masks. Held-out photos and
 reference mesh/depth were not accessed for inference or QA.
+
+## Four-view resumable continuation: prepared, inference gated
+
+The [new continuation runner](../scripts/object_motion/sam_point_resume.py)
+keeps the same exact 48 training RGB photos, full-view common-point prompts,
+SAM2 source/checkpoint, original-pixel box and mask acceptance rules. It does
+not read supplied masks, depth, poses or reference geometry. It imports **only**
+the prior hash-sealed first 16 masks, verifying the parent and both eight-view
+batch manifest SHA-256s above, each source photo, each prompt and both PNG
+hashes. The unsealed third-batch PNGs are excluded. A separate contract binds
+the package, prompt, model, source inventory and helper code hashes.
+
+New work is split into sequential four-photo CPU batches with ≤90 s per batch,
+≤600 s per invocation including at most 60 s aggregate wait for ≥2.5 GiB
+available RAM, ≤1.5 GiB worker RSS, two threads, ≤60 MiB output and ≥10 GiB
+free space. A frame is published with raw mask, cleaned mask, provenance and
+an independent hash receipt; publication can recover after interruption, and
+later invocations compare all previously reported per-frame hashes. Duplicate,
+extra/held-out, linked, altered or mismatched frames are rejected. Once and
+only once all 48 have individually validated records, the runner can write
+`complete_inventory.json` with status `generated_unreviewed` and relative
+`cleaned_mask_path` values. That status is **not** visual QA or permission to
+reconstruct; a separate root-authored full-set QA decision is required.
+
+Six focused tests cover fake predictions interrupted after two published
+frames, atomic receipt recovery, prior-frame and later-frame tampering, extra
+held-out frame rejection, and 48-row inventory formation. The pinned Python
+3.11 local test run passed 6/6. Read-only VPS preflight with the deployed
+runner SHA-256 `5e9e8d0621eee892b89b27242c2bde8b4d59b23c110ddd73e9b0c25a0d419818`
+validated exactly 48 frozen training rows and 16 sealed prior masks
+(`NP3_000` through `NP3_108`), with package SHA-256
+`45b6ed1430627a747eaeb8d4dff7d2c49502083cca0a7914e25aacd45b594425`.
+At that preflight, `/proc/meminfo` reported 1,900,824 KiB available RAM, below
+the 2,621,440 KiB inference gate. **No continuation inference was launched**
+at that point. The proposed fresh VPS output is
+`/mnt/storage/crisp3ds-data/sam21-mustard-point-resume-001/`; it remains
+nonexistent until a passing immediate RAM preflight. Root subsequently
+approved exactly one bounded invocation conditional on the gate. The single
+immediate launch check returned only 1,301,820 KiB, so the runner was **not
+launched**; there was no wait, retry, mask generation, visual QA, or SfM use.
+
+### Next inference host: M1 or Kaggle, not the VPS
+
+The VPS launch above is historical blocked evidence, **not** a future
+inference plan. Per the revised compute policy, VPS work is limited to
+smaller CPU tasks; any further SAM2 inference should be evaluated on the
+local M1 or Kaggle. No M1/Kaggle environment has yet been installed or run.
+
+Read-only M1 preflight found native arm64 Python 3.11.1 and 16 GiB unified
+memory. The existing COLMAP virtual environment has NumPy but not PyTorch or
+the SAM2 runtime. At inspection, the external `/Volumes/backups` volume had
+20.86 GiB free and the internal volume only 10.47 GiB free; the latter leaves
+little margin above the 10 GiB reserve. Any approved setup must place its
+isolated environment, pip/cache/temp files, pinned source, checkpoint and
+outputs entirely on external storage, with a ≤2 GiB setup cap and ≥10 GiB
+free on **both** volumes throughout. Intended locations are
+`/Volumes/backups/ai/crisp3ds-sam21-m1-001` for environment/model and
+`/Volumes/backups/code/crisp3ds-data` for artifacts. The pinned checkpoint is
+156,008,466 bytes; the VPS source tree is about 120 MiB and runtime additions
+about 10 MiB. [PyPI lists a CPython 3.11 macOS arm64 PyTorch 2.7.0 wheel](https://pypi.org/project/torch/2.7.0/)
+at 68.6 MB, and [TorchVision 0.22.1](https://pypi.org/project/torchvision/0.22.1/)
+at about 1.9 MB. These are download sizes, not installed-size or runtime
+proof. Meta's [SAM2 setup requirements](https://github.com/facebookresearch/sam2/blob/main/setup.py)
+include matching PyTorch/TorchVision plus Hydra, iopath, Pillow and NumPy;
+the project installation guide primarily documents Linux, so macOS operation
+is a feasibility hypothesis, not established support.
+
+The frozen VPS supervisor's RAM/RSS probes read `/proc/meminfo` and
+`/proc/<pid>/status`; they do not work on macOS. An approved M1 lane needs a
+**new**, tested Mac-specific supervisor (e.g. a conservative `vm_stat` memory
+gate and `ps -o rss=` worker probe) while keeping the old runner and its
+provenance untouched. CPU inference should precede any MPS experiment so a
+backend change does not confound mask parity. A bounded predeclared three-view
+parity check on training frames `NP3_000`, `NP3_066`, and `NP3_108` can compare
+the same source, checkpoint, prompts and box against the corresponding sealed
+VPS first-16 masks. Point membership, raw/clean support area and overlap
+should be reported; cross-platform pixel identity is not assumed. Only after
+that review should the missing 32 masks be considered. No held-out photo,
+reference mesh/depth or reconstruction score informs this proposal.
+
+The user subsequently clarified the compute policy: **future inference belongs
+on the Mac M1 or Kaggle, not the VPS**. The VPS is for smaller CPU tasks and
+storage. The proposed VPS continuation above is historical and superseded;
+do not launch it merely because VPS RAM later recovers. M1 execution needs a
+separate bounded environment/resource adapter and a cross-host mask comparison
+before continuing the remaining training views. Keep weights and environment
+on the external AI volume, outputs on the external code volume, and reserve
+at least 10 GiB on the internal disk.

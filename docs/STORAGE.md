@@ -8,6 +8,13 @@ User-confirmed Mac convention (2026-09-27):
 - VPS large datasets, models, and outputs: `/mnt/storage`; use `/mnt/volume1`
   only after checking its available capacity.
 
+Compute policy clarified by the user: run inference on the Mac M1 or Kaggle;
+reserve the VPS for smaller CPU tasks and dataset storage. Historical VPS SAM
+experiments remain evidence, not the target for further inference. Read
+`../kaggle_usage.md` before using Kaggle. On the Mac, put inference environments,
+weights and caches under `/Volumes/backups/ai` and experiment outputs under
+`/Volumes/backups/code/crisp3ds-data`, with both-volume reserve checks.
+
 The external Mac volumes `backups` and `BKP_MAC` share one APFS container's
 free space; their free-space figures must not be added together.
 Keep at least 10 GiB free on the Mac internal disk. Avoid `/tmp` for large

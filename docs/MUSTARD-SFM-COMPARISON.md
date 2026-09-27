@@ -37,7 +37,13 @@ PyCOLMAP reader. Rehash each staged photo against the package and each mask
 against the sealed batch manifest; reject missing, duplicate, linked, extra,
 or changed files. Record the accepted QA decision and full-run manifest SHA.
 Make a basename-only `train-names.txt` in the order above and bind its hash.
-This staging validator/monitor is a prerequisite, **not implemented by this plan**.
+The [train-only staging helper](../scripts/classical_backend/mustard_stage.py)
+now implements these checks, including a fresh exact output, decoded binary
+mask/photo dimensions, hashes and a ≤150 MiB copy cap; its tests are in
+[`test_mustard_stage.py`](../scripts/classical_backend/test_mustard_stage.py).
+It deliberately requires a separately sealed 48-mask inventory and explicit
+root visual-QA acceptance, neither of which this plan substitutes. No staging
+has been run under this protocol yet.
 
 There is no existing mustard SfM baseline. Prior cracker-box raw/masked trials
 are settings precedent, not a cross-object baseline. The control must be a
@@ -82,10 +88,12 @@ Each run is capped at **2 GiB output**, **10 minutes**, **32 MiB per stage
 log**, **4 GiB sampled child RSS**, and two CPU threads. The runner already
 enforces a 10 GiB free-space floor on its output filesystem. Before launch,
 verify ≥10 GiB plus the ≤150 MiB stage and both 2 GiB run allowances on the
-external volume, and ≥10 GiB on the Mac internal volume. An additional
-bounded **internal-volume live monitor** is needed because the current
-classical runner monitors only its output filesystem; do not claim both-disk
-protection until that is supplied and tested. Set process temporary files to
+external volume, and ≥10 GiB on the Mac internal volume. The current
+classical runner now checks the distinct internal device at preflight,
+copy-time, during each child stage and post-stage, in addition to its output
+device. The [device-selection test](../scripts/classical_backend/test_mustard_stage.py)
+and [stage-stop test](../scripts/brush_backend/test_masked_smoke.py) must
+remain passing before launch. Set process temporary files to
 the external run directory. The VPS system Python currently lacks PyCOLMAP;
 the existing Mac venv is the shorter runnable path after a train-only staged
 transfer. No transfer or installation is authorized by this document.
@@ -102,9 +110,16 @@ definition fixed before reading outputs. Project every retained 3D track
 point into each registered observation's camera and compare to its measured
 2D coordinate; report the number of finite observation residuals. Read
 tracks and reprojection from the saved binary COLMAP models, never from
-held-out or scan data. The runner does **not** currently emit all component,
-track, or reprojection statistics;
-a small read-only, hash-bound diagnostic is needed before making those claims.
+held-out or scan data. The runner does **not** itself emit all component,
+track, or reprojection statistics. The separate
+[`sparse_sfm_metrics.py`](../scripts/object_dataset/sparse_sfm_metrics.py)
+now reads only a sealed run's training package, producer report, SQLite
+feature/match database and binary sparse model, hashes them before/after,
+and reports these metrics with finite/invalid reprojection denominators.
+Its analytic and tiny native PyCOLMAP tests are in
+[`test_sparse_sfm_metrics.py`](../scripts/object_dataset/test_sparse_sfm_metrics.py).
+It has **not** been run on a mustard reconstruction because neither paired
+SfM arm exists yet.
 Report all denominators and any missing models. Lower reprojection error with
 fewer tracks or cameras is not automatically better. Camera gauge is arbitrary
 Sim(3), and a sparse success is neither an object mesh nor physical accuracy.
