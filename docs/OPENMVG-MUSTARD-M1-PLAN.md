@@ -62,7 +62,7 @@ and `06-resume-configure.log` SHA-256 is
 No `07-resume-build.log`, staged photo or SfM output exists. The tree is still
 101 MiB, with 14,980,712 KiB free externally and 23,242,376 KiB internally.
 
-## Proposed Eigen 3.4 attempt 3 (not run)
+## Eigen 3.4 attempt 3 and build-only continuation
 
 The source-unmodified version-pinned retry adds exactly two CMake hints to
 the prior policy-override configure command:
@@ -103,7 +103,71 @@ photos. On 2026-09-27 the read-only preflight passed: 97,876,707 managed
 bytes, 15,340,638,208 external free bytes versus 13,860,767,005 required,
 and 23,799,353,344 internal free bytes. The supervisor SHA-256 for review is
 `14c04261daa54f8504ec6da9719d38f6dd391dbddc648cd1c18e36586d3941f7`;
-15 synthetic tests pass. **Do not run attempt 3 before explicit approval.**
+15 synthetic tests passed at that point.
+
+The one approved attempt-3 configure completed successfully: vendored Ceres
+reported Eigen 3.4.0 from the pinned local include tree, the cache pinned
+both `Eigen3_DIR` and `EIGEN_DIR` locally, LiGT remained OFF, and generated
+`build.ninja` uses the local include path without a Homebrew Eigen path.
+Compilation did **not** start. The supervisor had additionally required
+`EIGEN_INCLUDE_DIR` to appear in `CMakeCache.txt`, but Ceres held it as a
+non-cache CMake variable. That unsupported cache-entry expectation stopped
+the workflow after configure; it is a guard mismatch, not a CMake failure.
+The second-attempt manifest snapshot SHA-256 is
+`a762484396402bc37c69a4765a7c7497ba0e7b50d7680d0fb75faccd8167d80a`;
+the configured manifest SHA-256 is
+`924dcf91e1878dec8f0f2c78300fb89eb05d7845e9decfedb9a8b6b74ce90ab7`;
+`08-eigen-configure.log` SHA-256 is
+`1b313e4e15111c8ee514df9a78bdbf29665de6b9deae06bd952aaa1c490b8023`;
+the generated CMake cache SHA-256 is
+`6560dd0a3ed4530150fdd36b0c98b0dd66dad4fdeedf511ca33fff1d72d561d0`.
+
+The proposed **build-only** continuation has a separate
+`--resume-eigen-build-preflight` and explicit `--resume-eigen-build-only`.
+It seals the original two manifest snapshots, current configured manifest,
+04/06/08 logs, generated cache, clean source/gitlinks/license inventory and
+local Eigen 3.4 files, and requires no photo/SfM outputs or prior target
+build log. The corrected post-configure gate requires cached `Eigen3_DIR`
+and `EIGEN_DIR` to point locally; if `EIGEN_INCLUDE_DIR` is cached it must
+also point locally, but its absence is valid. Independently, the 08 log must
+show Ceres finding Eigen 3.4.0 at that path and generated Ninja rules must
+contain that path and no Homebrew Eigen path. It snapshots the configured
+manifest before running only the four predeclared target builds into the new
+bounded `09-eigen-build.log`; it does not rerun configure. The existing
+resource guards remain unchanged. The read-only build preflight passed with
+99,691,832 managed bytes, 14,664,273,920 external free bytes versus
+13,858,951,880 required, and 23,841,271,808 internal free bytes. The
+supervisor SHA-256 for build-only review is
+`f5e0aac453d4976df44320368d30261c7fc3fa6f42fed4347d408440a187e165`;
+16 synthetic tests pass. **Do not run the build-only continuation before
+explicit approval.**
+
+The one approved build-only continuation was deliberately stopped at Ninja
+step 303/388, after 175.219 seconds, because its target closure compiled
+`openMVG/multiview/LiGT/LiGT_algorithm.cpp` and
+`LiGT_algorithm_converter.cpp` despite `OpenMVG_USE_LIGT=OFF`. The first
+source file expressly names CC BY-SA 4.0, and the top-level CMake warns of a
+LiGT patent condition. `openMVG/multiview/CMakeLists.txt` includes
+`./LiGT/*.cpp` in `multiview_files_cpp`, while its OFF branch tries to remove
+`LiGT_*.cpp`; the generated Ninja graph confirms those files remained in
+`openMVG_multiview`. This is a source-level build-closure/licensing surprise,
+not an algorithm result. The agent sent SIGTERM only to the build process
+group; Ninja's “interrupted by user” is the consequence of that deliberate
+stop. The supervisor recorded `status=stopped`, `returncode=-15`, not a disk,
+RSS, timeout or compiler failure. No four-target build completed and no photo
+or SfM stage ran. A source/CMake fix and another license inventory would need
+separate review before any retry; evaluation-only permission does not create
+a shipping-license conclusion.
+
+The configured manifest snapshot SHA-256 is
+`924dcf91e1878dec8f0f2c78300fb89eb05d7845e9decfedb9a8b6b74ce90ab7`;
+the stopped build manifest SHA-256 is
+`1b15ae1fc40719f8116a68ea465d2c57062d96f8c657aa54a9bb7f736aaf3806`;
+`09-eigen-build.log` SHA-256 is
+`253c9a535e99de4b5163e31f8dc433a85321d0fd1586933104a339acbabbd7f6`.
+The managed tree was about 147 MiB at stop; final external free space was
+14,276,528 KiB and internal free space 23,276,764 KiB. The supervisor,
+CMake and Ninja processes were confirmed absent afterward.
 
 This pin addresses a configuration compatibility error, not a shipping
 license determination. Eigen 3.4 is primarily MPL-2.0 but includes optional
@@ -120,7 +184,8 @@ SfM comparison; no-go for shipping now.** The immutable candidate is upstream
 OpenMVG `v2.1`, commit `01193a245ee3c36458e650b1cf4402caad8983ef`
 (tag checked by read-only `git ls-remote`, release published 2023-12-28).
 The pinned source and submodules are now cloned and sealed in an external
-evaluation tree; configuration has stopped before compiling any target.
+evaluation tree; configuration succeeded with local Eigen 3.4, but no target
+has compiled.
 The candidate's core is MPL-2.0, which fits the project's prospective shipped
 third-party policy only after exact binary/dependency, notices, MPL source
 archive and cross-platform packaging review. The current project code itself

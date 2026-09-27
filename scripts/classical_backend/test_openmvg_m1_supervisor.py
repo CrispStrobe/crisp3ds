@@ -192,7 +192,6 @@ class SupervisorTest(unittest.TestCase):
             build = Path(temp)
             cache = {"Eigen3_DIR": str(supervisor.EIGEN_CONFIG),
                      "EIGEN_DIR": str(supervisor.EIGEN_INCLUDE),
-                     "EIGEN_INCLUDE_DIR": str(supervisor.EIGEN_INCLUDE),
                      "CMAKE_POLICY_VERSION_MINIMUM": "3.5", "OpenMVG_USE_LIGT": "OFF"}
             (build / "CMakeCache.txt").write_text("\n".join(
                 f"{key}:STRING={value}" for key, value in cache.items()))
@@ -201,12 +200,24 @@ class SupervisorTest(unittest.TestCase):
             ninja = build / "build.ninja"
             ninja.write_text(f"INCLUDES = -isystem {supervisor.EIGEN_INCLUDE}\n")
             supervisor.verify_pinned_eigen_configuration(build, log)
+            log.write_text("-- Configuring done\n")
+            with self.assertRaisesRegex(RuntimeError, "did not report"):
+                supervisor.verify_pinned_eigen_configuration(build, log)
             log.write_text("-- -- Found Eigen version ..\n")
             with self.assertRaisesRegex(RuntimeError, "did not report"):
                 supervisor.verify_pinned_eigen_configuration(build, log)
             log.write_text(f"-- -- Found Eigen version 3.4.0: {supervisor.EIGEN_INCLUDE}\n")
+            ninja.write_text("INCLUDES = -isystem /unrelated/include\n")
+            with self.assertRaisesRegex(RuntimeError, "compile rules"):
+                supervisor.verify_pinned_eigen_configuration(build, log)
             ninja.write_text(f"INCLUDES = -isystem {supervisor.EIGEN_INCLUDE} -isystem /opt/homebrew/include/eigen3\n")
             with self.assertRaisesRegex(RuntimeError, "compile rules"):
+                supervisor.verify_pinned_eigen_configuration(build, log)
+            ninja.write_text(f"INCLUDES = -isystem {supervisor.EIGEN_INCLUDE}\n")
+            cache["EIGEN_INCLUDE_DIR"] = "/opt/homebrew/include/eigen3"
+            (build / "CMakeCache.txt").write_text("\n".join(
+                f"{key}:STRING={value}" for key, value in cache.items()))
+            with self.assertRaisesRegex(RuntimeError, "conflicts"):
                 supervisor.verify_pinned_eigen_configuration(build, log)
 
     def test_attempt3_preflight_rejects_changed_second_log_before_process(self):
@@ -228,6 +239,25 @@ class SupervisorTest(unittest.TestCase):
                  mock.patch.object(supervisor.subprocess, "Popen") as popen:
                 with self.assertRaisesRegex(RuntimeError, "second configure log changed"):
                     supervisor.eigen_resume_preflight(root, root)
+                popen.assert_not_called()
+
+    def test_build_only_preflight_rejects_changed_configured_manifest(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "build").mkdir()
+            (root / "logs").mkdir()
+            for name in ("build-manifest-attempt1.json", "build-manifest-attempt2.json",
+                         "build-manifest.json"):
+                (root / name).write_text("{}")
+            def fake_sha(path):
+                return {"build-manifest-attempt1.json": supervisor.FIRST_MANIFEST_SHA,
+                        "build-manifest-attempt2.json": supervisor.SECOND_MANIFEST_SHA,
+                        "build-manifest.json": "wrong"}[path.name]
+            with mock.patch.object(supervisor, "approved_root"), \
+                 mock.patch.object(supervisor, "sha256", side_effect=fake_sha), \
+                 mock.patch.object(supervisor.subprocess, "Popen") as popen:
+                with self.assertRaisesRegex(RuntimeError, "configured attempt seal changed"):
+                    supervisor.eigen_build_preflight(root, root)
                 popen.assert_not_called()
 
 
