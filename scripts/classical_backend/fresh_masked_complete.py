@@ -51,8 +51,14 @@ def input_binding(model_dir: Path, photos: Path, pose_masks: Path,
     producer = json.loads(producer_path.read_text())
     gate = json.loads(gate_path.read_text())
     status = producer.get("status", {})
-    if (producer.get("schema") != "turntable_sparse_profile_v1" or
-            producer.get("profile") != "prior_foreground_60_jpeg_replay" or
+    profile = producer.get("profile")
+    command = producer.get("command", [])
+    if (profile not in {"prior_foreground_60_jpeg_replay",
+                        "fresh_masked_fixed_intrinsics_delayed_ba"} or
+            not isinstance(command, list) or
+            (profile == "fresh_masked_fixed_intrinsics_delayed_ba" and
+             ("--fresh-fixed" not in command or "--source-database" in command)) or
+            producer.get("schema") != "turntable_sparse_profile_v1" or
             producer.get("independent_camera_gate_passed") is not None or
             status.get("status") != "completed" or
             status.get("inputs_unchanged") is not True or

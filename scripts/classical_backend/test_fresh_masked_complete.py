@@ -90,6 +90,20 @@ class FreshMaskedCompleteTests(unittest.TestCase):
                     target.input_binding(model, root / "images", root / "masks", manifest,
                                          producer, gate, target.digest(producer),
                                          target.digest(gate), expected)
+                fixed = json.loads(producer.read_text())
+                fixed["profile"] = "fresh_masked_fixed_intrinsics_delayed_ba"
+                fixed["command"] = ["turntable_profile.py", "--fresh-fixed"]
+                producer.write_text(json.dumps(fixed))
+                with self.assertRaisesRegex(ValueError, "5%/10 degree gate"):
+                    target.input_binding(model, root / "images", root / "masks", manifest,
+                                         producer, gate, target.digest(producer),
+                                         target.digest(gate), expected)
+                fixed["command"].extend(["--source-database", "old.db"])
+                producer.write_text(json.dumps(fixed))
+                with self.assertRaisesRegex(ValueError, "fresh sparse profile"):
+                    target.input_binding(model, root / "images", root / "masks", manifest,
+                                         producer, gate, target.digest(producer),
+                                         target.digest(gate), expected)
 
 
 if __name__ == "__main__":
