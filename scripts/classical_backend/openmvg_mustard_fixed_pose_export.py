@@ -9,9 +9,13 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
-import resource
+try:
+    import resource
+except ImportError:  # Windows test discovery; native execution is macOS-only.
+    resource = None
 import signal
 import subprocess
+import sys
 import time
 
 from scripts.classical_backend import openmvg_mustard_pose_export as prior
@@ -81,6 +85,8 @@ def preflight(output: Path = OUTPUT) -> dict:
 
 
 def run(output: Path = OUTPUT) -> dict:
+    if sys.platform != "darwin" or resource is None:
+        raise RuntimeError("OpenMVG native execution requires macOS resource limits")
     checked = preflight(output)
     output.mkdir()
     (output / "logs").mkdir()

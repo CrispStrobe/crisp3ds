@@ -10,10 +10,14 @@ import json
 import math
 import os
 from pathlib import Path
-import resource
+try:
+    import resource
+except ImportError:  # Windows test discovery; native execution is macOS-only.
+    resource = None
 import shutil
 import signal
 import subprocess
+import sys
 import time
 
 from scripts.classical_backend import openmvg_converter_build as build
@@ -192,6 +196,8 @@ def save(output: Path, receipt: dict) -> None:
 
 
 def run(output: Path = OUTPUT) -> dict:
+    if sys.platform != "darwin" or resource is None:
+        raise RuntimeError("OpenMVG native execution requires macOS resource limits")
     checked = preflight(output)
     output.mkdir()
     (output / "logs").mkdir()

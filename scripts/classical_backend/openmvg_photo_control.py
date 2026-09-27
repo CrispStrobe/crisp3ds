@@ -12,10 +12,14 @@ import json
 import os
 from pathlib import Path
 import re
-import resource
+try:
+    import resource
+except ImportError:  # Windows test discovery; native execution is macOS-only.
+    resource = None
 import shutil
 import signal
 import subprocess
+import sys
 import time
 
 from scripts.classical_backend import openmvg_m1_supervisor as base
@@ -194,6 +198,8 @@ def save(output: Path, receipt: dict) -> None:
 
 def run_stage(command: list[str], log: Path, output: Path, seconds: int,
               total_start: float) -> dict:
+    if sys.platform != "darwin" or resource is None:
+        raise RuntimeError("OpenMVG native execution requires macOS resource limits")
     started = time.monotonic()
     env = os.environ.copy()
     env.update({"OMP_NUM_THREADS": "2", "OPENBLAS_NUM_THREADS": "2",
@@ -237,6 +243,8 @@ def run_stage(command: list[str], log: Path, output: Path, seconds: int,
 
 
 def run(output: Path = OUTPUT) -> dict:
+    if sys.platform != "darwin" or resource is None:
+        raise RuntimeError("OpenMVG native execution requires macOS resource limits")
     checked = preflight(output)
     output.mkdir()
     for name in ("images", "matches", "sparse", "logs", "tmp"):
