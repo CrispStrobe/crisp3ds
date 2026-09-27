@@ -4,6 +4,12 @@ A rigid-object photo scanning application, built around a portable C++20 core an
 
 The workspace supports project creation, JSON import/export, calibration and marker-board geometry, pose-report inspection, and an interactive sparse point-cloud viewer. An optional pinned OpenCV build detects ArUco markers in PNG/JPEG images, estimates metric board-to-camera poses, and reconstructs masked object feature tracks. A separate [experimental CPU photo-to-mesh runner](docs/MVE-FULL.md) has run on real photographs on M1, but measured object quality is not accepted. **App-integrated photo-to-mesh reconstruction is not implemented.** The `reconstruct` command returns unavailable; imported stage states are unverified metadata.
 
+The [comparative benchmark](docs/BENCHMARK-RESULTS.md) now evaluates MVE and
+[COLMAP/OpenMVS](docs/CLASSICAL-BACKEND.md) on real object photographs and a
+separate upstream software control. It reports surface accuracy/completeness,
+normal agreement, topology, camera diagnostics, resource limits and failed runs;
+software-oracle agreement is not physical ground truth.
+
 ## Run the workspace
 
 Requires Node 22.18+ (Node 24 recommended) and npm.

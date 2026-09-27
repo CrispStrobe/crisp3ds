@@ -70,6 +70,80 @@ def point_triangle_squared(point, triangles):
     return result
 
 
+def triangle_normals(triangles):
+    cross = np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0])
+    return cross / np.linalg.norm(cross, axis=1)[:, None]
+
+
+def sampled_face_normals(triangles, count, seed):
+    """Reproduce evaluate.sample_surface's face choice without changing its points."""
+    areas = np.linalg.norm(np.cross(triangles[:, 1] - triangles[:, 0],
+                                    triangles[:, 2] - triangles[:, 0]), axis=1) / 2
+    choice = np.random.default_rng(seed).choice(len(triangles), size=count, p=areas / areas.sum())
+    return triangle_normals(triangles)[choice]
+
+
+def mesh_topology(vertices, faces, deadline=None):
+    """Exact raw-mesh edge incidence and vertex-connected face components."""
+    vertices = np.asarray(vertices)
+    faces = np.asarray(faces)
+    if (vertices.ndim != 2 or vertices.shape[1] != 3 or faces.ndim != 2 or faces.shape[1] != 3
+            or len(vertices) > evaluate.MAX_SCORE_VERTICES or len(faces) > evaluate.MAX_SCORE_FACES):
+        raise ValueError("topology geometry outside limits")
+    if not np.issubdtype(faces.dtype, np.integer):
+        raise ValueError("topology face indices must be integers")
+    if len(faces) and (faces.min() < 0 or faces.max() >= len(vertices)):
+        raise ValueError("topology face index outside vertex array")
+    if not len(faces):
+        return {"boundary_edges": 0, "nonmanifold_edges": 0,
+                "vertex_connected_components": 0, "largest_component_face_fraction": None,
+                "euler_v_minus_e_plus_f": 0, "referenced_vertices": 0, "unique_edges": 0}
+    faces = faces.astype(np.int32, copy=False)
+    edges = np.concatenate((faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]))
+    used_vertices = int(np.unique(faces).size)
+    edges.sort(axis=1)
+    order = np.lexsort((edges[:, 1], edges[:, 0]))
+    edges = edges[order]
+    del order
+    starts = np.r_[0, np.flatnonzero(np.any(edges[1:] != edges[:-1], axis=1)) + 1]
+    counts = np.diff(np.r_[starts, len(edges)])
+    boundary = int(np.count_nonzero(counts == 1))
+    nonmanifold = int(np.count_nonzero(counts > 2))
+    edge_count = int(len(counts))
+    del edges, starts, counts
+    parent = np.arange(len(vertices), dtype=np.int32)
+    rank = np.zeros(len(vertices), dtype=np.uint8)
+
+    def root(index):
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = int(parent[index])
+        return index
+
+    def union(a, b):
+        a, b = root(int(a)), root(int(b))
+        if a == b:
+            return
+        if rank[a] < rank[b]:
+            a, b = b, a
+        parent[b] = a
+        if rank[a] == rank[b]:
+            rank[a] += 1
+
+    for i, (a, b, c) in enumerate(faces):
+        if deadline is not None and i % 8192 == 0 and time.monotonic() > deadline:
+            raise TimeoutError("topology scoring exceeded time limit")
+        union(a, b)
+        union(a, c)
+    roots = np.fromiter((root(int(face[0])) for face in faces), dtype=np.int32, count=len(faces))
+    _, component_faces = np.unique(roots, return_counts=True)
+    return {"boundary_edges": boundary, "nonmanifold_edges": nonmanifold,
+            "vertex_connected_components": int(len(component_faces)),
+            "largest_component_face_fraction": float(component_faces.max() / len(faces)) if len(faces) else None,
+            "euler_v_minus_e_plus_f": int(used_vertices - edge_count + len(faces)),
+            "referenced_vertices": used_vertices, "unique_edges": edge_count}
+
+
 class TriangleBVH:
     """Median-split AABB tree; best-first search has no approximation cutoff."""
 
@@ -108,15 +182,17 @@ class TriangleBVH:
         delta = np.maximum(0, np.maximum(lower - point, point - upper))
         return float(delta @ delta)
 
-    def distances(self, points, deadline=None):
+    def distances_and_faces(self, points, deadline=None):
         points = np.asarray(points, dtype=np.float64)
         if points.ndim != 2 or points.shape[1] != 3 or not np.isfinite(points).all():
             raise ValueError("query points must be finite XYZ rows")
         out = np.empty(len(points))
+        nearest = np.empty(len(points), dtype=np.int32)
         for i, point in enumerate(points):
             if deadline is not None and i % 16 == 0 and time.monotonic() > deadline:
                 raise TimeoutError("surface scoring exceeded time limit")
             best = math.inf
+            best_face = -1
             pending = [(self._box_squared(point, self.nodes[0]), 0)]
             visited = 0
             while pending:
@@ -129,14 +205,22 @@ class TriangleBVH:
                 node = self.nodes[index]
                 if node[2] < 0:
                     ids = self.order[node[4]:node[5]]
-                    best = min(best, float(point_triangle_squared(point, self.triangles[ids]).min()))
+                    squared = point_triangle_squared(point, self.triangles[ids])
+                    local = int(np.argmin(squared))
+                    if float(squared[local]) < best:
+                        best = float(squared[local])
+                        best_face = int(ids[local])
                 else:
                     for child in (node[2], node[3]):
                         child_bound = self._box_squared(point, self.nodes[child])
                         if child_bound < best:
                             heapq.heappush(pending, (child_bound, child))
             out[i] = math.sqrt(best)
-        return out
+            nearest[i] = best_face
+        return out, nearest
+
+    def distances(self, points, deadline=None):
+        return self.distances_and_faces(points, deadline)[0]
 
 
 def compare(reference_geometry, output_geometry, matrix, *, thresholds, count=2048, seed=2027):
@@ -166,22 +250,40 @@ def compare(reference_geometry, output_geometry, matrix, *, thresholds, count=20
     out_vertices = np.asarray(out_vertices, dtype=np.float64) @ matrix[:3, :3].T + matrix[:3, 3]
     out_triangles, out_dropped = positive_triangles(out_vertices, out_faces)
     prepared = time.monotonic()
+    ref_topology = mesh_topology(ref_vertices, ref_faces, deadline)
+    out_topology = mesh_topology(out_vertices, out_faces, deadline)
+    topologized = time.monotonic()
     ref_tree = TriangleBVH(ref_triangles, deadline)
     out_tree = TriangleBVH(out_triangles, deadline)
     indexed = time.monotonic()
     # Samples are independent of the index, and both directions use equal counts.
     ref_samples = evaluate.sample_surface(ref_vertices, ref_faces, count, seed)
     out_samples = evaluate.sample_surface(out_vertices, out_faces, count, seed + 1)
+    ref_normals = sampled_face_normals(ref_triangles, count, seed)
+    out_normals = sampled_face_normals(out_triangles, count, seed + 1)
     sampled = time.monotonic()
-    accuracy = ref_tree.distances(out_samples, deadline)
-    completeness = out_tree.distances(ref_samples, deadline)
+    accuracy, ref_nearest = ref_tree.distances_and_faces(out_samples, deadline)
+    completeness, out_nearest = out_tree.distances_and_faces(ref_samples, deadline)
+    accuracy_normal = np.abs(np.einsum("ij,ij->i", out_normals, triangle_normals(ref_triangles)[ref_nearest]))
+    completeness_normal = np.abs(np.einsum("ij,ij->i", ref_normals, triangle_normals(out_triangles)[out_nearest]))
+    accuracy_normal = np.clip(accuracy_normal, 0, 1)
+    completeness_normal = np.clip(completeness_normal, 0, 1)
     finished = time.monotonic()
+    ref_vertices = np.asarray(ref_vertices, dtype=np.float64)
+    diagonal = float(np.linalg.norm(ref_vertices.max(axis=0) - ref_vertices.min(axis=0)))
+    symmetric_mean = float((accuracy.mean() + completeness.mean()) / 2)
     rows = []
     for threshold in thresholds:
         precision = float(np.mean(accuracy <= threshold))
         recall = float(np.mean(completeness <= threshold))
         rows.append({"threshold": threshold, "precision": precision, "recall": recall,
-                     "f_score": 2 * precision * recall / (precision + recall) if precision + recall else 0.0})
+                     "f_score": 2 * precision * recall / (precision + recall) if precision + recall else 0.0,
+                     "accuracy_normal_abs_dot_within_threshold": float(accuracy_normal[accuracy <= threshold].mean()) if precision else None,
+                     "completeness_normal_abs_dot_within_threshold": float(completeness_normal[completeness <= threshold].mean()) if recall else None})
+    accuracy_summary = evaluate.summarize_distances(accuracy)
+    completeness_summary = evaluate.summarize_distances(completeness)
+    accuracy_summary["p95"] = float(np.quantile(accuracy, 0.95))
+    completeness_summary["p95"] = float(np.quantile(completeness, 0.95))
     return {"method": "area-weighted Monte Carlo query samples; closest target triangle via exhaustive-pruning AABB tree",
             "target_distance_exact_for_samples_up_to_floating_point": True,
             "barycentric_boundary_tolerance": 1e-12,
@@ -189,11 +291,19 @@ def compare(reference_geometry, output_geometry, matrix, *, thresholds, count=20
             "sample_count_per_mesh": count, "reference_seed": seed, "output_seed": seed + 1,
             "reference_zero_area_faces_excluded": ref_dropped,
             "output_zero_area_faces_excluded": out_dropped,
-            "output_to_reference_accuracy": evaluate.summarize_distances(accuracy),
-            "reference_to_output_completeness": evaluate.summarize_distances(completeness),
+            "output_to_reference_accuracy": accuracy_summary,
+            "reference_to_output_completeness": completeness_summary,
+            "chamfer_l1_mean": symmetric_mean,
+            "chamfer_l1_mean_normalized_by_reference_bbox_diagonal": symmetric_mean / diagonal,
+            "reference_bbox_diagonal": diagonal,
+            "normal_consistency_abs_dot": {"output_to_reference_mean": float(accuracy_normal.mean()),
+                                            "reference_to_output_mean": float(completeness_normal.mean())},
+            "topology": {"reference": ref_topology, "output": out_topology,
+                         "definition": "raw triangle edges; vertex-connected face components"},
             "threshold_scores": rows,
             "stage_seconds": {"triangle_preparation": prepared - started,
-                              "tree_build": indexed - prepared, "sampling": sampled - indexed,
+                              "topology": topologized - prepared,
+                              "tree_build": indexed - topologized, "sampling": sampled - indexed,
                               "distance_queries": finished - sampled, "total": finished - started},
             "limits": {"samples_per_mesh": MAX_SAMPLES, "time_seconds": MAX_SECONDS,
                        "leaf_triangles": LEAF_SIZE,

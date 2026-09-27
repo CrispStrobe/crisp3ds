@@ -6,6 +6,7 @@ on:
       - '.github/workflows/quality-harness.yml'
       - 'scripts/object_dataset/**'
       - 'scripts/object_motion/**'
+      - 'scripts/upstream_control/**'
       - 'scripts/classical_backend/**'
       - 'scripts/mve_full/**'
   pull_request:
@@ -13,6 +14,7 @@ on:
       - '.github/workflows/quality-harness.yml'
       - 'scripts/object_dataset/**'
       - 'scripts/object_motion/**'
+      - 'scripts/upstream_control/**'
       - 'scripts/classical_backend/**'
       - 'scripts/mve_full/**'
 
@@ -29,7 +31,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install pinned test dependencies
-        run: python -m pip install numpy==1.26.4 Pillow==12.0.0
+        run: python -m pip install numpy==1.26.4 Pillow==12.0.0 opencv-python-headless==4.10.0.84
       - name: Prepare bounded workspace temp directory
         shell: bash
         run: mkdir -p .local-tools/tmp
@@ -42,5 +44,6 @@ jobs:
         run: |
           python -m unittest discover -s scripts/object_dataset -p 'test_*.py'
           python -m unittest discover -s scripts/object_motion -p 'test_*.py'
+          python -m unittest discover -s scripts/upstream_control -p 'test_*.py'
           python -m unittest discover -s scripts/classical_backend -p 'test_*.py'
           python -m unittest discover -s scripts/mve_full -p 'test_*.py'

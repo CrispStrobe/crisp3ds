@@ -74,6 +74,49 @@ class TriangleDistanceTests(unittest.TestCase):
         self.assertLess(result["output_to_reference_accuracy"]["rms"], 1e-12)
         self.assertEqual(result["threshold_scores"][0]["f_score"], 1)
 
+    def test_normals_ignore_flip_but_detect_orthogonal_planes(self):
+        vertices = np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]])
+        ref = (vertices, np.array([[0, 1, 2]]))
+        flipped = (vertices, np.array([[0, 2, 1]]))
+        same = metrics.compare(ref, flipped, np.eye(4), thresholds=[2], count=32)
+        self.assertAlmostEqual(same["normal_consistency_abs_dot"]["output_to_reference_mean"], 1)
+        orthogonal_vertices = np.array([[0., 0., 0.], [1., 0., 0.], [0., 0., 1.]])
+        orthogonal = metrics.compare(ref, (orthogonal_vertices, np.array([[0, 1, 2]])),
+                                     np.eye(4), thresholds=[2], count=32)
+        self.assertAlmostEqual(orthogonal["normal_consistency_abs_dot"]["output_to_reference_mean"], 0)
+        self.assertAlmostEqual(orthogonal["normal_consistency_abs_dot"]["reference_to_output_mean"], 0)
+
+    def test_topology_boundary_components_and_closed_tetrahedron(self):
+        separate = metrics.mesh_topology(np.zeros((6, 3)), np.array([[0, 1, 2], [3, 4, 5]]))
+        self.assertEqual(separate["boundary_edges"], 6)
+        self.assertEqual(separate["vertex_connected_components"], 2)
+        self.assertEqual(separate["largest_component_face_fraction"], .5)
+        tetra = metrics.mesh_topology(np.zeros((4, 3)), np.array([[0, 2, 1], [0, 1, 3],
+                                                                  [0, 3, 2], [1, 2, 3]]))
+        self.assertEqual(tetra["boundary_edges"], 0)
+        self.assertEqual(tetra["nonmanifold_edges"], 0)
+        self.assertEqual(tetra["vertex_connected_components"], 1)
+        self.assertEqual(tetra["euler_v_minus_e_plus_f"], 2)
+        empty = metrics.mesh_topology(np.zeros((1, 3)), np.empty((0, 3), dtype=int))
+        self.assertEqual(empty["unique_edges"], 0)
+        self.assertEqual(empty["vertex_connected_components"], 0)
+        with self.assertRaises(ValueError):
+            metrics.mesh_topology(np.zeros((3, 3)), [[0., 1.5, 2.]])
+        with self.assertRaises(ValueError):
+            metrics.mesh_topology(np.zeros((3, 3)), [[0, 1, 9]])
+
+    def test_sampled_normals_match_surface_samples_with_degenerate_face(self):
+        vertices = np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.],
+                             [10., 0., 0.], [11., 0., 0.], [10., 0., 1.], [100., 0., 0.]])
+        faces = np.array([[0, 1, 2], [6, 6, 6], [3, 4, 5]])
+        samples = metrics.evaluate.sample_surface(vertices, faces, 100, 17)
+        triangles, dropped = metrics.positive_triangles(vertices, faces)
+        self.assertEqual(dropped, 1)
+        normals = metrics.sampled_face_normals(triangles, 100, 17)
+        for point, normal in zip(samples, normals):
+            expected = [0, -1, 0] if point[0] > 5 else [0, 0, 1]
+            np.testing.assert_allclose(normal, expected)
+
 
 if __name__ == "__main__":
     unittest.main()

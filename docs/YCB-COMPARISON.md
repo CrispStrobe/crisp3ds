@@ -4,6 +4,38 @@ Protocol started 2026-09-27 before inspecting any reconstructed YCB surface.
 This is a development case, not held-out acceptance. Source/photo/reference hashes
 and attribution: [dataset manifest](../tests/datasets/ycb_cracker_box.json).
 
+## Latest fixed-camera ablations
+
+The [consolidated comparison](BENCHMARK-RESULTS.md) and
+[shared-alignment diagnostic](SHARED-GAUGE.md) add native OpenMVS depth masks
+and a full-resolution run. Native masks were verified in all 60 depth maps:
+positive depths outside the masks fell from 16,261,310 to zero. These masks
+are still photo-derived support heuristics, not ground-truth silhouettes.
+
+At 641 × 512, independent-fit F at 1% diagonal is 42.04%, versus 38.15% for
+the earlier cloud filter. Under the unchanged cloud-filter alignment, however,
+it is 35.49%. Normalized symmetric mean distance also worsens from 2.525% to
+3.053%. Do not present this as a clear quality improvement.
+
+Full-resolution 1282 × 1024 depth produces 151,387 fused points and 10,810
+refined faces, but almost unchanged scores: 42.06% independently fitted F,
+35.52% under the shared alignment, and 3.128% normalized mean distance.
+The first attempt (`009`) exceeded a declared 2 GiB output budget. A distinct
+hash-verified continuation (`011`) reused all 60 complete initial depth maps,
+excluded partial geometric maps, then reran both geometric passes, meshing,
+refinement and texturing under a 3 GiB cap. Its timing is composed, not fresh e2e.
+
+Both native-mask meshes are closed single components without counted
+nonmanifold edges. That topology does not establish correct shape; quality
+remains rejected. A fresh explicitly seeded image-to-SfM replay (`010`) also
+registered 60/60 views, but automatic initialization remains unresolved and
+that replay did not itself run dense reconstruction. See
+[native commands, failures and provenance](CLASSICAL-BACKEND.md).
+
+An additional [Berkeley camera-reference diagnostic](YCB-REFERENCE-FRAMES.md)
+checks trajectory and intrinsics independently of the Google mesh. It does not
+provide a known transform between that mesh and the photo reconstruction.
+
 ## Inputs and lanes
 
 All 60 NP3 real JPEGs, 1280x1024, original bytes, full turntable revolution.
@@ -186,3 +218,29 @@ not established causes. Preserve this failed replay in reliability reporting.
 Successful composed recovery through texture does not establish reliable one-command
 e2e operation. Next priority: reproduce and stabilize image-only alignment, improve
 object masks/depth support without reference leakage, then test held-out objects.
+
+### Additional stage diagnostic: rough surface versus refinement
+
+Before inspecting new scores, freeze an additive stage comparison: normalize
+the native `mesh.ply` outputs of `004` and `006` without changing vertices or
+triangles, fit each with the existing 1024-sample alignment procedure, and score
+with 2048 samples, seeds 2027/2028 and unchanged 0.5%/1%/2% thresholds. The goal
+is to determine whether the one-scale refinement is losing object surface;
+this is not another reconstruction engine. Retain rough and refined outputs,
+including their separate fitted alignments. No reference information feeds back
+into native reconstruction or determines which triangles to keep.
+
+Root's stage scores (each with its own frozen-algorithm reference fit):
+
+| Variant | Rough F at 1% | Refined F at 1% | Rough normalized mean distance | Refined normalized mean distance |
+| --- | ---: | ---: | ---: | ---: |
+| 004 unfiltered | 14.95% | 12.77% | 5.331% | 5.704% |
+| 006 photo-support filtered | 33.87% | 38.15% | 2.496% | 2.525% |
+
+Mean distance is half the two directed means, divided by reference diagonal.
+Refinement improves filtered F but slightly worsens its mean distance; the poor
+surface is already present before refinement. Thus the large face-count decrease
+is not evidence that refinement alone caused the failure. These are not identical
+alignment transforms, and small metric changes include sampling/alignment effects.
+Both rough outputs remain rejected. Reports: `rough-reference-fit-v1.json` and
+`rough-metrics-v1.json` in their respective original run folders.

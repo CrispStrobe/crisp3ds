@@ -13,6 +13,7 @@ from pathlib import Path
 import platform
 import shutil
 import signal
+import sqlite3
 import subprocess
 import sys
 import time
@@ -142,10 +143,41 @@ def obj_counts(path: Path) -> tuple[int, int]:
     return vertices, faces
 
 
+def init_pair_ids(database: Path, selected_names: list[str], pair: list[str] | None) -> tuple[int, int] | None:
+    """Resolve a user-selected seed pair against the actual COLMAP image IDs."""
+    if pair is None:
+        return None
+    if len(pair) != 2 or pair[0] == pair[1] or not set(pair).issubset(selected_names):
+        raise ValueError("initial pair needs two distinct selected image names")
+    with sqlite3.connect(f"file:{database}?mode=ro", uri=True) as connection:
+        rows = connection.execute("SELECT image_id, name FROM images WHERE name IN (?, ?)", pair).fetchall()
+    ids = {name: image_id for image_id, name in rows}
+    if len(ids) != 2:
+        raise ValueError("initial pair names missing from COLMAP database")
+    return ids[pair[0]], ids[pair[1]]
+
+
+def sfm_options(pycolmap_module, max_models: int, min_model_size: int,
+                pair_ids: tuple[int, int] | None):
+    if not 1 <= max_models <= 10 or min_model_size < 2:
+        raise ValueError("invalid SfM model retry bounds")
+    options = pycolmap_module.IncrementalPipelineOptions()
+    options.num_threads = 2
+    options.mapper.num_threads = 2
+    options.multiple_models = max_models > 1
+    options.max_num_models = max_models
+    options.min_model_size = min_model_size
+    if pair_ids:
+        options.init_image_id1, options.init_image_id2 = pair_ids
+    return options
+
+
 def worker(kind: str, run: Path, max_pixels: int, external_model: Path | None = None,
            camera_model: str = "SIMPLE_RADIAL", matching: str = "exhaustive",
            sequential_overlap: int = 8, sift_max_features: int = 8192,
-           sift_max_image_size: int = 3200, seed: int = 0) -> None:
+           sift_max_image_size: int = 3200, seed: int = 0,
+           init_image_pair: list[str] | None = None, sfm_max_models: int = 5,
+           sfm_min_model_size: int = 10) -> None:
     os.environ.setdefault("OPENBLAS_NUM_THREADS", "2")
     import pycolmap
 
@@ -198,19 +230,19 @@ def worker(kind: str, run: Path, max_pixels: int, external_model: Path | None = 
                                       device=pycolmap.Device.cpu)
     elif kind in ("sfm", "reuse_sfm"):
         if kind == "sfm":
-            options = pycolmap.IncrementalPipelineOptions()
-            options.num_threads = 2
-            options.mapper.num_threads = 2
-            options.multiple_models = False
-            options.max_num_models = 1
-            options.min_model_size = 2
+            pair_ids = init_pair_ids(run / "database.db", names, init_image_pair)
+            options = sfm_options(pycolmap, sfm_max_models, sfm_min_model_size, pair_ids)
+            if pair_ids:
+                recorded["init_image_pair_names"] = init_image_pair
             recorded.update(incremental_pipeline=options.todict())
             options_path.write_text(json.dumps(recorded, indent=2, default=str) + "\n")
             models = pycolmap.incremental_mapping(str(run / "database.db"), str(image_dir),
                                                     str(run / "models"), options=options)
             if not models:
                 raise ValueError("SfM produced no model")
-            model = max(models.values(), key=lambda m: (m.num_reg_images(), m.num_points3D()))
+            selected_index, model = max(models.items(), key=lambda indexed:
+                                        (indexed[1].num_reg_images(), indexed[1].num_points3D(),
+                                         -indexed[0]))
         else:
             if external_model is None:
                 raise ValueError("reuse_sfm requires --sparse-model")
@@ -222,6 +254,11 @@ def worker(kind: str, run: Path, max_pixels: int, external_model: Path | None = 
                 "registered_names": registered_names,
                 "missing_names": sorted(set(names) - set(registered_names)),
                 "camera_models": sorted({camera.model.name for camera in model.cameras.values()})}
+        if kind == "sfm":
+            info["selected_model_index"] = selected_index
+            info["candidate_models"] = [{"index": index, "registered_images": candidate.num_reg_images(),
+                                          "sparse_points": candidate.num_points3D()}
+                                         for index, candidate in sorted(models.items())]
         (run / "sfm.json").write_text(json.dumps(info, indent=2) + "\n")
         if info["registered_images"] < 3 or info["sparse_points"] < 1:
             raise ValueError("SfM model has fewer than 3 cameras or no points")
@@ -340,6 +377,7 @@ def run(args: argparse.Namespace) -> dict:
     if shutil.disk_usage(output.parent).free < RESERVE + (256 << 20):
         raise ValueError("insufficient free disk above 10 GiB reserve")
     selection = photos(args.images.resolve(), args.image_list, args.max_views)
+    args.sfm_min_model_size = effective_sfm_min_model_size(args.sfm_min_model_size, len(selection))
     software = None
     output.mkdir(parents=True)
     (output / "images").mkdir()
@@ -412,6 +450,9 @@ def run(args: argparse.Namespace) -> dict:
             report["sfm_source"] = {"kind": "internal_image_only_pycolmap", "random_seed": args.seed,
                                     "matching": args.matching, "camera_mode": "SINGLE",
                                     "camera_model": args.camera_model,
+                                    "init_image_pair_names": args.init_image_pair,
+                                    "sfm_max_models": args.sfm_max_models,
+                                    "sfm_min_model_size": args.sfm_min_model_size,
                                     "sift_max_features": args.sift_max_features,
                                     "sift_max_image_size": args.sift_max_image_size,
                                     "sequential_overlap": args.sequential_overlap}
@@ -446,6 +487,9 @@ def run(args: argparse.Namespace) -> dict:
                     raise ValueError(f"copied pose mask differs: {mask}")
                 report["pose_masks"].append({"name": mask.name, "source": str(mask), "sha256": mask_hash})
         (output / "inputs.json").write_text(json.dumps(report["inputs"], indent=2) + "\n")
+        if args.init_image_pair and (len(set(args.init_image_pair)) != 2 or
+                                     not set(args.init_image_pair).issubset({item["name"] for item in report["inputs"]})):
+            raise ValueError("--init-image-pair needs two distinct selected photo names")
         if args.sparse_model and args.sparse_provenance:
             chosen_hashes = {item["name"]: item["sha256"] for item in report["inputs"]}
             if chosen_hashes != producer_provenance["image_hashes"]:
@@ -466,7 +510,9 @@ def run(args: argparse.Namespace) -> dict:
             if name == "sfm":
                 report["sfm_source"]["effective_options"] = json.loads((output / "pycolmap-options.json").read_text())
             save()
-        kinds = ("reuse_sfm", "undistort") if args.sparse_model else ("features", "matching", "sfm", "undistort")
+        kinds = (("reuse_sfm",) if args.stop_after_sfm else ("reuse_sfm", "undistort")) if args.sparse_model else \
+                (("features", "matching", "sfm") if args.stop_after_sfm else
+                 ("features", "matching", "sfm", "undistort"))
         for kind in kinds:
             check = None
             if kind in ("sfm", "reuse_sfm"):
@@ -485,29 +531,36 @@ def run(args: argparse.Namespace) -> dict:
                            "--sift-max-features", args.sift_max_features,
                            "--sift-max-image-size", args.sift_max_image_size,
                            "--seed", args.seed,
+                           "--sfm-max-models", args.sfm_max_models,
+                           "--sfm-min-model-size", args.sfm_min_model_size,
+                           *(["--init-image-pair", *args.init_image_pair] if args.init_image_pair else []),
                            *(["--sparse-model", args.sparse_model.resolve()] if args.sparse_model else [])], check)
             if kind in ("sfm", "reuse_sfm") and report["stages"][-1]["artifact"]["registered_images"] / len(selection) < args.min_registered_fraction:
                 raise ValueError("registered image fraction below threshold")
-        dense = output / "dense"
-        common = ["--max-threads", str(args.max_threads), "--working-folder", str(output)]
-        execute("import", [tool_path(binary_dir, "InterfaceCOLMAP"), "-i", dense,
-                           "-o", output / "scene.mvs", "--image-folder", dense / "images", *common],
-                lambda: {"bytes": nonempty_bytes(output / "scene.mvs")})
-        execute("densify", [tool_path(binary_dir, "DensifyPointCloud"), "-i", output / "scene.mvs",
-                            "-o", output / "dense.mvs", "--resolution-level", "2", *common],
-                lambda: {"points": checked_ply(output / "dense.ply", "vertex")})
-        execute("mesh", [tool_path(binary_dir, "ReconstructMesh"), "-i", output / "dense.mvs",
-                         "-p", output / "dense.ply", "-o", output / "mesh.mvs", *common],
-                lambda: {"faces": checked_ply(output / "mesh.ply", "face")})
-        execute("refine", [tool_path(binary_dir, "RefineMesh"), "-i", output / "dense.mvs",
-                           "-m", output / "mesh.ply", "-o", output / "refined.mvs",
-                           "--resolution-level", "1", "--scales", "1", *common],
-                lambda: {"faces": checked_ply(output / "refined.ply", "face")})
-        execute("texture", [tool_path(binary_dir, "TextureMesh"), "-i", output / "dense.mvs",
-                            "-m", output / "refined.ply", "-o", output / "textured.mvs",
-                            "--export-type", "obj", *common],
-                lambda: dict(zip(("vertices", "faces"), obj_counts(output / "textured.obj"))))
-        report["status"] = "complete"
+        if args.stop_after_sfm:
+            report["status"] = "sparse_complete"
+            report["completion_scope"] = "SfM only; no undistortion or OpenMVS stages"
+        else:
+            dense = output / "dense"
+            common = ["--max-threads", str(args.max_threads), "--working-folder", str(output)]
+            execute("import", [tool_path(binary_dir, "InterfaceCOLMAP"), "-i", dense,
+                               "-o", output / "scene.mvs", "--image-folder", dense / "images", *common],
+                    lambda: {"bytes": nonempty_bytes(output / "scene.mvs")})
+            execute("densify", [tool_path(binary_dir, "DensifyPointCloud"), "-i", output / "scene.mvs",
+                                "-o", output / "dense.mvs", "--resolution-level", "2", *common],
+                    lambda: {"points": checked_ply(output / "dense.ply", "vertex")})
+            execute("mesh", [tool_path(binary_dir, "ReconstructMesh"), "-i", output / "dense.mvs",
+                             "-p", output / "dense.ply", "-o", output / "mesh.mvs", *common],
+                    lambda: {"faces": checked_ply(output / "mesh.ply", "face")})
+            execute("refine", [tool_path(binary_dir, "RefineMesh"), "-i", output / "dense.mvs",
+                               "-m", output / "mesh.ply", "-o", output / "refined.mvs",
+                               "--resolution-level", "1", "--scales", "1", *common],
+                    lambda: {"faces": checked_ply(output / "refined.ply", "face")})
+            execute("texture", [tool_path(binary_dir, "TextureMesh"), "-i", output / "dense.mvs",
+                                "-m", output / "refined.ply", "-o", output / "textured.mvs",
+                                "--export-type", "obj", *common],
+                    lambda: dict(zip(("vertices", "faces"), obj_counts(output / "textured.obj"))))
+            report["status"] = "complete"
     except StageError as error:
         report["stages"].append(error.result)
         report.update(status="failed", failure=str(error))
@@ -537,6 +590,16 @@ def run(args: argparse.Namespace) -> dict:
     return report
 
 
+def effective_sfm_min_model_size(configured: int | None, selected_count: int) -> int:
+    if selected_count < 3:
+        raise ValueError("at least three selected photos required")
+    if configured is None:
+        return min(10, selected_count)
+    if not 2 <= configured <= selected_count:
+        raise ValueError("explicit SfM minimum model size exceeds selected photo count")
+    return configured
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--images", type=Path)
@@ -559,6 +622,13 @@ def main() -> int:
     parser.add_argument("--sift-max-features", type=int, default=8192)
     parser.add_argument("--sift-max-image-size", type=int, default=3200)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--init-image-pair", nargs=2, metavar=("IMAGE1", "IMAGE2"),
+                        help="optional manual COLMAP initial pair by selected filenames; not an automatic robustness fix")
+    parser.add_argument("--sfm-max-models", type=int, default=5,
+                        help="COLMAP mapper model attempts; 5 enables generic retries after weak starts")
+    parser.add_argument("--sfm-min-model-size", type=int,
+                        help="minimum COLMAP candidate model size; default min(10, selected view count)")
+    parser.add_argument("--stop-after-sfm", action="store_true", help="record a sparse-only diagnostic run")
     parser.add_argument("--max-threads", type=int, default=2)
     parser.add_argument("--min-registered-fraction", type=float, default=0.7)
     parser.add_argument("--max-gib", type=float, default=2.0)
@@ -568,9 +638,12 @@ def main() -> int:
     parser.add_argument("--worker", choices=("features", "matching", "sfm", "reuse_sfm", "undistort"))
     args = parser.parse_args()
     if args.worker:
+        if args.sfm_min_model_size is None:
+            args.sfm_min_model_size = min(10, args.max_views)
         worker(args.worker, args.output, args.max_image_size, args.sparse_model, args.camera_model,
                args.matching, args.sequential_overlap, args.sift_max_features,
-               args.sift_max_image_size, args.seed)
+               args.sift_max_image_size, args.seed, args.init_image_pair,
+               args.sfm_max_models, args.sfm_min_model_size)
         return 0
     if (not args.images or not (3 <= args.max_views <= 200) or args.max_threads < 1
             or not math.isfinite(args.max_gib) or args.max_gib <= 0
@@ -580,6 +653,10 @@ def main() -> int:
             or not 0 < args.min_registered_fraction <= 1 or args.max_image_size < 1
             or args.sequential_overlap < 1 or args.sift_max_features < 1 or args.sift_max_image_size < 1
             or args.seed < 0 or (args.pose_mask_dir and args.sparse_model)
+            or not 1 <= args.sfm_max_models <= 10 or
+            (args.sfm_min_model_size is not None and
+             not 2 <= args.sfm_min_model_size <= args.max_views)
+            or (args.init_image_pair and args.sparse_model)
             or bool(args.sparse_provenance) != bool(args.sparse_manifest)
             or bool(args.sparse_provenance) != bool(args.sparse_result)
             or (args.sparse_provenance and not args.sparse_model)):
@@ -587,7 +664,7 @@ def main() -> int:
     result = run(args)
     print(json.dumps({"status": result["status"], "result": str(args.output.resolve()),
                       "failure": result.get("failure")}))
-    return 0 if result["status"] == "complete" else 1
+    return 0 if result["status"] in ("complete", "sparse_complete") else 1
 
 
 if __name__ == "__main__":

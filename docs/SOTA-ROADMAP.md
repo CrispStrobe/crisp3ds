@@ -43,6 +43,46 @@ completed backend. Stop and report material new authority or infrastructure need
 
 ## Experiment contract
 
+### Approved comparative execution batch
+
+The next batch compares existing numerical engines rather than adding product UI:
+
+1. Reproduce a bounded upstream OpenMVS example. Preserve supplied-camera stage
+   controls separately from image-only reconstruction; upstream meshes are regression
+   oracles, not independently measured truth. Pin the sample and executable versions.
+2. Diagnose the failed fresh YCB alignment against the successful producer, including
+   feature ordering, initialization, matching and random-state differences. Explicit
+   successful-pair seeding is an assisted diagnostic, not automatic robustness.
+3. Carry photo-derived foreground masks through image undistortion into the native
+   dense stage. Verify projection/mask coordinates and native mask-label semantics.
+   Do not substitute post-hoc cloud removal for native dense masking.
+4. Compare MVE and COLMAP/OpenMVS on the same YCB and bunny image selections; retain
+   failed arms and preprocessing differences. Add another engine only if it can be
+   provisioned within the local disk/CPU budget and selected licensing constraints.
+5. Report bidirectional surface distance distributions, normalized distances,
+   precision/recall/F at multiple fixed tolerances, normal agreement and mesh topology,
+   alongside registration, failures, stage runtime, memory and disk. A different metric
+   must not conceal missing geometry or replace a failed quality gate.
+
+Sol ownership: classical backend/alignment/masks; upstream control provisioning;
+surface metrics/benchmark protocol. Root supervises, independently checks numerical
+results, runs cross-pipeline comparisons and records the final evidence. Per-run
+output caps remain enforced and aggregate free space is checked before native jobs.
+MacBook free-space floor is 10 GiB; no GPU availability is presumed. Remote GPU or
+large-data expansion requires first reading the existing environment instructions.
+
+Second-object arm frozen before examining results: `classical-bunny-contrast-001`
+uses all 73 PNGs in `build-opencv/bunny-gamma05-clahe2`, the exact preprocessed
+pixels previously given to MVE. COLMAP uses unknown shared SIMPLE_RADIAL intrinsics,
+CPU exhaustive matching, seed 20260927, 8192 requested SIFT features and 1749-pixel
+feature/undistortion caps. No supplied poses, masks or reference mesh are inputs.
+Automatic initialization; minimum 70% registration. OpenMVS uses the pinned runner's
+resolution-level 2 and one-scale mesh refinement, two native threads, 2 GiB output
+cap and 20-minute total deadline. This compares complete configured pipelines,
+not identical SfM or dense algorithms/settings. New artifacts remain separate from
+MVE and all unsuccessful runs. Score any mesh with the existing frozen bunny
+alignment algorithm and 4096-query, seed-2027/2028 triangle metric protocol.
+
 Execution checkpoint (2026-09-27): S01 documented; S04 implemented and independently
 checked. S02/S03/S05/S06 have real YCB results, including failed controls, a recovered
 textured mesh and a fixed-mask surface improvement (12.77% to 38.15% F at 1%).

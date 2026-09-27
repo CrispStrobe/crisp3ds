@@ -2,6 +2,10 @@ import sys
 import argparse
 import json
 import hashlib
+import contextlib
+import io
+import sqlite3
+from types import SimpleNamespace
 import tempfile
 import time
 import unittest
@@ -12,9 +16,103 @@ import zipfile
 from scripts.classical_backend import run
 from scripts.classical_backend import fetch_openmvs
 from scripts.classical_backend import finish
+from scripts.classical_backend import finish_rough
+from scripts.classical_backend import masked_dense
 
 
 class SelectionAndFailureTests(unittest.TestCase):
+    def test_finish_rough_rejects_symlink_and_unbounded_settings_before_source_read(self):
+        with tempfile.TemporaryDirectory(dir=run.ROOT / ".local-tools/tmp") as tmp:
+            root = Path(tmp)
+            source = root / "source"
+            source.mkdir()
+            link = root / "source-link"
+            link.symlink_to(source, target_is_directory=True)
+            args = argparse.Namespace(source=link, output=root / "fresh", binary_dir=root,
+                                      max_threads=2, max_gib=1, timeout_minutes=10,
+                                      max_rss_gib=10, max_log_mib=32)
+            with self.assertRaisesRegex(ValueError, "symlink"):
+                finish_rough.finish(args)
+            args.source = source
+            args.max_gib = float("nan")
+            with self.assertRaisesRegex(ValueError, "bounded"):
+                finish_rough.finish(args)
+
+    def test_small_view_default_mapper_minimum_clamps_but_explicit_oversize_rejects(self):
+        self.assertEqual(run.effective_sfm_min_model_size(None, 3), 3)
+        self.assertEqual(run.effective_sfm_min_model_size(None, 80), 10)
+        with self.assertRaisesRegex(ValueError, "selected photo count"):
+            run.effective_sfm_min_model_size(10, 3)
+        argv = ["classical", "--images", "photos", "--output", "out", "--max-views", "3"]
+        with (mock.patch.object(sys, "argv", argv),
+              mock.patch.object(run, "run", return_value={"status": "sparse_complete"}) as execute,
+              mock.patch("builtins.print")):
+            self.assertEqual(run.main(), 0)
+        self.assertIsNone(execute.call_args.args[0].sfm_min_model_size)
+        with (mock.patch.object(sys, "argv", argv + ["--sfm-min-model-size", "10"]),
+              contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit)):
+            run.main()
+
+    def test_generic_sfm_retry_policy_rejects_two_view_dead_end(self):
+        class Options:
+            def __init__(self):
+                self.mapper = SimpleNamespace()
+        fake_pycolmap = SimpleNamespace(IncrementalPipelineOptions=Options)
+        options = run.sfm_options(fake_pycolmap, 5, 10, None)
+        self.assertTrue(options.multiple_models)
+        self.assertEqual(options.max_num_models, 5)
+        self.assertEqual(options.min_model_size, 10)
+        self.assertEqual(options.mapper.num_threads, 2)
+        assisted = run.sfm_options(fake_pycolmap, 1, 2, (9, 4))
+        self.assertFalse(assisted.multiple_models)
+        self.assertEqual((assisted.init_image_id1, assisted.init_image_id2), (9, 4))
+
+    def test_masked_dense_rejects_wrong_native_stem_even_with_valid_hashes(self):
+        with tempfile.TemporaryDirectory(dir=run.ROOT / ".local-tools/tmp") as tmp:
+            base = Path(tmp)
+            source = base / "source"
+            masks = base / "masks"
+            masks.mkdir()
+            (source / "dense" / "images").mkdir(parents=True)
+            for model_dir in (source / "sparse" / "0", source / "dense" / "sparse"):
+                model_dir.mkdir(parents=True)
+                for name in ("cameras.bin", "images.bin", "points3D.bin"):
+                    (model_dir / name).write_bytes(name.encode())
+            (source / "dense" / "images" / "photo.jpg").write_bytes(b"image")
+            (masks / "photo.mask.png").write_bytes(b"mask")
+            stages = [{"name": name, "status": "complete"} for name in
+                      ("reuse_sfm", "undistort", "import")]
+            (source / "result.json").write_text(json.dumps({"schema": "classical_backend_v1",
+                                                               "stages": stages, "inputs": [{"name": "photo.jpg"}]}))
+            report = {"schema": "classical_dense_masks_v1", "status": "complete",
+                      "source_model": str(source / "sparse" / "0"),
+                      "source_model_sha256": masked_dense.model_hashes(source / "sparse" / "0"),
+                      "undistorted_model": str(source / "dense" / "sparse"),
+                      "undistorted_model_sha256": masked_dense.model_hashes(source / "dense" / "sparse"),
+                      "max_pose_matrix_difference": 0, "ignore_mask_label": 0,
+                      "native_filename_basis": "image stem",
+                      "images": [{"name": "photo.jpg", "native_mask_name": "photo.mask.png",
+                                  "undistorted_image_sha256": run.digest(source / "dense" / "images" / "photo.jpg"),
+                                  "mask_sha256": run.digest(masks / "photo.mask.png")}]}
+            masked_dense.validate_inputs(source, masks, report)
+            report["images"][0]["native_mask_name"] = "photo.jpg.mask.png"
+            with self.assertRaisesRegex(ValueError, "filename differs"):
+                masked_dense.validate_inputs(source, masks, report)
+
+    def test_initial_pair_uses_names_not_threaded_insertion_order(self):
+        with tempfile.TemporaryDirectory(dir=run.ROOT / ".local-tools/tmp") as tmp:
+            database = Path(tmp) / "database.db"
+            with sqlite3.connect(database) as connection:
+                connection.execute("CREATE TABLE images (image_id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
+                connection.executemany("INSERT INTO images VALUES (?, ?)",
+                                       [(1, "c.jpg"), (9, "a.jpg"), (4, "b.jpg")])
+            self.assertEqual(run.init_pair_ids(database, ["a.jpg", "b.jpg", "c.jpg"],
+                                               ["a.jpg", "b.jpg"]), (9, 4))
+            with self.assertRaisesRegex(ValueError, "two distinct"):
+                run.init_pair_ids(database, ["a.jpg", "b.jpg"], ["a.jpg", "a.jpg"])
+            with self.assertRaisesRegex(ValueError, "missing"):
+                run.init_pair_ids(database, ["a.jpg", "d.jpg"], ["a.jpg", "d.jpg"])
+
     def test_selection_rejects_duplicate_or_escaping_names(self):
         with tempfile.TemporaryDirectory(dir=run.ROOT / ".local-tools/tmp") as tmp:
             root = Path(tmp)
@@ -162,13 +260,17 @@ class SelectionAndFailureTests(unittest.TestCase):
                                       max_image_size=1200, max_threads=2, camera_model="SIMPLE_RADIAL",
                                       matching="exhaustive", sequential_overlap=8,
                                       sift_max_features=1800, sift_max_image_size=1200, seed=0,
+                                      init_image_pair=None,
+                                      sfm_max_models=5, sfm_min_model_size=None, stop_after_sfm=False,
                                       min_registered_fraction=0.7, max_gib=0.1,
                                       max_rss_gib=1, max_log_mib=1, timeout_minutes=1)
             failure = {"name": "reuse_sfm", "status": "failed", "exit_code": 99,
                        "failure": "intentional unit stop"}
             with (mock.patch.object(run, "check_toolchain", return_value={"openmvs_binaries": {}}),
-                  mock.patch.object(run, "stage", side_effect=run.StageError(failure))):
+                  mock.patch.object(run, "stage", side_effect=run.StageError(failure)) as called_stage):
                 result = run.run(args)
+            command = called_stage.call_args.args[2]
+            self.assertEqual(command[command.index("--sfm-min-model-size") + 1], "3")
             self.assertEqual(result["sfm_source"]["kind"], "external_raw_image_only_verified_model")
             self.assertEqual(len(result["inputs"]), 3)
             self.assertEqual(result["stages"][-1]["name"], "reuse_sfm")

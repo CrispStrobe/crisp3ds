@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 import shutil
 import time
@@ -15,11 +16,18 @@ from scripts.classical_backend.run import (BIN, RESERVE, StageError, TOOLS, chec
 
 
 def continue_run(args: argparse.Namespace) -> dict:
+    if args.source.is_symlink() or args.output.is_symlink() or args.output.exists():
+        raise ValueError("source must be a real prior run and output must be fresh")
     source = args.source.resolve()
     output = args.output.resolve()
     binary_dir = args.binary_dir.resolve()
     if not source.is_dir() or source.is_symlink() or output.exists():
         raise ValueError("source must be a real prior run and output must be fresh")
+    if (not 0 < args.max_threads <= 2 or not math.isfinite(args.max_gib) or
+            not 0 < args.max_gib <= 2 or not math.isfinite(args.timeout_minutes) or
+            not 0 < args.timeout_minutes <= 15 or not math.isfinite(args.max_rss_gib) or
+            not 0 < args.max_rss_gib <= 10 or not 0 < args.max_log_mib <= 32):
+        raise ValueError("invalid bounded continuation settings")
     source_report_path = source / "result.json"
     source_report = json.loads(source_report_path.read_text())
     if (source_report.get("schema") != "classical_backend_v1" or source_report.get("status") != "failed" or

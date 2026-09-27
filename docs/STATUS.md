@@ -13,25 +13,38 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
-Latest supervised checkpoint: the 60-real-photo YCB classical path has produced
-a textured mesh on M1 through explicitly recorded recovery stages. An image-only
-multi-view support filter improves whole-surface F at 1% reference diagonal from
-12.77% to 38.15%, but the mesh still fails quality acceptance. A fresh standalone
-replay registered only 2/60 views, so repeatable e2e success remains unresolved.
-See [all outcomes and failures](YCB-COMPARISON.md). No KIRI parity is established;
-the C++/Tauri production reconstruction action remains gated.
+Latest supervised checkpoint: [three real-photo benchmark lanes](BENCHMARK-RESULTS.md)
+now compare MVE and classical COLMAP/OpenMVS on two objects, plus a supplied-camera
+OpenMVS control on Sceaux. The box reaches 42.06% independently fitted F at 1%
+reference diagonal, but only 35.52% using the prior unchanged alignment; raising
+depth resolution does not resolve quality. An independent Berkeley-camera
+diagnostic adds trajectory/orientation evidence, not Google-mesh accuracy.
+The supplied-camera Sceaux control reaches 94.04% rough / 93.52% refined F
+against an upstream **software** mesh, not physical ground truth. The full
+reports retain failed registrations, budget failures and composed continuations.
 
-Latest local validation: Python discovery ran 201 tests successfully (8 skipped);
-rebuilt native OpenCV core passed all 11 CTests. Earlier this batch, 30 desktop
-tests and the web build passed. The Mac retains about 19 GiB free. A CI-only test
-dependency on ignored local provenance was replaced with a checked-in, hash-traced
-mapper-options fixture; the next foundation run must validate that fix remotely.
+Automatic camera initialization remains fragile: generic retries recover all
+73 bunny cameras, whereas a fresh 60/60 box replay still requires an explicit
+seed pair. The latest box/native-mask meshes remain rejected. No KIRI parity is
+established; the C++/Tauri production reconstruction action remains gated.
 
-The user approved [SOTA-ROADMAP.md](SOTA-ROADMAP.md). Three supervised Sol tasks
-are now implementing an established COLMAP/OpenMVS CPU path, object-motion and
-shared-intrinsics experiments, and better surface evaluation. These are active
-tasks, not accepted results. MVE remains the measured control, not a mandatory
-product engine. Backend quality gates precede Tauri reconstruction integration.
+Latest local validation: all 11 native CTests, 30 desktop tests, 43 CLI/web
+contract cases, the web build and live Chromium interaction test passed again.
+The dependency metadata checker matches 530 exact entries. New quality-harness
+tests cover multiple surface metrics, camera-reference composition, native mask
+warping and upstream controls. The disk reserve remains 10 GiB.
+A CI-only test dependency on ignored local provenance was previously replaced
+with a checked-in, hash-traced mapper-options fixture. At commit `975cd8a`, both the
+[foundation matrix](https://github.com/CrispStrobe/crisp3ds/actions/runs/36278628665)
+and [quality harness matrix](https://github.com/CrispStrobe/crisp3ds/actions/runs/36278628682)
+passed. This verifies builds/contracts, not portable real-photo quality.
+
+The user approved [SOTA-ROADMAP.md](SOTA-ROADMAP.md). Supervised Sol tasks implement
+the classical CPU path, object-motion experiments and benchmark tooling. Measured
+progress is not product acceptance. MVE remains a control, not a mandatory engine;
+backend quality gates precede Tauri reconstruction integration.
+
+### Earlier checkpoints (superseded where the latest reports differ)
 
 The first new live control, [60-photo raw YCB](YCB-COMPARISON.md), failed MVE
 camera initialization in 267.14 seconds (not a timeout), with no mesh produced.

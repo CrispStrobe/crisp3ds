@@ -1,5 +1,12 @@
 # Pipeline comparison: current Crisp3DS and three reference pipelines
 
+**Historical assessment below.** The 2026-09-27 classical integration has since
+produced M1 meshes through recorded recovery stages; OpenMVS is now installed
+and exercised, but quality and fresh-run reliability remain rejected. See
+[YCB-COMPARISON.md](YCB-COMPARISON.md) and the active
+[comparative execution plan](SOTA-ROADMAP.md). The old capability table must not
+be interpreted as current installation status or a measured quality ranking.
+
 Latest local diagnostic: the clean 1,773-point observation-holdout model is
 mostly background under manually inspected tree envelopes (151 points have
 all observations inside). Restricting training feature centres to those
