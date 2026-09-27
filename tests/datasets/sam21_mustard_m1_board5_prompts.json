@@ -1,0 +1,14 @@
+{
+  "schema": "sam21_mustard_m1_board_negative5_prompts_v1",
+  "box_xyxy_original_pixels": [480, 300, 760, 650],
+  "original_prompt_sha256": "28440795d5f38590df8c5568969970d6623fbe22ea6b3e8781cba10608149d32",
+  "base_inventory_sha256": "b47e8caec7d05fae7bb84ae9b3eec7d4a35b1457ca9df67a3b984cbaaeed8a98",
+  "rejected_full_qa_sha256": "4084e8e458b55c566dd138f9d4b8b853ab2c68bfc20f5f831447a0cc99e9528a",
+  "images": [
+    {"name":"NP3_318.jpg","source_sha256":"c19d377824bc0aa7e937244f797f810b333b1e853c698688629926c066846991","points_xy_label":[[600,525,1],[720,620,0],[520,630,0],[620,330,0]]},
+    {"name":"NP3_330.jpg","source_sha256":"fccafec5b4b44c5b03d3c927b211b2c942d0a6e343dbbbdaba95022e83c773b5","points_xy_label":[[600,525,1],[720,620,0],[520,630,0],[620,330,0]]},
+    {"name":"NP3_336.jpg","source_sha256":"b38f4232499b27fd108960280fef2868ddb172d81088d7044475eceb10f24fc2","points_xy_label":[[600,525,1],[720,620,0],[520,630,0],[620,330,0]]},
+    {"name":"NP3_342.jpg","source_sha256":"59901cf97ce97b2de0b46d428818fd676d6a169e67eaf72094dcd8c4058b5998","points_xy_label":[[600,525,1],[720,620,0],[520,630,0],[620,330,0]]},
+    {"name":"NP3_348.jpg","source_sha256":"fda8eed74101a71e14f8828a03b7ef29a61b2d65d928f87e783894b2b691562d","points_xy_label":[[600,525,1],[720,620,0],[520,630,0],[620,330,0]]}
+  ]
+}
