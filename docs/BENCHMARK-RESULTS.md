@@ -22,6 +22,23 @@ quality metrics. Face count is not accuracy. Texture is not used to hide defects
 
 ## Current findings
 
+The latest [sensor-depth benchmark](SENSOR-DEPTH-BENCHMARK.md) adds a
+stage-matched rough-mesh comparison over 6,144 fixed observed-supported rays
+in three views, without mesh-to-reference fitting:
+
+| Rough configuration | Predicted-ray coverage | Hit-only mean absolute depth disagreement | Within 5 mm, including misses in denominator |
+| --- | ---: | ---: | ---: |
+| Earlier image-only cameras, native masks (`008`) | 84.08% | 2.88 mm | 70.72% |
+| Supplied intrinsics, image-estimated poses (`014`) | 83.66% | 5.96 mm | 38.56% |
+
+The fixed eroded-interior check also favors `008` on residuals (2.34 versus
+5.64 mm), although `014` has slightly higher interior ray coverage (94.22%
+versus 92.58%). These are assumption-qualified, same-capture sensor diagnostics,
+not whole-object accuracy or metrology. They conflate geometry and camera/reference
+pose errors, and the two configurations differ in verification and downstream
+settings. No calibration-only causal claim follows. The calibrated continuation
+completed rough meshing but timed out in refinement; no refined-pair result exists.
+
 **Registration audit qualification:** the frozen known-transform
 [audit](REGISTRATION-AUDIT.md) now demonstrates that our existing surface
 aligner can misorient independently sampled copies of the *same* scanner mesh
@@ -29,24 +46,25 @@ by 16.67–25.25 degrees. Missing support and outliers can make its objective
 prefer an incorrect transform. Historical scores below are preserved, but
 they are not trustworthy intrinsic pipeline rankings or independently
 registered physical accuracy. Camera-frame and sensor-depth controls are the
-next evaluation lane; this finding does not establish that the underlying
+new diagnostic lane above; this finding does not establish that the underlying
 reconstructions are good.
 
 A [three-frame Berkeley sensor-depth inspection](BERKELEY-DEPTH-FEASIBILITY.md)
 confirms that the already-local archive contains usable 640 × 480 raw depth
-arrays and distinct depth-camera calibration (under 2 MB extracted). This is
-a promising camera-registered oracle, not a completed geometry benchmark:
-pixel conventions, depth/RGB registration and object-only visibility still need
-validation. No depth residual score is reported yet.
+arrays and distinct depth-camera calibration (under 2 MB extracted). That
+initial feasibility report contained no scores; the subsequent qualified
+projection check and depth comparison above supersede that status. Pixel
+conventions, distortion and object-only visibility retain explicit uncertainty.
 
 The [fixed-intrinsics camera experiment](CALIBRATION-ABLATION.md) retains a
 threaded-verification crash and a serial image-only 2/60 failure. Its preselected
 serial calibrated arm recovers 60/60 cameras and 3,942 sparse points, with
 median camera-orientation disagreement 1.34 degrees and center RMS 0.00848 in
 Berkeley native units. This supplied-calibration result is not an ordinary-photo
-success or a paired mesh-quality improvement. Its [native dense control](CALIBRATED-CONTROL.md)
-exceeded the 1 GiB cap before completing depth reconstruction, so there is no
-new calibrated mesh score.
+success or a paired mesh-quality improvement. Its first
+[native dense control](CALIBRATED-CONTROL.md) exceeded the 1 GiB cap. The later
+resolution-corrected dense run and rough-mesh continuation supply the new
+sensor comparison above; refinement remains incomplete.
 
 YCB fixed-camera comparisons (same 60 estimated cameras; 2,048 query samples
 per direction, independent reference fits unless stated):
@@ -60,16 +78,18 @@ per direction, independent reference fits unless stated):
 
 The 011 result is a cache continuation after 009 exceeded its 2 GiB output
 budget, not a fresh uninterrupted run. Both native-mask meshes have one closed
-component and no counted nonmanifold edges, yet poor shape agreement. More depth
-pixels and watertight topology did **not** resolve this object's quality failure.
+component and no counted nonmanifold edges, yet poor reference-fit agreement.
+More depth pixels and watertight topology did **not** improve that diagnostic;
+the subsequent registration audit prevents attributing all its error to shape.
 The independently fitted and shared-alignment columns answer different questions;
 neither is independently calibrated physical accuracy. See
 [alignment sensitivity](SHARED-GAUGE.md).
 
 - YCB cloud filtering improved 1% F from 12.77% to 38.15%, normalized mean distance
   from 5.704% to 2.525%, and normal agreement. It remains rejected quality.
-- The pre-refinement YCB surfaces were already poor (1% F 14.95% unfiltered,
-  33.87% filtered). Refinement is not the sole cause of the geometry failure.
+- The pre-refinement YCB reference-fit scores were low (1% F 14.95% unfiltered,
+  33.87% filtered). Because registration is unreliable, these scores alone
+  cannot locate a geometry defect or determine refinement's contribution.
 - The first COLMAP bunny run stopped at a two-view model. A generic mapper-only
   retry allowing up to five models found a second model with all 73 views and
   3,133 points in 22.41 seconds. Root independently loaded the saved model: mean

@@ -13,6 +13,36 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
+Latest checkpoint: the corrected calibrated dense profile completed with
+40,518 points. A separately recorded continuation produced a 38,550-face
+rough mesh; refinement exceeded its five-minute cap, so no new refined or
+textured calibrated artifact exists. The strict all-view checker was corrected
+to use OpenMVS's uniform intrinsic scale despite short-edge rounding; all 60
+depth-map cameras and masks pass without relaxed tolerances.
+
+The new [three-view sensor-depth comparison](SENSOR-DEPTH-BENCHMARK.md)
+uses fixed shared rays and camera-only reference alignment, not mesh fitting.
+On stage-matched rough meshes, earlier `008` has 2.88 mm hit-only mean absolute
+depth disagreement and 84.08% ray coverage; calibrated `014` has 5.96 mm and
+83.66%. Neither is a whole-object quality percentage. Calibration/pose/mask
+and depth-rectification assumptions remain unresolved; see the
+[projection check](BERKELEY-PROJECTION-CHECK.md). The new calibrated path is
+therefore **not** a demonstrated surface-quality improvement. Image-only
+initialization and missing surface coverage remain priorities.
+
+Current local regression discovery: **285 tests run, 8 skipped, remaining
+tests passed**. Root independently recomputed the saved per-ray summaries and
+checked ray/triangle intersections and distorted RGB projection against separate
+numerical implementations. Rough output and all failed attempts remain preserved;
+approximately 12 GiB is free, above the 10 GiB reserve.
+
+Both the [quality harness](https://github.com/CrispStrobe/crisp3ds/actions/runs/36290465780)
+and [foundation matrix](https://github.com/CrispStrobe/crisp3ds/actions/runs/36290465759)
+passed on all three platforms at prior checkpoint `50b68ae`; these are not
+portable real-photo reconstruction results.
+
+### Earlier checkpoint: registration and calibration (`50b68ae`)
+
 The new [known-transform registration audit](REGISTRATION-AUDIT.md) isolates
 an evaluator defect: independently sampled copies of identical scanner geometry
 can be aligned 16.67–25.25 degrees incorrectly, and partial coverage can make
@@ -32,18 +62,18 @@ improvement is claimed.
 The [sensor-depth feasibility check](BERKELEY-DEPTH-FEASIBILITY.md) extracted
 three frames, but does not yet provide independently registered shape scores.
 
-This batch's final local Python discovery passes **267 tests (8 skipped)**.
+That checkpoint's local Python discovery passed **267 tests (8 skipped)**.
 The new native-resolution preflight has boundary/budget regression tests;
 its corrected explicit-minimum profile has not yet been run through meshing.
 Approximately 12 GiB remains free, above the 10 GiB reserve. Prior application
 build/test results below are unchanged; this batch changes experimental Python
 adapters, diagnostics and documentation, not the production reconstruction gate.
 
-Latest supervised checkpoint: [three real-photo benchmark lanes](BENCHMARK-RESULTS.md)
+Earlier comparative checkpoint: [three real-photo benchmark lanes](BENCHMARK-RESULTS.md)
 now compare MVE and classical COLMAP/OpenMVS on two objects, plus a supplied-camera
 OpenMVS control on Sceaux. The box reaches 42.06% independently fitted F at 1%
 reference diagonal, but only 35.52% using the prior unchanged alignment; raising
-depth resolution does not resolve quality. An independent Berkeley-camera
+depth resolution did not improve that reported shape diagnostic. An independent Berkeley-camera
 diagnostic adds trajectory/orientation evidence, not Google-mesh accuracy.
 The supplied-camera Sceaux control reaches 94.04% rough / 93.52% refined F
 against an upstream **software** mesh, not physical ground truth. The full
@@ -61,7 +91,7 @@ The [whole-scan and post-hoc object-ROI evaluations](BUNNY-CLASSICAL-COMPARISON.
 expose unreliable geometric registration; their F-scores do not establish a
 pipeline ranking. This narrows the next evaluation work, not a quality acceptance.
 
-Latest local validation: all 11 native CTests, 30 desktop tests, 43 CLI/web
+Earlier full-application validation: all 11 native CTests, 30 desktop tests, 43 CLI/web
 contract cases, the web build and live Chromium interaction test passed again.
 The complete Python discovery passed 245 tests (8 skipped), including the new
 SQLite handle-lifetime regression test in the 33-test classical suite.

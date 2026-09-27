@@ -147,16 +147,19 @@ def validate_producer(report: dict, model_dir: Path, images: Path,
 
 def expected_depth_k(params: np.ndarray, image_size: tuple[int, int],
                      depth_size: tuple[int, int]) -> np.ndarray:
-    """Pinned InterfaceCOLMAP -0.5, then OpenMVS ScaleImagePixel at depth size."""
+    """Pinned importer -0.5, then OpenMVS max-edge-normalized isotropic K."""
     if (len(params) != 4 or not np.isfinite(params).all() or
             min(params[0], params[1]) <= 0 or min(*image_size, *depth_size) <= 0):
         raise ValueError("invalid PINHOLE camera or dimensions")
     sx, sy = depth_size[0] / image_size[0], depth_size[1] / image_size[1]
     if not 0 < sx <= 1 or not 0 < sy <= 1:
         raise ValueError("depth map must not exceed undistorted image dimensions")
+    # TImage rounds the short edge independently, but Camera::GetK scales its
+    # normalized intrinsics by max(width, height), not by each rounded edge.
+    scale = max(depth_size) / max(image_size)
     fx, fy, cx, cy = map(float, params)
-    return np.asarray([[fx * sx, 0, cx * sx - 0.5],
-                       [0, fy * sy, cy * sy - 0.5], [0, 0, 1]], dtype=np.float64)
+    return np.asarray([[fx * scale, 0, cx * scale - 0.5],
+                       [0, fy * scale, cy * scale - 0.5], [0, 0, 1]], dtype=np.float64)
 
 
 def native_depth_size(width: int, height: int, level: int, minimum: int,

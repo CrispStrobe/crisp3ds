@@ -170,6 +170,14 @@ class CalibratedCameraTests(unittest.TestCase):
         self.assertEqual(K[1, 2], 255.5)
         self.assertNotEqual(K[0, 2], params[2] * 0.5)
 
+    def test_rounded_short_edge_uses_max_edge_scale_for_both_focals(self):
+        params = np.asarray([1081.15007295, 1081.14383159, 620.387085, 476.85497156])
+        K = control.expected_depth_k(params, (1277, 1015), (638, 507))
+        scale = 638 / 1277
+        self.assertAlmostEqual(K[1, 1], params[1] * scale, places=10)
+        self.assertAlmostEqual(K[1, 2], params[3] * scale - 0.5, places=10)
+        self.assertGreater(abs(K[1, 1] - params[1] * (507 / 1015)), 0.1)
+
     def test_dmap_camera_fixture_enforces_exact_k_rotation_and_center(self):
         with tempfile.TemporaryDirectory(dir=ROOT / ".local-tools/tmp") as tmp:
             folder = Path(tmp)

@@ -1,5 +1,49 @@
 # Quality-first reconstruction roadmap
 
+## Current bounded execution: calibrated mesh and sensor-depth checks
+
+After the registration audit and the retained `012` resolution/budget failure,
+the next supervised batch is:
+
+1. Sol backend: one fresh `013` run from the sealed calibrated `002` camera
+   model, explicit minimum resolution 600, effective-resolution preflight,
+   1 GiB output cap, two native threads and ten-minute deadline. Retain the
+   failed `012`; do not increase limits or retry within this batch.
+   `013` completed dense reconstruction but its camera checker exposed a
+   uniform-scale/rounded-short-edge bug. After correcting the checker without
+   relaxing tolerance, all 60 retained depth maps passed independently. A
+   separately recorded `014` mesh/refine/texture-only continuation is approved
+   (200 MiB, five minutes, two threads); no dense recomputation or mutation of
+   the stopped `013` is permitted. This is a composed recovery, not fresh e2e.
+2. Sol projection review: validate the three already extracted Berkeley
+   depth frames against RGB using distinct camera intrinsics/extrinsics;
+   record distortion, pixel-origin and unit assumptions and inspect overlays.
+3. Sol surface evaluation: implement analytically tested first-hit depth
+   comparison, with named-camera similarity alignment only. Freeze photo-only
+   object support and missing-ray denominators before evaluating candidates.
+   No Google mesh fitting, reference-derived mask tuning or new downloads.
+4. Root: review coordinate/provenance gates before any real sensor score,
+   inspect completed mesh artifacts, run regression tests and record failures.
+
+Allow at most 20 MiB additional evaluation output alongside the 1 GiB native
+run, keep 10 GiB free, and avoid `/tmp`. Sensor-conditioned same-capture checks
+are diagnostics, not held-out reconstruction accuracy or certified metrology.
+Image-only robustness remains a separate unfinished gate.
+
+Outcome: `013` produced 40,518 dense points; `014` produced 38,550 rough
+triangles but timed out during refinement. The frozen three-view rough-mesh
+sensor comparison favored earlier `008` on conditional depth residuals
+(2.88 versus 5.96 mm hit-only mean), with similar coarse ray coverage
+(84.08% versus 83.66%). Calibration assistance is not promoted as a quality
+improvement. These are qualified sensor diagnostics, not metrology.
+
+Next scoped priorities: inspect spatial missing-ray patterns using the saved
+per-ray data; stabilize image-only camera initialization without supplied
+intrinsics; compare rough versus refined outputs within the same camera gauge
+before changing refinement settings. A usable rough-mesh/texture path should
+remain available independently of expensive refinement, with explicit partial
+stage status. Do not infer KIRI parity or optimize against only these three views.
+
 Approved 2026-09-27. This is the active execution plan; it supersedes earlier
 board-first priorities and MVE-specific backend commitments. Ordinary overlapping
 photos of a rigid object are the input, including rotation and translation between
