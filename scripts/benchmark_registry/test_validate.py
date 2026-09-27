@@ -11,12 +11,15 @@ REGISTRY = json.loads(validate.DEFAULT.read_text())
 
 
 class RegistryTests(unittest.TestCase):
-    def test_checked_in_registry_has_seven_honest_states(self):
+    def test_checked_in_registry_has_eight_honest_states(self):
         result = validate.validate_data(REGISTRY)
-        self.assertEqual(result["pipelines"], 7)
+        self.assertEqual(result["pipelines"], 8)
         self.assertEqual(result["executed"], 2)
         self.assertEqual({p["execution_state"] for p in REGISTRY["pipelines"]},
                          {"planned", "audited", "executed"})
+        metal = next(p for p in REGISTRY["pipelines"] if p["id"] == "mtl_alicevision")
+        self.assertEqual(metal["execution_state"], "audited")
+        self.assertEqual(metal["runs"], [])
 
     def test_executed_requires_hash_bound_result_and_comparability(self):
         data = copy.deepcopy(REGISTRY)

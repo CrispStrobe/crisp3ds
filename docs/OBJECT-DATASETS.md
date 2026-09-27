@@ -1,5 +1,14 @@
 # Real object photos with an independent scan
 
+## VPS expansion: mustard bottle and power drill
+
+[Two further YCB objects](YCB-EXPANSION.md) are acquired and hash-recorded on
+the VPS: 60 original NP3 images each and separate Google-scanner meshes.
+These are independent shape references, not yet registered benchmark goldens.
+One elevation misses undersides; the objects occupy a relatively small part of
+each 1280×1024 frame. The existing cracker-box mask must not be reused unchanged.
+No reconstruction result on these two objects is claimed yet.
+
 ## YCB cracker box: second real-object subset
 
 The [official YCB Object and Model Set](https://ycb-benchmarks.s3.amazonaws.com/index.html) explicitly licenses its **data** CC BY 4.0 (and its code separately MIT). Attribute Berk C. Calli, Arjun Singh, Aaron Walsman, Siddhartha Srinivasa, Pieter Abbeel, and Aaron M. Dollar, the dataset title, source URL, license, and changes. CC BY's copyright grant does not itself clear Cheez-It branding or packaging trademarks for asset redistribution; review those rights before shipping photos or model textures in a product.

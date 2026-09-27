@@ -136,12 +136,23 @@
     },
     {
       "id": "alicevision",
-      "name": "AliceVision candidate",
+      "name": "Upstream AliceVision SYCL / CPU candidate",
       "execution_state": "audited",
       "audit_scope": "documentation_only",
       "artifact_type": "mesh",
       "camera_lanes": ["unverified"],
-      "doc_refs": ["docs/BACKEND-EVALUATION.md"],
+      "doc_refs": ["docs/BACKEND-EVALUATION.md", "docs/MTL-ALICEVISION.md"],
+      "runs": [],
+      "evidence": []
+    },
+    {
+      "id": "mtl_alicevision",
+      "name": "MTL-AliceVision native Metal fork",
+      "execution_state": "audited",
+      "audit_scope": "source_build_graph",
+      "artifact_type": "mesh",
+      "camera_lanes": ["unverified"],
+      "doc_refs": ["docs/MTL-ALICEVISION.md"],
       "runs": [],
       "evidence": []
     },

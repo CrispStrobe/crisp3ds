@@ -1,0 +1,52 @@
+{
+  "name": "ycb-power-drill-real-rgb-separate-google-scan",
+  "source": "https://ycb-benchmarks.s3.amazonaws.com/index.html",
+  "license": "CC BY 4.0",
+  "license_scope": "YCB dataset data, explicitly stated on the official YCB data page; code is separately MIT",
+  "attribution": "Berk C. Calli, Arjun Singh, Aaron Walsman, Siddhartha Srinivasa, Pieter Abbeel, Aaron M. Dollar; The YCB Object and Model Set",
+  "commercial_rights_note": "CC BY 4.0 permits commercial copyright reuse with attribution but does not grant third-party trademarks or packaging rights; review those before shipping image assets",
+  "acquisition_status": "prepared_on_vps_not_reconstructed",
+  "acquisition_manifest_copy": "build-opencv/ycb-vps-acquisition-001/drill-manifest.json",
+  "acquisition_manifest_sha256": "aeef80b879676092047d54089905dfdc29859a56b1ad872d17f800d18cc81594",
+  "source_authentication": "observed_sha256_only_unverified_upstream_identity",
+  "producer_script_sha256": "6ab88863ade234fd4cbf3f88faa49d9eab77b5bc0bf0a1a194a28eb085fd9c37",
+  "tar_converter_script_sha256": "db76b01e3e1998da04264ce50df42f698401a662093ed463ee6d0a6c68c62868",
+  "archives": [
+    {
+      "role": "real Berkeley RGB-D source; only NP3 RGB JPEGs selected",
+      "url": "https://ycb-benchmarks.s3.amazonaws.com/data/berkeley/035_power_drill/035_power_drill_berkeley_rgbd.tgz",
+      "size_bytes": 631773983,
+      "etag_not_sha256": "\"c9e9201a2de0ad6c1b075feebeaedffb-76\"",
+      "sha256_observed_on_vps": "be6fb9bdc61806f631cf81bb56d0e018325ecc669bcbc4b7b82904137fd912e2"
+    },
+    {
+      "role": "separate Google scanner mesh source",
+      "url": "https://ycb-benchmarks.s3.amazonaws.com/data/google/035_power_drill_google_64k.tgz",
+      "size_bytes": 12777450,
+      "etag_not_sha256": "\"b6802a421551a54684887a809b28f5ec-2\"",
+      "sha256_observed_on_vps": "2f941e60f512db3392464b52c737b8c2980e522ab2458890da3ffce2e99aaf03"
+    }
+  ],
+  "subset": {
+    "object": "035_power_drill",
+    "photo_camera": "Berkeley RGB-D NP3",
+    "photo_count": 60,
+    "photo_format": "real RGB 1280x1024 JPEG",
+    "angles_degrees": "0 through 354 inclusive, step 6 (single turntable elevation)",
+    "photo_bytes_total": 59962474,
+    "original_reference": "reference/google_original_ascii.ply",
+    "binary_reference_geometry": "reference/google_geometry_f64.ply",
+    "reference_vertices": 32770,
+    "reference_faces": 65536,
+    "reference_provenance": "different Google scanner from Berkeley photo camera; shape oracle, not certified metrology ground truth",
+    "alignment": "not supplied or verified; no reconstruction accuracy claim",
+    "reference_training_use": "never",
+    "vps_root": "/mnt/akademie_storage/crisp3ds-data/ycb-expansion-001/035_power_drill"
+  },
+  "anchor_files": [
+    {"path": "photos/NP3_000.jpg", "size_bytes": 1002019, "sha256": "03304374b059b188d65a8f19fde600715cd60fcf32dc59db1ffe6bf41342cda9"},
+    {"path": "photos/NP3_180.jpg", "size_bytes": 1001744, "sha256": "1b49347759cb3d2b853e6524c2f6fbafe73043060c375e46a341697c61031b2b"},
+    {"path": "reference/google_original_ascii.ply", "size_bytes": 4108732, "sha256": "7abd8c62a7485cf337f02a488932dcb1fbf356db74fdb3da8c0eb9e1aa771020"},
+    {"path": "reference/google_geometry_f64.ply", "size_bytes": 1638628, "sha256": "26ac2031ad9d4dd8300eb0794fa1b91a9c961fb21bd20871755144431604b360"}
+  ]
+}

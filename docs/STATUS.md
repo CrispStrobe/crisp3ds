@@ -13,7 +13,33 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
-### Latest continuation: comparison contracts and camera bridge
+### Latest continuation: initialization recovery, Metal audit and VPS data
+
+Supervised Sol implementations and bounded live tests now provide:
+
+- [Image-only initialization recovery](INITIALIZATION-RECOVERY.md): the new
+  free-intrinsics seed failed at 2/60 views; freezing heuristic intrinsics
+  registered 60/60 with 3,921 points. Subsequent global bundle adjustment retained
+  that support and refined focal length from 1536 to 1103.95 px. Training median
+  reprojection error fell from 0.3696 to 0.3533 px. This is one cached sparse
+  experiment, not cold-run reliability or improved mesh accuracy.
+- A test accidentally changed the original database's bytes through a writable
+  native open. Exact historical bytes could not be restored. The audit and
+  explicit rebound-cache provenance are retained; no exact replay is claimed.
+- [AliceVision review](MTL-ALICEVISION.md): upstream SYCL merged in May 2026,
+  correcting our CUDA-only characterization. The separate native Metal fork is
+  promising but has significant build/error-reporting caveats. A standalone M1
+  Metal compute oracle passed 4/4 values; neither full backend has run here.
+- [Two new VPS acquisitions](YCB-EXPANSION.md): mustard and drill, 60 real photos
+  each plus independent scanner meshes. Roughly 1.4 GiB stays on `/mnt/storage`;
+  only manifests and two previews were copied locally. Masks, frozen evaluation
+  splits and cross-sensor registration remain unfinished. No new quality score.
+
+Root regression: **321 tests run, 8 skipped, remaining passed**. About 12 GiB
+remains free on the Mac. No neural training or Kaggle quota was consumed.
+Prior checkpoint `301768e` passed both CI workflows; this batch needs its own CI.
+
+### Previous continuation: comparison contracts and camera bridge
 
 The [three-branch plan](PIPELINE-COMPARISON-PLAN.md) and hash-bound
 [pipeline registry](../benchmarks/pipeline-evidence.json) distinguish two

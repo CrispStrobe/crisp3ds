@@ -12,7 +12,7 @@ and [sensor protocol](SENSOR-DEPTH-BENCHMARK.md).
 | COLMAP → OpenMVS | Native M1 CPU sparse/dense/mesh/texture runs; retained failures; supplied- versus estimated-camera diagnostics | Primary portable classical baseline; stabilize image-only initialization, compare rough/refined in one camera frame |
 | MVE | Real photo reconstructions and cross-platform selected-build checks | Independent classical implementation control, not the mandatory production backend |
 | MicMac | Exact-source/build-path license inspection only; no executable built or run | Potential independent CPU matching/density oracle, conditional on resolving selected-build rights |
-| AliceVision | Build/dependency feasibility review only; no reconstruction run | Independent SfM/MVS/mesh/texture comparison on NVIDIA hardware |
+| AliceVision | Build/dependency feasibility review only; no reconstruction run | Current upstream SYCL CPU/GPU comparison; separately audit the native Metal fork |
 | Nerfstudio / gsplat | Camera-format bridge with analytic tests and 14-view live export; no package execution, training, render or mesh result | Reproducible Gaussian appearance baseline, then separately validated depth-to-mesh extraction |
 | GauStudio / NeuS | Candidate review only; no execution | Mesh extraction from a trained Gaussian scene / image-and-mask-conditioned implicit surfaces respectively |
 
@@ -23,10 +23,19 @@ build includes NEC noncommercial code, GPL components and LGPL ANN; see
 GPL/AGPL experiments and desktop/server integration, but does not remove the
 noncommercial restriction or settle App Store distribution.
 
-Upstream AliceVision's [macOS build instructions](https://github.com/alicevision/AliceVision/blob/develop/INSTALL_macOS.md)
-say its DepthMap library is CUDA-only. A CPU/macOS partial build is not a complete
-M1 dense backend. A separate Metal port would need its own provenance, build and
-quality evaluation; we have not validated one.
+Correction after following [issue #439](https://github.com/alicevision/AliceVision/issues/439):
+the macOS instructions' CUDA-only statement is stale. Upstream merged
+[SYCL DepthMap PR #2077](https://github.com/alicevision/AliceVision/pull/2077)
+on 2026-05-27 (merge `fa7b6c444847c91454134efa088b0b824e932154`). Current
+`develop` inspected at `8e4f0be76b250f0dd04b11d2a9a457d59d71b42c` includes
+`depthMap_sycl`, offering an AdaptiveCpp CPU/GPU route. This makes upstream
+AliceVision a CPU comparison candidate too, not just an NVIDIA-only option.
+Its [Metal discussion #2160](https://github.com/orgs/alicevision/discussions/2160)
+describes unresolved kernel double-precision compatibility and numerical tradeoffs.
+The separate [MTL-AliceVision fork](https://github.com/philippremy/MTL-AliceVision)
+implements a native Metal route; see [the pinned audit](MTL-ALICEVISION.md).
+Neither path has produced a reconstruction result here. Do not equate Metal
+toolchain availability, CPU SYCL support, and validated Metal reconstruction.
 
 ## Keep the three branches, share the experiment inputs
 
@@ -67,8 +76,9 @@ backends makes camera alignment or reflections automatically correct.
 | C08 | Root, acceptance | At least three untouched objects and retained failure rate; publish accuracy/completeness at fixed tolerances, normal/edge error, runtime and memory separately |
 
 C05–C07 require the remote preflight in [REMOTE-QUALITY.md](REMOTE-QUALITY.md)
-and the local usage guide before any upload. No neural run, remote upload or GPU
-quota consumption has occurred. Current Mac free space is about 12 GiB: preserve
+and the local usage guide before any GPU job upload. No neural run or GPU
+quota consumption has occurred. Reviewed dataset-fetch scripts were uploaded to
+the VPS and executed there. Current Mac free space is about 12 GiB: preserve
 10 GiB, put large new archives on `/mnt/storage`, scratch on `/mnt/volume1`.
 
 These are established comparison families, not a demonstrated 2026 SOTA ranking.
@@ -77,7 +87,7 @@ official evaluator, exact split, permissible inputs, and comparable compute;
 select a leading reproducible method only after its code/weights rights review.
 KIRI needs same-capture outputs and measured end-to-end time, not paper scores.
 
-## Additional data: concrete queue, not downloaded goldens
+## Additional data: two acquisitions complete, evaluation pending
 
 The [official YCB release](https://ycb-benchmarks.s3.amazonaws.com/index.html)
 provides real multi-view RGB/RGB-D and separate Google-scanner meshes under
@@ -97,8 +107,11 @@ Read-only HTTP HEAD checks on 2026-09-27 returned 200 for these official assets:
 
 URLs use `https://ycb-benchmarks.s3.amazonaws.com/data/` plus the path above.
 Total source transfer is 1,312,526,972 bytes before extraction and reconstruction.
-No bytes accepted yet; checksums, reference mesh quality and cross-sensor frame
-registration remain unverified. Review labels/trademarks before redistribution.
+Both acquisitions are now complete on the VPS: 120 decoded original photos and
+two separate Google-scanner meshes, with observed SHA-256 hashes and tracked
+manifests. See [the acquisition record](YCB-EXPANSION.md), including retained
+initial failures. Cross-sensor frame registration and reconstruction evaluation
+remain unverified. Review labels/trademarks before redistribution.
 The different mesh resolutions are acquisition candidates, not equal-resolution
 goldens; convergence of sampled/reference geometry must be checked before scoring.
 
