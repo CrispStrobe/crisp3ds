@@ -149,3 +149,17 @@ The bare shape is **rejected for object-quality acceptance**. Neither 60/60
 cameras, a closed-looking textured box, nor a complete native pipeline is
 equivalent to KIRI-level surface fidelity. OpenMVS remains an AGPL evaluation
 oracle and is not part of the approved App Store backend.
+
+A subsequent [read-only stage diagnostic](/Volumes/backups/code/crisp3ds-data/turntable-fresh-stage-diagnostic-005/report.json)
+(SHA-256 `5f6b1a6bf769516d2b0ff211cc4eb6204828b364fe5d98b7279032b41b6e48e2`)
+kept the same transported `006` gauge and scoring settings. Rough-mesh
+F1@1% is 31.79%; refinement lowers it only to 30.92%. A uniform sample of
+the dense cloud has 35.35% one-way proximity within the same 1% distance,
+which is **not** area-weighted surface F1. In that conditional frame, the
+dense-cloud X/Y extents are already wider than the scanner reference; meshing
+shrinks them slightly. Thus the major shape error is present before meshing,
+while refinement adds a smaller decrement. Every sampled dense point projects
+inside the coarse foreground support in at least two views, so that support
+does not rule out incorrect depth or broad object boundaries. This diagnostic
+does not prove that masking alone is the cause, and cross-scanner registration
+uncertainty remains.

@@ -9,6 +9,13 @@ The [comparative benchmark](docs/BENCHMARK-RESULTS.md) now evaluates MVE and
 separate upstream software control. It reports surface accuracy/completeness,
 normal agreement, topology, camera diagnostics, resource limits and failed runs;
 software-oracle agreement is not physical ground truth.
+The latest [fresh 60-photo M1 oracle](docs/TURNTABLE-COMPLETE-PLAN.md#fresh-complete-openmvs-oracle-and-shape-result)
+does finish from JPEGs through a textured OpenMVS mesh, but its shape is
+**rejected** (42.23% reference-fitted F1@1% scanner diagonal; 30.92% in a
+camera-transported common gauge). OpenMVS is AGPL evaluation software here,
+not an app-integrated or approved commercial/App Store backend. A separate
+[AliceVision-Mac audit](docs/ALICEVISION-MAC-ORACLE.md) ran an isolated Metal
+depth test, not a complete AliceVision reconstruction.
 
 ## Run the workspace
 
@@ -90,7 +97,10 @@ Run the OpenCV CTests first to generate the fixture. The browser script runs the
 
 The core owns computation and stable file contracts. The desktop host will manage isolated jobs; mobile bindings will call the library directly. Browser inspection does not imply browser-local reconstruction. Hardware capture and motor transport stay outside the core.
 
-The next work is an established COLMAP/OpenMVS CPU backend comparison, object-motion-aware camera estimation and measured surface evaluation. MVE remains a control, not a required engine. Quality acceptance precedes worker/UI integration; see the [active roadmap](docs/SOTA-ROADMAP.md) and [actual status](docs/STATUS.md).
+The next work is to improve object isolation and dense geometry against the
+measured reference, then prove a licensable cross-platform backend. MVE remains
+a control, not a required engine. Quality acceptance precedes worker/UI
+integration; see the [active roadmap](docs/SOTA-ROADMAP.md) and [actual status](docs/STATUS.md).
 
 - [Task plan and acceptance gates](docs/PLAN.md)
 - [Project schema](docs/project.schema.json)

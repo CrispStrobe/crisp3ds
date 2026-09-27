@@ -1,5 +1,52 @@
 # Quality-first reconstruction roadmap
 
+## Latest checkpoint: fresh photo-to-mesh on M1, quality rejected
+
+The [60-photo cracker-box experiment](TURNTABLE-COMPLETE-PLAN.md) now has a
+genuinely fresh masked JPEG → PyCOLMAP camera reconstruction → high-resolution
+OpenMVS dense/mesh/refine/texture run on the M1. All 60 cameras registered and
+passed the independent Berkeley rig trajectory gate. Native masks were applied
+to all 60 depth maps; the complete textured mesh passed artifact checks and
+the 10 GiB disk reserve. This closes the earlier *execution* uncertainty for
+this one development object, not the product-quality or licensing gates.
+
+The bare surface remains rejected: reference-fitted F1@1% of the scanner
+diagonal is 42.23%; in the older `006` gauge transported using the 60 named
+cameras it is 30.92%. The [stage diagnostic](TURNTABLE-COMPLETE-PLAN.md#fresh-complete-openmvs-oracle-and-shape-result)
+finds excess breadth already in dense points (rough mesh 31.79%, refined mesh
+30.92% in the same gauge). Neither a fourfold depth-resolution increase nor
+refinement fixes this object. Google-to-Berkeley cross-scanner registration
+remains uncertain, and this repeatedly used object is not held-out acceptance.
+
+Next bounded tasks, ordered by causal value:
+
+1. Freeze a reviewed object-only silhouette/support set on the 48 training
+   views of a **second** real object, with an image-only method and an explicit
+   thin-feature/label-retention review. Keep its 12 held-out views untouched.
+   Compare feature-mask and native dense-mask effects separately on the same
+   camera model; do not derive support from scanner/depth ground truth.
+2. On the existing cracker-box run, compare native depths to the separately
+   retained Berkeley sensor-depth frames using the already frozen pixel/ray
+   protocol, including misses and hit-only error. Inspect where the dense
+   cloud broadens before choosing a fusion or segmentation change. A result
+   from three views remains diagnostic, not general metrology.
+3. Test one candidate correction at a time on frozen cameras and photo masks:
+   depth confidence/visibility fusion, or better object-only support. Preserve
+   the unmodified OpenMVS oracle, rough and refined outputs, resource limits,
+   and the camera-transported score. Require improvement in precision **and**
+   recall or a justified tradeoff across at least two real objects, not just
+   more vertices or a better independent alignment fit.
+4. Prove an App Store/commercial-compatible dense backend before product
+   integration. OpenMVS is AGPL evaluation-only. The [Mac AliceVision audit](ALICEVISION-MAC-ORACLE.md)
+   ran isolated Metal depth kernels but not its photo pipeline; build/source
+   dependency closure and a second real-object geometry comparison are gates.
+   Keep a separately budgeted GPU/neural appearance lane; splat appearance
+   alone does not satisfy the mesh-quality gate.
+
+No KIRI parity claim is possible without the same captures and a matched
+held-out geometry/appearance evaluation. The current result is demonstrably a
+working *oracle pipeline* and demonstrably below our object-quality target.
+
 ## Current acceptance findings and next steps
 
 ### Targeted upstream changes: isolate a cause before patching
