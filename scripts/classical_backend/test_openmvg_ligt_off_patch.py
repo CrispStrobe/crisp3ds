@@ -1,17 +1,35 @@
 """Pinned-source fixture test for the evaluation-only OpenMVG LiGT OFF patch."""
 
 import hashlib
+import os
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 
 HERE = Path(__file__).parent
 PATCH = HERE / "openmvg_v21_ligt_off.patch"
 FIXTURE = HERE / "fixtures/openmvg_v21_multiview_CMakeLists.txt"
 SOURCE_SHA256 = "139ed9e2793e907c3fa74ea805c5b418336f51812ab7c56036aeb14e866233a3"
+
+
+def apply_fixture_patch(root: Path, check: bool = False) -> None:
+    # CI may export Git worktree/index variables. Keep `git apply` anchored to
+    # this disposable fixture, never to the checkout running the tests.
+    env = os.environ.copy()
+    for key in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR",
+                "GIT_PREFIX", "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES"):
+        env.pop(key, None)
+    subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True,
+                   text=True, env=env)
+    command = ["git", "-C", str(root), "apply"]
+    if check:
+        command.append("--check")
+    subprocess.run([*command, str(PATCH)], check=True, capture_output=True, text=True,
+                   env=env)
 
 
 class LiGTOffPatchTest(unittest.TestCase):
@@ -28,10 +46,8 @@ class LiGTOffPatchTest(unittest.TestCase):
             target = root / "src/openMVG/multiview/CMakeLists.txt"
             target.parent.mkdir(parents=True)
             shutil.copyfile(FIXTURE, target)
-            subprocess.run(["git", "apply", "--check", str(PATCH)], cwd=root, check=True,
-                           capture_output=True, text=True)
-            subprocess.run(["git", "apply", str(PATCH)], cwd=root, check=True,
-                           capture_output=True, text=True)
+            apply_fixture_patch(root, check=True)
+            apply_fixture_patch(root)
             original = FIXTURE.read_text()
             expected = original.replace(
                 "file(GLOB_RECURSE REMOVEFILELIGT LiGT_*.cpp)",
@@ -60,6 +76,18 @@ class LiGTOffPatchTest(unittest.TestCase):
             self.assertEqual({p.name for p in off_hpp}, {"ordinary.hpp"})
             self.assertIn(root / "LiGT/LiGT_algorithm.cpp", all_cpp)
 
+    @unittest.skipUnless(shutil.which("git"), "git is needed for fixture worktree isolation")
+    def test_fixture_patch_ignores_inherited_git_worktree_variables(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "src/openMVG/multiview/CMakeLists.txt"
+            target.parent.mkdir(parents=True)
+            shutil.copyfile(FIXTURE, target)
+            with mock.patch.dict(os.environ, {"GIT_DIR": "/does/not/exist",
+                                             "GIT_WORK_TREE": "/does/not/exist"}):
+                apply_fixture_patch(root)
+            self.assertIn("file(GLOB REMOVEFILELIGT ./LiGT/*.cpp)", target.read_text())
+
     @unittest.skipUnless(shutil.which("git") and shutil.which("cmake"),
                          "git and cmake are needed for the CMake fixture check")
     def test_patched_cmake_off_excludes_ligt_and_on_keeps_it(self):
@@ -73,8 +101,7 @@ class LiGTOffPatchTest(unittest.TestCase):
             (source / "LiGT").mkdir()
             (source / "LiGT/LiGT_algorithm.cpp").touch()
             (source / "LiGT/LiGT_algorithm.hpp").touch()
-            subprocess.run(["git", "apply", str(PATCH)], cwd=root, check=True,
-                           capture_output=True, text=True)
+            apply_fixture_patch(root)
             selection = (source / "CMakeLists.txt").read_text().split("add_library(openMVG_multiview", 1)[0]
             for enabled in (False, True):
                 script = source / "check.cmake"
