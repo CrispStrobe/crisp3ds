@@ -7,6 +7,15 @@ and [sensor protocol](SENSOR-DEPTH-BENCHMARK.md).
 
 ## What has actually helped
 
+New hardware-specific candidates are documented in
+[the iPhone 13 mini reuse review](IPHONE13MINI-REUSE.md) and
+[the pinned msplat-ios audit](MSPLAT-IOS-AUDIT.md). Ordinary RGB capture is the
+baseline; no rear LiDAR is required. ObjectScanner is a capture/application
+reference, not a portable numerical engine. msplat-ios supplies a Metal Gaussian
+training candidate from already solved cameras, not an image-to-mesh replacement.
+Keep optional Apple photogrammetry comparison separate from the portable engine.
+Neither repository has a reconstruction benchmark in our evidence registry.
+
 | Pipeline | Work actually done here | Next useful comparison |
 | --- | --- | --- |
 | COLMAP → OpenMVS | Native M1 CPU sparse/dense/mesh/texture runs; retained failures; supplied- versus estimated-camera diagnostics | Primary portable classical baseline; stabilize image-only initialization, compare rough/refined in one camera frame |

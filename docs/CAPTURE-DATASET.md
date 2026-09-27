@@ -1,5 +1,14 @@
 # First reconstruction dataset
 
+**Historical board-assisted milestone.** This page describes the initial optional
+calibrated rig, not the current product's required input. Ordinary RGB photographs
+without depth, markers or known calibration are now the primary input, including
+rigid object rotation/translation between exposures. See
+[the iPhone 13 mini plan](IPHONE13MINI-REUSE.md), [current roadmap](SOTA-ROADMAP.md)
+and [status](STATUS.md). Real-photo datasets and experimental reconstruction runs
+now exist; the old "no real capture dataset" statement below belongs to that
+earlier milestone. Physical accuracy acceptance remains unfinished.
+
 The first engine acceptance test needs photographs of a measured object and the calibration for that exact camera/lens/focus/image size. Synthetic geometry validates conventions and arithmetic; it does not validate dense reconstruction quality.
 
 Use diffuse, steady lighting, fixed exposure/white balance/focus, an object that does not move relative to the board, and a camera that remains fixed during each ring. Begin with a textured matte object of known dimensions; add glossy LEGO and low-texture cases after the baseline works. Save original still images without editing or resizing.

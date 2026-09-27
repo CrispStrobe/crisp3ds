@@ -157,6 +157,17 @@
       "evidence": []
     },
     {
+      "id": "msplat_ios",
+      "name": "msplat-ios Metal Gaussian trainer candidate",
+      "execution_state": "audited",
+      "audit_scope": "source_build_graph",
+      "artifact_type": "splats",
+      "camera_lanes": ["unverified"],
+      "doc_refs": ["docs/MSPLAT-IOS-AUDIT.md"],
+      "runs": [],
+      "evidence": []
+    },
+    {
       "id": "nerfstudio_gsplat",
       "name": "Nerfstudio / gsplat research branch",
       "execution_state": "planned",

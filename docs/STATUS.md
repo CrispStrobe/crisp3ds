@@ -13,6 +13,36 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
+### Latest continuation: iPhone RGB capture contract and Apple support probe
+
+The [iPhone 13 mini review](IPHONE13MINI-REUSE.md) confirms the RGB-first plan:
+no rear LiDAR dependency; front TrueDepth is a distinct optional sensor path.
+ObjectScanner offers reusable capture patterns but uses Apple reconstruction,
+and its turntable capture gate needs separation from on-device reconstruction
+for a capture/export-only client. No upstream code was copied this turn.
+
+Supervised Sol implementations add a [JPEG capture manifest](RGB-CAPTURE-CONTRACT.md)
+and an [optional Apple-only reconstruction launcher](APPLE-OBJECT-CAPTURE.md).
+Root independently revalidated the three-real-photo import proof: original bytes
+unchanged, no depth required, no metric-scale assertion. Motion is a declaration;
+optional camera metadata remains projection-unverified, especially under EXIF
+rotation. This is not yet an iOS camera app or a backend pose-import bridge.
+
+The original Swift adapter compiled on the M1 Mac and the final bounded support
+probe returned `PhotogrammetrySession.isSupported=true`. No USDZ reconstruction
+ran; support availability is not shape-quality evidence. The compile/cache plus
+probe artifacts stayed under 100 MiB, preserving the 10 GiB disk reserve.
+
+The [pinned msplat-ios audit](MSPLAT-IOS-AUDIT.md) identifies a real Metal trainer
+from precomputed COLMAP cameras, with coordinate-normalization and split-policy
+integration work. It is not an RGB-to-mesh engine. The registry now has nine
+candidates, still only two executed reconstruction families; no msplat build,
+M1/iPhone training or new reconstruction-quality result is claimed.
+
+Final local regression: **382 tests run, 8 skipped, remaining passed**. Registry
+validation passes (nine candidates, two executed). Prior `144e0ff` passed both
+CI workflows; this continuation still needs its own CI result.
+
 ### Latest continuation: fusion isolation ready, execution disk-blocked
 
 Supervised Sol work adds a [source-reviewed OpenMVS fusion comparison](OPENMVS-PATCH-PLAN.md)
