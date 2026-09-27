@@ -1,0 +1,174 @@
+diff --git a/libs/MVS/SceneDensify.cpp b/libs/MVS/SceneDensify.cpp
+index 4e4bcb4..d800937 100644
+--- a/libs/MVS/SceneDensify.cpp
++++ b/libs/MVS/SceneDensify.cpp
+@@ -34,6 +34,11 @@
+ #include "SceneDensify.h"
+ #include "PatchMatchCUDA.h"
+ #include "DMapCache.h"
++#include <cstdlib>
++#include <fstream>
++#include <iomanip>
++#include <stdexcept>
++#include <vector>
+ 
+ using namespace MVS;
+ 
+@@ -1623,6 +1628,38 @@ void DepthMapsData::FuseDepthMaps(PointCloud& pointcloud, bool bEstimateColor, b
+ void DepthMapsData::DenseFuseDepthMaps(PointCloud& pointcloud, bool bEstimateColor, bool _bEstimateNormal)
+ {
+ 	TD_TIMER_STARTD();
++	// Evaluation-only trace: fixed first eight emitted candidates, before ROI
++	// cropping. Never enable this in a production build or on a sealed run.
++	const char* traceFlag(std::getenv("OPENMVS_EVAL_FUSION_TRACE"));
++	const bool traceEnabled(traceFlag && traceFlag[0] == '1' && traceFlag[1] == '\0');
++	std::ofstream traceFile;
++	if (traceEnabled) {
++		traceFile.open(MAKE_PATH("fusion-trace.tsv").c_str(), std::ios::out | std::ios::trunc);
++		if (!traceFile)
++			throw std::runtime_error("cannot open evaluation fusion trace");
++		traceFile << "point\tpretrim_index\tseed_view\tseed_x\tseed_y\tx\ty\tz\tpixels\tviews\ttruncated\n";
++		traceFile << std::setprecision(17);
++	}
++	struct TraceEvent {
++		IIndex view;
++		int x, y;
++		float depth, confidence, projectedDepth, reprojectionErrorSq, normalCosine;
++		const char* reason;
++	};
++	std::vector<TraceEvent> traceEvents;
++	bool traceActive(false), traceTruncated(false);
++	unsigned tracedPoints(0);
++	const auto traceVisit = [&](IIndex view, const ImageRef& pixel, float depth, float confidence,
++		float projectedDepth, float reprojectionErrorSq, float normalCosine, const char* reason) {
++		if (!traceActive)
++			return;
++		if (traceEvents.size() == 512) {
++			traceTruncated = true;
++			return;
++		}
++		traceEvents.push_back({view, pixel.x, pixel.y, depth, confidence,
++			projectedDepth, reprojectionErrorSq, normalCosine, reason});
++	};
+ 
+ 	typedef SEACAVE::BitMatrix UseMask;
+ 	typedef CLISTDEFIDX(UseMask,IIndex) UseMaskArr;
+@@ -1664,47 +1701,66 @@ void DepthMapsData::DenseFuseDepthMaps(PointCloud& pointcloud, bool bEstimateCol
+ 	const auto FusePoint = [&](IIndex ID, const ImageRef& x, unsigned fuseDepth) -> void {
+ 		const auto lambda = [&](IIndex ID, const ImageRef& x, unsigned fuseDepth, const auto& FusePointImpl) -> void {
+ 			const DepthData& depthData = arrDepthData[ID];
+-			if (!Image8U::isInside(x, depthData.size))
++			if (!Image8U::isInside(x, depthData.size)) {
++				traceVisit(ID, x, 0, 0, 0, 0, 0, "out_of_bounds");
+ 				return;
++			}
+ 			// ignore pixel if not estimated
+ 			ASSERT(depthData.depthMap.size() == depthData.size);
+ 			const Depth depth = depthData.depthMap(x);
+-			if (depth <= Depth(0))
++			if (depth <= Depth(0)) {
++				traceVisit(ID, x, depth, 0, 0, 0, 0, "no_depth");
+ 				return;
++			}
+ 			ASSERT(ISINSIDE(depth, depthData.dMin * 0.95f, depthData.dMax * 1.05f));
+ 			// ignore pixel if already fused
+ 			UseMask& useMask = arrUseMask[ID];
+-			if (useMask(x))
++			if (useMask(x)) {
++				traceVisit(ID, x, depth, 0, 0, 0, 0, "already_fused");
+ 				return;
++			}
+ 			// ignore pixel if not confident
+ 			const float conf(depthData.confMap.empty() ? 1.f : depthData.confMap(x));
+-			if (conf < minConfidence)
++			if (conf < minConfidence) {
++				traceVisit(ID, x, depth, conf, 0, 0, 0, "low_confidence");
+ 				return;
++			}
+ 			const DepthData::ViewData& image = depthData.GetView();
+ 			// if the fusion depth is greater than zero, the initial reference pixel
+ 			// has already been added and we need to check for consistency
+ 			PointCloud::Normal normal;
++			float projectedDepth(0), reprojectionErrorSq(0), normalCosine(0);
+ 			if (fuseDepth > 0) {
+ 				// project reference point into current view
+ 				const Point3f pt(image.camera.ProjectPointP3(refPoint));
++				projectedDepth = pt.z;
+ 				// check if depth agrees with current depth
+ 				ASSERT(pt.z > Depth(0) || !IsDepthSimilar(depth, pt.z, OPTDENSE::fDepthDiffThreshold));
+-				if (!IsDepthSimilar(depth, pt.z, OPTDENSE::fDepthDiffThreshold))
++				if (!IsDepthSimilar(depth, pt.z, OPTDENSE::fDepthDiffThreshold)) {
++					traceVisit(ID, x, depth, conf, projectedDepth, 0, 0, "depth_disagreement");
+ 					return;
++				}
+ 				// check reprojection error of the reference point in the current view
+ 				const Point2f diff(pt.x / pt.z - float(x.x), pt.y / pt.z - float(x.y));
+-				if (normSq(diff) > maxReprojErrorSq)
++				reprojectionErrorSq = normSq(diff);
++				if (reprojectionErrorSq > maxReprojErrorSq) {
++					traceVisit(ID, x, depth, conf, projectedDepth, reprojectionErrorSq, 0, "reprojection_error");
+ 					return;
++				}
+ 				// check if normals agree
+ 				normal = image.camera.R.t() * Cast<REAL>(depthData.normalMap(x));
+ 				ASSERT(ISEQUAL(norm(normal), 1.f, 1e-2f), "Norm = ", norm(normal));
+-				if (refNormal.dot(normal) < normalError)
++				normalCosine = refNormal.dot(normal);
++				if (normalCosine < normalError) {
++					traceVisit(ID, x, depth, conf, projectedDepth, reprojectionErrorSq, normalCosine, "normal_disagreement");
+ 					return;
++				}
+ 			} else {
+ 				normal = image.camera.R.t() * Cast<REAL>(depthData.normalMap(x));
+ 				ASSERT(ISEQUAL(norm(normal), 1.f, 1e-2f), "Norm = ", norm(normal));
+ 			}
+ 			// set the current pixel as visited
++			traceVisit(ID, x, depth, conf, projectedDepth, reprojectionErrorSq, normalCosine, "accepted");
+ 			useMask.set(x);
+ 			// compute 3D location of the current depth
+ 			const PointCloud::Point X(image.camera.TransformPointI2W(Point3(REAL(x.x), REAL(x.y), REAL(depth))));
+@@ -1739,7 +1795,10 @@ void DepthMapsData::DenseFuseDepthMaps(PointCloud& pointcloud, bool bEstimateCol
+ 				const IIndex nextID(neighbor.ID);
+ 				ASSERT(nextID != ID);
+ 				if (!neighbors[nextID])
++				{
++					traceVisit(nextID, ImageRef(-1,-1), 0, 0, 0, 0, 0, "neighbor_not_cached");
+ 					continue;
++				}
+ 				const DepthData& nextDepthData = arrDepthData[nextID];
+ 				const ImageRef nextx(ROUND2INT(nextDepthData.GetCamera().ProjectPointP(X)));
+ 				FusePointImpl(nextID, nextx, fuseDepth, FusePointImpl);
+@@ -1816,6 +1875,11 @@ void DepthMapsData::DenseFuseDepthMaps(PointCloud& pointcloud, bool bEstimateCol
+ 		const size_t nNumPointsPrev(pointcloud.points.size());
+ 		for (int i=0; i<depthData.size.height; ++i) {
+ 			for (int j=0; j<depthData.size.width; ++j) {
++				traceActive = traceEnabled && tracedPoints < 8 && depthData.depthMap(i,j) > 0;
++				if (traceActive) {
++					traceEvents.clear();
++					traceTruncated = false;
++				}
+ 				FusePoint(idxImage, ImageRef(j,i), 0);
+ 				if (fusedPoints[0].size() >= OPTDENSE::nMinPixelsFuse && fusedViews.size() >= nMinViewsFuse) {
+ 					// create the corresponding 3D point
+@@ -1824,6 +1888,21 @@ void DepthMapsData::DenseFuseDepthMaps(PointCloud& pointcloud, bool bEstimateCol
+ 						fusedPoints[1].GetMedian(),
+ 						fusedPoints[2].GetMedian()
+ 					);
++					if (traceActive) {
++						const auto& p(pointcloud.points.back());
++						traceFile << tracedPoints << '\t' << pointcloud.points.size()-1 << '\t'
++							<< depthData.GetView().GetID() << '\t' << j << '\t' << i << '\t'
++							<< p(0) << '\t' << p(1) << '\t' << p(2) << '\t'
++							<< fusedPoints[0].size() << '\t' << fusedViews.size() << '\t'
++							<< int(traceTruncated) << '\n';
++						for (const TraceEvent& event: traceEvents)
++							traceFile << "event\t" << tracedPoints << '\t' << arrDepthData[event.view].GetView().GetID()
++								<< '\t' << event.x << '\t' << event.y << '\t' << event.depth << '\t'
++								<< event.confidence << '\t' << event.projectedDepth << '\t'
++								<< event.reprojectionErrorSq << '\t' << event.normalCosine << '\t'
++								<< event.reason << '\n';
++						++tracedPoints;
++					}
+ 					ASSERT(fusedViews.size() == fusedWeights.size());
+ 					PointCloud::WeightArr& weights = pointcloud.pointWeights.AddEmpty();
+ 					for (float weight: fusedWeights)
