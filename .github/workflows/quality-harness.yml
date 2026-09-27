@@ -12,6 +12,9 @@ on:
       - 'scripts/benchmark_registry/**'
       - 'scripts/neural_bridge/**'
       - 'scripts/metal_backend/**'
+      - 'scripts/brush_backend/**'
+      - 'scripts/model_inventory/**'
+      - 'scripts/storage/**'
       - 'benchmarks/**'
       - 'docs/MTL-ALICEVISION.md'
   pull_request:
@@ -25,6 +28,9 @@ on:
       - 'scripts/benchmark_registry/**'
       - 'scripts/neural_bridge/**'
       - 'scripts/metal_backend/**'
+      - 'scripts/brush_backend/**'
+      - 'scripts/model_inventory/**'
+      - 'scripts/storage/**'
       - 'benchmarks/**'
       - 'docs/MTL-ALICEVISION.md'
 
@@ -60,4 +66,7 @@ jobs:
           python -m unittest discover -s scripts/benchmark_registry -p 'test_*.py'
           python -m unittest discover -s scripts/neural_bridge -p 'test_*.py'
           python -m unittest discover -s scripts/metal_backend -p 'test_*.py'
+          python -m unittest discover -s scripts/brush_backend -p 'test_*.py'
+          python -m unittest discover -s scripts/model_inventory -p 'test_*.py'
+          python -m unittest discover -s scripts/storage -p 'test_*.py'
           python -m scripts.benchmark_registry.validate

@@ -30,3 +30,8 @@ Only `backup_removed: true` together with `link_verified: true` records a
 completed relocation. A partial destination is not a completed move; keep its
 internal original until the copy has been verified. The external drive must
 remain attached throughout a relocation.
+
+The four allowlisted runs completed relocation on 2026-09-27: both audit flags
+are true for every run, totaling 5,824,950,121 file bytes (5.42 GiB). Their
+original paths now resolve through symlinks to the external drive. The verified
+internal duplicates were removed; all data remains on the external drive.

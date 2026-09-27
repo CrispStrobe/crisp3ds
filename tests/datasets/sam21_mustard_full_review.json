@@ -1,0 +1,30 @@
+{
+  "schema": "photo_support_visual_review_v1",
+  "object_id": "006_mustard_bottle",
+  "decision": "rejected_for_reconstruction",
+  "candidate_status": "failed_or_partial_unusable",
+  "candidate_manifest_vps": "/mnt/storage/crisp3ds-data/sam21-mustard-full-001/manifest.json",
+  "candidate_manifest_sha256": "0441b19a257dd424c3c77728bdee405efddf62ace9563d105d6d76ffcc67c936",
+  "batch_manifest_sha256": [
+    "aa37ec1e6dbed0c7141ab1637f086ac19a5ffec09634faa5a4d8dd2d2f9656a1",
+    "fdb1f738609a247bb2bfdfe3a41e946e8aa3d26c8f24528bd2573a8b2d99ec6b"
+  ],
+  "attempted_training_views": 32,
+  "not_attempted_training_views": 16,
+  "numerically_cleaned_views": 19,
+  "failed_unusable_views": 13,
+  "review_scope": "All 32 attempted training-view raw and cleaned ROI panels plus full-frame context contact sheet; remaining 16 marked missing after RAM pre-batch gate stopped run",
+  "local_review_directory": ".local-tools/sam21-mustard-full-review-001",
+  "review_sheet_sha256": {
+    "raw": "5ae4f78ff36ed60586352081877e7053f84af23adc90caabc4c2316c937d8033",
+    "cleaned": "61dc600c720e55a5a83f601222fd129f3a53c68c05fc21d5a40998c7542eee43",
+    "full_context": "07db3aa1ecf26db3f460ec80fd7520ecbdd63c80fa1692ae7063b94d4c2fb33c"
+  },
+  "reason": "Prompted SAM target switches from mustard bottle to bright checkerboard/background over much of the orbit, making the bottle a hole or tiny fragment. The frozen largest-component policy cannot repair a wrong semantic target; 19 numerical cleanups are not accepted object masks.",
+  "example_training_images": ["NP3_042.jpg", "NP3_066.jpg", "NP3_096.jpg", "NP3_168.jpg", "NP3_192.jpg", "NP3_216.jpg"],
+  "original_photo_bytes_changed": false,
+  "heldout_photos_used_for_review": false,
+  "reference_mesh_or_depth_used_for_review": false,
+  "reconstruction_run_with_candidate": false,
+  "training_package_ready": false
+}

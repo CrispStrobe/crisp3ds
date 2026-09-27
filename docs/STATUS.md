@@ -13,6 +13,54 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
+### Latest continuation: neural prerequisites and controlled fusion
+
+Four completed reconstruction runs were checksum-verified and relocated to the
+external drive, recovering 5.42 GiB internally. The [storage policy](STORAGE.md)
+separates experiment artifacts (`/Volumes/backups/code`) from AI weights
+(`/Volumes/backups/ai`), retaining a 10 GiB internal reserve.
+
+The formerly disk-blocked 016/017 cached-depth fusion comparison now completed
+in 9.514 seconds. Root independently checked both PLY payloads: filter 2 emitted
+40,894 points, versus 120,147 for filter 1. All copied/source inputs and the
+binary/result seals remained unchanged. This demonstrates a fusion-dependent
+point-count difference, **not improved geometry**. The frozen two-pixel
+point-support diagnostic on 6,144 sensor rays found only 13 net added hits
+(5,512 to 5,525), with shared-hit mean depth disagreement worsening from
+9.060 to 10.913 mm. Root independently recomputed these counts and residuals.
+Filter 1 is **not promoted**; filter 2 remains the default. These are not mesh
+ray-intersection scores or certified physical accuracy. See the
+[fusion investigation](OPENMVS-PATCH-PLAN.md) for diagnostics and limitations.
+
+The [SAM 2.1 tiny smoke](SAM-MASK-TRIAL.md) ran on three frozen mustard training
+photos on the CPU VPS. A largest-component cleanup removed detached specks in
+that smoke, but the broader frozen test exposed semantic target switching:
+many mid-orbit masks select the bright background instead of the bottle.
+Root independently reviewed the raw and cleaned sheets and **rejected this
+candidate for reconstruction**, including masks passing numerical checks.
+The first two batches attempted 32 views: 19 passed numerical cleanup and 13
+failed its removal guard. The RAM gate stopped before batch 3. Explicit
+foreground/background prompts on representative training-only failure views
+are the next scoped experiment; relaxing the component threshold is not a fix.
+
+The [Brush ARM64 smoke](BRUSH-PREFLIGHT.md) passed the sealed input-lineage and
+resource gates and executed the fixed 20-step CLI configuration on M1 in
+6.482 seconds. Root independently validated the 3,939-splat binary PLY. The CLI
+emitted no backend log, so Metal device selection was not independently observed.
+No held-out render or mesh quality was measured, and no mask adapter was used:
+this is execution-only evidence, not a quality baseline. A splat output is not
+a triangle mesh. The [MapAnything Apache lock](MAPANYTHING-PLAN.md)
+verified pinned metadata only: no 4.91 GB checkpoint download or inference ran.
+These components do not yet establish a new end-to-end quality result.
+The pipeline registry now lists ten candidates and three executed families;
+the third is Brush's execution-only smoke with an empty quality-evidence list,
+not a third scored reconstruction baseline.
+
+Local verification for this continuation: **415 Python tests run, 8 skipped,
+the remainder passed**, plus **4 foundation and 11 OpenCV-enabled native tests**.
+Cross-platform CI has been extended to cover Brush, model-inventory and storage
+contracts; a live M1 smoke is not evidence of native training on other platforms.
+
 ### Latest continuation: iPhone RGB capture contract and Apple support probe
 
 The [iPhone 13 mini review](IPHONE13MINI-REUSE.md) confirms the RGB-first plan:

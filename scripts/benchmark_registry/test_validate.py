@@ -11,15 +11,19 @@ REGISTRY = json.loads(validate.DEFAULT.read_text())
 
 
 class RegistryTests(unittest.TestCase):
-    def test_checked_in_registry_has_nine_honest_states(self):
+    def test_checked_in_registry_has_ten_honest_states(self):
         result = validate.validate_data(REGISTRY)
-        self.assertEqual(result["pipelines"], 9)
-        self.assertEqual(result["executed"], 2)
+        self.assertEqual(result["pipelines"], 10)
+        self.assertEqual(result["executed"], 3)
         self.assertEqual({p["execution_state"] for p in REGISTRY["pipelines"]},
                          {"planned", "audited", "executed"})
         metal = next(p for p in REGISTRY["pipelines"] if p["id"] == "mtl_alicevision")
         self.assertEqual(metal["execution_state"], "audited")
         self.assertEqual(metal["runs"], [])
+        brush = next(p for p in REGISTRY["pipelines"] if p["id"] == "brush")
+        self.assertEqual(brush["evidence"], [])
+        self.assertEqual(brush["runs"][0]["reference_scope"], "none")
+        self.assertEqual(brush["runs"][0]["artifact_type"], "splats")
 
     def test_executed_requires_hash_bound_result_and_comparability(self):
         data = copy.deepcopy(REGISTRY)
@@ -34,7 +38,7 @@ class RegistryTests(unittest.TestCase):
     def test_missing_ignored_result_is_allowed_but_hash_is_still_required(self):
         data = copy.deepcopy(REGISTRY)
         data["pipelines"][0]["runs"][0]["result_ref"] = "build-opencv/not-checked-in/result.json"
-        self.assertEqual(validate.validate_data(data)["executed"], 2)
+        self.assertEqual(validate.validate_data(data)["executed"], 3)
         data["pipelines"][0]["runs"][0]["result_sha256"] = "unknown"
         with self.assertRaisesRegex(ValueError, "SHA-256"):
             validate.validate_data(data)

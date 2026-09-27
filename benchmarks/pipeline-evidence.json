@@ -124,6 +124,31 @@
       ]
     },
     {
+      "id": "brush",
+      "name": "Brush v0.3.0 Apple Silicon 20-step smoke",
+      "execution_state": "executed",
+      "artifact_type": "splats",
+      "camera_lanes": ["image_estimated"],
+      "doc_refs": ["docs/BRUSH-PREFLIGHT.md"],
+      "runs": [
+        {
+          "id": "ycb_brush_smoke_001",
+          "dataset_id": "ycb_np3_60",
+          "input_profile": "undistorted_rgb_no_masks",
+          "camera_lane": "image_estimated",
+          "artifact_type": "splats",
+          "stage": "splats",
+          "composition": "composed",
+          "reference_scope": "none",
+          "result_ref": ".local-tools/brush-smoke-proof-001/report.json",
+          "result_sha256": "14f32163986beca1069fd90145a20e15de14bcabd8cc2ef98cdf165a0e892363",
+          "provenance_ref": ".local-tools/brush-smoke-proof-001/report.json",
+          "provenance_sha256": "14f32163986beca1069fd90145a20e15de14bcabd8cc2ef98cdf165a0e892363"
+        }
+      ],
+      "evidence": []
+    },
+    {
       "id": "micmac",
       "name": "MicMac CPU candidate",
       "execution_state": "audited",
