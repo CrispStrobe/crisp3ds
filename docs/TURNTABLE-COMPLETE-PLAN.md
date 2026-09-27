@@ -55,3 +55,52 @@ The previous composed PyCOLMAP→OpenMVS masked run `classical-ycb-native-masked
 already reached texturing on this old model. Do not repeat it merely to count
 another complete run. The new test addresses **fresh image-only repeatability**
 and a camera-gated high-resolution masked continuation.
+
+## Fresh sparse execution, 2026-09-27
+
+The unchanged historical foreground worker was rerun from the original 60 JPEGs
+and coarse photo-derived masks in the fresh external folder
+`/Volumes/backups/code/crisp3ds-data/turntable-sparse-profile-001`. Its
+[`turntable-profile.json`](/Volumes/backups/code/crisp3ds-data/turntable-sparse-profile-001/turntable-profile.json)
+records 2/60 registered images, 127 points, 40.425 s wall time, and a verified
+but rejected binary model. The source inputs and pinned PyCOLMAP 3.11.1 binary,
+all mapping/feature/matching options, feature counts (40,600), 444 pair rows,
+and automatically selected seed images #33/#28 match the earlier 60/60 case.
+Keypoint/descriptor bytes and verified two-view geometry differ between the
+fresh and earlier databases despite matching feature counts. The fresh seed
+model ended at `f=3023.57 px, k=-7.122`; every proposed third camera failed
+registration. This is a real repeatability failure in fresh feature/match/SfM
+execution, not a resource or wrapper failure. The failed result remains intact.
+
+A separately labeled development diagnostic copied that **freshly extracted**
+database, held its image-only starting `SIMPLE_RADIAL` camera
+`[1536,640,512,0]` fixed during automatic-pair mapping, then ran one global
+BA that refined focal length, distortion, and extrinsics with principal point
+fixed. PyCOLMAP changed the copied SQLite file bytes during mapping while its
+six logical tables and schema remained identical; the first
+`turntable-sparse-fixed-cache-002` attempt stopped on an overstrict byte-level
+assertion after making a 60-view model. The corrected fresh output
+[`turntable-sparse-fixed-cache-003/turntable-profile.json`](/Volumes/backups/code/crisp3ds-data/turntable-sparse-fixed-cache-003/turntable-profile.json)
+sealed 60/60, 3,923 points, and 12.106 s worker time, with final
+`f=1126.16 px, k=-0.0890`. The separate post hoc
+[`independent-camera-gate.json`](/Volumes/backups/code/crisp3ds-data/turntable-sparse-fixed-cache-003/independent-camera-gate.json)
+passed the frozen rig thresholds: center RMS/radius 2.0014% (<5%) and p95
+orientation 3.016° (<10°). This cached-DB diagnostic is not the one-command
+fresh pipeline and contributes no Berkeley metadata to reconstruction.
+
+The next [`turntable-sparse-fresh-fixed-004/turntable-profile.json`](/Volumes/backups/code/crisp3ds-data/turntable-sparse-fresh-fixed-004/turntable-profile.json)
+is a genuinely fresh one-command photo/mask → feature extraction → sequential
+matching → fixed-initial-intrinsics automatic mapping → delayed BA run. It
+registered 60/60 with 3,917 points in 42.375 s; the final shared camera is
+`f=1108.61 px, k=-0.04217`. Source hashes, model hashes, and unchanged logical
+feature/match tables are sealed. Its image-only orbit diagnostic has 59/59
+steps in one direction and radius coefficient of variation 0.00690. These are
+structural checks only. A separate post hoc
+[`independent-camera-gate.json`](/Volumes/backups/code/crisp3ds-data/turntable-sparse-fresh-fixed-004/independent-camera-gate.json)
+(SHA-256 `1656ac8aea32650953f4ec83413cd9022f28ad85ef69cf91af0c46026f868214`)
+compared the sealed 60 named cameras to Berkeley rig metadata and passed the
+frozen gate: center RMS/radius `0.01894131485` (<0.05) and p95 orientation
+`2.89594377°`
+(<10°). Berkeley data remained outside extraction, matching, mapping, and BA.
+This camera agreement does not establish mesh accuracy; the masked native dense
+continuation and bare-shape review remain separate gates.

@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -67,6 +68,26 @@ class TurntableProfileTest(unittest.TestCase):
             self.assertFalse(profile.verify_model_hashes(summary, dest))
             summary["model_dir"] = str(Path(temp))
             self.assertFalse(profile.verify_model_hashes(summary, dest))
+
+    def test_fixed_mapping_disables_intrinsic_refinement_until_global_ba(self):
+        fake = SimpleNamespace(
+            IncrementalPipelineOptions=lambda: SimpleNamespace(mapper=SimpleNamespace()),
+            BundleAdjustmentOptions=lambda: SimpleNamespace(solver_options=SimpleNamespace()))
+        mapping = profile.fixed_mapping_options(fake)
+        self.assertFalse(mapping.ba_refine_focal_length)
+        self.assertFalse(mapping.ba_refine_principal_point)
+        self.assertFalse(mapping.ba_refine_extra_params)
+        self.assertFalse(mapping.mapper.abs_pose_refine_focal_length)
+        self.assertFalse(mapping.mapper.abs_pose_refine_extra_params)
+        self.assertFalse(mapping.multiple_models)
+        self.assertEqual(mapping.max_num_models, 1)
+        ba = profile.delayed_ba_options(fake)
+        self.assertTrue(ba.refine_focal_length)
+        self.assertTrue(ba.refine_extra_params)
+        self.assertTrue(ba.refine_extrinsics)
+        self.assertFalse(ba.refine_principal_point)
+        self.assertFalse(ba.use_gpu)
+        self.assertEqual(ba.solver_options.max_num_iterations, 50)
 
 
 if __name__ == "__main__":
