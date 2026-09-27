@@ -32,16 +32,17 @@ COLMAP cameras were read from the frozen `classical-bunny-retry-002/probe/models
 PyCOLMAP reconstruction. MVE cameras were read from `meta.ini` in each frozen
 `mve-full-bunny-002/scene/views/view_####.mve`; MVE's `rotation` and
 `translation` are world-to-camera, so centers were computed as `-Rᵀt`.
-The MVE metadata agrees with the corresponding `synth_0.out` camera record.
+The inspected `view_0000.mve` metadata agrees with its `synth_0.out`
+camera record.
 Both trajectories pass only broad necessary full-turn checks. This does not
 validate focal length, distortion, sparse correspondences, exact pose,
 physical scale, or mesh shape. In particular, MVE's 73/73 result still has a
 visibly distorted mesh; the COLMAP/OpenMVS mesh scores remain limited by
 independent scan-registration ambiguity.
 
-The false-order check (frames `0000`–`0071` in filename order) failed for
-both a near-opposite adjacent jump and zero winding. It is **invalid camera
-evidence** and must not be used in a quality comparison. The corrected
+The false-order COLMAP check (frames `0000`–`0071` in filename order) failed
+for both a near-opposite adjacent jump and zero winding. It is **invalid
+camera evidence** and must not be used in a quality comparison. The corrected
 COLMAP check has no failed criterion and no collapsed opposite pairs; the
 corrected MVE check has the same outcome.
 
