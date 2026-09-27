@@ -1,0 +1,121 @@
+{
+  "schema": "sceaux_colmap_camera_software_agreement_v1",
+  "interpretation": "evaluation-only named-camera agreement with upstream software poses; not ground truth or metric accuracy",
+  "candidate_model_dir": "/Volumes/backups/code/crisp3ds-data/sceaux-stock-sfm-001/models/0",
+  "candidate_model_sha256": {
+    "cameras.bin": "4bbca83da0f5bf47d3abccbccc72e15bbe79a0dd7a7b565b4669290a401fba4f",
+    "images.bin": "6ffd6cd9959551a2872b0f8bc5bfa1943ad68b4dffb5b9eac704101d582ccaf7",
+    "points3D.bin": "88d84d91163064337a245495361407d1df1c79ac55c771932a5cb62c1c207817"
+  },
+  "upstream_reference_sha256": {
+    "images.txt": "e210acf8eb4c99107b8d8bec0f4a29c35703c82062a461f665dbcc0d01c77b06",
+    "cameras.txt": "85a5ae76af0712f50e34b845be1c50fc0510582485f46d15a3f27c52dc8507ab",
+    "scene.mvs": "b69f87384284d7716d700ce61296e9f2a4cd8973cb4527d549126b0968edafde"
+  },
+  "software": {
+    "pycolmap_version": "3.11.1",
+    "pycolmap_binary_sha256": "5e306a76bfb1a3a02139ea9d336770091a77376bb870a383ed3882b7250008a8",
+    "numpy_version": "1.26.4",
+    "script_sha256": "bf26cbcc8aeb24d087a7f82ac79752a21e5cd94ca1e5cb35fb6de570f4a117fd",
+    "camera_compare_helper_sha256": "909e304023db3553ba4b95d1f3610c2e32f157c176cdbfff5bd06435b0e8f702"
+  },
+  "comparison": {
+    "source_camera_count": 11,
+    "reference_camera_count": 11,
+    "paired_camera_count": 11,
+    "paired_names": [
+      "00000.jpg",
+      "00001.jpg",
+      "00002.jpg",
+      "00003.jpg",
+      "00004.jpg",
+      "00005.jpg",
+      "00006.jpg",
+      "00007.jpg",
+      "00008.jpg",
+      "00009.jpg",
+      "00010.jpg"
+    ],
+    "missing_reference_names": [],
+    "extra_candidate_names": [],
+    "all_reference_cameras_paired": true,
+    "similarity_source_to_reference": {
+      "scale": 0.7653394248790285,
+      "rotation": [
+        [
+          0.997665196598666,
+          -0.00883509258582626,
+          -0.06772072529695117
+        ],
+        [
+          -0.06813592976152504,
+          -0.19632438123963958,
+          -0.9781688159036784
+        ],
+        [
+          -0.004653017437946526,
+          0.9804991986074602,
+          -0.196467989654421
+        ]
+      ],
+      "translation": [
+        1.932910795684864,
+        7.617537794450951,
+        1.362206069617131
+      ]
+    },
+    "reference_camera_radius": 3.1424018970939946,
+    "reference_camera_radius_definition": "RMS distance of paired reference camera centers from their centroid, in upstream scene units",
+    "center_rms": 0.010822870788730812,
+    "center_rms_over_reference_radius": 0.003444139592309787,
+    "center_p95_over_reference_radius": 0.005547646365263114,
+    "orientation_median_degrees": 1.250971661232124,
+    "orientation_p95_degrees": 1.2935204636154338,
+    "per_name": {
+      "00000.jpg": {
+        "center_error_over_reference_radius": 0.0022877224933391285,
+        "orientation_error_degrees": 1.223391019355886
+      },
+      "00001.jpg": {
+        "center_error_over_reference_radius": 0.0020252324742847804,
+        "orientation_error_degrees": 1.250971661232124
+      },
+      "00002.jpg": {
+        "center_error_over_reference_radius": 0.0059413225629822075,
+        "orientation_error_degrees": 1.252171496515282
+      },
+      "00003.jpg": {
+        "center_error_over_reference_radius": 0.0036596325544897895,
+        "orientation_error_degrees": 1.2370454495711305
+      },
+      "00004.jpg": {
+        "center_error_over_reference_radius": 0.001777582062959667,
+        "orientation_error_degrees": 1.2551300910224914
+      },
+      "00005.jpg": {
+        "center_error_over_reference_radius": 0.00515397016754402,
+        "orientation_error_degrees": 1.2122561857086636
+      },
+      "00006.jpg": {
+        "center_error_over_reference_radius": 0.002763087414775276,
+        "orientation_error_degrees": 1.2411189885232472
+      },
+      "00007.jpg": {
+        "center_error_over_reference_radius": 0.005064958576143902,
+        "orientation_error_degrees": 1.2897550937992484
+      },
+      "00008.jpg": {
+        "center_error_over_reference_radius": 0.0005870993707487663,
+        "orientation_error_degrees": 1.2569022166732844
+      },
+      "00009.jpg": {
+        "center_error_over_reference_radius": 0.002182270229969911,
+        "orientation_error_degrees": 1.2972858334316193
+      },
+      "00010.jpg": {
+        "center_error_over_reference_radius": 0.002082535686557208,
+        "orientation_error_degrees": 1.2330674537320945
+      }
+    }
+  }
+}

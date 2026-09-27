@@ -1,0 +1,375 @@
+{
+  "schema": "sceaux_image_only_pycolmap_stock_v1",
+  "status": "complete",
+  "lane": "image-only sparse reconstruction; upstream scene/cameras/meshes excluded",
+  "sample_manifest_sha256": "1ee34cff7e6d75fca9f56de4aa5644b45a382030af54a474824ada6af77316a3",
+  "sample_commit": "8855e0405b2c80c8286338ff21f3c09f22e9be16",
+  "software": {
+    "version": "3.11.1",
+    "core_path": "/Users/christianstrobele/code/crisp3ds/.local-tools/colmap-sparse/venv/lib/python3.11/site-packages/pycolmap/_core.cpython-311-darwin.so",
+    "core_sha256": "5e306a76bfb1a3a02139ea9d336770091a77376bb870a383ed3882b7250008a8",
+    "python_path": "/Users/christianstrobele/code/crisp3ds/.local-tools/colmap-sparse/venv/bin/python",
+    "runner_sha256": "c527ca02828cba67f1a975fa06e6715f645d79c9bab9e34728d182eeb6f42af3",
+    "stage_helper_sha256": "c65f73396e52a22e56d7edc358461c1f25a58f163d390a372e3b4c20e9b7441b",
+    "sample_run_helper_sha256": "669eddfd327cae51237a6c1edc757538924fb2ba8c033a27f538f9411fb4a75d",
+    "sample_fetch_helper_sha256": "aca4c34d0fdaaabbe658b513a3dc3e56794d575a4230ad882fc0e5df074ec91d"
+  },
+  "platform": "macOS-26.2-arm64-arm-64bit",
+  "machine": "arm64",
+  "limits": {
+    "max_output_bytes": 536870912,
+    "max_child_rss_bytes": 4294967296,
+    "max_log_bytes_per_stage": 16777216,
+    "max_seconds_total": 600,
+    "min_free_bytes_each_volume": 10737418240
+  },
+  "inputs": [
+    {
+      "name": "00000.jpg",
+      "sha256": "0bbe50653c3fc935be97753e620c7568ec28287876f45a65efff07c0de35d473",
+      "bytes": 3631631
+    },
+    {
+      "name": "00001.jpg",
+      "sha256": "7588b1a331315ef5f7cf8e042f153c4277887909e566170ea9b4cda4efac9b28",
+      "bytes": 3211983
+    },
+    {
+      "name": "00002.jpg",
+      "sha256": "4ed58ac04793ea13d77622862e6e057fd8fba0fb351a9eaa3462a3ebe89afb04",
+      "bytes": 3303045
+    },
+    {
+      "name": "00003.jpg",
+      "sha256": "92d0c24b0fad03ab207005beaa58587827ca878d7d2d468d957af02112a1b314",
+      "bytes": 3078982
+    },
+    {
+      "name": "00004.jpg",
+      "sha256": "69e7420d358a762db13d42d2174efc6b16dffe58f06415cff0824504d2fd174d",
+      "bytes": 2974191
+    },
+    {
+      "name": "00005.jpg",
+      "sha256": "b56992b73af59fbee80292e89911f52c6ef057fd3c97d1d430f862e2c446b396",
+      "bytes": 3039836
+    },
+    {
+      "name": "00006.jpg",
+      "sha256": "c6ae63218780d47c211b350661f3802de6db003c46b4e6adbabfb9752fa22195",
+      "bytes": 2975664
+    },
+    {
+      "name": "00007.jpg",
+      "sha256": "582b30fbbff66d940a50aaebc47aa5c67f5e7961149ad1178fbbf0ee0fe6968d",
+      "bytes": 2628552
+    },
+    {
+      "name": "00008.jpg",
+      "sha256": "3af6abf68e1e84b626413c4509e1b1883ec993e0f6bd1c2e2dc2d4d3432be03b",
+      "bytes": 2986965
+    },
+    {
+      "name": "00009.jpg",
+      "sha256": "25d79a1328a0a6c0d7f610e6531170d002c825b9c068e773498c010e5b5807ad",
+      "bytes": 3083274
+    },
+    {
+      "name": "00010.jpg",
+      "sha256": "a9c1565722778908657eb64156a95cef0e80a01cf00e440129f3d270dd0c252b",
+      "bytes": 4598325
+    }
+  ],
+  "stages": [
+    {
+      "name": "features",
+      "command": [
+        "/Users/christianstrobele/code/crisp3ds/.local-tools/colmap-sparse/venv/bin/python",
+        "-m",
+        "scripts.upstream_control.image_only",
+        "--worker",
+        "features",
+        "--output",
+        "/Volumes/backups/code/crisp3ds-data/sceaux-stock-sfm-001"
+      ],
+      "log": "/Volumes/backups/code/crisp3ds-data/sceaux-stock-sfm-001/features.log",
+      "status": "complete",
+      "exit_code": 0,
+      "seconds": 46.52,
+      "output_bytes": 54797164,
+      "peak_sampled_child_rss_bytes": 3677667328,
+      "failure": null
+    },
+    {
+      "name": "matching",
+      "command": [
+        "/Users/christianstrobele/code/crisp3ds/.local-tools/colmap-sparse/venv/bin/python",
+        "-m",
+        "scripts.upstream_control.image_only",
+        "--worker",
+        "matching",
+        "--output",
+        "/Volumes/backups/code/crisp3ds-data/sceaux-stock-sfm-001"
+      ],
+      "log": "/Volumes/backups/code/crisp3ds-data/sceaux-stock-sfm-001/matching.log",
+      "status": "complete",
+      "exit_code": 0,
+      "seconds": 15.278,
+      "output_bytes": 56053881,
+      "peak_sampled_child_rss_bytes": 121634816,
+      "failure": null
+    },
+    {
+      "name": "mapping",
+      "command": [
+        "/Users/christianstrobele/code/crisp3ds/.local-tools/colmap-sparse/venv/bin/python",
+        "-m",
+        "scripts.upstream_control.image_only",
+        "--worker",
+        "mapping",
+        "--output",
+        "/Volumes/backups/code/crisp3ds-data/sceaux-stock-sfm-001"
+      ],
+      "log": "/Volumes/backups/code/crisp3ds-data/sceaux-stock-sfm-001/mapping.log",
+      "status": "complete",
+      "exit_code": 0,
+      "seconds": 8.149,
+      "output_bytes": 59843135,
+      "peak_sampled_child_rss_bytes": 160628736,
+      "failure": null
+    }
+  ],
+  "models": [
+    {
+      "index": 0,
+      "registered_images": 11,
+      "registered_names": [
+        "00000.jpg",
+        "00001.jpg",
+        "00002.jpg",
+        "00003.jpg",
+        "00004.jpg",
+        "00005.jpg",
+        "00006.jpg",
+        "00007.jpg",
+        "00008.jpg",
+        "00009.jpg",
+        "00010.jpg"
+      ],
+      "missing_names": [],
+      "sparse_points": 8412,
+      "duplicate_image_tracks": 183,
+      "nonfinite_points": 0,
+      "nonfinite_cameras": 0,
+      "nonfinite_poses": 0,
+      "files_sha256": {
+        "cameras.bin": "4bbca83da0f5bf47d3abccbccc72e15bbe79a0dd7a7b565b4669290a401fba4f",
+        "images.bin": "6ffd6cd9959551a2872b0f8bc5bfa1943ad68b4dffb5b9eac704101d582ccaf7",
+        "points3D.bin": "88d84d91163064337a245495361407d1df1c79ac55c771932a5cb62c1c207817"
+      }
+    }
+  ],
+  "quality_accepted": false,
+  "effective_options": {
+    "pycolmap_version": "3.11.1",
+    "pycolmap_core_sha256": "5e306a76bfb1a3a02139ea9d336770091a77376bb870a383ed3882b7250008a8",
+    "camera_mode": "AUTO",
+    "camera_model": "SIMPLE_RADIAL",
+    "device": "cpu",
+    "image_reader": {
+      "camera_model": "SIMPLE_RADIAL",
+      "mask_path": "",
+      "existing_camera_id": -1,
+      "camera_params": "",
+      "default_focal_length_factor": 1.2,
+      "camera_mask_path": ""
+    },
+    "sift_extraction": {
+      "num_threads": 2,
+      "gpu_index": "-1",
+      "max_image_size": 3200,
+      "max_num_features": 8192,
+      "first_octave": -1,
+      "num_octaves": 4,
+      "octave_resolution": 3,
+      "peak_threshold": 0.006666666666666667,
+      "edge_threshold": 10.0,
+      "estimate_affine_shape": false,
+      "max_num_orientations": 2,
+      "upright": false,
+      "darkness_adaptivity": false,
+      "domain_size_pooling": false,
+      "dsp_min_scale": 0.16666666666666666,
+      "dsp_max_scale": 3.0,
+      "dsp_num_scales": 10,
+      "normalization": "Normalization.L1_ROOT"
+    },
+    "sift_matching": {
+      "num_threads": 2,
+      "gpu_index": "-1",
+      "max_ratio": 0.8,
+      "max_distance": 0.7,
+      "cross_check": true,
+      "max_num_matches": 32768,
+      "guided_matching": false
+    },
+    "exhaustive_matching": {
+      "block_size": 50
+    },
+    "two_view_geometry": {
+      "min_num_inliers": 15,
+      "min_E_F_inlier_ratio": 0.95,
+      "max_H_inlier_ratio": 0.8,
+      "watermark_min_inlier_ratio": 0.7,
+      "watermark_border_size": 0.1,
+      "detect_watermark": true,
+      "multiple_ignore_watermark": true,
+      "force_H_use": false,
+      "compute_relative_pose": false,
+      "multiple_models": false,
+      "ransac": {
+        "max_error": 4.0,
+        "min_inlier_ratio": 0.25,
+        "confidence": 0.999,
+        "dyn_num_trials_multiplier": 3.0,
+        "min_num_trials": 100,
+        "max_num_trials": 10000
+      }
+    },
+    "incremental_pipeline": {
+      "min_num_matches": 15,
+      "ignore_watermarks": false,
+      "multiple_models": true,
+      "max_num_models": 50,
+      "max_model_overlap": 20,
+      "min_model_size": 10,
+      "init_image_id1": -1,
+      "init_image_id2": -1,
+      "init_num_trials": 200,
+      "extract_colors": true,
+      "num_threads": 2,
+      "min_focal_length_ratio": 0.1,
+      "max_focal_length_ratio": 10.0,
+      "max_extra_param": 1.0,
+      "ba_refine_focal_length": true,
+      "ba_refine_principal_point": false,
+      "ba_refine_extra_params": true,
+      "ba_min_num_residuals_for_cpu_multi_threading": 50000,
+      "ba_local_num_images": 6,
+      "ba_local_function_tolerance": 0.0,
+      "ba_local_max_num_iterations": 25,
+      "ba_global_images_ratio": 1.1,
+      "ba_global_points_ratio": 1.1,
+      "ba_global_images_freq": 500,
+      "ba_global_points_freq": 250000,
+      "ba_global_function_tolerance": 0.0,
+      "ba_global_max_num_iterations": 50,
+      "ba_local_max_refinements": 2,
+      "ba_local_max_refinement_change": 0.001,
+      "ba_global_max_refinements": 5,
+      "ba_global_max_refinement_change": 0.0005,
+      "snapshot_path": "",
+      "snapshot_images_freq": 0,
+      "image_names": "set()",
+      "fix_existing_images": false,
+      "mapper": {
+        "init_min_num_inliers": 100,
+        "init_max_error": 4.0,
+        "init_max_forward_motion": 0.95,
+        "init_min_tri_angle": 16.0,
+        "init_max_reg_trials": 2,
+        "abs_pose_max_error": 12.0,
+        "abs_pose_min_num_inliers": 30,
+        "abs_pose_min_inlier_ratio": 0.25,
+        "abs_pose_refine_focal_length": true,
+        "abs_pose_refine_extra_params": true,
+        "local_ba_num_images": 6,
+        "local_ba_min_tri_angle": 6.0,
+        "min_focal_length_ratio": 0.1,
+        "max_focal_length_ratio": 10.0,
+        "max_extra_param": 1.0,
+        "filter_max_reproj_error": 4.0,
+        "filter_min_tri_angle": 1.5,
+        "max_reg_trials": 3,
+        "fix_existing_images": false,
+        "num_threads": 2,
+        "image_selection_method": "ImageSelectionMethod.MIN_UNCERTAINTY"
+      },
+      "triangulation": {
+        "max_transitivity": 1,
+        "create_max_angle_error": 2.0,
+        "continue_max_angle_error": 2.0,
+        "merge_max_reproj_error": 4.0,
+        "complete_max_reproj_error": 4.0,
+        "complete_max_transitivity": 5,
+        "re_max_angle_error": 5.0,
+        "re_min_ratio": 0.2,
+        "re_max_trials": 1,
+        "min_angle": 1.5,
+        "ignore_two_view_tracks": true,
+        "min_focal_length_ratio": 0.1,
+        "max_focal_length_ratio": 10.0,
+        "max_extra_param": 1.0
+      }
+    },
+    "deviations_from_pycolmap_3_11_1_defaults": {
+      "random_seed": 20260927,
+      "device": "cpu",
+      "sift_extraction.num_threads": 2,
+      "sift_matching.num_threads": 2,
+      "incremental_pipeline.num_threads": 2,
+      "incremental_pipeline.mapper.num_threads": 2
+    }
+  },
+  "database_after_features": {
+    "sha256": "72df25595ee369ae15145549463266af713c6412d04b4d8a97ca542bc2a1ef63",
+    "counts": {
+      "images": 11,
+      "cameras": 11,
+      "keypoints": 11,
+      "descriptors": 11,
+      "matches": 0,
+      "two_view_geometries": 0
+    }
+  },
+  "database_after_matching": {
+    "sha256": "c54316e4244dba966832aae051e07de8994e984a26904b3a9c1fbaef4ce67d44",
+    "counts": {
+      "images": 11,
+      "cameras": 11,
+      "keypoints": 11,
+      "descriptors": 11,
+      "matches": 55,
+      "two_view_geometries": 55
+    }
+  },
+  "database_after_mapping": {
+    "sha256": "865971b58157dceaf9507fa326b49a2a4b070c07740213cf5939ed1a28609b58",
+    "counts": {
+      "images": 11,
+      "cameras": 11,
+      "keypoints": 11,
+      "descriptors": 11,
+      "matches": 55,
+      "two_view_geometries": 55
+    }
+  },
+  "best_model_index": 0,
+  "positive_control_pass": false,
+  "output_bytes": 59843743,
+  "source_images_unchanged": true,
+  "copied_images_unchanged": true,
+  "free_bytes_after": {
+    "output": 19487117312,
+    "workspace": 24200179712
+  },
+  "software_unchanged": true,
+  "partial_model_files_sha256": {
+    "0": {
+      "cameras.bin": "4bbca83da0f5bf47d3abccbccc72e15bbe79a0dd7a7b565b4669290a401fba4f",
+      "images.bin": "6ffd6cd9959551a2872b0f8bc5bfa1943ad68b4dffb5b9eac704101d582ccaf7",
+      "points3D.bin": "88d84d91163064337a245495361407d1df1c79ac55c771932a5cb62c1c207817"
+    }
+  },
+  "elapsed_seconds_total": 71.489
+}

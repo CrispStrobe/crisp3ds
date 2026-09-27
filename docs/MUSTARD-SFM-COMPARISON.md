@@ -328,7 +328,20 @@ Do not inspect held-out photos to choose masks or SfM options. A later
 held-out image evaluation needs separately estimated test cameras and its
 own leakage disclosure; this paired training-only result is not that test.
 
-### Bounded duplicate-view track repair candidate
+### Interpretation correction after the stock Sceaux control
+
+COLMAP permits nearby observations from the same image within one 3D track;
+its author [explicitly documents this behavior](https://groups.google.com/g/colmap/c/kcm32t15qEQ).
+The subsequent stock Sceaux run also contains such tracks while closely agreeing
+with independent software cameras. Therefore the earlier labels "anomalies" and
+"structural repair" below are too broad: a repeated image alone does **not** prove
+an invalid COLMAP model or incorrect geometry. Count distinct views for support,
+check reprojection and reciprocal image/track references, and handle downstream
+format constraints separately. The historical candidate and all its measured
+changes remain preserved; its geometry edits were not shown to improve accuracy.
+The mustard camera-fold warning remains independent of this correction.
+
+### Bounded duplicate-view track repair candidate (historical experiment)
 
 A separate, immutable candidate repaired the 42 tracks that repeated an image
 in the fixed-initial exhaustive model. Within each affected track, it retained
