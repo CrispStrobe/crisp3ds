@@ -1,0 +1,388 @@
+{
+  "audit": {
+    "images": 48,
+    "initializer": {
+      "cyclic_index_separation": 3,
+      "image_ids": [
+        3,
+        6
+      ],
+      "names": [
+        "NP3_012.jpg",
+        "NP3_036.jpg"
+      ],
+      "verified_edge": {
+        "a": "NP3_012.jpg",
+        "b": "NP3_036.jpg",
+        "configuration": 3,
+        "cyclic_index_separation": 3,
+        "recovered_full_rotation_degrees": 28.881655376705126,
+        "verified_inliers": 64
+      }
+    },
+    "long_edges_with_small_recovered_rotation": [
+      {
+        "a": "NP3_072.jpg",
+        "b": "NP3_258.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 23,
+        "recovered_full_rotation_degrees": 0.8627797249599127,
+        "verified_inliers": 22
+      },
+      {
+        "a": "NP3_072.jpg",
+        "b": "NP3_252.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 24,
+        "recovered_full_rotation_degrees": 1.104632759600287,
+        "verified_inliers": 22
+      },
+      {
+        "a": "NP3_078.jpg",
+        "b": "NP3_258.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 24,
+        "recovered_full_rotation_degrees": 1.2533939091976984,
+        "verified_inliers": 21
+      },
+      {
+        "a": "NP3_060.jpg",
+        "b": "NP3_240.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 24,
+        "recovered_full_rotation_degrees": 1.4598552095372936,
+        "verified_inliers": 15
+      },
+      {
+        "a": "NP3_060.jpg",
+        "b": "NP3_246.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 23,
+        "recovered_full_rotation_degrees": 1.5144828141061506,
+        "verified_inliers": 25
+      },
+      {
+        "a": "NP3_060.jpg",
+        "b": "NP3_252.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 22,
+        "recovered_full_rotation_degrees": 1.6525643106101089,
+        "verified_inliers": 18
+      },
+      {
+        "a": "NP3_030.jpg",
+        "b": "NP3_216.jpg",
+        "configuration": 3,
+        "cyclic_index_separation": 23,
+        "recovered_full_rotation_degrees": 2.0709920978066427,
+        "verified_inliers": 23
+      },
+      {
+        "a": "NP3_072.jpg",
+        "b": "NP3_246.jpg",
+        "configuration": 3,
+        "cyclic_index_separation": 23,
+        "recovered_full_rotation_degrees": 2.0810280025939116,
+        "verified_inliers": 23
+      },
+      {
+        "a": "NP3_090.jpg",
+        "b": "NP3_270.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 24,
+        "recovered_full_rotation_degrees": 2.203599053823951,
+        "verified_inliers": 20
+      },
+      {
+        "a": "NP3_066.jpg",
+        "b": "NP3_252.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 23,
+        "recovered_full_rotation_degrees": 2.2700320701722347,
+        "verified_inliers": 18
+      },
+      {
+        "a": "NP3_066.jpg",
+        "b": "NP3_246.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 24,
+        "recovered_full_rotation_degrees": 2.381926124626559,
+        "verified_inliers": 17
+      },
+      {
+        "a": "NP3_000.jpg",
+        "b": "NP3_180.jpg",
+        "configuration": 3,
+        "cyclic_index_separation": 24,
+        "recovered_full_rotation_degrees": 2.67074274911879,
+        "verified_inliers": 16
+      }
+    ],
+    "model_tracks": 939,
+    "native_two_view_relative_pose_nondefault_pairs": 0,
+    "native_two_view_rotation_comparison": "unavailable: all qvec identity and tvec zero",
+    "strongest_long_edges": [
+      {
+        "a": "NP3_030.jpg",
+        "b": "NP3_198.jpg",
+        "configuration": 3,
+        "cyclic_index_separation": 23,
+        "recovered_full_rotation_degrees": 18.709753833315176,
+        "verified_inliers": 25
+      },
+      {
+        "a": "NP3_036.jpg",
+        "b": "NP3_222.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 23,
+        "recovered_full_rotation_degrees": 2.795068108041784,
+        "verified_inliers": 25
+      },
+      {
+        "a": "NP3_060.jpg",
+        "b": "NP3_246.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 23,
+        "recovered_full_rotation_degrees": 1.5144828141061506,
+        "verified_inliers": 25
+      },
+      {
+        "a": "NP3_102.jpg",
+        "b": "NP3_282.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 24,
+        "recovered_full_rotation_degrees": 5.875524577214033,
+        "verified_inliers": 24
+      },
+      {
+        "a": "NP3_006.jpg",
+        "b": "NP3_192.jpg",
+        "configuration": 3,
+        "cyclic_index_separation": 23,
+        "recovered_full_rotation_degrees": 4.067907239689319,
+        "verified_inliers": 23
+      },
+      {
+        "a": "NP3_030.jpg",
+        "b": "NP3_216.jpg",
+        "configuration": 3,
+        "cyclic_index_separation": 23,
+        "recovered_full_rotation_degrees": 2.0709920978066427,
+        "verified_inliers": 23
+      },
+      {
+        "a": "NP3_030.jpg",
+        "b": "NP3_222.jpg",
+        "configuration": 3,
+        "cyclic_index_separation": 22,
+        "recovered_full_rotation_degrees": 5.165788536365064,
+        "verified_inliers": 23
+      },
+      {
+        "a": "NP3_072.jpg",
+        "b": "NP3_246.jpg",
+        "configuration": 3,
+        "cyclic_index_separation": 23,
+        "recovered_full_rotation_degrees": 2.0810280025939116,
+        "verified_inliers": 23
+      },
+      {
+        "a": "NP3_108.jpg",
+        "b": "NP3_282.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 23,
+        "recovered_full_rotation_degrees": 4.198415699078455,
+        "verified_inliers": 23
+      },
+      {
+        "a": "NP3_030.jpg",
+        "b": "NP3_228.jpg",
+        "configuration": 3,
+        "cyclic_index_separation": 21,
+        "recovered_full_rotation_degrees": 5.266106981274884,
+        "verified_inliers": 22
+      },
+      {
+        "a": "NP3_036.jpg",
+        "b": "NP3_198.jpg",
+        "configuration": 3,
+        "cyclic_index_separation": 22,
+        "recovered_full_rotation_degrees": 25.115391537281365,
+        "verified_inliers": 22
+      },
+      {
+        "a": "NP3_072.jpg",
+        "b": "NP3_252.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 24,
+        "recovered_full_rotation_degrees": 1.104632759600287,
+        "verified_inliers": 22
+      }
+    ],
+    "strongest_neighbor_edges": [
+      {
+        "a": "NP3_006.jpg",
+        "b": "NP3_012.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 1,
+        "recovered_full_rotation_degrees": 6.760034885717848,
+        "verified_inliers": 136
+      },
+      {
+        "a": "NP3_012.jpg",
+        "b": "NP3_018.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 1,
+        "recovered_full_rotation_degrees": 7.226201281631002,
+        "verified_inliers": 129
+      },
+      {
+        "a": "NP3_000.jpg",
+        "b": "NP3_006.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 1,
+        "recovered_full_rotation_degrees": 8.29406860251666,
+        "verified_inliers": 120
+      },
+      {
+        "a": "NP3_000.jpg",
+        "b": "NP3_012.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 2,
+        "recovered_full_rotation_degrees": 15.050642826896308,
+        "verified_inliers": 117
+      },
+      {
+        "a": "NP3_342.jpg",
+        "b": "NP3_348.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 1,
+        "recovered_full_rotation_degrees": 6.438977057371484,
+        "verified_inliers": 117
+      },
+      {
+        "a": "NP3_330.jpg",
+        "b": "NP3_336.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 1,
+        "recovered_full_rotation_degrees": 5.767052462800922,
+        "verified_inliers": 112
+      },
+      {
+        "a": "NP3_336.jpg",
+        "b": "NP3_342.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 1,
+        "recovered_full_rotation_degrees": 4.983480014913411,
+        "verified_inliers": 111
+      },
+      {
+        "a": "NP3_030.jpg",
+        "b": "NP3_036.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 1,
+        "recovered_full_rotation_degrees": 6.486301634572457,
+        "verified_inliers": 109
+      },
+      {
+        "a": "NP3_006.jpg",
+        "b": "NP3_018.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 2,
+        "recovered_full_rotation_degrees": 13.953856892150439,
+        "verified_inliers": 104
+      },
+      {
+        "a": "NP3_018.jpg",
+        "b": "NP3_030.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 1,
+        "recovered_full_rotation_degrees": 15.235541431588855,
+        "verified_inliers": 104
+      },
+      {
+        "a": "NP3_036.jpg",
+        "b": "NP3_042.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 1,
+        "recovered_full_rotation_degrees": 69.25124241271786,
+        "verified_inliers": 102
+      },
+      {
+        "a": "NP3_330.jpg",
+        "b": "NP3_342.jpg",
+        "configuration": 6,
+        "cyclic_index_separation": 2,
+        "recovered_full_rotation_degrees": 10.75044380859708,
+        "verified_inliers": 100
+      }
+    ],
+    "tracks_spanning_cyclic_16plus": 224,
+    "tracks_spanning_cyclic_20plus": 213,
+    "two_view_configuration_enum_source": "active pinned PyCOLMAP 3.11.1 TwoViewGeometryConfiguration",
+    "verified_pair_support_by_cyclic_index_separation": {
+      "long_16_to_24": {
+        "configuration_counts": {
+          "PLANAR_OR_PANORAMIC": 66,
+          "UNCALIBRATED": 52
+        },
+        "inlier_correspondences": 2103,
+        "median_recovered_rotation_degrees": 11.943371347576866,
+        "p95_recovered_rotation_degrees": 92.67611700606011,
+        "possible_pairs": 408,
+        "verified_edge_fraction": 0.28921568627450983,
+        "verified_pairs": 118
+      },
+      "middle_5_to_15": {
+        "configuration_counts": {
+          "PLANAR_OR_PANORAMIC": 49,
+          "UNCALIBRATED": 60
+        },
+        "inlier_correspondences": 1987,
+        "median_recovered_rotation_degrees": 45.491097443602925,
+        "p95_recovered_rotation_degrees": 94.75305331134994,
+        "possible_pairs": 528,
+        "verified_edge_fraction": 0.20643939393939395,
+        "verified_pairs": 109
+      },
+      "neighbor_1_to_4": {
+        "configuration_counts": {
+          "PLANAR_OR_PANORAMIC": 83,
+          "UNCALIBRATED": 90
+        },
+        "inlier_correspondences": 8062,
+        "median_recovered_rotation_degrees": 17.179184274988774,
+        "p95_recovered_rotation_degrees": 89.01716986740252,
+        "possible_pairs": 192,
+        "verified_edge_fraction": 0.9010416666666666,
+        "verified_pairs": 173
+      }
+    }
+  },
+  "cyclic_index_caveat": "sorted NP3 filenames give acquisition order, not supplied camera angles or poses",
+  "schema": "mustard_match_alias_audit_v1",
+  "scope": "TRAIN-only immutable original COLMAP DB and repaired camera/track model; no GT/heldout",
+  "source": {
+    "database_sha256": "5858be16dfa3f0fc50303d0eb4a001e21ee14036f67755a9997d5dac374b3075",
+    "database_sidecars": {
+      "-shm": {
+        "bytes": 0,
+        "exists": false
+      },
+      "-wal": {
+        "bytes": 0,
+        "exists": false
+      }
+    },
+    "model_files_sha256": {
+      "cameras.bin": "ebc18fcca6fa2dacf0b6ff16cfae700d62d44626530d48dcecc7e72767a24348",
+      "images.bin": "fa6f5d355e4ec6baba5409fdd1511bf331b9f7b2c30daf49e82865999621d190",
+      "points3D.bin": "a075d53c2f2a6c4c1e0959b3bd465760b5bb48f2e1d114d8ea47309a32a24f73"
+    },
+    "producer_result_sha256": "5a83c3e05e2b66887411799ecc8c5f3f41e3b8af3bbd775d308055ef7ee0041e",
+    "repair_report_sha256": "32beea7955df0642cc87092afc39e96647adf9fbab582eaf14d6a6d662ef5ef8",
+    "runner_sha256": "36e1698d6cbedd67370733806b3d126db094c66a12e2d2d9b37e8adeb10c9a76",
+    "sfm_log_sha256": "b22a087fc055edc678cbf7496aff95e692e575c9f219009a0c5ec4580fbe4906"
+  },
+  "status": "diagnostic_only"
+}
