@@ -1,0 +1,1772 @@
+{
+  "acquisition_order_caveat": "NP3 suffixes order the photographs; they are not supplied camera poses",
+  "model_files_sha256": {
+    "cameras.bin": "ebc18fcca6fa2dacf0b6ff16cfae700d62d44626530d48dcecc7e72767a24348",
+    "images.bin": "fa6f5d355e4ec6baba5409fdd1511bf331b9f7b2c30daf49e82865999621d190",
+    "points3D.bin": "a075d53c2f2a6c4c1e0959b3bd465760b5bb48f2e1d114d8ea47309a32a24f73"
+  },
+  "repair_report_sha256": "32beea7955df0642cc87092afc39e96647adf9fbab582eaf14d6a6d662ef5ef8",
+  "runner_sha256": "bece9f5fd9d908b6922ce2e778b226202eebc10a030673f252713cc224b21144",
+  "schema": "mustard_pose_trajectory_diagnostic_v1",
+  "scope": "TRAIN-only image-estimated poses; no GT/heldout or reconstruction constraints",
+  "status": "diagnostic_only",
+  "trajectory": {
+    "adjacent_center_step_over_median_radius": {
+      "count": 47,
+      "max": 2.9464780396975794,
+      "median": 0.17536655420592076,
+      "p95": 2.5969017472565636
+    },
+    "adjacent_full_orientation_step_degrees": {
+      "count": 47,
+      "max": 92.31930414311111,
+      "median": 6.486301634572457,
+      "p95": 81.69037632745535
+    },
+    "adjacent_pairs": [
+      {
+        "center_step_over_median_radius": 0.22521197526664286,
+        "from": "NP3_000.jpg",
+        "full_orientation_step_degrees": 8.29406860251666,
+        "orbit_phase_step_degrees": 40.336232010126906,
+        "order_label_step": 6,
+        "to": "NP3_006.jpg",
+        "view_direction_step_degrees": 6.392171751324827
+      },
+      {
+        "center_step_over_median_radius": 0.17799928969241088,
+        "from": "NP3_006.jpg",
+        "full_orientation_step_degrees": 6.760034885717848,
+        "orbit_phase_step_degrees": 15.955636507185035,
+        "order_label_step": 6,
+        "to": "NP3_012.jpg",
+        "view_direction_step_degrees": 5.028810890365069
+      },
+      {
+        "center_step_over_median_radius": 0.1952441206173856,
+        "from": "NP3_012.jpg",
+        "full_orientation_step_degrees": 7.226201281631002,
+        "orbit_phase_step_degrees": 11.447386392618757,
+        "order_label_step": 6,
+        "to": "NP3_018.jpg",
+        "view_direction_step_degrees": 5.51258294550975
+      },
+      {
+        "center_step_over_median_radius": 0.43468794814760825,
+        "from": "NP3_018.jpg",
+        "full_orientation_step_degrees": 15.235541431588855,
+        "orbit_phase_step_degrees": 10.375935347024184,
+        "order_label_step": 12,
+        "to": "NP3_030.jpg",
+        "view_direction_step_degrees": 12.03490426699126
+      },
+      {
+        "center_step_over_median_radius": 0.18299274504246002,
+        "from": "NP3_030.jpg",
+        "full_orientation_step_degrees": 6.486301634572457,
+        "orbit_phase_step_degrees": 3.3294399614669787,
+        "order_label_step": 6,
+        "to": "NP3_036.jpg",
+        "view_direction_step_degrees": 4.920547015451158
+      },
+      {
+        "center_step_over_median_radius": 2.333600964480695,
+        "from": "NP3_036.jpg",
+        "full_orientation_step_degrees": 69.25124241271786,
+        "orbit_phase_step_degrees": 111.33919523576144,
+        "order_label_step": 6,
+        "to": "NP3_042.jpg",
+        "view_direction_step_degrees": 69.21449831660317
+      },
+      {
+        "center_step_over_median_radius": 0.1355358092383445,
+        "from": "NP3_042.jpg",
+        "full_orientation_step_degrees": 4.9844657293755334,
+        "orbit_phase_step_degrees": 4.391473962680941,
+        "order_label_step": 6,
+        "to": "NP3_048.jpg",
+        "view_direction_step_degrees": 3.9301847227742424
+      },
+      {
+        "center_step_over_median_radius": 2.377847959727867,
+        "from": "NP3_048.jpg",
+        "full_orientation_step_degrees": 70.55971649725923,
+        "orbit_phase_step_degrees": 121.01400346055502,
+        "order_label_step": 12,
+        "to": "NP3_060.jpg",
+        "view_direction_step_degrees": 70.2303379514031
+      },
+      {
+        "center_step_over_median_radius": 0.13482637365235178,
+        "from": "NP3_060.jpg",
+        "full_orientation_step_degrees": 3.20870427009887,
+        "orbit_phase_step_degrees": 4.735085159301397,
+        "order_label_step": 6,
+        "to": "NP3_066.jpg",
+        "view_direction_step_degrees": 2.993598607054697
+      },
+      {
+        "center_step_over_median_radius": 0.09426177656458894,
+        "from": "NP3_066.jpg",
+        "full_orientation_step_degrees": 2.529804064343083,
+        "orbit_phase_step_degrees": 3.0758475499450872,
+        "order_label_step": 6,
+        "to": "NP3_072.jpg",
+        "view_direction_step_degrees": 2.509921046454667
+      },
+      {
+        "center_step_over_median_radius": 0.08982939026534234,
+        "from": "NP3_072.jpg",
+        "full_orientation_step_degrees": 1.860461122881815,
+        "orbit_phase_step_degrees": 2.0980335589082006,
+        "order_label_step": 6,
+        "to": "NP3_078.jpg",
+        "view_direction_step_degrees": 1.6736530935560707
+      },
+      {
+        "center_step_over_median_radius": 0.21387691981162618,
+        "from": "NP3_078.jpg",
+        "full_orientation_step_degrees": 6.432636548538005,
+        "orbit_phase_step_degrees": 2.3356533896618425,
+        "order_label_step": 12,
+        "to": "NP3_090.jpg",
+        "view_direction_step_degrees": 5.183621266853101
+      },
+      {
+        "center_step_over_median_radius": 0.11756607594520306,
+        "from": "NP3_090.jpg",
+        "full_orientation_step_degrees": 3.0363118955444506,
+        "orbit_phase_step_degrees": 5.601601263027299,
+        "order_label_step": 6,
+        "to": "NP3_096.jpg",
+        "view_direction_step_degrees": 2.7644481131745993
+      },
+      {
+        "center_step_over_median_radius": 2.83413642998791,
+        "from": "NP3_096.jpg",
+        "full_orientation_step_degrees": 85.16643065647648,
+        "orbit_phase_step_degrees": 123.34055111689109,
+        "order_label_step": 6,
+        "to": "NP3_102.jpg",
+        "view_direction_step_degrees": 84.05079562071106
+      },
+      {
+        "center_step_over_median_radius": 0.07620338371300654,
+        "from": "NP3_102.jpg",
+        "full_orientation_step_degrees": 1.9335902825703433,
+        "orbit_phase_step_degrees": 0.5251313204961131,
+        "order_label_step": 6,
+        "to": "NP3_108.jpg",
+        "view_direction_step_degrees": 1.7772499817028125
+      },
+      {
+        "center_step_over_median_radius": 0.17536655420592076,
+        "from": "NP3_108.jpg",
+        "full_orientation_step_degrees": 6.613376030733004,
+        "orbit_phase_step_degrees": 1.4820478202123981,
+        "order_label_step": 12,
+        "to": "NP3_120.jpg",
+        "view_direction_step_degrees": 4.910206566866529
+      },
+      {
+        "center_step_over_median_radius": 2.413621839494993,
+        "from": "NP3_120.jpg",
+        "full_orientation_step_degrees": 73.5795828930729,
+        "orbit_phase_step_degrees": 84.13820942212453,
+        "order_label_step": 6,
+        "to": "NP3_126.jpg",
+        "view_direction_step_degrees": 73.50277768233926
+      },
+      {
+        "center_step_over_median_radius": 0.03777039269712896,
+        "from": "NP3_126.jpg",
+        "full_orientation_step_degrees": 2.1255031349675293,
+        "orbit_phase_step_degrees": 0.09405441173185129,
+        "order_label_step": 6,
+        "to": "NP3_132.jpg",
+        "view_direction_step_degrees": 0.8491573840439673
+      },
+      {
+        "center_step_over_median_radius": 0.17607814790472487,
+        "from": "NP3_132.jpg",
+        "full_orientation_step_degrees": 4.489751269847182,
+        "orbit_phase_step_degrees": 4.558290503261049,
+        "order_label_step": 6,
+        "to": "NP3_138.jpg",
+        "view_direction_step_degrees": 4.317806842065769
+      },
+      {
+        "center_step_over_median_radius": 0.2163037776963539,
+        "from": "NP3_138.jpg",
+        "full_orientation_step_degrees": 9.575724014962253,
+        "orbit_phase_step_degrees": 2.1817613568764638,
+        "order_label_step": 12,
+        "to": "NP3_150.jpg",
+        "view_direction_step_degrees": 6.18545135219989
+      },
+      {
+        "center_step_over_median_radius": 1.3788185733306293,
+        "from": "NP3_150.jpg",
+        "full_orientation_step_degrees": 51.7027718494694,
+        "orbit_phase_step_degrees": 113.52043833521564,
+        "order_label_step": 6,
+        "to": "NP3_156.jpg",
+        "view_direction_step_degrees": 40.34141768825257
+      },
+      {
+        "center_step_over_median_radius": 1.1370342018751711,
+        "from": "NP3_156.jpg",
+        "full_orientation_step_degrees": 40.197320108361374,
+        "orbit_phase_step_degrees": 108.83657090779958,
+        "order_label_step": 6,
+        "to": "NP3_162.jpg",
+        "view_direction_step_degrees": 33.03310053983021
+      },
+      {
+        "center_step_over_median_radius": 0.16447922608657048,
+        "from": "NP3_162.jpg",
+        "full_orientation_step_degrees": 6.509001802130015,
+        "orbit_phase_step_degrees": 6.889533915044996,
+        "order_label_step": 6,
+        "to": "NP3_168.jpg",
+        "view_direction_step_degrees": 4.537071054703916
+      },
+      {
+        "center_step_over_median_radius": 0.36116961314729495,
+        "from": "NP3_168.jpg",
+        "full_orientation_step_degrees": 13.36468177270888,
+        "orbit_phase_step_degrees": 33.305728880769,
+        "order_label_step": 12,
+        "to": "NP3_180.jpg",
+        "view_direction_step_degrees": 10.090393515308797
+      },
+      {
+        "center_step_over_median_radius": 0.2213275914613234,
+        "from": "NP3_180.jpg",
+        "full_orientation_step_degrees": 7.8697759261241265,
+        "orbit_phase_step_degrees": 37.65408311866352,
+        "order_label_step": 6,
+        "to": "NP3_186.jpg",
+        "view_direction_step_degrees": 6.152434228226503
+      },
+      {
+        "center_step_over_median_radius": 0.18568453478670363,
+        "from": "NP3_186.jpg",
+        "full_orientation_step_degrees": 6.69966054626587,
+        "orbit_phase_step_degrees": 23.46743923265305,
+        "order_label_step": 6,
+        "to": "NP3_192.jpg",
+        "view_direction_step_degrees": 5.12551880097686
+      },
+      {
+        "center_step_over_median_radius": 0.1747193817225169,
+        "from": "NP3_192.jpg",
+        "full_orientation_step_degrees": 6.6179220717127025,
+        "orbit_phase_step_degrees": 14.459747643428958,
+        "order_label_step": 6,
+        "to": "NP3_198.jpg",
+        "view_direction_step_degrees": 4.810306717169258
+      },
+      {
+        "center_step_over_median_radius": 0.3857105420868563,
+        "from": "NP3_198.jpg",
+        "full_orientation_step_degrees": 13.752755246122236,
+        "orbit_phase_step_degrees": 9.698569369989348,
+        "order_label_step": 12,
+        "to": "NP3_210.jpg",
+        "view_direction_step_degrees": 10.649597225084108
+      },
+      {
+        "center_step_over_median_radius": 0.17212094585328058,
+        "from": "NP3_210.jpg",
+        "full_orientation_step_degrees": 5.944345738460614,
+        "orbit_phase_step_degrees": 5.04676157943296,
+        "order_label_step": 6,
+        "to": "NP3_216.jpg",
+        "view_direction_step_degrees": 4.5738643378020205
+      },
+      {
+        "center_step_over_median_radius": 0.11121916648538324,
+        "from": "NP3_216.jpg",
+        "full_orientation_step_degrees": 4.176944576541265,
+        "orbit_phase_step_degrees": 2.5996256131590987,
+        "order_label_step": 6,
+        "to": "NP3_222.jpg",
+        "view_direction_step_degrees": 2.9470411516731
+      },
+      {
+        "center_step_over_median_radius": 0.051814263630764704,
+        "from": "NP3_222.jpg",
+        "full_orientation_step_degrees": 1.1552824130071586,
+        "orbit_phase_step_degrees": 0.6467666146061044,
+        "order_label_step": 6,
+        "to": "NP3_228.jpg",
+        "view_direction_step_degrees": 1.0283139696943995
+      },
+      {
+        "center_step_over_median_radius": 0.04789896611211141,
+        "from": "NP3_228.jpg",
+        "full_orientation_step_degrees": 2.170832132949572,
+        "orbit_phase_step_degrees": 0.6810510534440397,
+        "order_label_step": 12,
+        "to": "NP3_240.jpg",
+        "view_direction_step_degrees": 1.544492273778578
+      },
+      {
+        "center_step_over_median_radius": 0.04343390125711559,
+        "from": "NP3_240.jpg",
+        "full_orientation_step_degrees": 1.2963900758273128,
+        "orbit_phase_step_degrees": 0.5729107652971773,
+        "order_label_step": 6,
+        "to": "NP3_246.jpg",
+        "view_direction_step_degrees": 1.1993026749519737
+      },
+      {
+        "center_step_over_median_radius": 0.035935019772677095,
+        "from": "NP3_246.jpg",
+        "full_orientation_step_degrees": 1.4873509180191078,
+        "orbit_phase_step_degrees": 0.5300791134137285,
+        "order_label_step": 6,
+        "to": "NP3_252.jpg",
+        "view_direction_step_degrees": 0.6998173511409767
+      },
+      {
+        "center_step_over_median_radius": 0.10397247810890742,
+        "from": "NP3_252.jpg",
+        "full_orientation_step_degrees": 1.7488562491955735,
+        "orbit_phase_step_degrees": 1.5516861358766514,
+        "order_label_step": 6,
+        "to": "NP3_258.jpg",
+        "view_direction_step_degrees": 1.7487371463551789
+      },
+      {
+        "center_step_over_median_radius": 0.18980999612741165,
+        "from": "NP3_258.jpg",
+        "full_orientation_step_degrees": 6.879294421548031,
+        "orbit_phase_step_degrees": 0.4753261403650139,
+        "order_label_step": 12,
+        "to": "NP3_270.jpg",
+        "view_direction_step_degrees": 4.9012065421100095
+      },
+      {
+        "center_step_over_median_radius": 2.9464780396975794,
+        "from": "NP3_270.jpg",
+        "full_orientation_step_degrees": 92.31930414311111,
+        "orbit_phase_step_degrees": 128.35226606355778,
+        "order_label_step": 6,
+        "to": "NP3_276.jpg",
+        "view_direction_step_degrees": 91.19421539349004
+      },
+      {
+        "center_step_over_median_radius": 0.042777596954686484,
+        "from": "NP3_276.jpg",
+        "full_orientation_step_degrees": 1.873208621495646,
+        "orbit_phase_step_degrees": 0.12806030366381668,
+        "order_label_step": 6,
+        "to": "NP3_282.jpg",
+        "view_direction_step_degrees": 1.1522819895238956
+      },
+      {
+        "center_step_over_median_radius": 2.675450279154381,
+        "from": "NP3_282.jpg",
+        "full_orientation_step_degrees": 88.59238172609759,
+        "orbit_phase_step_degrees": 88.63158876543285,
+        "order_label_step": 6,
+        "to": "NP3_288.jpg",
+        "view_direction_step_degrees": 88.56217134390451
+      },
+      {
+        "center_step_over_median_radius": 0.18384435465790358,
+        "from": "NP3_288.jpg",
+        "full_orientation_step_degrees": 6.820074294513746,
+        "orbit_phase_step_degrees": 2.124743838583129,
+        "order_label_step": 12,
+        "to": "NP3_300.jpg",
+        "view_direction_step_degrees": 4.276272033360584
+      },
+      {
+        "center_step_over_median_radius": 0.12367937935131341,
+        "from": "NP3_300.jpg",
+        "full_orientation_step_degrees": 5.384297060424583,
+        "orbit_phase_step_degrees": 0.6153757423150218,
+        "order_label_step": 6,
+        "to": "NP3_306.jpg",
+        "view_direction_step_degrees": 3.7763587192600707
+      },
+      {
+        "center_step_over_median_radius": 0.11129757568855782,
+        "from": "NP3_306.jpg",
+        "full_orientation_step_degrees": 5.298371655743481,
+        "orbit_phase_step_degrees": 0.9736652422989256,
+        "order_label_step": 6,
+        "to": "NP3_312.jpg",
+        "view_direction_step_degrees": 3.3025732983781446
+      },
+      {
+        "center_step_over_median_radius": 0.10269205776727477,
+        "from": "NP3_312.jpg",
+        "full_orientation_step_degrees": 4.671040753750028,
+        "orbit_phase_step_degrees": 0.5743064503889851,
+        "order_label_step": 6,
+        "to": "NP3_318.jpg",
+        "view_direction_step_degrees": 3.129608051401205
+      },
+      {
+        "center_step_over_median_radius": 0.2451388748887875,
+        "from": "NP3_318.jpg",
+        "full_orientation_step_degrees": 11.023634568574046,
+        "orbit_phase_step_degrees": 3.0602578417695296,
+        "order_label_step": 12,
+        "to": "NP3_330.jpg",
+        "view_direction_step_degrees": 7.4725830023566004
+      },
+      {
+        "center_step_over_median_radius": 0.13088495926080937,
+        "from": "NP3_330.jpg",
+        "full_orientation_step_degrees": 5.767052462800922,
+        "orbit_phase_step_degrees": 2.576156678406552,
+        "order_label_step": 6,
+        "to": "NP3_336.jpg",
+        "view_direction_step_degrees": 3.94599968306934
+      },
+      {
+        "center_step_over_median_radius": 0.11270736453382718,
+        "from": "NP3_336.jpg",
+        "full_orientation_step_degrees": 4.983480014913411,
+        "orbit_phase_step_degrees": 3.044643906703213,
+        "order_label_step": 6,
+        "to": "NP3_342.jpg",
+        "view_direction_step_degrees": 3.387628960776501
+      },
+      {
+        "center_step_over_median_radius": 0.15932134148236846,
+        "from": "NP3_342.jpg",
+        "full_orientation_step_degrees": 6.438977057371484,
+        "orbit_phase_step_degrees": 7.598066365022368,
+        "order_label_step": 6,
+        "to": "NP3_348.jpg",
+        "view_direction_step_degrees": 4.707410108665872
+      }
+    ],
+    "center_singular_values_model_units": [
+      21.430405071274414,
+      15.731275999809123,
+      4.317082537097564
+    ],
+    "closing_pair": {
+      "center_step_over_median_radius": 0.35046425047460245,
+      "from": "NP3_348.jpg",
+      "full_orientation_step_degrees": 13.437223385044042,
+      "to": "NP3_000.jpg",
+      "view_direction_step_degrees": 10.113240711166071,
+      "wrapped_order_label_step": 12
+    },
+    "largest_adjacent_center_steps": [
+      {
+        "center_step_over_median_radius": 2.9464780396975794,
+        "from": "NP3_270.jpg",
+        "full_orientation_step_degrees": 92.31930414311111,
+        "orbit_phase_step_degrees": 128.35226606355778,
+        "order_label_step": 6,
+        "to": "NP3_276.jpg",
+        "view_direction_step_degrees": 91.19421539349004
+      },
+      {
+        "center_step_over_median_radius": 2.83413642998791,
+        "from": "NP3_096.jpg",
+        "full_orientation_step_degrees": 85.16643065647648,
+        "orbit_phase_step_degrees": 123.34055111689109,
+        "order_label_step": 6,
+        "to": "NP3_102.jpg",
+        "view_direction_step_degrees": 84.05079562071106
+      },
+      {
+        "center_step_over_median_radius": 2.675450279154381,
+        "from": "NP3_282.jpg",
+        "full_orientation_step_degrees": 88.59238172609759,
+        "orbit_phase_step_degrees": 88.63158876543285,
+        "order_label_step": 6,
+        "to": "NP3_288.jpg",
+        "view_direction_step_degrees": 88.56217134390451
+      },
+      {
+        "center_step_over_median_radius": 2.413621839494993,
+        "from": "NP3_120.jpg",
+        "full_orientation_step_degrees": 73.5795828930729,
+        "orbit_phase_step_degrees": 84.13820942212453,
+        "order_label_step": 6,
+        "to": "NP3_126.jpg",
+        "view_direction_step_degrees": 73.50277768233926
+      },
+      {
+        "center_step_over_median_radius": 2.377847959727867,
+        "from": "NP3_048.jpg",
+        "full_orientation_step_degrees": 70.55971649725923,
+        "orbit_phase_step_degrees": 121.01400346055502,
+        "order_label_step": 12,
+        "to": "NP3_060.jpg",
+        "view_direction_step_degrees": 70.2303379514031
+      },
+      {
+        "center_step_over_median_radius": 2.333600964480695,
+        "from": "NP3_036.jpg",
+        "full_orientation_step_degrees": 69.25124241271786,
+        "orbit_phase_step_degrees": 111.33919523576144,
+        "order_label_step": 6,
+        "to": "NP3_042.jpg",
+        "view_direction_step_degrees": 69.21449831660317
+      },
+      {
+        "center_step_over_median_radius": 1.3788185733306293,
+        "from": "NP3_150.jpg",
+        "full_orientation_step_degrees": 51.7027718494694,
+        "orbit_phase_step_degrees": 113.52043833521564,
+        "order_label_step": 6,
+        "to": "NP3_156.jpg",
+        "view_direction_step_degrees": 40.34141768825257
+      },
+      {
+        "center_step_over_median_radius": 1.1370342018751711,
+        "from": "NP3_156.jpg",
+        "full_orientation_step_degrees": 40.197320108361374,
+        "orbit_phase_step_degrees": 108.83657090779958,
+        "order_label_step": 6,
+        "to": "NP3_162.jpg",
+        "view_direction_step_degrees": 33.03310053983021
+      }
+    ],
+    "largest_adjacent_orientation_steps": [
+      {
+        "center_step_over_median_radius": 2.9464780396975794,
+        "from": "NP3_270.jpg",
+        "full_orientation_step_degrees": 92.31930414311111,
+        "orbit_phase_step_degrees": 128.35226606355778,
+        "order_label_step": 6,
+        "to": "NP3_276.jpg",
+        "view_direction_step_degrees": 91.19421539349004
+      },
+      {
+        "center_step_over_median_radius": 2.675450279154381,
+        "from": "NP3_282.jpg",
+        "full_orientation_step_degrees": 88.59238172609759,
+        "orbit_phase_step_degrees": 88.63158876543285,
+        "order_label_step": 6,
+        "to": "NP3_288.jpg",
+        "view_direction_step_degrees": 88.56217134390451
+      },
+      {
+        "center_step_over_median_radius": 2.83413642998791,
+        "from": "NP3_096.jpg",
+        "full_orientation_step_degrees": 85.16643065647648,
+        "orbit_phase_step_degrees": 123.34055111689109,
+        "order_label_step": 6,
+        "to": "NP3_102.jpg",
+        "view_direction_step_degrees": 84.05079562071106
+      },
+      {
+        "center_step_over_median_radius": 2.413621839494993,
+        "from": "NP3_120.jpg",
+        "full_orientation_step_degrees": 73.5795828930729,
+        "orbit_phase_step_degrees": 84.13820942212453,
+        "order_label_step": 6,
+        "to": "NP3_126.jpg",
+        "view_direction_step_degrees": 73.50277768233926
+      },
+      {
+        "center_step_over_median_radius": 2.377847959727867,
+        "from": "NP3_048.jpg",
+        "full_orientation_step_degrees": 70.55971649725923,
+        "orbit_phase_step_degrees": 121.01400346055502,
+        "order_label_step": 12,
+        "to": "NP3_060.jpg",
+        "view_direction_step_degrees": 70.2303379514031
+      },
+      {
+        "center_step_over_median_radius": 2.333600964480695,
+        "from": "NP3_036.jpg",
+        "full_orientation_step_degrees": 69.25124241271786,
+        "orbit_phase_step_degrees": 111.33919523576144,
+        "order_label_step": 6,
+        "to": "NP3_042.jpg",
+        "view_direction_step_degrees": 69.21449831660317
+      },
+      {
+        "center_step_over_median_radius": 1.3788185733306293,
+        "from": "NP3_150.jpg",
+        "full_orientation_step_degrees": 51.7027718494694,
+        "orbit_phase_step_degrees": 113.52043833521564,
+        "order_label_step": 6,
+        "to": "NP3_156.jpg",
+        "view_direction_step_degrees": 40.34141768825257
+      },
+      {
+        "center_step_over_median_radius": 1.1370342018751711,
+        "from": "NP3_156.jpg",
+        "full_orientation_step_degrees": 40.197320108361374,
+        "orbit_phase_step_degrees": 108.83657090779958,
+        "order_label_step": 6,
+        "to": "NP3_162.jpg",
+        "view_direction_step_degrees": 33.03310053983021
+      }
+    ],
+    "largest_plane_residuals": [
+      {
+        "center": [
+          -1.2655314572998875,
+          5.621927591164344,
+          1.4257171045854102
+        ],
+        "name": "NP3_042.jpg",
+        "order_label": 42,
+        "planar_radius_over_median_radius": 1.5720950870126655,
+        "plane_residual_over_median_radius": 0.4363959064017664,
+        "view_direction_world": [
+          0.18363001361838618,
+          -0.7391425822612747,
+          0.648034151250261
+        ]
+      },
+      {
+        "center": [
+          -1.693154322670417,
+          5.657520998973509,
+          1.5579494725918066
+        ],
+        "name": "NP3_048.jpg",
+        "order_label": 48,
+        "planar_radius_over_median_radius": 1.629570837755617,
+        "plane_residual_over_median_radius": 0.43147913890434236,
+        "view_direction_world": [
+          0.2478253935772621,
+          -0.7410998744145062,
+          0.6239820113120876
+        ]
+      },
+      {
+        "center": [
+          -3.4106438651568842,
+          -1.9670981104276803,
+          1.2676553939683528
+        ],
+        "name": "NP3_300.jpg",
+        "order_label": 300,
+        "planar_radius_over_median_radius": 1.2658359237982904,
+        "plane_residual_over_median_radius": 0.3348126067895255,
+        "view_direction_world": [
+          0.5139919896595685,
+          0.44148461085061563,
+          0.7354614693835964
+        ]
+      },
+      {
+        "center": [
+          -4.008659345506408,
+          -2.081306664042334,
+          1.2844269893377163
+        ],
+        "name": "NP3_288.jpg",
+        "order_label": 288,
+        "planar_radius_over_median_radius": 1.4418253061979176,
+        "plane_residual_over_median_radius": 0.3170119669033562,
+        "view_direction_world": [
+          0.5751302976040912,
+          0.4342291516608232,
+          0.6933038184127875
+        ]
+      },
+      {
+        "center": [
+          -0.4917405886102107,
+          -0.1772349030709033,
+          -0.8533392577762119
+        ],
+        "name": "NP3_180.jpg",
+        "order_label": 180,
+        "planar_radius_over_median_radius": 0.35483249081702595,
+        "plane_residual_over_median_radius": 0.2784535253416816,
+        "view_direction_world": [
+          0.04056190310850443,
+          0.1230459543172192,
+          0.9915716944035772
+        ]
+      },
+      {
+        "center": [
+          3.754868637335151,
+          -0.13836542466004642,
+          0.2500965027793366
+        ],
+        "name": "NP3_036.jpg",
+        "order_label": 36,
+        "planar_radius_over_median_radius": 1.101207188616723,
+        "plane_residual_over_median_radius": 0.27185822991358793,
+        "view_direction_world": [
+          -0.5562482682726481,
+          0.10449677886442627,
+          0.824419970191552
+        ]
+      },
+      {
+        "center": [
+          -2.957933880193698,
+          6.102403905759569,
+          4.658120013749482
+        ],
+        "name": "NP3_276.jpg",
+        "order_label": 276,
+        "planar_radius_over_median_radius": 2.302665170916387,
+        "plane_residual_over_median_radius": 0.2671850858201676,
+        "view_direction_world": [
+          0.4391656761654138,
+          -0.8767828302562491,
+          0.19592186566592384
+        ]
+      },
+      {
+        "center": [
+          0.22661765574588716,
+          -0.03673831682320873,
+          -0.896366425821771
+        ],
+        "name": "NP3_186.jpg",
+        "order_label": 186,
+        "planar_radius_over_median_radius": 0.32310254628094454,
+        "plane_residual_over_median_radius": 0.2636171281402476,
+        "view_direction_world": [
+          -0.06410063702874479,
+          0.09931448416530882,
+          0.9929892957970331
+        ]
+      }
+    ],
+    "mean_center_model_units": [
+      0.051543176040736764,
+      0.48718559082446755,
+      0.3698558194395453
+    ],
+    "median_planar_radius_model_units": 3.312881214544183,
+    "normalization_note": "descriptive PCA-plane radius about mean center, not fitted/calibrated orbit",
+    "opposing_center_distance_over_median_radius": {
+      "count": 24,
+      "max": 2.9354880488576023,
+      "median": 0.1788775284932097,
+      "p95": 2.6706119814431846
+    },
+    "opposing_full_orientation_angle_degrees": {
+      "count": 24,
+      "max": 90.67145379101426,
+      "median": 3.8606485715469834,
+      "p95": 86.74734707870664
+    },
+    "opposing_pairs": [
+      {
+        "a": "NP3_000.jpg",
+        "b": "NP3_180.jpg",
+        "center_distance_over_median_radius": 0.13816040086441478,
+        "full_orientation_angle_degrees": 2.67074274911879,
+        "view_direction_angle_degrees": 2.5911895216622307
+      },
+      {
+        "a": "NP3_006.jpg",
+        "b": "NP3_186.jpg",
+        "center_distance_over_median_radius": 0.1368251580547661,
+        "full_orientation_angle_degrees": 2.8916360340318916,
+        "view_direction_angle_degrees": 2.691469816752755
+      },
+      {
+        "a": "NP3_012.jpg",
+        "b": "NP3_192.jpg",
+        "center_distance_over_median_radius": 0.12902379452915955,
+        "full_orientation_angle_degrees": 2.8856702564997736,
+        "view_direction_angle_degrees": 2.589469623359351
+      },
+      {
+        "a": "NP3_018.jpg",
+        "b": "NP3_198.jpg",
+        "center_distance_over_median_radius": 0.15133832949025858,
+        "full_orientation_angle_degrees": 3.5747657125931247,
+        "view_direction_angle_degrees": 3.2960764354961443
+      },
+      {
+        "a": "NP3_030.jpg",
+        "b": "NP3_210.jpg",
+        "center_distance_over_median_radius": 0.22320934760020655,
+        "full_orientation_angle_degrees": 5.848812744083129,
+        "view_direction_angle_degrees": 5.361144062433742
+      },
+      {
+        "a": "NP3_036.jpg",
+        "b": "NP3_216.jpg",
+        "center_distance_over_median_radius": 0.23316858471901747,
+        "full_orientation_angle_degrees": 6.283111334710209,
+        "view_direction_angle_degrees": 5.581215248571002
+      },
+      {
+        "a": "NP3_042.jpg",
+        "b": "NP3_222.jpg",
+        "center_distance_over_median_radius": 2.3302308187550986,
+        "full_orientation_angle_degrees": 69.27817274922124,
+        "view_direction_angle_degrees": 69.15692945364752
+      },
+      {
+        "a": "NP3_048.jpg",
+        "b": "NP3_228.jpg",
+        "center_distance_over_median_radius": 2.4218145685906327,
+        "full_orientation_angle_degrees": 71.47386007348206,
+        "view_direction_angle_degrees": 71.40780247155222
+      },
+      {
+        "a": "NP3_060.jpg",
+        "b": "NP3_240.jpg",
+        "center_distance_over_median_radius": 0.03286007428361988,
+        "full_orientation_angle_degrees": 1.4598552095372936,
+        "view_direction_angle_degrees": 1.0574490759991426
+      },
+      {
+        "a": "NP3_066.jpg",
+        "b": "NP3_246.jpg",
+        "center_distance_over_median_radius": 0.0968381782028121,
+        "full_orientation_angle_degrees": 2.381926124626559,
+        "view_direction_angle_degrees": 1.6996821315300863
+      },
+      {
+        "a": "NP3_072.jpg",
+        "b": "NP3_252.jpg",
+        "center_distance_over_median_radius": 0.08237008093654895,
+        "full_orientation_angle_degrees": 1.104632759600287,
+        "view_direction_angle_degrees": 1.1045810874373319
+      },
+      {
+        "a": "NP3_078.jpg",
+        "b": "NP3_258.jpg",
+        "center_distance_over_median_radius": 0.07098215128804573,
+        "full_orientation_angle_degrees": 1.2533939091976984,
+        "view_direction_angle_degrees": 0.9166543734494242
+      },
+      {
+        "a": "NP3_090.jpg",
+        "b": "NP3_270.jpg",
+        "center_distance_over_median_radius": 0.03888578164807159,
+        "full_orientation_angle_degrees": 2.203599053823951,
+        "view_direction_angle_degrees": 1.1568808633246472
+      },
+      {
+        "a": "NP3_096.jpg",
+        "b": "NP3_276.jpg",
+        "center_distance_over_median_radius": 2.9354880488576023,
+        "full_orientation_angle_degrees": 90.67145379101426,
+        "view_direction_angle_degrees": 89.13689644706548
+      },
+      {
+        "a": "NP3_102.jpg",
+        "b": "NP3_282.jpg",
+        "center_distance_over_median_radius": 0.13049921192148314,
+        "full_orientation_angle_degrees": 5.875524577214033,
+        "view_direction_angle_degrees": 4.3694544547720655
+      },
+      {
+        "a": "NP3_108.jpg",
+        "b": "NP3_288.jpg",
+        "center_distance_over_median_radius": 2.6931275953759686,
+        "full_orientation_angle_degrees": 87.21660683375757,
+        "view_direction_angle_degrees": 87.17880670881506
+      },
+      {
+        "a": "NP3_120.jpg",
+        "b": "NP3_300.jpg",
+        "center_distance_over_median_radius": 2.5430235024907453,
+        "full_orientation_angle_degrees": 84.08820846675141,
+        "view_direction_angle_degrees": 84.0855644261604
+      },
+      {
+        "a": "NP3_126.jpg",
+        "b": "NP3_306.jpg",
+        "center_distance_over_median_radius": 0.34694244763483184,
+        "full_orientation_angle_degrees": 8.563530134082033,
+        "view_direction_angle_degrees": 8.072651149267069
+      },
+      {
+        "a": "NP3_132.jpg",
+        "b": "NP3_312.jpg",
+        "center_distance_over_median_radius": 0.3361901073551458,
+        "full_orientation_angle_degrees": 7.39665706544829,
+        "view_direction_angle_degrees": 7.339037319712694
+      },
+      {
+        "a": "NP3_138.jpg",
+        "b": "NP3_318.jpg",
+        "center_distance_over_median_radius": 0.18756351460851808,
+        "full_orientation_angle_degrees": 3.3483683872359604,
+        "view_direction_angle_degrees": 3.1222769683435807
+      },
+      {
+        "a": "NP3_150.jpg",
+        "b": "NP3_330.jpg",
+        "center_distance_over_median_radius": 0.18767444138919787,
+        "full_orientation_angle_degrees": 4.1465314305008425,
+        "view_direction_angle_degrees": 3.7676486411641137
+      },
+      {
+        "a": "NP3_156.jpg",
+        "b": "NP3_336.jpg",
+        "center_distance_over_median_radius": 1.092717500315675,
+        "full_orientation_angle_degrees": 42.25208745408299,
+        "view_direction_angle_degrees": 33.197213874103966
+      },
+      {
+        "a": "NP3_162.jpg",
+        "b": "NP3_342.jpg",
+        "center_distance_over_median_radius": 0.16580653139391235,
+        "full_orientation_angle_degrees": 3.0352945328494827,
+        "view_direction_angle_degrees": 2.8563322858560256
+      },
+      {
+        "a": "NP3_168.jpg",
+        "b": "NP3_348.jpg",
+        "center_distance_over_median_radius": 0.17019154237790135,
+        "full_orientation_angle_degrees": 2.8287545582178204,
+        "view_direction_angle_degrees": 2.7592071301451013
+      }
+    ],
+    "orbit_plane_normal_world": [
+      0.20227190212815252,
+      -0.4123353252544789,
+      0.8882936773144015
+    ],
+    "plane_residual_over_median_radius": {
+      "count": 48,
+      "max": 0.4363959064017664,
+      "median": 0.14155027469543144,
+      "p95": 0.32858238282936625
+    },
+    "registered": 48,
+    "smallest_opposing_center_distances": [
+      {
+        "a": "NP3_060.jpg",
+        "b": "NP3_240.jpg",
+        "center_distance_over_median_radius": 0.03286007428361988,
+        "full_orientation_angle_degrees": 1.4598552095372936,
+        "view_direction_angle_degrees": 1.0574490759991426
+      },
+      {
+        "a": "NP3_090.jpg",
+        "b": "NP3_270.jpg",
+        "center_distance_over_median_radius": 0.03888578164807159,
+        "full_orientation_angle_degrees": 2.203599053823951,
+        "view_direction_angle_degrees": 1.1568808633246472
+      },
+      {
+        "a": "NP3_078.jpg",
+        "b": "NP3_258.jpg",
+        "center_distance_over_median_radius": 0.07098215128804573,
+        "full_orientation_angle_degrees": 1.2533939091976984,
+        "view_direction_angle_degrees": 0.9166543734494242
+      },
+      {
+        "a": "NP3_072.jpg",
+        "b": "NP3_252.jpg",
+        "center_distance_over_median_radius": 0.08237008093654895,
+        "full_orientation_angle_degrees": 1.104632759600287,
+        "view_direction_angle_degrees": 1.1045810874373319
+      },
+      {
+        "a": "NP3_066.jpg",
+        "b": "NP3_246.jpg",
+        "center_distance_over_median_radius": 0.0968381782028121,
+        "full_orientation_angle_degrees": 2.381926124626559,
+        "view_direction_angle_degrees": 1.6996821315300863
+      },
+      {
+        "a": "NP3_012.jpg",
+        "b": "NP3_192.jpg",
+        "center_distance_over_median_radius": 0.12902379452915955,
+        "full_orientation_angle_degrees": 2.8856702564997736,
+        "view_direction_angle_degrees": 2.589469623359351
+      },
+      {
+        "a": "NP3_102.jpg",
+        "b": "NP3_282.jpg",
+        "center_distance_over_median_radius": 0.13049921192148314,
+        "full_orientation_angle_degrees": 5.875524577214033,
+        "view_direction_angle_degrees": 4.3694544547720655
+      },
+      {
+        "a": "NP3_006.jpg",
+        "b": "NP3_186.jpg",
+        "center_distance_over_median_radius": 0.1368251580547661,
+        "full_orientation_angle_degrees": 2.8916360340318916,
+        "view_direction_angle_degrees": 2.691469816752755
+      }
+    ],
+    "views": [
+      {
+        "center": [
+          -0.11769155039546216,
+          0.0017052743769139297,
+          -0.6595216747496251
+        ],
+        "name": "NP3_000.jpg",
+        "order_label": 0,
+        "planar_radius_over_median_radius": 0.2638032785221057,
+        "plane_residual_over_median_radius": 0.22591823160079635,
+        "view_direction_world": [
+          0.00038971472853052084,
+          0.10252400375647627,
+          0.9947304543323143
+        ]
+      },
+      {
+        "center": [
+          0.6277756989610586,
+          0.0067179404981416386,
+          -0.6898439845156716
+        ],
+        "name": "NP3_006.jpg",
+        "order_label": 6,
+        "planar_radius_over_median_radius": 0.34325768532468026,
+        "plane_residual_over_median_radius": 0.1891571601187616,
+        "view_direction_world": [
+          -0.11088705600097826,
+          0.09829229488199796,
+          0.9889604064765517
+        ]
+      },
+      {
+        "center": [
+          1.207811025120845,
+          -0.038168866714230275,
+          -0.593515980789243
+        ],
+        "name": "NP3_012.jpg",
+        "order_label": 12,
+        "planar_radius_over_median_radius": 0.46536216631948707,
+        "plane_residual_over_median_radius": 0.1223268673023683,
+        "view_direction_world": [
+          -0.19736540884060325,
+          0.10302079705339215,
+          0.9749018467351804
+        ]
+      },
+      {
+        "center": [
+          1.8368933595194543,
+          -0.022115645968061464,
+          -0.4439346562766497
+        ],
+        "name": "NP3_018.jpg",
+        "order_label": 18,
+        "planar_radius_over_median_radius": 0.6101659944980261,
+        "plane_residual_over_median_radius": 0.045807819751790525,
+        "view_direction_world": [
+          -0.29059598747186327,
+          0.09808589339269455,
+          0.9518051951857637
+        ]
+      },
+      {
+        "center": [
+          3.2003208828842395,
+          -0.13691446294471205,
+          0.005160983087254121
+        ],
+        "name": "NP3_030.jpg",
+        "order_label": 30,
+        "planar_radius_over_median_radius": 0.9598739506579547,
+        "plane_residual_over_median_radius": 0.17214370229139814,
+        "view_direction_world": [
+          -0.48293925843298063,
+          0.10805636890460354,
+          0.8689611578220025
+        ]
+      },
+      {
+        "center": [
+          3.754868637335151,
+          -0.13836542466004642,
+          0.2500965027793366
+        ],
+        "name": "NP3_036.jpg",
+        "order_label": 36,
+        "planar_radius_over_median_radius": 1.101207188616723,
+        "plane_residual_over_median_radius": 0.27185822991358793,
+        "view_direction_world": [
+          -0.5562482682726481,
+          0.10449677886442627,
+          0.824419970191552
+        ]
+      },
+      {
+        "center": [
+          -1.2655314572998875,
+          5.621927591164344,
+          1.4257171045854102
+        ],
+        "name": "NP3_042.jpg",
+        "order_label": 42,
+        "planar_radius_over_median_radius": 1.5720950870126655,
+        "plane_residual_over_median_radius": 0.4363959064017664,
+        "view_direction_world": [
+          0.18363001361838618,
+          -0.7391425822612747,
+          0.648034151250261
+        ]
+      },
+      {
+        "center": [
+          -1.693154322670417,
+          5.657520998973509,
+          1.5579494725918066
+        ],
+        "name": "NP3_048.jpg",
+        "order_label": 48,
+        "planar_radius_over_median_radius": 1.629570837755617,
+        "plane_residual_over_median_radius": 0.43147913890434236,
+        "view_direction_world": [
+          0.2478253935772621,
+          -0.7410998744145062,
+          0.6239820113120876
+        ]
+      },
+      {
+        "center": [
+          3.266482771396041,
+          -0.23286307094036368,
+          -0.10362214007264173
+        ],
+        "name": "NP3_060.jpg",
+        "order_label": 60,
+        "planar_radius_over_median_radius": 0.9920409992295478,
+        "plane_residual_over_median_radius": 0.15895709337032168,
+        "view_direction_world": [
+          -0.4774350037530853,
+          0.11714694647400908,
+          0.8708228350951226
+        ]
+      },
+      {
+        "center": [
+          3.5201335679965,
+          0.09057477959072957,
+          -0.27842987780179784
+        ],
+        "name": "NP3_066.jpg",
+        "order_label": 66,
+        "planar_radius_over_median_radius": 1.0682756331844003,
+        "plane_residual_over_median_radius": 0.08731581950812234,
+        "view_direction_world": [
+          -0.49478614437174967,
+          0.06807424816110358,
+          0.866344370371874
+        ]
+      },
+      {
+        "center": [
+          3.2605560444906296,
+          0.0072415032460248045,
+          -0.43072126500623825
+        ],
+        "name": "NP3_072.jpg",
+        "order_label": 72,
+        "planar_radius_over_median_radius": 1.0079590007704522,
+        "plane_residual_over_median_radius": 0.04100463228151195,
+        "view_direction_world": [
+          -0.45745366813958865,
+          0.0805226494337214,
+          0.8855801739164044
+        ]
+      },
+      {
+        "center": [
+          3.3473855916036412,
+          0.20782624514290254,
+          -0.6326832394910878
+        ],
+        "name": "NP3_078.jpg",
+        "order_label": 78,
+        "planar_radius_over_median_radius": 1.0427617634328321,
+        "plane_residual_over_median_radius": 0.03281224381258949,
+        "view_direction_world": [
+          -0.45442028385780875,
+          0.05170810927504765,
+          0.8892853743617896
+        ]
+      },
+      {
+        "center": [
+          2.665425440955951,
+          0.2954851802771142,
+          -0.8038197590529534
+        ],
+        "name": "NP3_090.jpg",
+        "order_label": 90,
+        "planar_radius_over_median_radius": 0.8568337982580831,
+        "plane_residual_over_median_radius": 0.1312479315245024,
+        "view_direction_world": [
+          -0.3726142842261811,
+          0.043498619346979336,
+          0.9269662697776642
+        ]
+      },
+      {
+        "center": [
+          2.823293747498504,
+          0.6294097756813687,
+          -0.9273856804112356
+        ],
+        "name": "NP3_096.jpg",
+        "order_label": 96,
+        "planar_radius_over_median_radius": 0.9036795996883732,
+        "plane_residual_over_median_radius": 0.19630290836287806,
+        "view_direction_world": [
+          -0.38405087581311215,
+          -0.003227139093773271,
+          0.9233062928196965
+        ]
+      },
+      {
+        "center": [
+          -2.9470126930378653,
+          6.080367737435309,
+          4.087282444800815
+        ],
+        "name": "NP3_102.jpg",
+        "order_label": 102,
+        "planar_radius_over_median_radius": 2.216972762709101,
+        "plane_residual_over_median_radius": 0.11753406266810916,
+        "view_direction_world": [
+          0.43130564155308815,
+          -0.8547775277688796,
+          0.2886707840876892
+        ]
+      },
+      {
+        "center": [
+          -2.9692516052538185,
+          6.26685206095906,
+          4.255987581298814
+        ],
+        "name": "NP3_108.jpg",
+        "order_label": 108,
+        "planar_radius_over_median_radius": 2.287356411523,
+        "plane_residual_over_median_radius": 0.138201065309448,
+        "view_direction_world": [
+          0.42578700072698183,
+          -0.8665147369978591,
+          0.2604949914632766
+        ]
+      },
+      {
+        "center": [
+          -3.0813545458749463,
+          6.087654155453146,
+          3.714835557683373
+        ],
+        "name": "NP3_120.jpg",
+        "order_label": 120,
+        "planar_radius_over_median_radius": 2.1843826193256466,
+        "plane_residual_over_median_radius": 0.008559360216053942,
+        "view_direction_world": [
+          0.4314060034478438,
+          -0.83556216963858,
+          0.3401833635820952
+        ]
+      },
+      {
+        "center": [
+          -3.8680291625198406,
+          -1.0534277048963507,
+          0.20445270239079394
+        ],
+        "name": "NP3_126.jpg",
+        "order_label": 126,
+        "planar_radius_over_median_radius": 1.2688984588166432,
+        "plane_residual_over_median_radius": 0.09191292757881629,
+        "view_direction_world": [
+          0.5149734246497267,
+          0.2587470079466573,
+          0.8172223429295021
+        ]
+      },
+      {
+        "center": [
+          -3.7604145147649257,
+          -0.9915753080685008,
+          0.18862262661589785
+        ],
+        "name": "NP3_132.jpg",
+        "order_label": 132,
+        "planar_radius_over_median_radius": 1.2315684669205078,
+        "plane_residual_over_median_radius": 0.09728537039676374,
+        "view_direction_world": [
+          0.5054169448156767,
+          0.2510608485700131,
+          0.8255435556095707
+        ]
+      },
+      {
+        "center": [
+          -3.3822761181673404,
+          -1.3547506443908706,
+          0.4443260426042018
+        ],
+        "name": "NP3_138.jpg",
+        "order_label": 138,
+        "planar_radius_over_median_radius": 1.1757595688976714,
+        "plane_residual_over_median_radius": 0.039567263761704496,
+        "view_direction_world": [
+          0.47103893093710864,
+          0.3180456020720219,
+          0.8227814536948868
+        ]
+      },
+      {
+        "center": [
+          -2.8429409844451183,
+          -1.0305905837886231,
+          0.10148896058965126
+        ],
+        "name": "NP3_150.jpg",
+        "order_label": 150,
+        "planar_radius_over_median_radius": 0.9880521261617576,
+        "plane_residual_over_median_radius": 0.05977536026537826,
+        "view_direction_world": [
+          0.3942643316914154,
+          0.26742172165393113,
+          0.8792276494421505
+        ]
+      },
+      {
+        "center": [
+          1.6712110736790313,
+          -0.616849285280497,
+          -0.4611956349784823
+        ],
+        "name": "NP3_156.jpg",
+        "order_label": 156,
+        "planar_radius_over_median_radius": 0.6425176026475827,
+        "plane_residual_over_median_radius": 0.013471093839355033,
+        "view_direction_world": [
+          -0.2889363390083037,
+          0.1937027236295959,
+          0.9375473571286705
+        ]
+      },
+      {
+        "center": [
+          -2.0942461443460636,
+          -0.5735532052380528,
+          -0.3679970268508756
+        ],
+        "name": "NP3_162.jpg",
+        "order_label": 162,
+        "planar_radius_over_median_radius": 0.7300074233768084,
+        "plane_residual_over_median_radius": 0.196832541475341,
+        "view_direction_world": [
+          0.2796365600001529,
+          0.19192097197690533,
+          0.9407283002157003
+        ]
+      },
+      {
+        "center": [
+          -1.6422619948969583,
+          -0.41757519641248475,
+          -0.6293346439528797
+        ],
+        "name": "NP3_168.jpg",
+        "order_label": 168,
+        "planar_radius_over_median_radius": 0.6000175590482106,
+        "plane_residual_over_median_radius": 0.25872311013707433,
+        "view_direction_world": [
+          0.20947114862321153,
+          0.1636159172272605,
+          0.9640288738022086
+        ]
+      },
+      {
+        "center": [
+          -0.4917405886102107,
+          -0.1772349030709033,
+          -0.8533392577762119
+        ],
+        "name": "NP3_180.jpg",
+        "order_label": 180,
+        "planar_radius_over_median_radius": 0.35483249081702595,
+        "plane_residual_over_median_radius": 0.2784535253416816,
+        "view_direction_world": [
+          0.04056190310850443,
+          0.1230459543172192,
+          0.9915716944035772
+        ]
+      },
+      {
+        "center": [
+          0.22661765574588716,
+          -0.03673831682320873,
+          -0.896366425821771
+        ],
+        "name": "NP3_186.jpg",
+        "order_label": 186,
+        "planar_radius_over_median_radius": 0.32310254628094454,
+        "plane_residual_over_median_radius": 0.2636171281402476,
+        "view_direction_world": [
+          -0.06410063702874479,
+          0.09931448416530882,
+          0.9929892957970331
+        ]
+      },
+      {
+        "center": [
+          0.8325640905650453,
+          -0.0700113980822646,
+          -0.7957069220401993
+        ],
+        "name": "NP3_192.jpg",
+        "order_label": 192,
+        "planar_radius_over_median_radius": 0.4116239704727904,
+        "plane_residual_over_median_radius": 0.19548887635695983,
+        "view_direction_world": [
+          -0.15288425991733007,
+          0.1028470123626635,
+          0.9828778637845114
+        ]
+      },
+      {
+        "center": [
+          1.4015092728928316,
+          -0.052208262529035605,
+          -0.6907197977590029
+        ],
+        "name": "NP3_198.jpg",
+        "order_label": 198,
+        "planar_radius_over_median_radius": 0.5261840943914432,
+        "plane_residual_over_median_radius": 0.13481656478624054,
+        "view_direction_world": [
+          -0.23513843162551587,
+          0.09751976258530648,
+          0.9670572960678173
+        ]
+      },
+      {
+        "center": [
+          2.5380754456739183,
+          -0.3850417203480399,
+          -0.21088042705650112
+        ],
+        "name": "NP3_210.jpg",
+        "order_label": 210,
+        "planar_radius_over_median_radius": 0.8077376086859767,
+        "plane_residual_over_median_radius": 0.10466460628225799,
+        "view_direction_world": [
+          -0.4035131756253873,
+          0.14317688748282623,
+          0.9037021057779192
+        ]
+      },
+      {
+        "center": [
+          3.0932701041982607,
+          -0.35564313305954964,
+          -0.08422663176311862
+        ],
+        "name": "NP3_216.jpg",
+        "order_label": 216,
+        "planar_radius_over_median_radius": 0.9476278355936579,
+        "plane_residual_over_median_radius": 0.16886369926897535,
+        "view_direction_world": [
+          -0.47508593449458675,
+          0.13344738702404235,
+          0.8697615476335228
+        ]
+      },
+      {
+        "center": [
+          3.4301553551012702,
+          -0.352505495756253,
+          0.06496527108889465
+        ],
+        "name": "NP3_222.jpg",
+        "order_label": 222,
+        "planar_radius_over_median_radius": 1.0297218089561162,
+        "plane_residual_over_median_radius": 0.22904541811109386,
+        "view_direction_world": [
+          -0.5196971709797832,
+          0.12984651685183643,
+          0.844425682068621
+        ]
+      },
+      {
+        "center": [
+          3.4686535287909694,
+          -0.26326570123903276,
+          -0.07652471895584857
+        ],
+        "name": "NP3_228.jpg",
+        "order_label": 228,
+        "planar_radius_over_median_radius": 1.0488710362756333,
+        "plane_residual_over_median_radius": 0.18235063057747783,
+        "view_direction_world": [
+          -0.5135746859992512,
+          0.11407957426211084,
+          0.8504274764122725
+        ]
+      },
+      {
+        "center": [
+          3.348008031937596,
+          -0.23525563697218096,
+          -0.1757244192900452
+        ],
+        "name": "NP3_240.jpg",
+        "order_label": 240,
+        "planar_radius_over_median_radius": 1.0216622469776189,
+        "plane_residual_over_median_radius": 0.14489948408141487,
+        "view_direction_world": [
+          -0.49149854068669274,
+          0.10715866738061003,
+          0.8642604957465447
+        ]
+      },
+      {
+        "center": [
+          3.3014956907110427,
+          -0.14419436533190652,
+          -0.2769625994526118
+        ],
+        "name": "NP3_246.jpg",
+        "order_label": 246,
+        "planar_radius_over_median_radius": 1.0129578561560857,
+        "plane_residual_over_median_radius": 0.10358041911389358,
+        "view_direction_world": [
+          -0.4792376360580671,
+          0.09249868404998446,
+          0.8727973886501361
+        ]
+      },
+      {
+        "center": [
+          3.193914505991977,
+          -0.16648708509184512,
+          -0.23111658270478147
+        ],
+        "name": "NP3_252.jpg",
+        "order_label": 252,
+        "planar_radius_over_median_radius": 0.979280146145113,
+        "plane_residual_over_median_radius": 0.11207941137182081,
+        "view_direction_world": [
+          -0.4685563468885325,
+          0.09453230875169438,
+          0.878361310846822
+        ]
+      },
+      {
+        "center": [
+          3.284372082994863,
+          0.019721495564645496,
+          -0.5064137665489867
+        ],
+        "name": "NP3_258.jpg",
+        "order_label": 258,
+        "planar_radius_over_median_radius": 1.020639061872666,
+        "plane_residual_over_median_radius": 0.020609757715418047,
+        "view_direction_world": [
+          -0.46067256335790396,
+          0.06583442741307521,
+          0.8851251987919283
+        ]
+      },
+      {
+        "center": [
+          2.7397667921029036,
+          0.2648939737206305,
+          -0.7031561694902655
+        ],
+        "name": "NP3_270.jpg",
+        "order_label": 270,
+        "planar_radius_over_median_radius": 0.8710069795904222,
+        "plane_residual_over_median_radius": 0.09591016232257198,
+        "view_direction_world": [
+          -0.3894075136234171,
+          0.034396292241502265,
+          0.9204231002173215
+        ]
+      },
+      {
+        "center": [
+          -2.957933880193698,
+          6.102403905759569,
+          4.658120013749482
+        ],
+        "name": "NP3_276.jpg",
+        "order_label": 276,
+        "planar_radius_over_median_radius": 2.302665170916387,
+        "plane_residual_over_median_radius": 0.2671850858201676,
+        "view_direction_world": [
+          0.4391656761654138,
+          -0.8767828302562491,
+          0.19592186566592384
+        ]
+      },
+      {
+        "center": [
+          -2.977075486130849,
+          6.106616699871141,
+          4.517764796637642
+        ],
+        "name": "NP3_282.jpg",
+        "order_label": 282,
+        "planar_radius_over_median_radius": 2.286633648064044,
+        "plane_residual_over_median_radius": 0.22785812648353965,
+        "view_direction_world": [
+          0.44205358782407306,
+          -0.8708599005460184,
+          0.2149224490667354
+        ]
+      },
+      {
+        "center": [
+          -4.008659345506408,
+          -2.081306664042334,
+          1.2844269893377163
+        ],
+        "name": "NP3_288.jpg",
+        "order_label": 288,
+        "planar_radius_over_median_radius": 1.4418253061979176,
+        "plane_residual_over_median_radius": 0.3170119669033562,
+        "view_direction_world": [
+          0.5751302976040912,
+          0.4342291516608232,
+          0.6933038184127875
+        ]
+      },
+      {
+        "center": [
+          -3.4106438651568842,
+          -1.9670981104276803,
+          1.2676553939683528
+        ],
+        "name": "NP3_300.jpg",
+        "order_label": 300,
+        "planar_radius_over_median_radius": 1.2658359237982904,
+        "plane_residual_over_median_radius": 0.3348126067895255,
+        "view_direction_world": [
+          0.5139919896595685,
+          0.44148461085061563,
+          0.7354614693835964
+        ]
+      },
+      {
+        "center": [
+          -3.3112534340801343,
+          -1.6890348394976389,
+          0.9836039803489034
+        ],
+        "name": "NP3_306.jpg",
+        "order_label": 306,
+        "planar_radius_over_median_radius": 1.20135177989146,
+        "plane_residual_over_median_radius": 0.2301084323867217,
+        "view_direction_world": [
+          0.49627316773705277,
+          0.39167036138419575,
+          0.7747949864302199
+        ]
+      },
+      {
+        "center": [
+          -3.0205577655396243,
+          -1.5215465295845272,
+          0.8306499898485667
+        ],
+        "name": "NP3_312.jpg",
+        "order_label": 312,
+        "planar_radius_over_median_radius": 1.1010546598027626,
+        "plane_residual_over_median_radius": 0.18599883891015517,
+        "view_direction_world": [
+          0.45677204468939153,
+          0.36839767624516795,
+          0.8097175132893156
+        ]
+      },
+      {
+        "center": [
+          -2.797738418258569,
+          -1.3346406406063833,
+          0.6541329924164905
+        ],
+        "name": "NP3_318.jpg",
+        "order_label": 318,
+        "planar_radius_over_median_radius": 1.0162871931321684,
+        "plane_residual_over_median_radius": 0.12901015508808814,
+        "view_direction_world": [
+          0.4235055290661602,
+          0.33792893952144026,
+          0.8405040741628244
+        ]
+      },
+      {
+        "center": [
+          -2.239197137056829,
+          -0.9382078349210456,
+          0.21777875294665036
+        ],
+        "name": "NP3_330.jpg",
+        "order_label": 330,
+        "planar_radius_over_median_radius": 0.8156850446370176,
+        "plane_residual_over_median_radius": 0.0032302502047737718,
+        "view_direction_world": [
+          0.33329867210042774,
+          0.26836416846028377,
+          0.9038211483820856
+        ]
+      },
+      {
+        "center": [
+          -1.9160471579240184,
+          -0.7374837607011068,
+          0.009696124674934444
+        ],
+        "name": "NP3_336.jpg",
+        "order_label": 336,
+        "planar_radius_over_median_radius": 0.7050425131514472,
+        "plane_residual_over_median_radius": 0.06427679411430856,
+        "view_direction_world": [
+          0.2810195002190432,
+          0.23276926860692704,
+          0.931045921578971
+        ]
+      },
+      {
+        "center": [
+          -1.6050359126930949,
+          -0.5752136960913898,
+          -0.11820078357073041
+        ],
+        "name": "NP3_342.jpg",
+        "order_label": 342,
+        "planar_radius_over_median_radius": 0.6038460365437036,
+        "plane_residual_over_median_radius": 0.09977787339845519,
+        "view_direction_world": [
+          0.232609998596349,
+          0.20510767650534376,
+          0.9506962867244122
+        ]
+      },
+      {
+        "center": [
+          -1.1664398633692752,
+          -0.3721434646609834,
+          -0.33029088476735446
+        ],
+        "name": "NP3_348.jpg",
+        "order_label": 348,
+        "planar_radius_over_median_radius": 0.4722775642600979,
+        "plane_residual_over_median_radius": 0.15514226976511025,
+        "view_direction_world": [
+          0.16228179393852865,
+          0.16855400651612734,
+          0.9722418249815497
+        ]
+      }
+    ]
+  }
+}
