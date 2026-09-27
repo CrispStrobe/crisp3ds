@@ -68,3 +68,31 @@ It does not establish a fundamental limit of photogrammetry or of all COLMAP
 configurations. The next diagnostic must explain the discrepancy with the earlier
 60/60 cracker-box producer, particularly initialization and intrinsics, while
 keeping these failed baselines intact.
+
+### First-divergence audit and next diagnostic
+
+The masked database has all 60 images connected and 1,182 verified pairs loaded
+by the mapper. The first automatic seed is NP3_192/198, six degrees apart. The
+mapper sees 220 and 229 existing 3D points in the adjacent candidate views but
+cannot register either. Six automatic seed attempts produce no third view.
+The saved two-view SIMPLE_RADIAL camera has `f=5011.34797` and `k=-5.78716`,
+starting from the reader heuristic `[1536,640,512,0]`; the distortion magnitude
+exceeds the configured `max_extra_param=1.0`. The prior 60-view foreground
+producer started from the same heuristic but used a 30-degree seed and finished
+near `f=1077.58, k=-0.00723`.
+
+This supports unstable initialization/self-calibration as a hypothesis, not a
+proven causal explanation: feature limits, matching graph and verification also
+differ from the prior producer. Local verified matches are not simply absent.
+
+The next **single diagnostic**, not executed in this batch, should reuse the
+sealed stock masked features/matches and automatic seed selection, changing
+only mapping intrinsic refinement to fixed initial `[1536,640,512,0]`. Those are
+heuristic values, not calibration or a recovered camera solution. First verify
+that the implementation actually freezes both focal length and distortion and
+that the saved camera remains exact. A third registered view is an early
+discriminator; 54/60 plus structural checks and camera review remains the dense
+eligibility requirement. Keep the same 600-second, 4-GiB RSS, 512-MiB output and
+dual disk-floor bounds, fresh output and untouched parent evidence. A further
+two-view failure would show that preventing intrinsic drift alone is insufficient.
+This is not authorization for automatic parameter search or geometry repair.
