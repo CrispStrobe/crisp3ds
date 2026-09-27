@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import argparse
 from contextlib import closing
+import hashlib
 import json
 from pathlib import Path
 import re
 import shutil
 import sqlite3
+import struct
 import sys
 import time
 
@@ -40,9 +42,13 @@ NAME_RE = re.compile(r"NP3_(\d{3})\.jpg\Z")
 
 def immutable_connection(path: Path) -> sqlite3.Connection:
     if (path.is_symlink() or not path.is_file() or
-            any(Path(str(path) + suffix).exists() for suffix in ("-wal", "-shm", "-journal"))):
+            any(sidecar.exists() or sidecar.is_symlink() for sidecar in database_sidecars(path))):
         raise ValueError("sealed source database is missing, linked or has live sidecars")
     return sqlite3.connect(path.resolve().as_uri() + "?mode=ro&immutable=1", uri=True)
+
+
+def database_sidecars(path: Path) -> tuple[Path, ...]:
+    return tuple(Path(str(path) + suffix) for suffix in ("-wal", "-shm", "-journal"))
 
 
 def sorted_images(connection: sqlite3.Connection, expected_names: list[str]) -> list[tuple[int, str]]:
@@ -122,6 +128,66 @@ def table_rows(connection: sqlite3.Connection, table: str) -> list[tuple]:
     return list(connection.execute(f"SELECT * FROM {table} ORDER BY rowid"))
 
 
+def logical_database_sha(path: Path) -> str:
+    """Hash schema, pragmas and all rows, ignoring SQLite write counters/stamp."""
+    digest_value = hashlib.sha256()
+
+    def add(value) -> None:
+        if value is None:
+            tag, payload = b"n", b""
+        elif isinstance(value, bytes):
+            tag, payload = b"b", value
+        elif isinstance(value, str):
+            tag, payload = b"s", value.encode("utf-8")
+        elif isinstance(value, int):
+            tag, payload = b"i", str(value).encode("ascii")
+        elif isinstance(value, float):
+            tag, payload = b"f", repr(value).encode("ascii")
+        else:
+            raise ValueError("unexpected SQLite value in logical fingerprint")
+        digest_value.update(tag + struct.pack("<Q", len(payload)) + payload)
+
+    with closing(immutable_connection(path)) as connection:
+        if connection.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:
+            raise ValueError("SQLite integrity_check failed during logical fingerprint")
+        for pragma in ("application_id", "user_version", "page_size"):
+            add(pragma)
+            add(connection.execute(f"PRAGMA {pragma}").fetchone()[0])
+        schema = list(connection.execute(
+            "SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name,tbl_name"))
+        for row in schema:
+            add("schema-row")
+            for value in row:
+                add(value)
+        tables = [row[0] for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]
+        for table in tables:
+            if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", table):
+                raise ValueError("unexpected SQLite table identifier")
+            add("table")
+            add(table)
+            for row in connection.execute(f"SELECT * FROM {table} ORDER BY rowid"):
+                add("row")
+                for value in row:
+                    add(value)
+    return digest_value.hexdigest()
+
+
+def database_postflight(path: Path, before_file_sha: str,
+                        before_logical_sha: str) -> dict:
+    """Record byte and semantic seals, rejecting live SQLite sidecars."""
+    if any(sidecar.exists() or sidecar.is_symlink() for sidecar in database_sidecars(path)):
+        raise ValueError("filtered SQLite database has a live postflight sidecar")
+    after_file_sha = digest(path)
+    after_logical_sha = logical_database_sha(path)
+    return {"before_file_sha256": before_file_sha,
+            "after_file_sha256": after_file_sha,
+            "before_logical_sha256": before_logical_sha,
+            "after_logical_sha256": after_logical_sha,
+            "logical_unchanged": before_logical_sha == after_logical_sha,
+            "sqlite_header_metadata_may_change": True}
+
+
 def copy_filter_database(source_path: Path, destination: Path,
                          expected_names: list[str]) -> dict:
     """SQLite backup from immutable source, then delete only nonlocal pair rows."""
@@ -167,10 +233,11 @@ def copy_filter_database(source_path: Path, destination: Path,
             after["positive_allowed_verified_rows"] != 173 or
             after["positive_verified_components"] != [48]):
         raise ValueError("filtered local graph differs from predeclared connectivity")
-    if any(Path(str(destination) + suffix).exists() for suffix in ("-wal", "-shm", "-journal")):
+    if any(sidecar.exists() or sidecar.is_symlink() for sidecar in database_sidecars(destination)):
         raise ValueError("filtered SQLite backup has an unsealed sidecar")
     return {"source_database_sha256": source_sha,
             "filtered_database_sha256": digest(destination),
+            "filtered_database_logical_sha256": logical_database_sha(destination),
             "selection_basis": "sorted accepted TRAIN acquisition positions; symmetric cyclic distance <=4",
             "before": before, "after": after,
             "removed_match_rows": before["match_rows"] - after["match_rows"],
@@ -393,11 +460,15 @@ def run(args: argparse.Namespace) -> dict:
     first_stage = report["stages"][0] if report["stages"] else {}
     if first_stage.get("status") == "complete":
         try:
+            report["database_postflight"] = database_postflight(
+                output / "database.db", first_stage["graph"]["filtered_database_sha256"],
+                first_stage["graph"]["filtered_database_logical_sha256"])
             report["prepared_unchanged"] = (
-                digest(output / "database.db") == first_stage["graph"]["filtered_database_sha256"] and
+                report["database_postflight"]["logical_unchanged"] and
                 all(digest(output / "images" / name) == bound["stage"]["train_photo_sha256"][name]
                     for name in bound["names"]))
-        except Exception:
+        except Exception as error:
+            report["database_postflight_error"] = str(error)
             report["prepared_unchanged"] = False
         if not report["prepared_unchanged"]:
             report.update(status="failed", failure="filtered graph or copied RGB changed after mapper")

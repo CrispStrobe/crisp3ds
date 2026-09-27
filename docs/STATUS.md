@@ -13,7 +13,37 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
-### Current continuation: exact crop recovers partial dense geometry; poses remain suspect
+### Current continuation: local matching alone does not recover reliable poses
+
+The [frozen local-graph experiment](MUSTARD-LOCAL-MATCHING-PLAN.md) reuses the
+same cached features, verified correspondence rows, fixed intrinsics and automatic
+mapper settings, retaining only pairs within four cyclic TRAIN positions. It
+registers **24/48 photos**, below the unchanged **34-view minimum**, with 528
+points and 28 repeated-image tracks. No dense reconstruction or mesh scoring was
+authorized from this failed candidate. See [results](MUSTARD-LOCAL-MATCHING-RESULTS.md).
+
+Independent comparison uses the same 24 named views and excludes the large
+missing-view gap. Lower reprojection error still compares different surviving
+points/correspondences, so it does not prove improvement. No opposing-view pair
+survives in this subset: the suspected folded orbit is **not shown to be fixed**.
+The [match audit](MUSTARD-MATCH-ALIAS-AUDIT.md) also establishes that the original
+initializer was nearby, not an opposing-view pair. Local matching alone is not
+a sufficient remedy; better correspondences and independently validated camera
+geometry remain prerequisites for a trustworthy full-object reconstruction.
+
+A separate integrity-guard false positive was traced to four changed SQLite
+header bytes, with schema and feature/match data unchanged. The historical trial
+remains failed. Future runs compare logical database fingerprints and retain
+both raw file hashes; actual data/schema changes still fail the guard.
+
+Final local regression: **551 Python tests run, 8 skipped, 543 passed** in
+29.49 seconds; **11/11 native CTests passed**. These checks ran after the live
+trial and do not contaminate its timing. Root independently verified the saved
+trial/model hashes and post-mapper logical database fingerprint. Both CI
+workflows passed at `7431a5c`; the new batch awaits its own CI results. Storage
+remains approximately 23 GiB internal and 18 GiB external, above both floors.
+
+### Previous continuation: exact crop recovers partial dense geometry; poses remain suspect
 
 The [frozen common-crop trial](MUSTARD-CROP-PLAN.md) preserves all original
 object pixels and the same 48 estimated camera poses, 939 3D points and 4,734

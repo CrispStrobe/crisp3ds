@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import importlib.util
 from contextlib import closing
+import shutil
 import sqlite3
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -113,6 +115,65 @@ class LocalGraphTests(unittest.TestCase):
         self.assertEqual(enough["selected_model"]["index"], 1)
         self.assertTrue(enough["registration_gate"]["met"])
         self.assertIn("not_camera_or_shape_acceptance", enough["reconstruction_status"])
+
+    def test_logical_fingerprint_allows_header_only_write_not_row_mutation(self):
+        source = self.root / "source.db"
+        names, _ = fixture_database(source)
+        destination = self.root / "filtered.db"
+        with patch.object(local, "SOURCE_DB_SHA", local.digest(source)):
+            record = local.copy_filter_database(source, destination, names)
+        before_file_sha = record["filtered_database_sha256"]
+        before_logical_sha = record["filtered_database_logical_sha256"]
+        # Reproduce SQLite's harmless paired header change-counter update.
+        data = bytearray(destination.read_bytes())
+        for offset in (24, 92):
+            value = struct.unpack_from(">I", data, offset)[0]
+            struct.pack_into(">I", data, offset, value + 1)
+        destination.write_bytes(data)
+        self.assertNotEqual(local.digest(destination), before_file_sha)
+        self.assertEqual(local.logical_database_sha(destination), before_logical_sha)
+        self.assertTrue(local.database_postflight(
+            destination, before_file_sha, before_logical_sha)["logical_unchanged"])
+        with closing(sqlite3.connect(destination)) as connection:
+            connection.execute("UPDATE cameras SET model=3 WHERE camera_id=1")
+            connection.commit()
+        self.assertNotEqual(local.logical_database_sha(destination), before_logical_sha)
+
+    def test_postflight_rejects_match_and_schema_mutations(self):
+        source = self.root / "source.db"
+        names, _ = fixture_database(source)
+        clean = self.root / "filtered.db"
+        with patch.object(local, "SOURCE_DB_SHA", local.digest(source)):
+            record = local.copy_filter_database(source, clean, names)
+        for label, sql in (
+                ("match", "UPDATE matches SET data=x'01' WHERE pair_id=(SELECT MIN(pair_id) FROM matches)"),
+                ("schema", "CREATE INDEX modified_matches ON matches(rows)")):
+            with self.subTest(label=label):
+                changed = self.root / f"{label}.db"
+                shutil.copyfile(clean, changed)
+                with closing(sqlite3.connect(changed)) as connection:
+                    connection.execute(sql)
+                    connection.commit()
+                audit = local.database_postflight(
+                    changed, record["filtered_database_sha256"],
+                    record["filtered_database_logical_sha256"])
+                self.assertFalse(audit["logical_unchanged"])
+
+    def test_postflight_rejects_wal_shm_and_journal_sidecars(self):
+        source = self.root / "source.db"
+        names, _ = fixture_database(source)
+        clean = self.root / "filtered.db"
+        with patch.object(local, "SOURCE_DB_SHA", local.digest(source)):
+            record = local.copy_filter_database(source, clean, names)
+        for suffix in ("-wal", "-shm", "-journal"):
+            with self.subTest(suffix=suffix):
+                sidecar = Path(str(clean) + suffix)
+                sidecar.write_bytes(b"unexpected")
+                with self.assertRaisesRegex(ValueError, "postflight sidecar"):
+                    local.database_postflight(
+                        clean, record["filtered_database_sha256"],
+                        record["filtered_database_logical_sha256"])
+                sidecar.unlink()
 
     @unittest.skipUnless(importlib.util.find_spec("pycolmap"), "optional native PyCOLMAP")
     def test_fixed_intrinsics_automatic_mapper_options(self):

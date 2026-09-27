@@ -1,0 +1,72 @@
+{
+  "schema": "mustard_local4_failed_sparse_diagnostic_v1",
+  "status": "diagnostic_of_failed_trial_not_quality_acceptance",
+  "scope": "48 TRAIN images only; no held-out pose, Berkeley depth, Google mesh, dense run, or reference fit",
+  "source_hashes_sha256": {
+    "baseline_result": "5a83c3e05e2b66887411799ecc8c5f3f41e3b8af3bbd775d308055ef7ee0041e",
+    "baseline_database": "5858be16dfa3f0fc50303d0eb4a001e21ee14036f67755a9997d5dac374b3075",
+    "baseline_cameras": "ebc18fcca6fa2dacf0b6ff16cfae700d62d44626530d48dcecc7e72767a24348",
+    "baseline_images": "67a1e75744aad52eef299a59c5a91ec1ec06d45b0f98ffff96fcb65698d1cfa6",
+    "baseline_points": "eb60667d3e4145fb423e1fa7ec37169830ef19e49a56fe620efa9c7322803b02",
+    "local4_result": "c1187d6434216e173b11863220ca2db374077812385573bf9bcc80df7058217c",
+    "local4_database_after_mapper": "a75cf1ea5cd4c2825224108d39d6a598e9844db77db2440d13d6293daddfdda7",
+    "local4_cameras": "ebc18fcca6fa2dacf0b6ff16cfae700d62d44626530d48dcecc7e72767a24348",
+    "local4_images": "d50a45355466cc17e677b0ea20d50f3d7becfba3e4159925d5f0c4513e7618b9",
+    "local4_points": "4f61dd7f9cc3a83da1bbb3cc7fcc0fc3cc08c97929ffb4c4cb6526390474d2e8",
+    "producer_runner_at_trial": "5d1cff55cbd6ddf5e7e27c63358fbe988608bb9cf3f51de7400a244d5b2c030d",
+    "sparse_metric_code": "b7e266358812dc585cf23a241f51dd5404bc124372bdf07385ee6f8d8bf73b08",
+    "trajectory_code": "bece9f5fd9d908b6922ce2e778b226202eebc10a030673f252713cc224b21144"
+  },
+  "hashes_unchanged_during_read_only_diagnostic": true,
+  "producer_outcome": {
+    "mapper_exit_code": 0,
+    "producer_status": "failed",
+    "failure": "filtered graph or copied RGB changed after mapper",
+    "post_mapper_database_bytes_differ": true,
+    "registration_gate_required": 34,
+    "candidate_registered": 24,
+    "candidate_model_role": "failed_trial_diagnostic_only"
+  },
+  "graph_populations": {
+    "selected_train_images": 48,
+    "exhaustive_verified_edges_all48": 400,
+    "local4_verified_edges_all48": 173,
+    "both_graphs_component_count": 1,
+    "exhaustive_verified_edges_within_common24": 129,
+    "exhaustive_verified_correspondences_within_common24": 5705,
+    "local4_verified_edges_within_common24": 83,
+    "local4_verified_correspondences_within_common24": 4774
+  },
+  "common_registered_view_population": {
+    "count": 24,
+    "arcs": ["NP3_000 through NP3_108", "NP3_300 through NP3_348"],
+    "stitched_gap_excluded": "NP3_108 to NP3_300, 192 label degrees",
+    "genuine_short_adjacent_edges_in_both": 23,
+    "opposing_view_pairs_in_either_common24": 0
+  },
+  "baseline_on_common24": {
+    "points_with_at_least_one_observation_in_common24": 658,
+    "finite_reprojection_observations": 2885,
+    "reprojection_mean_px": 1.0284804856475327,
+    "reprojection_p95_px": 2.7544202497200487,
+    "short_adjacent_center_step_median_over_subset_radius": 0.1579209908044001,
+    "short_adjacent_full_orientation_step_median_deg": 6.432636548538005
+  },
+  "local4_candidate_on_common24": {
+    "points": 528,
+    "finite_reprojection_observations": 2737,
+    "invalid_reprojection_observations": 0,
+    "repeated_image_tracks": 28,
+    "reprojection_mean_px": 0.8513197916454563,
+    "reprojection_p95_px": 2.514539435180735,
+    "short_adjacent_center_step_median_over_subset_radius": 0.1577126422868842,
+    "short_adjacent_full_orientation_step_median_deg": 6.22839388764989
+  },
+  "baseline_full48_context": {
+    "registered": 48,
+    "points": 939,
+    "opposing_view_pairs": 24,
+    "opposing_center_distance_median_over_full_radius": 0.1788775284932097
+  },
+  "interpretation": "The common-view residual populations still contain different points and observations; lower local4 residual cannot establish better cameras or shape. No opposing-view pair survives in the local4 candidate, so apparent smoothness of its two partial arcs cannot establish removal of the full-orbit fold. The trial remains failed and unscored."
+}

@@ -1,0 +1,32 @@
+{
+  "schema": "mustard_local4_sqlite_header_diagnostic_v1",
+  "status": "read_only_diagnostic_of_preserved_failed_trial",
+  "trial_result_sha256": "c1187d6434216e173b11863220ca2db374077812385573bf9bcc80df7058217c",
+  "trial_runner_sha256": "5d1cff55cbd6ddf5e7e27c63358fbe988608bb9cf3f51de7400a244d5b2c030d",
+  "future_guard_runner_sha256": "12d2ee5b9f4d01c66979facdc782acc771bba10df47570446141d045f03946da",
+  "future_guard_test_sha256": "79ff13eda1d04c8828514abec3fd2beadc84fc6606d76836c329c72060d2d088",
+  "source_exhaustive_database_sha256": "5858be16dfa3f0fc50303d0eb4a001e21ee14036f67755a9997d5dac374b3075",
+  "recreation": {
+    "method": "Create a fresh SQLite backup from the unchanged sealed exhaustive database; retain only the 192 symmetric cyclic selected-position-distance <=4 pairs in both matches and two_view_geometries using copy_filter_database. No mapper is run.",
+    "fresh_recreated_filtered_database_sha256": "88c54e819a8fd77e2ffb375288076929d2ae791780878a7caa97f4b2347c1a7b",
+    "trial_recorded_before_mapper_database_sha256": "88c54e819a8fd77e2ffb375288076929d2ae791780878a7caa97f4b2347c1a7b",
+    "fresh_recreation_matches_recorded_before_mapper": true,
+    "allowed_pair_rows_per_table": 192,
+    "positive_allowed_verified_rows": 173
+  },
+  "post_mapper": {
+    "database_sha256": "a75cf1ea5cd4c2825224108d39d6a598e9844db77db2440d13d6293daddfdda7",
+    "recreated_and_post_mapper_bytes": [1851392, 1851392],
+    "different_byte_offsets_zero_indexed": [27, 95, 98, 99],
+    "byte_values_before_after": [[2, 3], [2, 3], [95, 122], [28, 113]],
+    "all_differences_within_100_byte_sqlite_file_header": true,
+    "no_wal_shm_or_journal_sidecar_observed": true
+  },
+  "logical_fingerprint": {
+    "definition": "SHA-256 over SQLite application_id, user_version, page_size, sqlite_master schema rows, and every typed row of every table in rowid order after integrity_check; excludes SQLite file-header write counters and library-version stamp",
+    "recreated_before_mapper_sha256": "80394f51d6a64e8dc48ca68c27a0c3458fa8ad76611825c57a08592f493d1dfd",
+    "preserved_post_mapper_sha256": "80394f51d6a64e8dc48ca68c27a0c3458fa8ad76611825c57a08592f493d1dfd",
+    "equal": true
+  },
+  "conclusion": "The copied database's file SHA changed only through SQLite header metadata; its schema and feature/match/verified-geometry rows did not change. Historical trial status remains failed, and its 24/48 registered camera candidate independently fails the predeclared 34/48 registration gate. This diagnostic does not authorize a rerun or quality claim."
+}
