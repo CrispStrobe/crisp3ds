@@ -97,7 +97,8 @@ Pages speculative: 4,000.
             status, reason = parity.manifest_status(path)
             self.assertIsNone(status)
             self.assertIn("malformed", reason)
-        with patch.object(parity.Path, "is_mount", return_value=True):
+        with (patch.object(parity.Path, "is_mount", return_value=True),
+              patch.object(parity.Path, "stat", return_value=type("S", (), {"st_dev": 2, "st_mode": 0o100644})())):
             with self.assertRaisesRegex(ValueError, "external volume"):
                 parity.external_inputs((Path(__file__),))
 
