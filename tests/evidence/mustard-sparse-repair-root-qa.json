@@ -1,0 +1,30 @@
+{
+  "schema": "mustard_sparse_track_repair_qa_v1",
+  "status": "accepted",
+  "scope": "Sparse integrity and eligibility for one bounded dense trial only; not surface-quality acceptance",
+  "report_sha256": "32beea7955df0642cc87092afc39e96647adf9fbab582eaf14d6a6d662ef5ef8",
+  "supervisor_sha256": "b75bb6a23c7ff0b4b3d7dc1216792aa173308c32fabbbbb7700af8922aa97d7b",
+  "model_files_sha256": {
+    "cameras.bin": "ebc18fcca6fa2dacf0b6ff16cfae700d62d44626530d48dcecc7e72767a24348",
+    "images.bin": "fa6f5d355e4ec6baba5409fdd1511bf331b9f7b2c30daf49e82865999621d190",
+    "points3D.bin": "a075d53c2f2a6c4c1e0959b3bd465760b5bb48f2e1d114d8ea47309a32a24f73"
+  },
+  "reviewer": "root supervisor; independent source peer review by surface_benchmark",
+  "registered_images": 48,
+  "retained_points": 939,
+  "retained_observations": 4734,
+  "removed_redundant_observations": 81,
+  "unchanged_clean_points": 897,
+  "repeated_image_tracks_after": 0,
+  "camera_poses_intrinsics_and_original_2d_measurements_unchanged": true,
+  "finite_positive_depth_and_backlinks_verified": true,
+  "root_recomputed_common_original_observations": 4815,
+  "root_recomputed_baseline_mean_pixels": 1.0839294382261413,
+  "root_recomputed_candidate_mean_pixels": 1.0840157968894133,
+  "root_recomputed_baseline_p95_pixels": 2.7589002809101593,
+  "root_recomputed_candidate_p95_pixels": 2.8055053306132582,
+  "all_predeclared_eligibility_gates_pass": true,
+  "surface_quality_accepted": false,
+  "metric_scale_verified": false,
+  "notes": "All original points survive. Common-original residuals slightly worsen but remain within the frozen 10% guard. Selected-only residual reduction is not evidence of independent quality improvement. Root rehashed serialized output and recomputed common-population residuals directly from both native binary models. No reference mesh or held-out image used."
+}

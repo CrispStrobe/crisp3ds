@@ -328,12 +328,41 @@ Do not inspect held-out photos to choose masks or SfM options. A later
 held-out image evaluation needs separately estimated test cameras and its
 own leakage disclosure; this paired training-only result is not that test.
 
+### Bounded duplicate-view track repair candidate
+
+A separate, immutable candidate repaired the 42 tracks that repeated an image
+in the fixed-initial exhaustive model. Within each affected track, it retained
+the observation with the lowest finite saved-geometry reprojection residual
+per image (tie: lower 2D index), removed the other 81 observations, and
+retriangulated only those 42 tracks with frozen camera poses/intrinsics. The
+other 897 point XYZ coordinates and observation links remained exactly
+unchanged; cached point errors were recomputed. This is a structural repair,
+not an independent optimization of object shape.
+
+The candidate retained all 939 points, all 48 cameras, and 4,734/4,815
+observations (98.32%). It has zero repeated-image tracks and passed every
+predeclared integrity/dense-eligibility gate. On the **same original 4,815
+observations, including discarded links**, mean reprojection was 1.083929 px
+before and 1.084016 px after; p95 was 2.758900 px before and 2.805505 px
+after. Selected-only residuals use 4,734 observations and must not be read as
+an independent accuracy gain. No reference mesh, held-out photo, or supplied
+camera calibration informed the selection rule. The fixed initial focal
+length remains unvalidated physical calibration, and neither these gates nor
+root's acceptance for a bounded dense trial certify mesh quality.
+
+The byte-exact [repair report](../tests/evidence/mustard-sparse-repair-report.json)
+(SHA-256 `32beea7955df0642cc87092afc39e96647adf9fbab582eaf14d6a6d662ef5ef8`),
+[supervisor report](../tests/evidence/mustard-sparse-repair-supervisor.json)
+(SHA-256 `b75bb6a23c7ff0b4b3d7dc1216792aa173308c32fabbbbb7700af8922aa97d7b`),
+and [root QA](../tests/evidence/mustard-sparse-repair-root-qa.json) bind the
+source and output model hashes. The original sparse model is preserved; the
+candidate is under the external `mustard-sparse-repair-001/model` directory.
+
 ## Next scoped quality tasks
 
-1. Audit and repair repeated-image tracks in a separate candidate model. Keep
-   the original model immutable; define the observation-selection rule before
-   scoring, retriangulate/refine, and compare distinct-view support and finite
-   reprojection denominators without rewarding deletion alone.
+1. Run the root-approved bounded dense trial from the separately repaired
+   sparse candidate, then evaluate geometry and source-mask support without
+   inferring accuracy from camera registration or track integrity alone.
 2. Evaluate guarded delayed intrinsics refinement only after that structural
    audit. Fixed initial intrinsics stabilized this capture but are not known
    calibration; reject collapsed focal/radial solutions and preserve the fixed
