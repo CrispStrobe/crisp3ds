@@ -9,6 +9,9 @@ on:
       - 'scripts/upstream_control/**'
       - 'scripts/classical_backend/**'
       - 'scripts/mve_full/**'
+      - 'scripts/benchmark_registry/**'
+      - 'scripts/neural_bridge/**'
+      - 'benchmarks/**'
   pull_request:
     paths:
       - '.github/workflows/quality-harness.yml'
@@ -17,6 +20,9 @@ on:
       - 'scripts/upstream_control/**'
       - 'scripts/classical_backend/**'
       - 'scripts/mve_full/**'
+      - 'scripts/benchmark_registry/**'
+      - 'scripts/neural_bridge/**'
+      - 'benchmarks/**'
 
 jobs:
   contracts:
@@ -47,3 +53,6 @@ jobs:
           python -m unittest discover -s scripts/upstream_control -p 'test_*.py'
           python -m unittest discover -s scripts/classical_backend -p 'test_*.py'
           python -m unittest discover -s scripts/mve_full -p 'test_*.py'
+          python -m unittest discover -s scripts/benchmark_registry -p 'test_*.py'
+          python -m unittest discover -s scripts/neural_bridge -p 'test_*.py'
+          python -m scripts.benchmark_registry.validate

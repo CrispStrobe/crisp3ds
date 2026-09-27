@@ -1,0 +1,179 @@
+{
+  "schema": "pipeline_evidence_v1",
+  "evidence_types": [
+    "measured_geometry",
+    "sensor_diagnostic",
+    "software_oracle",
+    "analytic_golden",
+    "rendering"
+  ],
+  "pipelines": [
+    {
+      "id": "colmap_openmvs",
+      "name": "COLMAP / OpenMVS CPU",
+      "execution_state": "executed",
+      "artifact_type": "mesh",
+      "camera_lanes": ["image_estimated", "calibrated_intrinsics"],
+      "doc_refs": ["docs/CLASSICAL-BACKEND.md", "docs/CALIBRATED-CONTROL.md", "docs/REGISTRATION-AUDIT.md"],
+      "runs": [
+        {
+          "id": "ycb_native_masked_008",
+          "dataset_id": "ycb_np3_60",
+          "input_profile": "original_rgb_photo_masks",
+          "camera_lane": "image_estimated",
+          "artifact_type": "mesh",
+          "stage": "refined_mesh",
+          "composition": "composed",
+          "reference_scope": "independent_geometry",
+          "result_ref": "build-opencv/classical-ycb-native-masked-008/result.json",
+          "result_sha256": "8f27196add8d006691103dc3ddff33336c4a62bb86cf08b46d0c52e74614c3d9",
+          "provenance_ref": "build-opencv/object-motion/foreground/provenance.json",
+          "provenance_sha256": "7bcabaf83904f35d89109dd0bea86b442a89a467a1293cbbdec6274792787050"
+        },
+        {
+          "id": "ycb_native_masked_008_rough_sensor",
+          "dataset_id": "ycb_np3_60",
+          "input_profile": "original_rgb_photo_masks",
+          "camera_lane": "image_estimated",
+          "artifact_type": "mesh",
+          "stage": "rough_mesh",
+          "composition": "composed",
+          "reference_scope": "sensor_depth",
+          "result_ref": "build-opencv/classical-ycb-native-masked-008/result.json",
+          "result_sha256": "8f27196add8d006691103dc3ddff33336c4a62bb86cf08b46d0c52e74614c3d9",
+          "provenance_ref": "build-opencv/object-motion/foreground/provenance.json",
+          "provenance_sha256": "7bcabaf83904f35d89109dd0bea86b442a89a467a1293cbbdec6274792787050"
+        },
+        {
+          "id": "ycb_calibrated_014_rough",
+          "dataset_id": "ycb_np3_60",
+          "input_profile": "original_rgb_photo_masks",
+          "camera_lane": "calibrated_intrinsics",
+          "artifact_type": "mesh",
+          "stage": "rough_mesh",
+          "composition": "partial",
+          "reference_scope": "sensor_depth",
+          "result_ref": "build-opencv/classical-ycb-calibrated-014/result.json",
+          "result_sha256": "fa7709452b28b7ee24e3d05b5b8f51d9d681e79eb63488292816ff8a8490966f",
+          "provenance_ref": "build-opencv/object-motion/calibration-ablation-002/calibrated_shifted/report.json",
+          "provenance_sha256": "63cb424b390e21fe181c80ded8e61ad42a0e043bd100b4e4d4cd45c26df7bd95"
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "measured_geometry",
+          "metric_target": "mesh",
+          "doc_ref": "docs/YCB-COMPARISON.md",
+          "scope": "YCB scanner-reference fitted-surface diagnostic; scale and registration reliability not accepted",
+          "run_ids": ["ycb_native_masked_008"]
+        },
+        {
+          "kind": "sensor_diagnostic",
+          "metric_target": "mesh",
+          "doc_ref": "docs/SENSOR-DEPTH-BENCHMARK.md",
+          "scope": "Three fixed Berkeley depth frames on rough-mesh stages; conditional same-capture agreement, not metrology",
+          "run_ids": ["ycb_native_masked_008_rough_sensor", "ycb_calibrated_014_rough"]
+        }
+      ]
+    },
+    {
+      "id": "mve",
+      "name": "Selected SIFT-only MVE CPU",
+      "execution_state": "executed",
+      "artifact_type": "mesh",
+      "camera_lanes": ["image_estimated"],
+      "doc_refs": ["docs/MVE-FULL.md", "docs/BUNNY-EVALUATION.md", "docs/REGISTRATION-AUDIT.md"],
+      "runs": [
+        {
+          "id": "bunny_contrast_finalized_v2",
+          "dataset_id": "scan_3dlf_bunny_73",
+          "input_profile": "gamma05_clahe2",
+          "camera_lane": "image_estimated",
+          "artifact_type": "mesh",
+          "stage": "cleaned_mesh",
+          "composition": "composed",
+          "reference_scope": "independent_geometry",
+          "result_ref": "build-opencv/mve-full-bunny-002-finalized-v2/result.json",
+          "result_sha256": "6a360b837b0d7df69f2676d58ba987e38af32d39e725dd78e6db7fa893b53fad",
+          "provenance_ref": "build-opencv/mve-full-bunny-002/result.json",
+          "provenance_sha256": "e61ae7ff607719c9c7a63e745b8caf57a430f3f4147ea328920a5eb50c4a3d2f"
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "measured_geometry",
+          "metric_target": "mesh",
+          "doc_ref": "docs/BUNNY-EVALUATION.md",
+          "scope": "Physical-bunny reference-fit diagnostic; registration can fail and continuation is not fresh end-to-end timing",
+          "run_ids": ["bunny_contrast_finalized_v2"]
+        },
+        {
+          "kind": "software_oracle",
+          "metric_target": "mesh",
+          "doc_ref": "docs/UPSTREAM-COMPARISON.md",
+          "scope": "Separate Sceaux upstream OpenMVS agreement control; software output is not physical truth",
+          "run_ids": []
+        },
+        {
+          "kind": "analytic_golden",
+          "metric_target": "none",
+          "doc_ref": "docs/MVE-DENSE-SPIKE.md",
+          "scope": "Rendered depth fixture with known analytic geometry; not a real-object quality result",
+          "run_ids": []
+        }
+      ]
+    },
+    {
+      "id": "micmac",
+      "name": "MicMac CPU candidate",
+      "execution_state": "audited",
+      "audit_scope": "source_build_graph",
+      "artifact_type": "mesh",
+      "camera_lanes": ["unverified"],
+      "doc_refs": ["docs/MICMAC-BACKEND.md"],
+      "runs": [],
+      "evidence": []
+    },
+    {
+      "id": "alicevision",
+      "name": "AliceVision candidate",
+      "execution_state": "audited",
+      "audit_scope": "documentation_only",
+      "artifact_type": "mesh",
+      "camera_lanes": ["unverified"],
+      "doc_refs": ["docs/BACKEND-EVALUATION.md"],
+      "runs": [],
+      "evidence": []
+    },
+    {
+      "id": "nerfstudio_gsplat",
+      "name": "Nerfstudio / gsplat research branch",
+      "execution_state": "planned",
+      "artifact_type": "splats",
+      "camera_lanes": ["unverified"],
+      "doc_refs": ["docs/BACKEND-EXPERIMENTS.md"],
+      "runs": [],
+      "evidence": []
+    },
+    {
+      "id": "gaustudio",
+      "name": "GauStudio splat-to-mesh research branch",
+      "execution_state": "planned",
+      "artifact_type": "splats",
+      "camera_lanes": ["unverified"],
+      "doc_refs": ["docs/BACKEND-EXPERIMENTS.md"],
+      "runs": [],
+      "evidence": []
+    },
+    {
+      "id": "neus",
+      "name": "NeuS implicit-surface research branch",
+      "execution_state": "planned",
+      "artifact_type": "mesh",
+      "camera_lanes": ["unverified"],
+      "doc_refs": ["docs/BACKEND-EXPERIMENTS.md"],
+      "runs": [],
+      "evidence": []
+    }
+  ]
+}

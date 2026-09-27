@@ -1,5 +1,11 @@
 # MicMac CPU backend: shipping rejection
 
+2026-09-27 policy clarification: the project now uses AGPL and allows GPL/AGPL
+comparison experiments. The historical GPL exclusion below is not a blanket
+ban on those experiments. The separate NEC noncommercial restriction still
+requires resolution; no MicMac build or reconstruction has been run. See the
+[current comparison plan](PIPELINE-COMPARISON-PLAN.md).
+
 Inspection date: 2026-09-26. The inspected source is upstream `micmacIGN/micmac` commit `f8fe432101fb1852f8c4d8546504a5278f6ef57f`, cloned into ignored `.local-tools/micmac-src/`. No MicMac executable was built, run, linked, or added to the application.
 
 The top-level [CeCILL-B license](https://github.com/micmacIGN/micmac/blob/f8fe432101fb1852f8c4d8546504a5278f6ef57f/LICENSE.md) does not cover every file on the normal `mm3d` build path under that license alone:

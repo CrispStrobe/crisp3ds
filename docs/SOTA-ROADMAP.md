@@ -1,6 +1,15 @@
 # Quality-first reconstruction roadmap
 
-## Current bounded execution: calibrated mesh and sensor-depth checks
+## Current continuation: comparisons and initialization diagnostics
+
+The [three-branch comparison plan](PIPELINE-COMPARISON-PLAN.md) now defines the
+classical, Gaussian and neural-surface lanes, actual-versus-planned oracle status,
+and the next two real-object acquisitions. Local work is limited to spatial
+sensor diagnostics, read-only initialization diagnosis, evidence contracts and
+a camera-format bridge with analytic goldens. No new GPU result or additional
+downloaded real-object golden is claimed; large acquisitions belong on the VPS.
+
+## Previous bounded execution: calibrated mesh and sensor-depth checks
 
 After the registration audit and the retained `012` resolution/budget failure,
 the next supervised batch is:
@@ -51,10 +60,12 @@ exposures. Calibration/markers are optional aids. Deformation is outside this sc
 
 ## Baseline and definition of success
 
-We have an experimental M1 CPU image-to-mesh path, not competitive object quality.
-The 73-view bunny registered every view but failed shape acceptance (14.88% sampled
-F-score under the documented diagnostic, not a percentage of KIRI quality).
-See [the complete evaluation](BUNNY-EVALUATION.md). MVE remains a control/fallback,
+We have an experimental M1 CPU image-to-mesh path, not demonstrated competitive
+object quality. The 73-view bunny registered every view but has not passed shape
+acceptance. Its historical 14.88% sampled F-score is not a reliable intrinsic
+quality estimate after the [registration audit](REGISTRATION-AUDIT.md), and is
+never a percentage of KIRI quality. See [the earlier evaluation](BUNNY-EVALUATION.md).
+MVE remains a control/fallback,
 not a required engine. Selected MVE build/smoke/unit checks passed on macOS arm64,
 Linux x64 and Windows x64; live reconstruction portability remains unproven.
 

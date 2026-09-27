@@ -1,5 +1,10 @@
 # Backend experiments: evidence before selection
 
+For the current execution inventory, three-branch plan and additional data queue,
+use [PIPELINE-COMPARISON-PLAN.md](PIPELINE-COMPARISON-PLAN.md). The dated proposal
+below predates the completed local COLMAP/OpenMVS runs and must not be read as
+their current execution status.
+
 2026-09-27: the approved [quality-first roadmap](SOTA-ROADMAP.md) supersedes the
 ordering and oracle-only OpenMVS restriction in this historical proposal. Original
 project code is now AGPL-3.0-only; desktop/server integration is a candidate, while

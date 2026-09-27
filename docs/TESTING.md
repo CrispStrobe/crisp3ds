@@ -27,6 +27,14 @@ Measured multi-view acceptance will additionally require bidirectional surface d
 
 ## External GPL oracles
 
+2026-09-27 update: the approved AGPL desktop/server roadmap also permits the
+isolated OpenMVS experiments now recorded in [the comparison plan](PIPELINE-COMPARISON-PLAN.md).
+The paragraph below describes the original narrower exception, not a prohibition
+on those completed runs. Neither policy clears noncommercial data/code or App
+Store distribution. The [evidence registry](../benchmarks/pipeline-evidence.json)
+distinguishes executed pipelines from candidates and golden types from software
+agreement; it is not a license approval or quality ranking.
+
 The user allows GPL test oracles. They may be separate, opt-in development tools with their own source/version/license record. Do not link them into the app, copy their implementation into the core, bundle executables into installers, or make them runtime dependencies. Review each tool's actual terms and any generated content separately. GPL permission here is not blanket approval for AGPL or an external hosted service.
 
 Use file-based inputs/outputs in isolated test directories. Record engine commit/build options, full command/settings, input hashes, stdout/stderr, output hashes and comparison metrics. Compare to measured data where available; label oracle-only comparisons as differential checks. A test-only reader for predicted disparity files permits these comparisons without incorporating an oracle engine into production.

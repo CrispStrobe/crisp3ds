@@ -13,6 +13,36 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
+### Latest continuation: comparison contracts and camera bridge
+
+The [three-branch plan](PIPELINE-COMPARISON-PLAN.md) and hash-bound
+[pipeline registry](../benchmarks/pipeline-evidence.json) distinguish two
+executed pipeline families, two audited candidates and three planned neural
+branches. MicMac/AliceVision have not produced reconstruction results here.
+The [Nerfstudio camera bridge](NEURAL-CAMERA-BRIDGE.md) now has analytic
+projection/rejection tests and a live 14-view supplied-camera export; no
+neural package was installed or trained. Root independently checked all
+14 poses against normalized PyCOLMAP rotations: exact agreement.
+
+The [initialization audit](INITIALIZATION-DIAGNOSTIC.md) identifies severe
+focal/distortion drift in the failed image-only two-view model and ranks
+alternative seeds from image correspondence cycles, without motion-label or
+reference-geometry ranking. No new mapping run or quality improvement is
+claimed. The [spatial sensor audit](SENSOR-SPATIAL.md) partitions the existing
+fixed rays; root independently reconciled all support/hit/threshold counts.
+
+Local regression: **305 tests run, 8 skipped, remaining passed**. Separate
+opt-in real-data/stereo-CLI checks: **16 run, 1 skipped, remaining passed**
+(overlapping tests, not additive). Registry validation and diff checks pass.
+New real-object source availability/sizes were checked, but no new datasets
+were downloaded; VPS acquisition and neural GPU runs remain pending.
+
+Both the [quality harness](https://github.com/CrispStrobe/crisp3ds/actions/runs/36292531222)
+and [foundation matrix](https://github.com/CrispStrobe/crisp3ds/actions/runs/36292531153)
+passed at prior checkpoint `1b21c1f`. This continuation needs its own CI result.
+
+### Previous checkpoint: calibrated mesh and sensor depth
+
 Latest checkpoint: the corrected calibrated dense profile completed with
 40,518 points. A separately recorded continuation produced a 38,550-face
 rough mesh; refinement exceeded its five-minute cap, so no new refined or
