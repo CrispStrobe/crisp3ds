@@ -1,0 +1,265 @@
+# OpenMVG v2.1 mustard CPU SfM preflight (no build or photo run)
+
+## First approved build attempt, 2026-09-27
+
+One explicitly approved `--build` attempt cloned and sealed the exact source
+and all three submodules, then stopped at CMake configuration; **no target
+compiled, no photo staged, and no SfM ran**. Installed CMake 4.1.1 rejects
+the vendored `src/dependencies/osi_clp/CMakeLists.txt:6` declaration
+`CMAKE_MINIMUM_REQUIRED(VERSION 2.6)` because compatibility below 3.5 was
+removed. The earlier “Osi not found” message causes the vendored Osi/CLP
+fallback to be configured; it is not itself the fatal diagnostic. CMake
+suggests `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` as a possible override; the
+separately approved test and its subsequent blocker are recorded below.
+Older-CMake/toolchain or source patch options need a separate reviewed attempt. Do not rerun
+`--build` on the now nonfresh root: its fresh-root guard correctly refuses.
+
+The external evaluation tree is 101 MiB after the stop. The final device
+checks showed 14,981,548 KiB free externally and 23,261,852 KiB internally,
+above both 11 GiB operating guards; the source checkout remains clean.
+The original `build-manifest.json` SHA-256 (now preserved as
+`build-manifest-attempt1.json`) was
+`e328f483306fe0979291a8c74e0c3016a547283d37b725fe63e20958a97327e8`;
+`logs/04-configure.log` SHA-256 is
+`c12becb2b57a76590f239730bc5960b19befb862cb310df65f50dc242d6696f6`.
+These artifacts live under
+`/Volumes/backups/code/crisp3ds-data/openmvg-mustard-v21-001`; do not mutate
+them while planning the next controlled attempt.
+
+A separate `--resume-preflight` is read-only and succeeds only when the first
+manifest and configure log still match those exact hashes, source HEAD,
+gitlinks, clean status, license-file hashes and first-stage statuses match,
+no photo directory exists, no target build log exists, and both disk guards
+still pass. On 2026-09-27 it reported 97,482,152 managed bytes,
+15,341,080,576 external free bytes versus 13,861,161,560 required, and
+23,817,494,528 internal free bytes. The explicitly approved
+`--resume-configure-build` snapshotted the first manifest byte-for-byte
+as `build-manifest-attempt1.json`, then appended a distinct bounded stage
+record/log (`06-resume-configure.log`); the planned `07-resume-build.log`
+was never created. It used only the
+additional `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` configure flag. It retains
+LiGT OFF, all target/resource/time/cache guards, the clean source and all
+three exact submodule revisions. The reviewed supervisor code SHA-256 for
+this resume was `436b15eee93778cce27007681a5cbe0004f58023a3436dc5165d559612994c52`;
+11 synthetic guardrail tests pass.
+
+The one separately approved resume ran and stopped in `06-resume-configure.log`
+before compilation. The CMake policy override cleared the first blocker,
+but vendored Ceres 1.13 then rejected an empty detected Eigen version (`..`).
+Its `cmake/FindEigen.cmake` reads `EIGEN_WORLD_VERSION` and related macros from
+`Eigen/src/Core/util/Macros.h`; the selected Homebrew
+`/opt/homebrew/include/eigen3` places its version macros in `Eigen/Version`
+instead. That installation reports Eigen 3.5.0 with patch level 1. A separate
+local Eigen 3.4.0 header tree has the legacy macros, but no hint/cache change,
+dependency install or further retry was made. A future attempt must review
+the exact Ceres/Eigen ABI and CMake selection, not silently patch the source.
+The first manifest snapshot remains byte-identical (SHA-256
+`e328f483306fe0979291a8c74e0c3016a547283d37b725fe63e20958a97327e8`);
+the appended manifest SHA-256 is
+`a762484396402bc37c69a4765a7c7497ba0e7b50d7680d0fb75faccd8167d80a`,
+and `06-resume-configure.log` SHA-256 is
+`1486702aa41731a4a45d5884f3eeff7c2238053cb18a0d9759e7e370205c388a`.
+No `07-resume-build.log`, staged photo or SfM output exists. The tree is still
+101 MiB, with 14,980,712 KiB free externally and 23,242,376 KiB internally.
+
+## Decision and scope
+
+**Conditional go for one isolated M1 evaluation build and 48-TRAIN-view CPU
+SfM comparison; no-go for shipping now.** The immutable candidate is upstream
+OpenMVG `v2.1`, commit `01193a245ee3c36458e650b1cf4402caad8983ef`
+(tag checked by read-only `git ls-remote`, release published 2023-12-28).
+The pinned source and submodules are now cloned and sealed in an external
+evaluation tree; configuration has stopped before compiling any target.
+The candidate's core is MPL-2.0, which fits the project's prospective shipped
+third-party policy only after exact binary/dependency, notices, MPL source
+archive and cross-platform packaging review. The current project code itself
+is AGPL-3.0-only; this plan does not change that. [OpenMVG license](https://github.com/openMVG/openMVG/blob/01193a245ee3c36458e650b1cf4402caad8983ef/LICENSE),
+[release](https://github.com/openMVG/openMVG/releases/tag/v2.1),
+[local dependency policy](DEPENDENCIES.md).
+
+The present external backup device has 15,086,732 KiB free, about 14.39 GiB,
+or about 4.39 GiB above the 10 GiB floor; the internal workspace device has
+23,424,000 KiB free. `/Volumes/backups/ai` and
+`/Volumes/backups/code/crisp3ds-data` share that backup device. A separate
+AliceVision Meshroom DMG is 1,247,000,900 bytes before extraction; do not
+overlap its provisioning with this build. [AliceVision local audit](ALICEVISION-MAC-ORACLE.md).
+
+## Source and dependency blockers
+
+At this v2.1 pin, CMake's `OpenMVG_USE_LIGT` defaults **ON**, and the source
+states that LiGT has a patent concern and a CC BY-SA 4.0 condition. Explicitly
+set `-DOpenMVG_USE_LIGT=OFF` and verify it is absent from the built target
+closure. The top level also unconditionally adds `nonFree/sift`; the normal
+`openMVG_main_ComputeFeatures` target links `vlsift` even if the chosen runtime
+method is `SIFT_ANATOMY` or `AKAZE_FLOAT`. The wrapper
+`nonFree/sift/SIFT_describer.hpp` states MPL-2.0, while its vendored VLFeat
+`vl/sift.c` names BSD terms; the upstream VLFeat `COPYING` is BSD-style.
+Thus `nonFree` is **not a demonstrated GPL component**, but its historical
+patent/research labeling, vendored notice provenance and unavoidable target
+link are a shipping gate. A later shipping configuration should remove the
+unused `vlsift` dependency from the feature CLI and audit the resulting
+binary; this evaluation plan does not assume that patch works.
+[Pinned top-level CMake](https://github.com/openMVG/openMVG/blob/01193a245ee3c36458e650b1cf4402caad8983ef/src/CMakeLists.txt),
+[feature target](https://github.com/openMVG/openMVG/blob/01193a245ee3c36458e650b1cf4402caad8983ef/src/software/SfM/CMakeLists.txt),
+[wrapper](https://github.com/openMVG/openMVG/blob/01193a245ee3c36458e650b1cf4402caad8983ef/src/nonFree/sift/SIFT_describer.hpp),
+[VLFeat file](https://github.com/openMVG/openMVG/blob/01193a245ee3c36458e650b1cf4402caad8983ef/src/nonFree/sift/vl/sift.c),
+[VLFeat terms](https://github.com/vlfeat/vlfeat/blob/master/COPYING).
+
+Minimal M1 build preflight: pin submodule commits from the v2.1 tree before
+fetch; configure Release, arm64, `OpenMVG_BUILD_TESTS=OFF`,
+`OpenMVG_BUILD_DOC=OFF`, `OpenMVG_BUILD_EXAMPLES=OFF`,
+`OpenMVG_BUILD_GUI_SOFTWARES=OFF`, `OpenMVG_BUILD_OPENGL_EXAMPLES=OFF`,
+`OpenMVG_USE_OPENCV=OFF`, `OpenMVG_USE_LIGT=OFF`, and
+`OpenMVG_USE_OPENMP=OFF` unless the exact M1 toolchain proves OpenMP support.
+Build only `openMVG_main_SfMInit_ImageListing`,
+`openMVG_main_ComputeFeatures`, `openMVG_main_ComputeMatches`,
+`openMVG_main_SfM`, and later, if SfM is accepted,
+`openMVG_main_ConvertSfM_DataFormat`/a dense-export target. Do **not** run
+unqualified `install`/`all`: the CMake tree defines GUI, examples and
+nonFree targets separately. The local workspace already has arm64-oriented
+Eigen and Ceres installations under `.local-tools/bundle-quality` (9.4 MiB
+and 19 MiB), but their version/ABI and target graph against OpenMVG v2.1
+are unverified. CMake can fall back to bundled Eigen/Ceres and other image,
+matching and optimization libraries, so the target dependency closure and
+actual linked files must be captured before release. Upstream documents
+Mac, Linux and Windows builds, but no target-platform package or App Store
+compatibility is established here. [Pinned build CMake](https://github.com/openMVG/openMVG/blob/01193a245ee3c36458e650b1cf4402caad8983ef/src/CMakeLists.txt),
+[third-party CMake](https://github.com/openMVG/openMVG/blob/01193a245ee3c36458e650b1cf4402caad8983ef/src/third_party/CMakeLists.txt),
+[build instructions](https://github.com/openMVG/openMVG/blob/01193a245ee3c36458e650b1cf4402caad8983ef/BUILD.md).
+
+The sealed v2.1 gitlinks are `src/dependencies/cereal`
+`ac168fe78ac499be0a745bf4a3253a9660572f8d`,
+`src/dependencies/glfw` `eab31f228fd1872753c55fb438e3d88e51c0e9b2`,
+and `src/dependencies/osi_clp`
+`a25a980c1af50cbd8962fe9d21035afa03653270`. The supervisor verifies
+these against both the parent git tree and actual submodule checkouts, plus
+their exact `.gitmodules` URLs, before configuration. The source/license
+inventory hashes `LICENSE`, `COPYRIGHT.md`, top-level and SfM CMake files,
+the SIFT wrapper and VLFeat C file, `.gitmodules`, and discovered submodule
+license files. It stops if a CMake file declares an implicit
+`ExternalProject`, `FetchContent` or `file(DOWNLOAD)` operation. This is a
+source audit, **not** a transitive binary-license clearance; the upstream
+notice lists optional LGPL CXSparse, which must be excluded and verified in
+the eventual linked target closure. [Pinned gitmodules](https://github.com/openMVG/openMVG/blob/01193a245ee3c36458e650b1cf4402caad8983ef/.gitmodules),
+[pinned third-party notice](https://github.com/openMVG/openMVG/blob/01193a245ee3c36458e650b1cf4402caad8983ef/COPYRIGHT.md).
+
+GitHub reports about 30 MB of repository data, which excludes an exact
+submodule checkout/build estimate. Allow **at most 2 GiB total new external
+bytes**, including pinned source/submodules, build tree, copied/staged images,
+matches, sparse output, logs and temporary files; split 1.5 GiB build and
+0.5 GiB experiment. This is a stop cap, not a claim that compilation fits.
+Use at most two compile and SfM threads, 4 GiB resident memory, 90 minutes
+build and 20 minutes photo pipeline. Preflight both devices above 11 GiB and
+the backup device above 10 GiB + the remaining cap + 1 GiB guard; monitor
+both devices and the external output tree throughout. If the AliceVision DMG
+must be downloaded/extracted, reserve it separately and **do not start** the
+OpenMVG build under the present shared-device headroom. No caches in `/tmp`
+or the home directory.
+
+The implementation is [the evaluation supervisor](../scripts/classical_backend/openmvg_m1_supervisor.py).
+Its default invocation, `python3 scripts/classical_backend/openmvg_m1_supervisor.py`,
+is **read-only**: it hashes the already sealed TRAIN manifest, 48 JPEGs and
+48 masks, reports device free space, and reports the pending build/source
+inventory. No clone or build is implied by preflight. A separate, future
+operator-approved `--build` would create only the fresh
+`/Volumes/backups/code/crisp3ds-data/openmvg-mustard-v21-001` tree (source,
+build, logs, scratch) and build exactly the four listed CLI targets with two
+compile threads. A later `--stage` copies only the hashed TRAIN JPEGs and
+renamed masks into `images48`; it does not run an SfM command. The managed
+tree, including git metadata, build and staging, is capped at 2 GiB; the
+build allocation is 1.5 GiB and the photo allocation 0.5 GiB. The guarded
+subprocess loop checks both device floors at 11 GiB, the managed tree size,
+and descendant-process RSS at 4 GiB; it terminates the process group on a
+breach or timeout. Clone, checkout, submodule update, configure and build
+each have a separate 16 MiB maximum stdout/stderr log under `logs`; overflow
+stops the process group. `build-manifest.json` is written before each command
+and updated with its exact argument vector, log path, elapsed time, exit
+status or stop reason, plus the sealed source/license inventory when available.
+All `TMPDIR`/`TMP`/`TEMP` and XDG cache paths for the build
+are under the external tree. It never invokes Homebrew or a package manager.
+No `/tmp` workspace, image/weights download, all-target build, photo run, or
+dense export is part of this approval stage. The synthetic guardrail tests are
+in [the supervisor test](../scripts/classical_backend/test_openmvg_m1_supervisor.py).
+
+## Frozen TRAIN-only camera comparison
+
+Use only the sealed 48 photos in
+`/Volumes/backups/code/crisp3ds-data/mustard-sfm-train-001/images` and its
+reviewed coarse feature masks. The staged JPEGs total 47 MiB; masks total
+192 KiB. The `train-names.txt` SHA-256 is
+`a81d1647109db27991c39c5fe1a9ae308c04081f8ada49d8b0f5ab1c15245544`;
+the stage report SHA-256 is
+`bbcba624f6a51f82e0ebdebf6e7e4cda10804bc8df34cfd0d5b3242983a225d0`.
+Create a fresh, exact 48-photo image directory on the external device and
+corresponding masks, with source hashes checked before and after. Rename
+`NP3_006.jpg.png` to OpenMVG's required `NP3_006_mask.png` convention
+(analogously for all 48); confirm binary values, image dimensions and mask
+support after staging. OpenMVG's pinned feature source constructs the name
+from the image basename plus `_mask.png`, prefers per-image masks, and
+ignores mask images during image listing. Do not include any of the 12
+held-out photos, scanner/depth/reference mesh or supplied Berkeley poses.
+[Pinned feature mask lookup](https://github.com/openMVG/openMVG/blob/01193a245ee3c36458e650b1cf4402caad8983ef/src/software/SfM/main_ComputeFeatures.cpp),
+[image-listing source](https://github.com/openMVG/openMVG/blob/01193a245ee3c36458e650b1cf4402caad8983ef/src/software/SfM/main_SfMInit_ImageListing.cpp).
+
+The minimum source-level command contract, to verify against each built
+binary's `--help` before execution, is:
+
+```text
+openMVG_main_SfMInit_ImageListing -i IMAGES48 -o MATCHES -f 1536 -c 2 -g 1
+openMVG_main_ComputeFeatures -i MATCHES/sfm_data.json -o MATCHES -m SIFT_ANATOMY -p NORMAL
+openMVG_main_ComputeMatches -i MATCHES/sfm_data.json -o MATCHES -g e -r 0.8
+openMVG_main_SfM -i MATCHES/sfm_data.json -m MATCHES -o SPARSE -s INCREMENTAL -f NONE
+```
+
+`-f 1536` is the same unmeasured 1.2×1280 fixed initial focal assumption as
+the PyCOLMAP baseline, `-c 2` is one-radial pinhole, and `-g 1` permits a
+shared intrinsic group. SfM `-f NONE` holds it fixed, with no supplied seed
+pair or prior pose. This is a new extractor/matcher/mapper **pipeline**
+comparison, not a mapper-only test on identical features. The default OpenMVG
+matching ratio is 0.8, but pin it explicitly; use essential geometry since
+the camera assumption is fixed. Capture actual image-listing focal/principal
+point, image IDs, feature and geometric-match counts, SfM seed, software
+hashes, output sizes, wall time and peak RSS. [Image listing](https://openmvg.readthedocs.io/en/latest/software/SfM/SfMInit_ImageListing/),
+[features and masks](https://openmvg.readthedocs.io/en/latest/software/SfM/ComputeFeatures/),
+[matching](https://openmvg.readthedocs.io/en/latest/software/SfM/ComputeMatches/),
+[pinned SfM options](https://github.com/openMVG/openMVG/blob/01193a245ee3c36458e650b1cf4402caad8983ef/src/software/SfM/main_SfM.cpp).
+
+Reusing the sealed PyCOLMAP SQLite database is **not a direct option**:
+OpenMVG expects `sfm_data.json` plus its own per-image regions/descriptors
+and geometric match files, with different image identifiers and serialization.
+An adapter would need to preserve exact feature indices, descriptor
+representation, pair orientation and verification semantics; that is a
+separate ablation. Fresh OpenMVG extraction is the bounded comparison here.
+[OpenMVG data structures](https://github.com/openMVG/openMVG/wiki/OpenMVG-data-structures),
+[COLMAP database format](https://colmap.github.io/format.html#database-format).
+
+## Predeclared acceptance and downstream gate
+
+Require all 48 TRAIN cameras to register; 24/48 partial arcs fail. On the
+48-camera model compute the existing train-only trajectory statistics:
+camera centers `-Rᵀt`, center PCA plane and median planar radius, 47 adjacent
+steps plus closure, and all 24 cyclic-opposing pairs. Reject a folded-orbit
+candidate if the median opposing center distance/radius is `<= 1.0`, **or**
+any opposing pair is `<= 0.5` and has a full-orientation difference `<= 15°`,
+**or** adjacent-step p95 exceeds `1.0` radius or adjacent full-rotation p95
+exceeds `45°`. These coarse, predeclared gates distinguish the existing
+exhaustive fold (median opposing 0.179; adjacent p95 2.597 radius/81.69°)
+without pretending acquisition labels are measured angles. Also require the
+two frozen opposing TRAIN pairs `030/198` and `036/222` to pass the prior
+E/cheirality/parallax and competing-homography gates in as-stored,
+canonical and reverse row order with the same three seeds; report
+preselected leave-one-out sensitivity and withhold a physical-pose claim if
+either pair is order/removal unstable. Freeze all of this before inspecting
+an OpenMVG camera. No reference geometry, held-out photo or depth may tune
+these settings. [Existing trajectory diagnostic](MUSTARD-POSE-DIAGNOSTIC.md),
+[two-view gate](MUSTARD-TWO-VIEW-POSE-PLAN.md),
+[robustness finding](MUSTARD-USAC-ROBUSTNESS-RESULT.md).
+
+Only after these camera and correspondence gates pass should a dense export
+be planned. OpenMVG documents an `openMVG_main_openMVG2openMVS` bridge for
+OpenMVS and an MVE export path; either requires its own image/pose-coordinate
+and mask-handoff checks. OpenMVS is AGPL evaluation-only under the current
+product boundary, and existing OpenMVS dense comparisons cannot certify this
+new camera model. [OpenMVG to OpenMVS](https://openmvg.readthedocs.io/en/latest/software/MVS/OpenMVS/),
+[OpenMVG to MVE](https://openmvg.readthedocs.io/en/latest/software/MVS/MVE/),
+[local dependency policy](DEPENDENCIES.md).
