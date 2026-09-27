@@ -1,0 +1,15 @@
+{
+  "schema": "mustard_photo_refine_v2_visual_review_v1",
+  "candidate_status": "approved_coarse_feature_ablation_only",
+  "source_stage_report_sha256": "bbcba624f6a51f82e0ebdebf6e7e4cda10804bc8df34cfd0d5b3242983a225d0",
+  "source_sam_inventory_sha256": "c341e3798a792c83abbacac8a7f882a761c878cdd9dba693c02c5877bbb75751",
+  "source_sam_qa_sha256": "c07a62441a4846f53619d28d16f931bfd3a0e85f99a26df83bc6b664cdd8a2da",
+  "candidate_report_sha256": "0c47218e91f11f2499d618589fa91f6e4879a95ef0c89fb1681af57f677fb125",
+  "full_training_sheet_sha256": "bc316c53ed94c24f00563003d162f4f6f8af712f3d821b1da6d1d7ef9dc9b2a8",
+  "reviewed_training_views": 48,
+  "added_pixels": 0,
+  "removed_pixels": 7084,
+  "observation": "Root independently reviewed the full 48-tile sheet and approved this exact v2 candidate solely as a bounded coarse-feature-support ablation input alongside the accepted SAM control. No obvious interior label or cap loss is visible at sheet scale. Side-label and body boundary strips remain ambiguous. V2 is not the default, an accepted silhouette, dense geometry truth, or a proven quality improvement.",
+  "heldout_or_geometry_used_for_selection": false,
+  "camera_or_dense_run_consumed_candidate": false
+}
