@@ -1,11 +1,12 @@
-# Frozen mustard feature-mask camera ablation: awaiting live approval
+# Mustard feature-mask camera ablation: completed, negative result
 
 This is a two-arm **training-only sparse SfM** comparison. The accepted SAM
 coarse support is the control; the root-reviewed photo-refined v2 is approved
 only as a bounded coarse feature-support ablation. The 12 held-out photos,
 scanner mesh, sensor depth, prior camera models, native dense pipeline and
 reference scores are outside both arms. Earlier mustard SfM and mask outputs
-are immutable. No live arm has run under this plan.
+are immutable. The one approved live pair has now run; results and the
+dense-stage decision are below.
 
 The read-only [wrapper](../scripts/classical_backend/mustard_mask_pair.py)
 is frozen at SHA-256
@@ -71,11 +72,75 @@ No mesh-quality claim follows from registration count. Do not run native dense
 from this plan; any dense mask ablation requires a separately selected, frozen,
 plausible common camera model and its own plan.
 
-To repeat the read-only preflight from the repository root:
+The pre-run read-only preflight was invoked from the repository root as:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 .local-tools/colmap-sparse/venv/bin/python \
   -m scripts.classical_backend.mustard_mask_pair
 ```
 
-The `--run` switch is reserved for root's explicit live approval.
+The one `--run` invocation was authorized by root for wrapper SHA-256
+`47d5f5db014ee3fb249967f8ffbd5fd8d333c25b728d4af32488fe930cf8b584`.
+There was no retry or setting change. The preflight command above is read-only
+but now correctly rejects the occupied output names; the same `--run` command
+must not be used again.
+
+## Sealed paired outcome and independent audit
+
+The fresh [receipt](</Volumes/backups/code/crisp3ds-data/mustard-feature-mask-pair-001-receipt.json>) has SHA-256
+`3b6481f06f63506fdd2ab5c452a15f3e71c139d2ce8b722ef6e849ea0f12d9a5`
+and status `completed`. The [SAM control result](</Volumes/backups/code/crisp3ds-data/mustard-feature-mask-pair-001-sam/result.json>) SHA-256 is
+`4d6ce1bba0534c25035168d8c82565cf99ad2415c5c7327fb7ca6f0e6c4401d3`;
+the [v2 result](</Volumes/backups/code/crisp3ds-data/mustard-feature-mask-pair-001-v2/result.json>) SHA-256 is
+`cf56fab6fd4e51188b1ffabb7718f3e94fcdb0ea380e2892c04c5a6f9d7ca9ea`.
+Both producers independently say `sparse_complete`, with one saved candidate
+model each and 48/48 registered train views. Independent rehashing found
+zero mismatches among 157 source files and 227 output files. The 48 copied
+photo hashes match across arms; all 48 copied mask hashes differ. The saved
+effective PyCOLMAP options differ only at `image_reader.mask_path`. Both saved
+camera files have the same `[1536,640,512,0]` heuristic camera. Total new
+output was 102,960,993 bytes. Final free space was 23,701,704,704 bytes
+internal and 17,014,050,816 bytes external, above both 10 GiB floors.
+
+Read-only diagnostics used each sealed COLMAP database and binary sparse model,
+including model consistency checks and reciprocal 2D↔3D track links. A
+nonempty verified two-view geometry defines a graph edge. Distinct-view track
+support counts a 3D point only if observed in at least three different images;
+repeated observations from one image are separately disclosed. Reprojection
+values are L2 pixels over all finite saved track observations; they compare
+different track sets and are selection-biased.
+
+| Diagnostic | SAM control | Photo-refined v2 |
+| --- | ---: | ---: |
+| Nonempty verified pairs / connected component | 404 / 48 views | 403 / 48 views |
+| Sparse points | 993 | 943 |
+| Tracks with ≥3 distinct views / point denominator | 774 / 993 | 774 / 943 |
+| Tracks repeating an image | 37 | 45 |
+| Finite reprojections / all track observations | 4,916 / 4,916 | 4,961 / 4,961 |
+| Reprojection mean / median / p95, px | 1.133 / 0.947 / 2.789 | 1.091 / 0.882 / 2.752 |
+| Adjacent center step / median radius, median / p95 / max (47 edges) | 0.133 / 1.775 / 2.268 | 0.124 / 1.409 / 2.359 |
+| Adjacent full orientation step, median / p95 / max (47 edges) | 6.15° / 57.65° / 93.37° | 6.01° / 54.36° / 99.51° |
+| Opposing-label center distance / median radius, median / p95 (24 pairs) | 0.717 / 2.398 | 0.061 / 1.524 |
+| Opposing-label full orientation angle, median / p95 (24 pairs) | 23.84° / 102.18° | 3.12° / 64.53° |
+
+The NP3 suffix/turntable angle labels were used **only after reconstruction**
+to order estimated cameras and identify nominal adjacent/opposing photo pairs;
+they did not enter masking, matching, initialization or mapping. They are not
+physical camera-pose ground truth. Even so, both image-estimated trajectories
+show camera alias warnings. In the SAM arm, `NP3_078/258` centers are only
+0.052 median radii apart with 2.08° full-orientation difference; in v2 they
+are 0.010 radii and 2.10°. V2 additionally places `NP3_096/276` at 0.014
+radii and 1.91°. The adjacent `NP3_282→288` step jumps 2.268 radii/93.37°
+in SAM and 2.359 radii/99.51° in v2. These are incompatible with treating
+48/48 registration as proof of a plausible full orbit. V2 has a much smaller
+median opposing-label separation than the control, so the boundary trim did
+not cure the fold and may have made this one trajectory more aliased. Lower
+conditional reprojection error and point counts do not establish a better
+shape or a causal generalization across runs.
+
+Decision: retain both sparse arms as a **negative feature-mask ablation**.
+Neither camera model is accepted for native dense reconstruction from this
+experiment. No dense stage, held-out localization, sensor comparison, scanner
+fit or reference score was run. A future camera correction needs a separately
+frozen image-only hypothesis and camera-plausibility gate before revisiting
+dense masks; this trial does not authorize a seed or threshold sweep.
