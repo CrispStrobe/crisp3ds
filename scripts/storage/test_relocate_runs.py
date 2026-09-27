@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from scripts.storage.relocate_runs import ALLOWLIST, inventory, relocate
+from scripts.storage.relocate_runs import ALLOWLIST, inventory, relocate, sync_files, sync_open_mode
 
 
 class RelocationTests(unittest.TestCase):
@@ -78,6 +78,27 @@ class RelocationTests(unittest.TestCase):
         self.assertEqual(inventory(self.source), inventory(self.destination / self.name))
         audit = self.destination / ".relocation-audits" / (self.name + ".json")
         self.assertFalse(json.loads(audit.read_text())["backup_removed"])
+
+    def test_flush_uses_writable_handle_without_changing_copied_bytes(self):
+        self.assertEqual(sync_open_mode("nt"), "r+b")
+        self.assertEqual(sync_open_mode("posix"), "rb")
+        before = inventory(self.source)
+        sync_files(self.source, ["nested/result.json"])
+        self.assertEqual(inventory(self.source), before)
+
+    def test_copy_mutation_during_flush_rolls_back_before_deletion(self):
+        import scripts.storage.relocate_runs as mod
+
+        def corrupt_copied_file(root, relative_names):
+            (root / relative_names[0]).write_bytes(b"changed after first hash")
+
+        with patch.object(mod, "sync_files", side_effect=corrupt_copied_file):
+            with self.assertRaisesRegex(ValueError, "post-flush.*differs"):
+                relocate(self.name, **self.options)
+        self.assertTrue(self.source.is_dir())
+        self.assertFalse(self.source.is_symlink())
+        self.assertFalse(self.source.with_name(self.name + ".relocation-backup").exists())
+        self.assertEqual((self.source / "nested/result.json").read_text(), '{"status":"complete"}')
 
 
 if __name__ == "__main__":

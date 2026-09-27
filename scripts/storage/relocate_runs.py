@@ -33,10 +33,18 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def sync_open_mode(platform_name: str) -> str:
+    """Windows CRT needs a writable fd for fsync; POSIX accepts read-only."""
+    return "r+b" if platform_name == "nt" else "rb"
+
+
 def sync_files(root: Path, relative_names: list[str]) -> None:
     """Flush only the copied files, not unrelated concurrent filesystem jobs."""
     for name in relative_names:
-        with (root / name).open("rb") as stream:
+        # Windows' CRT rejects fsync on a read-only descriptor (EBADF), even
+        # though Linux/macOS accept it. Windows r+b performs no write; the
+        # copied bytes are rehashed after the flush.
+        with (root / name).open(sync_open_mode(os.name)) as stream:
             os.fsync(stream.fileno())
 
 
@@ -154,6 +162,8 @@ def relocate(name: str, *, workspace: Path = WORKSPACE,
     # the verified destination remains available and the audit records the phase.
     try:
         sync_files(dest, list(before["files"]))
+        if inventory(dest) != before or inventory(backup) != before:
+            raise ValueError("post-flush source/copy inventory differs")
         if require_mount:
             verify_external_mount(mount, workspace, destination_root, expected_device=external_device)
         if dest.stat().st_dev != external_device or shutil.disk_usage(mount).free < min_free:
