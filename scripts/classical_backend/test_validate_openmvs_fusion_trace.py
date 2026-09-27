@@ -26,6 +26,12 @@ class TraceValidationTests(unittest.TestCase):
         self.assertEqual(report["point_count"], 1)
         self.assertTrue(report["complete_event_records"])
 
+    def test_zero_based_view_and_single_pixel_are_valid(self):
+        self.path.write_text("\t".join(HEADER) + "\n" +
+                             "0\t0\t0\t0\t0\t1\t2\t3\t1\t1\t0\n" +
+                             "event\t0\t0\t0\t0\t3\t0.9\t0\t0\t0\taccepted\n")
+        self.assertTrue(validate(self.path)["complete_event_records"])
+
     def test_rejects_missing_accepted_pixel(self):
         self._write(event_count=4)
         with self.assertRaisesRegex(ValueError, "accounting"):

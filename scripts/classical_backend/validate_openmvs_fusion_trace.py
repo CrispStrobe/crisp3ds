@@ -35,7 +35,7 @@ def validate(path: Path) -> dict:
             index, view, x, y = map(int, row[1:5])
             values = [float(value) for value in row[5:10]]
             reason = row[10]
-            if (index < 0 or view < 1 or not all(math.isfinite(v) for v in values) or
+            if (index < 0 or view < 0 or not all(math.isfinite(v) for v in values) or
                     reason not in REASONS or
                     (reason == "accepted" and (x < 0 or y < 0 or values[0] <= 0 or values[1] < 0))):
                 raise ValueError("invalid fusion trace event")
@@ -44,9 +44,9 @@ def validate(path: Path) -> dict:
             index, pretrim, view, x, y = map(int, row[:5])
             xyz = [float(value) for value in row[5:8]]
             pixels, views, truncated = map(int, row[8:11])
-            if (index != len(points) or pretrim < 0 or view < 1 or x < 0 or y < 0 or
-                    not all(math.isfinite(value) for value in xyz) or pixels < 5 or
-                    views < 2 or truncated not in (0, 1)):
+            if (index != len(points) or pretrim < 0 or view < 0 or x < 0 or y < 0 or
+                    not all(math.isfinite(value) for value in xyz) or pixels < 1 or
+                    views < 1 or truncated not in (0, 1)):
                 raise ValueError("invalid fused point record")
             if points and pretrim <= points[-1]["pretrim_index"]:
                 raise ValueError("pretrim point indices are not increasing")

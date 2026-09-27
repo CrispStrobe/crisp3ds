@@ -9,15 +9,16 @@ directory. The separate shallow checkout at
 
 ## Source location and trace meaning
 
-In `libs/MVS/SceneDensify.cpp`, `DepthMapsData::DenseFuseDepthMaps` is the
-`--fusion-filter 2` path. Its recursive `FusePoint` lambda sees each candidate
+In upstream `libs/MVS/SceneDensify.cpp:1623`,
+`DepthMapsData::DenseFuseDepthMaps` is the `--fusion-filter 2` path. Its
+recursive `FusePoint` lambda at line 1664 sees each candidate
 DMAP view ID, integer pixel, depth, and confidence before applying its used
 pixel, confidence, depth agreement, reprojection, and normal tests. At the
 emission gate, `nMinPixelsFuse` accepted pixels and `nMinViewsFuse` distinct
-views are required; the output XYZ is the coordinate-wise median of accepted
+views are required at lines 1819–1831; the output XYZ is the coordinate-wise median of accepted
 world points. The existing PLY retains fused XYZ and views but no source pixel
 IDs or rejected attempts. `Scene::DenseReconstruction` then may remove points
-outside its ROI, changing PLY indices.
+outside its ROI at lines 1956–1960, changing PLY indices.
 
 The opt-in patch writes `fusion-trace.tsv` in OpenMVS's working folder only
 when `OPENMVS_EVAL_FUSION_TRACE=1`. It records the first eight emitted points,
