@@ -5,3 +5,7 @@ scripts/sam_m1_setup/wheels.lock text eol=lf
 tests/datasets/sam21_mustard_m1_parity_review.json text eol=lf
 tests/datasets/sam21_mustard_m1_full_review.json text eol=lf
 tests/datasets/sam21_mustard_m1_board5_prompts.json text eol=lf
+tests/datasets/sam21_mustard_m1_two_view_recipe.json text eol=lf
+tests/datasets/sam21_mustard_m1_board5_review.json text eol=lf
+tests/datasets/sam21_mustard_board5_resource_audit.json text eol=lf
+tests/datasets/sam21_mustard_board5_subset_review.json text eol=lf

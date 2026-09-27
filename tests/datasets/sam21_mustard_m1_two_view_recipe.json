@@ -1,0 +1,17 @@
+{
+  "schema": "sam21_m1_prompt_recipe_v2",
+  "selected_training_names": ["NP3_336.jpg", "NP3_342.jpg"],
+  "box_xyxy_original_pixels": [520, 365, 665, 600],
+  "package_sha256": "45b6ed1430627a747eaeb8d4dff7d2c49502083cca0a7914e25aacd45b594425",
+  "original_prompt_sha256": "28440795d5f38590df8c5568969970d6623fbe22ea6b3e8781cba10608149d32",
+  "base_inventory_sha256": "b47e8caec7d05fae7bb84ae9b3eec7d4a35b1457ca9df67a3b984cbaaeed8a98",
+  "rejected_full_qa_sha256": "4084e8e458b55c566dd138f9d4b8b853ab2c68bfc20f5f831447a0cc99e9528a",
+  "parent_board5_manifest_sha256": "1008fc7bdbaa75ac33f17f8ddf44eaa275b3e98eb21466906060ebc3300c638c",
+  "parent_board5_supervisor_sha256": "b4485b72c539d59b6b3229917f0099ceb11359cdb8c9228bd0553208989619ce",
+  "checkpoint_sha256": "7402e0d864fa82708a20fbd15bc84245c2f26dff0eb43a4b5b93452deb34be69",
+  "source_inventory_sha256": "c7eb4585a22dadd4f54ffd9134e3103c1951745a3b4631ceb0684b55742069e3",
+  "images": [
+    {"name":"NP3_336.jpg","source_sha256":"b38f4232499b27fd108960280fef2868ddb172d81088d7044475eceb10f24fc2","points_xy_label":[[600,525,1],[720,620,0],[520,630,0],[620,330,0]]},
+    {"name":"NP3_342.jpg","source_sha256":"59901cf97ce97b2de0b46d428818fd676d6a169e67eaf72094dcd8c4058b5998","points_xy_label":[[600,525,1],[720,620,0],[520,630,0],[620,330,0]]}
+  ]
+}
