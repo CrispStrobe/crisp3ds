@@ -43,9 +43,24 @@ TRAIN_LIST_SHA = "a81d1647109db27991c39c5fe1a9ae308c04081f8ada49d8b0f5ab1c152455
 STAGE_REPORT_SHA = "bbcba624f6a51f82e0ebdebf6e7e4cda10804bc8df34cfd0d5b3242983a225d0"
 FIRST_MANIFEST_SHA = "e328f483306fe0979291a8c74e0c3016a547283d37b725fe63e20958a97327e8"
 FIRST_CONFIG_LOG_SHA = "c12becb2b57a76590f239730bc5960b19befb862cb310df65f50dc242d6696f6"
+SECOND_MANIFEST_SHA = "a762484396402bc37c69a4765a7c7497ba0e7b50d7680d0fb75faccd8167d80a"
+SECOND_CONFIG_LOG_SHA = "1486702aa41731a4a45d5884f3eeff7c2238053cb18a0d9759e7e370205c388a"
+SECOND_CACHE_SHA = "a3531b4fb9a3bd17018d308db41b63b45bdbfb2744f9da485353715790e23bf0"
 DEFAULT_ROOT = Path("/Volumes/backups/code/crisp3ds-data/openmvg-mustard-v21-001")
 DEFAULT_INPUT = Path("/Volumes/backups/code/crisp3ds-data/mustard-sfm-train-001")
 DEFAULT_INTERNAL = Path("/Users/christianstrobele/code/crisp3ds")
+EIGEN_PREFIX = DEFAULT_INTERNAL / ".local-tools/bundle-quality/eigen-install"
+EIGEN_SOURCE = DEFAULT_INTERNAL / ".local-tools/bundle-quality/eigen-3.4.0"
+EIGEN_ARCHIVE = DEFAULT_INTERNAL / ".local-tools/bundle-quality/eigen-3.4.0.tar.gz"
+EIGEN_INCLUDE = EIGEN_PREFIX / "include/eigen3"
+EIGEN_CONFIG = EIGEN_PREFIX / "share/eigen3/cmake"
+EIGEN_SEALS = {
+    EIGEN_ARCHIVE: "8586084f71f9bde545ee7fa6d00288b264a2b7ac3607b974e54d13e7162c1c72",
+    EIGEN_INCLUDE / "Eigen/src/Core/util/Macros.h": "8d73259b4ba482e6dbd11b31d8887fd350dfb0836700d32793446bba6ab1ae7a",
+    EIGEN_CONFIG / "Eigen3Config.cmake": "c74a58d3437cd9b1d5503d627962a323f8b9a8f884bfae65f8206e63560a45a4",
+    EIGEN_CONFIG / "Eigen3ConfigVersion.cmake": "926c74b98008a96184e5dc28d0c2253f266e294c8dbed6c1366839dd0330e645",
+    EIGEN_SOURCE / "COPYING.README": "c83230b770f17ef1386ea1fd3681271dd98aa93646bdbfb5bff3a1b7050fff9d",
+}
 LICENSE_FILES = (
     "LICENSE", "COPYRIGHT.md", ".gitmodules", "src/CMakeLists.txt",
     "src/software/SfM/CMakeLists.txt", "src/nonFree/sift/SIFT_describer.hpp",
@@ -201,6 +216,72 @@ def build_command(build: Path) -> list[str]:
 
 def resume_configure_command(source: Path, build: Path) -> list[str]:
     return configure_command(source, build) + ["-DCMAKE_POLICY_VERSION_MINIMUM=3.5"]
+
+
+def eigen_configure_command(source: Path, build: Path) -> list[str]:
+    return resume_configure_command(source, build) + [
+        f"-DEigen3_DIR:PATH={EIGEN_CONFIG}", f"-DEIGEN_DIR:PATH={EIGEN_INCLUDE}"]
+
+
+def verify_local_eigen() -> dict:
+    for path, expected in EIGEN_SEALS.items():
+        if not path.is_file() or path.is_symlink() or sha256(path) != expected:
+            raise RuntimeError(f"local Eigen 3.4 seal mismatch: {path}")
+    version = (EIGEN_CONFIG / "Eigen3ConfigVersion.cmake").read_text()
+    macros = (EIGEN_INCLUDE / "Eigen/src/Core/util/Macros.h").read_text()
+    notice = (EIGEN_SOURCE / "COPYING.README").read_text()
+    if ('set(PACKAGE_VERSION "3.4.0")' not in version or
+            any(f"#define EIGEN_{part}_VERSION {value}" not in macros for part, value in
+                (("WORLD", 3), ("MAJOR", 4), ("MINOR", 0))) or
+            "MPL2" not in notice or "EIGEN_MPL2_ONLY" not in notice):
+        raise RuntimeError("local Eigen version/license declaration mismatch")
+    return {str(path): digest for path, digest in EIGEN_SEALS.items()}
+
+
+def cache_entries(cache: str) -> dict[str, str]:
+    entries = {}
+    for line in cache.splitlines():
+        if line.startswith(("#", "//")) or ":" not in line or "=" not in line:
+            continue
+        key_type, value = line.split("=", 1)
+        key, _type = key_type.split(":", 1)
+        entries[key] = value
+    return entries
+
+
+def verify_attempt2_cache(build: Path) -> None:
+    cache_file = build / "CMakeCache.txt"
+    if sha256(cache_file) != SECOND_CACHE_SHA:
+        raise RuntimeError("attempt-2 CMake cache changed")
+    cache = cache_entries(cache_file.read_text())
+    expected = {
+        "Eigen3_DIR": "/opt/homebrew/share/eigen3/cmake",
+        "EIGEN_DIR": "/opt/homebrew/include/eigen3",
+        "CMAKE_POLICY_VERSION_MINIMUM": "3.5",
+        "OpenMVG_USE_LIGT": "OFF", "CXSPARSE": "OFF",
+        "SUITESPARSE": "OFF", "EIGENSPARSE": "ON", "LAPACK": "ON",
+    }
+    if any(cache.get(key) != value for key, value in expected.items()):
+        raise RuntimeError("attempt-2 Eigen/policy/license CMake cache is not as audited")
+    if "EIGEN_INCLUDE_DIR" in cache:
+        raise RuntimeError("unexpected cached Ceres Eigen include override")
+
+
+def verify_pinned_eigen_configuration(build: Path, configure_log: Path) -> None:
+    cache = cache_entries((build / "CMakeCache.txt").read_text())
+    expected = {"Eigen3_DIR": str(EIGEN_CONFIG), "EIGEN_DIR": str(EIGEN_INCLUDE),
+                "EIGEN_INCLUDE_DIR": str(EIGEN_INCLUDE),
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5", "OpenMVG_USE_LIGT": "OFF"}
+    if any(cache.get(key) != value for key, value in expected.items()):
+        raise RuntimeError("post-configure Eigen/LiGT/policy cache seal failed")
+    log = configure_log.read_text(errors="replace")
+    if not re.search(r"Found Eigen version 3\.4\.0: " + re.escape(str(EIGEN_INCLUDE)), log):
+        raise RuntimeError("vendored Ceres did not report pinned Eigen 3.4.0")
+    ninja = (build / "build.ninja").read_text(errors="replace")
+    if (str(EIGEN_INCLUDE) not in ninja or
+            "/opt/homebrew/include/eigen3" in ninja or
+            "/opt/homebrew/share/eigen3/cmake" in ninja):
+        raise RuntimeError("generated compile rules do not exclusively use pinned Eigen")
 
 
 def verify_build_outputs(build: Path) -> dict[str, str]:
@@ -414,6 +495,76 @@ def resume_configure_build(root: Path, internal: Path) -> dict:
     return {"inventory": checked["inventory"], "executables": executables}
 
 
+def eigen_resume_preflight(root: Path, internal: Path) -> dict:
+    approved_root(root)
+    p = paths(root)
+    if (not root.is_dir() or not p["build"].is_dir() or
+            any(p[name].exists() for name in ("images48", "matches", "sparse"))):
+        raise RuntimeError("attempt-3 requires the incomplete build and no photo/SfM outputs")
+    if sha256(root / "build-manifest-attempt1.json") != FIRST_MANIFEST_SHA:
+        raise RuntimeError("first-attempt manifest snapshot changed")
+    if sha256(root / "build-manifest.json") != SECOND_MANIFEST_SHA:
+        raise RuntimeError("second-attempt manifest changed")
+    if sha256(p["logs"] / "04-configure.log") != FIRST_CONFIG_LOG_SHA:
+        raise RuntimeError("first configure log changed")
+    if sha256(p["logs"] / "06-resume-configure.log") != SECOND_CONFIG_LOG_SHA:
+        raise RuntimeError("second configure log changed")
+    if any((p["logs"] / name).exists() for name in
+           ("05-build.log", "07-resume-build.log", "08-eigen-configure.log", "09-eigen-build.log")):
+        raise RuntimeError("attempt-3 is not fresh or compile already attempted")
+    manifest = json.loads((root / "build-manifest.json").read_text())
+    if [item["status"] for item in manifest["stages"]] != [
+            "completed", "completed", "completed", "stopped", "stopped"]:
+        raise RuntimeError("unexpected attempt-2 stage history")
+    inventory = source_inventory(p["source"])
+    if inventory != manifest["source_inventory"]:
+        raise RuntimeError("source/license inventory changed since attempt 2")
+    reject_implicit_fetches(p["source"])
+    verify_attempt2_cache(p["build"])
+    eigen_seals = verify_local_eigen()
+    space = capacity(root, internal, prospective=True)
+    if tree_bytes(root) > BUILD_CAP:
+        raise RuntimeError("incomplete build already exceeds 1.5 GiB allocation")
+    return {"capacity": space, "inventory": inventory, "eigen_seals": eigen_seals,
+            "second_manifest_sha256": SECOND_MANIFEST_SHA,
+            "second_config_log_sha256": SECOND_CONFIG_LOG_SHA,
+            "second_cache_sha256": SECOND_CACHE_SHA,
+            "configure": eigen_configure_command(p["source"], p["build"]),
+            "build": build_command(p["build"])}
+
+
+def eigen_resume_configure_build(root: Path, internal: Path) -> dict:
+    checked = eigen_resume_preflight(root, internal)
+    p = paths(root)
+    snapshot = root / "build-manifest-attempt2.json"
+    if snapshot.exists():
+        raise RuntimeError("second-manifest snapshot already exists")
+    shutil.copyfile(root / "build-manifest.json", snapshot)
+    if sha256(snapshot) != SECOND_MANIFEST_SHA:
+        raise RuntimeError("second-manifest snapshot hash mismatch")
+    manifest = json.loads(snapshot.read_text())
+    manifest["attempt3_eigen_sha256"] = checked["eigen_seals"]
+    manifest["attempt3_input_seals"] = {
+        "manifest": SECOND_MANIFEST_SHA, "configure_log": SECOND_CONFIG_LOG_SHA,
+        "cmake_cache": SECOND_CACHE_SHA}
+    save_manifest(root, manifest)
+    env = os.environ.copy()
+    for key in ("TMPDIR", "TMP", "TEMP", "XDG_CACHE_HOME"):
+        env[key] = str(p["tmp"])
+    env["HOMEBREW_NO_AUTO_UPDATE"] = "1"
+    env["GIT_CONFIG_NOSYSTEM"] = "1"
+    env["GIT_CONFIG_GLOBAL"] = "/dev/null"
+    guarded_run(checked["configure"], root, internal, 600, env,
+                p["logs"] / "08-eigen-configure.log", manifest, BUILD_CAP)
+    verify_pinned_eigen_configuration(p["build"], p["logs"] / "08-eigen-configure.log")
+    guarded_run(checked["build"], root, internal, 5400, env,
+                p["logs"] / "09-eigen-build.log", manifest, BUILD_CAP)
+    executables = verify_build_outputs(p["build"])
+    manifest["executables"] = executables
+    save_manifest(root, manifest)
+    return {"inventory": checked["inventory"], "executables": executables}
+
+
 def stage_photos(root: Path, internal: Path, stage: Path) -> dict:
     approved_root(root)
     p = paths(root)
@@ -448,18 +599,24 @@ def main() -> int:
     action = parser.add_mutually_exclusive_group()
     action.add_argument("--build", action="store_true", help="explicitly clone/configure/build; never implicit")
     action.add_argument("--resume-configure-build", action="store_true", help="explicitly retry only the sealed first configure with CMake 3.5 policy floor")
+    action.add_argument("--resume-eigen-configure-build", action="store_true", help="explicitly retry only sealed attempt 2 with local Eigen 3.4")
     action.add_argument("--stage", action="store_true", help="explicitly copy sealed 48 TRAIN inputs; no SfM")
     action.add_argument("--resume-preflight", action="store_true", help="read-only check of the sealed failed build")
+    action.add_argument("--resume-eigen-preflight", action="store_true", help="read-only check of sealed attempt 2 and Eigen 3.4 pin")
     args = parser.parse_args()
     try:
         if args.build:
             result = {"action": "build", "inventory": build(args.root, args.internal)}
         elif args.resume_configure_build:
             result = {"action": "resume_configure_build", **resume_configure_build(args.root, args.internal)}
+        elif args.resume_eigen_configure_build:
+            result = {"action": "resume_eigen_configure_build", **eigen_resume_configure_build(args.root, args.internal)}
         elif args.stage:
             result = {"action": "stage", **stage_photos(args.root, args.internal, args.input)}
         elif args.resume_preflight:
             result = {"action": "read_only_resume_preflight", **resume_preflight(args.root, args.internal)}
+        elif args.resume_eigen_preflight:
+            result = {"action": "read_only_eigen_resume_preflight", **eigen_resume_preflight(args.root, args.internal)}
         else:
             approved_root(args.root)
             p = paths(args.root)

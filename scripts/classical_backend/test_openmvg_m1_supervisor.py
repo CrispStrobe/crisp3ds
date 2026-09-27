@@ -101,7 +101,7 @@ class SupervisorTest(unittest.TestCase):
                  mock.patch.object(supervisor, "capacity"), \
                  mock.patch.object(supervisor.subprocess, "Popen", side_effect=start), \
                  mock.patch.object(supervisor.subprocess, "check_output", return_value="123 1 1\n"), \
-                 mock.patch.object(supervisor.os, "killpg") as killpg:
+                 mock.patch.object(supervisor.os, "killpg", create=True) as killpg:
                 with self.assertRaisesRegex(RuntimeError, "log cap exceeded"):
                     supervisor.guarded_run(["synthetic"], root, root, 10, {}, log, manifest)
             killpg.assert_called_once_with(123, supervisor.signal.SIGTERM)
@@ -160,6 +160,75 @@ class SupervisorTest(unittest.TestCase):
                 result = supervisor.resume_preflight(root, root)
             self.assertEqual(result["resume_configure"][-1], "-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
             self.assertEqual(before, sorted(str(p.relative_to(root)) for p in root.rglob("*")))
+
+    def test_attempt3_command_adds_only_two_local_eigen_hints(self):
+        source, build = Path("/external/source"), Path("/external/build")
+        previous = supervisor.resume_configure_command(source, build)
+        attempt3 = supervisor.eigen_configure_command(source, build)
+        self.assertEqual(attempt3[:-2], previous)
+        self.assertEqual(attempt3[-2:], [
+            f"-DEigen3_DIR:PATH={supervisor.EIGEN_CONFIG}",
+            f"-DEIGEN_DIR:PATH={supervisor.EIGEN_INCLUDE}"])
+        self.assertIn("-DOpenMVG_USE_LIGT=OFF", attempt3)
+
+    def test_attempt3_cache_guard_rejects_changed_eigen_selection(self):
+        with tempfile.TemporaryDirectory() as temp:
+            cache = Path(temp) / "CMakeCache.txt"
+            cache.write_text("Eigen3_DIR:PATH=/opt/homebrew/share/eigen3/cmake\n")
+            with self.assertRaisesRegex(RuntimeError, "cache changed"):
+                supervisor.verify_attempt2_cache(Path(temp))
+            audited = "\n".join(f"{key}:STRING={value}" for key, value in {
+                "Eigen3_DIR": "/wrong/eigen3/cmake", "EIGEN_DIR": "/opt/homebrew/include/eigen3",
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5", "OpenMVG_USE_LIGT": "OFF",
+                "CXSPARSE": "OFF", "SUITESPARSE": "OFF", "EIGENSPARSE": "ON",
+                "LAPACK": "ON"}.items())
+            cache.write_text(audited)
+            with mock.patch.object(supervisor, "sha256", return_value=supervisor.SECOND_CACHE_SHA):
+                with self.assertRaisesRegex(RuntimeError, "not as audited"):
+                    supervisor.verify_attempt2_cache(Path(temp))
+
+    def test_post_configure_gate_requires_local_34_in_cache_log_and_rules(self):
+        with tempfile.TemporaryDirectory() as temp:
+            build = Path(temp)
+            cache = {"Eigen3_DIR": str(supervisor.EIGEN_CONFIG),
+                     "EIGEN_DIR": str(supervisor.EIGEN_INCLUDE),
+                     "EIGEN_INCLUDE_DIR": str(supervisor.EIGEN_INCLUDE),
+                     "CMAKE_POLICY_VERSION_MINIMUM": "3.5", "OpenMVG_USE_LIGT": "OFF"}
+            (build / "CMakeCache.txt").write_text("\n".join(
+                f"{key}:STRING={value}" for key, value in cache.items()))
+            log = build / "08.log"
+            log.write_text(f"-- -- Found Eigen version 3.4.0: {supervisor.EIGEN_INCLUDE}\n")
+            ninja = build / "build.ninja"
+            ninja.write_text(f"INCLUDES = -isystem {supervisor.EIGEN_INCLUDE}\n")
+            supervisor.verify_pinned_eigen_configuration(build, log)
+            log.write_text("-- -- Found Eigen version ..\n")
+            with self.assertRaisesRegex(RuntimeError, "did not report"):
+                supervisor.verify_pinned_eigen_configuration(build, log)
+            log.write_text(f"-- -- Found Eigen version 3.4.0: {supervisor.EIGEN_INCLUDE}\n")
+            ninja.write_text(f"INCLUDES = -isystem {supervisor.EIGEN_INCLUDE} -isystem /opt/homebrew/include/eigen3\n")
+            with self.assertRaisesRegex(RuntimeError, "compile rules"):
+                supervisor.verify_pinned_eigen_configuration(build, log)
+
+    def test_attempt3_preflight_rejects_changed_second_log_before_process(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "build").mkdir()
+            (root / "logs").mkdir()
+            for name in ("build-manifest.json", "build-manifest-attempt1.json"):
+                (root / name).write_text("{}")
+            for name in ("04-configure.log", "06-resume-configure.log"):
+                (root / "logs" / name).write_text("synthetic")
+            def fake_sha(path):
+                return {"build-manifest-attempt1.json": supervisor.FIRST_MANIFEST_SHA,
+                        "build-manifest.json": supervisor.SECOND_MANIFEST_SHA,
+                        "04-configure.log": supervisor.FIRST_CONFIG_LOG_SHA,
+                        "06-resume-configure.log": "wrong"}[path.name]
+            with mock.patch.object(supervisor, "approved_root"), \
+                 mock.patch.object(supervisor, "sha256", side_effect=fake_sha), \
+                 mock.patch.object(supervisor.subprocess, "Popen") as popen:
+                with self.assertRaisesRegex(RuntimeError, "second configure log changed"):
+                    supervisor.eigen_resume_preflight(root, root)
+                popen.assert_not_called()
 
 
 if __name__ == "__main__":

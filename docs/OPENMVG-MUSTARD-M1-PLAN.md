@@ -62,6 +62,57 @@ and `06-resume-configure.log` SHA-256 is
 No `07-resume-build.log`, staged photo or SfM output exists. The tree is still
 101 MiB, with 14,980,712 KiB free externally and 23,242,376 KiB internally.
 
+## Proposed Eigen 3.4 attempt 3 (not run)
+
+The source-unmodified version-pinned retry adds exactly two CMake hints to
+the prior policy-override configure command:
+
+```text
+-DEigen3_DIR:PATH=/Users/christianstrobele/code/crisp3ds/.local-tools/bundle-quality/eigen-install/share/eigen3/cmake
+-DEIGEN_DIR:PATH=/Users/christianstrobele/code/crisp3ds/.local-tools/bundle-quality/eigen-install/include/eigen3
+```
+
+OpenMVG's top-level `find_package(Eigen3)` uses the first cached config path;
+its legacy `FindEigen.cmake` uses the second cached include path. Vendored
+Ceres's `FindEigen.cmake` prefers the exported Eigen3 config and then reads
+version macros from `Eigen/src/Core/util/Macros.h`. The local Eigen3 config
+reports 3.4.0, and installed `Macros.h` defines version 3.4.0 and matches
+the local source byte-for-byte. The local archive SHA-256 is
+`8586084f71f9bde545ee7fa6d00288b264a2b7ac3607b974e54d13e7162c1c72`;
+installed `Macros.h` SHA-256 is
+`8d73259b4ba482e6dbd11b31d8887fd350dfb0836700d32793446bba6ab1ae7a`.
+The exported `Eigen3Config.cmake` SHA-256 is
+`c74a58d3437cd9b1d5503d627962a323f8b9a8f884bfae65f8206e63560a45a4`.
+[Official Eigen 3.4.0 release](https://gitlab.com/libeigen/eigen/-/releases/3.4.0),
+[local dependency provenance](BUNDLE-QUALITY.md).
+
+`--resume-eigen-preflight` is read-only and requires the clean sealed OpenMVG
+source; unchanged first-attempt snapshot, second-attempt manifest and 04/06
+configure logs; no 05/07 build logs, 08/09 logs, or photo/SfM outputs; the
+exact audited attempt-2 CMake cache SHA-256
+`a3531b4fb9a3bd17018d308db41b63b45bdbfb2744f9da485353715790e23bf0`;
+and the local Eigen 3.4 source/archive/header/config/license hashes. The
+separate explicit `--resume-eigen-configure-build` snapshots the second
+manifest as `build-manifest-attempt2.json`, then uses new bounded 08/09 logs
+and all existing 1.5 GiB build, 2 GiB total, 11 GiB device, 4 GiB RSS,
+16 MiB per-log, two-thread and timeout guards. Before compilation it requires
+the Ceres configure log to report Eigen 3.4.0, CMake cache entries to point
+to the local install, and generated Ninja compile rules to use that include
+path with no Homebrew Eigen path. It does not install dependencies or stage
+photos. On 2026-09-27 the read-only preflight passed: 97,876,707 managed
+bytes, 15,340,638,208 external free bytes versus 13,860,767,005 required,
+and 23,799,353,344 internal free bytes. The supervisor SHA-256 for review is
+`14c04261daa54f8504ec6da9719d38f6dd391dbddc648cd1c18e36586d3941f7`;
+15 synthetic tests pass. **Do not run attempt 3 before explicit approval.**
+
+This pin addresses a configuration compatibility error, not a shipping
+license determination. Eigen 3.4 is primarily MPL-2.0 but includes optional
+LGPL files; its `COPYING.README` prescribes `EIGEN_MPL2_ONLY` as a compile-time
+guard. Current failed cache settings include `EIGENSPARSE=ON` and `LAPACK=ON`;
+vendored Ceres emits an LGPL warning with Eigen sparse enabled. Those linked
+targets and App Store constraints need separate review before any shipping
+claim. [Eigen 3.4 license notice](https://gitlab.com/libeigen/eigen/-/blob/3.4.0/COPYING.README).
+
 ## Decision and scope
 
 **Conditional go for one isolated M1 evaluation build and 48-TRAIN-view CPU
