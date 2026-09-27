@@ -1,6 +1,8 @@
 # OpenMVG mustard TRAIN: frozen intrinsic-`NONE` ablation contract
 
-**Plan only; no ablation has run.** The comparison asks whether holding the
+**Frozen pre-run plan; the completed result is recorded separately in
+[the `-002` result](OPENMVG-MUSTARD-INTRINSIC-NONE-002-RESULT.md).**
+The comparison asks whether holding the
 initial camera intrinsics constant changes the failed registration/sparse
 outcome of the sealed [photo-only `-001` run](OPENMVG-MUSTARD-PHOTO-001-RESULT.md).
 It does not test feature extraction, matching, masks, dense reconstruction,
@@ -55,8 +57,9 @@ initial intrinsics, **not** baseline reconstructed poses.
 Hold fixed the binary, initial `sfm_data.json`, 48 TRAIN images addressed by
 it, all consumed match/feature bytes, `-s INCREMENTAL`, `-M matches.e.bin`,
 all implicit/default SfM flags and the two-thread setting. Stage
-the initial scene, describer, essential-matrix matches, and **all 96** region
-files into fresh `/Volumes/backups/code/crisp3ds-data/openmvg-mustard-photo-sfm-fixed-002/matches`;
+all **105** receipt-inventoried match-directory files (including the initial
+scene, describer, essential-matrix matches, and 96 region files) into fresh
+`/Volumes/backups/code/crisp3ds-data/openmvg-mustard-photo-sfm-fixed-002/matches`;
 verify each staged SHA-256 against the `-001` receipt before launch. Change
 only `-f ADJUST_ALL` to `-f NONE` in the SfM algorithm; `-i`, `-m`, and `-o`
 change paths solely to isolate the byte-identical inputs and fresh outputs.
