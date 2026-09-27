@@ -21,7 +21,7 @@ class PostcheckTests(unittest.TestCase):
 
     def write_report(self, *, observations=3, rmse=1.25, names=None):
         names = self.names if names is None else names
-        rows = "".join(f"<tr><td>{i}</td><td>{name}</td><td>{observations}</td>"
+        rows = "".join(f"<tr><td>{i}</td><td>{Path(name).stem}</td><td>{observations}</td>"
                        "<td>0.1</td><td>0.8</td><td>1.0</td><td>2.5</td></tr>"
                        for i, name in enumerate(names))
         html = (f"#views: 11<br> #poses: 11<br> #intrinsics: 1<br> #tracks: 1<br> "
@@ -64,6 +64,8 @@ class PostcheckTests(unittest.TestCase):
         self.assertEqual(result["ply"]["colors"]["camera_centers"], 11)
         self.assertEqual(result["ply"]["colors"]["landmarks"], 1)
         self.assertEqual(result["report"]["counts"]["residuals"], 33)
+        self.assertEqual(result["report"]["per_view"][10]["name"], "00010.jpg")
+        self.assertEqual(result["report"]["per_view"][10]["reported_basename"], "00010")
         self.assertTrue(result["reprojection_quality_4px"])
         self.assertIn("cereal model intrinsics/rotations/track membership", result["unverified"])
 
@@ -91,6 +93,17 @@ class PostcheckTests(unittest.TestCase):
         report_path = self.output / check.REPORT
         report_path.write_text(report_path.read_text().replace("#residuals: 33", "#residuals: 66"))
         with self.assertRaisesRegex(ValueError, "coverage/counts"):
+            check.parse_report(report_path)
+
+    def test_duplicate_or_malformed_report_stems_fail_closed(self):
+        self.write_report(names=(self.names[0],) * len(self.names))
+        with self.assertRaisesRegex(ValueError, "coverage/counts"):
+            check.parse_report(self.output / check.REPORT)
+        self.write_report()
+        report_path = self.output / check.REPORT
+        report_path.write_text(report_path.read_text().replace("<td>00010</td>",
+                                                               "<td>00010.jpg</td>", 1))
+        with self.assertRaisesRegex(ValueError, "malformed image basename"):
             check.parse_report(report_path)
 
     def test_incomplete_receipt_and_changed_artifact_rejected(self):

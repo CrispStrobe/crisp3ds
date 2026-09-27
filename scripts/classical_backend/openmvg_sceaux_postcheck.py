@@ -80,6 +80,10 @@ def parse_report(path: Path, names: tuple[str, ...] = NAMES) -> dict:
     positions = [i for i, row in enumerate(tables.rows) if row == header]
     if len(positions) != 1:
         raise ValueError("SfM report lacks unique pinned per-view table")
+    # Pinned sfm_report.cpp uses stlplus::basename_part, which strips .jpg.
+    stem_to_name = {Path(name).stem: name for name in names}
+    if len(stem_to_name) != len(names):
+        raise ValueError("expected image names have duplicate stems")
     per_view = []
     for row in tables.rows[positions[0] + 1: positions[0] + 1 + len(names)]:
         if len(row) != 7:
@@ -96,7 +100,10 @@ def parse_report(path: Path, names: tuple[str, ...] = NAMES) -> dict:
         if not (residuals[0] <= residuals[1] <= residuals[3] and
                 residuals[0] <= residuals[2] <= residuals[3]):
             raise ValueError("inconsistent per-view residual range")
-        per_view.append({"id": view_id, "name": row[1], "observations": observations,
+        if row[1] not in stem_to_name:
+            raise ValueError("SfM report has unknown or malformed image basename")
+        per_view.append({"id": view_id, "name": stem_to_name[row[1]],
+                         "reported_basename": row[1], "observations": observations,
                          "min_px": residuals[0], "median_px": residuals[1],
                          "mean_px": residuals[2], "max_px": residuals[3]})
     rmse_hits = re.findall(r"SfM Scene RMSE:\s*([+\-\d.eE]+)", html)
@@ -109,6 +116,7 @@ def parse_report(path: Path, names: tuple[str, ...] = NAMES) -> dict:
             counts["intrinsics"] <= 0 or counts["tracks"] <= 0 or
             counts["residuals"] <= 0 or len(per_view) != len(names) or
             {v["name"] for v in per_view} != set(names) or
+            len({v["name"] for v in per_view}) != len(names) or
             len({v["id"] for v in per_view}) != len(names) or
             sum(v["observations"] for v in per_view) != counts["residuals"]):
         raise ValueError("SfM report coverage/counts inconsistent")
