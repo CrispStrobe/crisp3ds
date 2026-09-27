@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - '.github/workflows/quality-harness.yml'
+      - '.gitattributes'
+      - 'tests/datasets/**'
       - 'scripts/object_dataset/**'
       - 'scripts/object_motion/**'
       - 'scripts/upstream_control/**'
@@ -20,6 +22,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/quality-harness.yml'
+      - '.gitattributes'
+      - 'tests/datasets/**'
       - 'scripts/object_dataset/**'
       - 'scripts/object_motion/**'
       - 'scripts/upstream_control/**'
