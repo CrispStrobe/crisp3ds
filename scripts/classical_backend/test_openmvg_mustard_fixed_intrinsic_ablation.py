@@ -13,19 +13,21 @@ from scripts.classical_backend import openmvg_sceaux_photo_control_v2 as cli
 
 class FixedIntrinsicAblationTest(unittest.TestCase):
     def test_command_changes_only_intrinsic_option_and_output(self):
-        argv = ablation.command(Path("/synthetic/new"))
+        output = Path("/synthetic/new")
+        argv = ablation.command(output)
         self.assertEqual(argv[-4:], ["-s", "INCREMENTAL", "-f", "NONE"])
         self.assertEqual(argv[argv.index("-M") + 1], "matches.e.bin")
-        self.assertEqual(argv[argv.index("-i") + 1], "/synthetic/new/matches/sfm_data.json")
-        self.assertEqual(argv[argv.index("-m") + 1], "/synthetic/new/matches")
-        self.assertEqual(argv[argv.index("-o") + 1], "/synthetic/new/sparse")
+        self.assertEqual(argv[argv.index("-i") + 1], str(output / "matches/sfm_data.json"))
+        self.assertEqual(argv[argv.index("-m") + 1], str(output / "matches"))
+        self.assertEqual(argv[argv.index("-o") + 1], str(output / "sparse"))
         self.assertNotIn("-P", argv)
 
     def test_usage_rejects_uncompiled_option(self):
         argv = ablation.command(Path("/synthetic/new"))
         usage = "Usage:\n" + "\n".join(f"[-{key}|--some_option]" for key in "imMosf")
         with patch.object(cli.subprocess, "run", return_value=type("Result", (), {
-                "returncode": 1, "stdout": usage.encode(), "stderr": b""})()):
+                "returncode": 1, "stdout": usage.encode(), "stderr": b""})()), \
+             patch.object(cli.base, "sha", return_value="synthetic-binary-sha"):
             cli.audit_cli_usage([("sfm", argv, "artifact")])
             with self.assertRaisesRegex(RuntimeError, "planned CLI option absent"):
                 cli.audit_cli_usage([("sfm", argv + ["-Z", "bad"], "artifact")])
@@ -46,17 +48,13 @@ class FixedIntrinsicAblationTest(unittest.TestCase):
                 (source / relative).write_bytes(b"photo-derived")
             for index in range(6):
                 (source / "matches" / f"auxiliary_{index}.txt").write_bytes(b"sealed auxiliary")
-            inventory = {}
             for name in names:
                 (source / "images" / name).write_bytes(name.encode())
                 for suffix in ("feat", "desc"):
                     (source / "matches" / f"{name[:-4]}.{suffix}").write_bytes(name.encode())
-            for path in (source / "matches").iterdir():
-                inventory[f"matches/{path.name}"] = {"sha256": ablation.core.sha(path),
-                                                       "bytes": path.stat().st_size}
-            for path in (source / "images").iterdir():
-                inventory[f"images/{path.name}"] = {"sha256": ablation.core.sha(path),
-                                                      "bytes": path.stat().st_size}
+            inventory = ablation.core.output_inventory(source)
+            self.assertIn("matches/sfm_data.json", inventory)
+            self.assertTrue(all("\\" not in relative for relative in inventory))
             receipt = {"status": "failed_registration_or_sparse_gate",
                        "sfm_report": {"views": 48, "poses": 46},
                        "stages": [{"status": "completed"}] * 4 +

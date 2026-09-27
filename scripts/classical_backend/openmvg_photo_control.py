@@ -171,8 +171,8 @@ def output_inventory(output: Path) -> dict:
             if item.is_symlink():
                 raise RuntimeError("symlink found in OpenMVG output")
             if item.is_file() and item != output / "receipt.json":
-                inventory[str(item.relative_to(output))] = {"bytes": item.stat().st_size,
-                                                            "sha256": sha(item)}
+                inventory[item.relative_to(output).as_posix()] = {"bytes": item.stat().st_size,
+                                                                  "sha256": sha(item)}
     return inventory
 
 

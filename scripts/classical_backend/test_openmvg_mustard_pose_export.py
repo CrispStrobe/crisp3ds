@@ -23,10 +23,11 @@ def sample_model() -> dict:
 
 class MustardPoseExportTest(unittest.TestCase):
     def test_fixed_command_exports_only_named_camera_fields(self):
-        argv = export.command(Path("/synthetic"))
+        output = Path("/synthetic")
+        argv = export.command(output)
         self.assertEqual(argv[-3:], ["-V", "-I", "-E"])
         self.assertEqual(argv[argv.index("-i") + 1], str(export.INPUT))
-        self.assertEqual(argv[argv.index("-o") + 1], "/synthetic/sfm_camera_poses.json")
+        self.assertEqual(argv[argv.index("-o") + 1], str(output / "sfm_camera_poses.json"))
         self.assertNotIn("-S", argv)
         self.assertNotIn("-C", argv)
 

@@ -12,9 +12,10 @@ from scripts.classical_backend import openmvg_mustard_fixed_pose_export as fixed
 
 class FixedPoseExportTest(unittest.TestCase):
     def test_command_is_pose_only_and_uses_distinct_model(self):
-        argv = fixed.command(Path("/synthetic/new"))
+        output = Path("/synthetic/new")
+        argv = fixed.command(output)
         self.assertEqual(argv[argv.index("-i") + 1], str(fixed.MODEL))
-        self.assertEqual(argv[argv.index("-o") + 1], "/synthetic/new/sfm_camera_poses.json")
+        self.assertEqual(argv[argv.index("-o") + 1], str(output / "sfm_camera_poses.json"))
         self.assertEqual(argv[-3:], ["-V", "-I", "-E"])
         self.assertNotIn("-S", argv)
         self.assertNotIn("-C", argv)
@@ -31,6 +32,7 @@ class FixedPoseExportTest(unittest.TestCase):
             names = [f"NP3_{index:03}.jpg" for index in range(48)]
             model_sha, log_sha = fixed.prior.sha(model), fixed.prior.sha(log)
             inventory = fixed.core.output_inventory(root)
+            self.assertIn("sparse/sfm_data.bin", inventory)
             receipt = {"schema": "openmvg_mustard_fixed_intrinsic_sfm_v1",
                        "status": "failed_registration_or_sparse_gate",
                        "sfm_report": {"views": 48, "poses": 46, "intrinsics": 1,
