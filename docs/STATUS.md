@@ -13,7 +13,38 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
-### Latest continuation: recovered dense geometry and frozen new-object splits
+### Latest continuation: isolate coverage loss and evaluate refinement
+
+The [paired coverage audit](COVERAGE-LOSS.md) identifies 215 fixed sensor rays
+lost by 015 versus 008, none gained; 175 losses fall in the already defined
+boundary band. On their 4,951 common hits, depth disagreement worsens from
+2.754 to 2.922 mm. The [pre-mesh depth audit](DEPTH-SUPPORT-AUDIT.md) separately
+compares 189,982 fixed original-photo probes: native depth support falls from
+91.271% to 90.584%. Both warped-mask exclusion and missing allowed depth increase.
+These differently defined probes do not identify a unique cause or prove that
+meshing alone explains the larger sensor-ray coverage loss.
+
+A [same-camera rough/refined comparison](ROUGH-REFINED-COMPARISON.md) of existing
+008 outputs gives a mixed result: refinement reduces ray coverage from 84.08%
+to 82.28%, but improves shared-hit mean disagreement from 2.807 to 2.636 mm.
+The all-supported-ray within-5-mm rate rises slightly, 70.72% to 71.16%.
+Root reproduced the old rough score and independently recomputed paired counts
+and residuals. No new native reconstruction or parameter search was run.
+
+All 48 training views of each new object were rendered on the VPS and visually
+reviewed without opening held-out images or references. One frozen mustard
+[coarse mask candidate](YCB-OBJECT-MASKS.md) generated 48 masks but **failed
+visual acceptance**, cutting coloured-label strips despite numerical checks.
+The [rejection record](../tests/datasets/ycb_mustard_support_review.json) prevents
+treating it as approved preparation. No reconstruction used those masks. Drill
+masks remain manual/segmentation work; neither new training package is ready.
+
+Local regression: **354 tests run, 8 skipped, remaining passed**. The Windows
+SYCL executable-name check was fixed in `c77a298`; both its cross-platform quality
+and foundation workflows pass. This continuation needs its own CI. Large new outputs stayed
+on the VPS; local additions were diagnostics and small review sheets.
+
+### Previous continuation: recovered dense geometry and frozen new-object splits
 
 The [recovered-camera dense control](RECOVERED-DENSE.md) completed on M1 CPU:
 40,450 dense points and 38,440 rough faces from the sealed 005 sparse model.

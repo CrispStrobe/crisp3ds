@@ -1,5 +1,22 @@
 # Quality-first reconstruction roadmap
 
+## Current acceptance findings and next steps
+
+The [coverage-loss](COVERAGE-LOSS.md), [pre-mesh support](DEPTH-SUPPORT-AUDIT.md)
+and [rough/refined](ROUGH-REFINED-COMPARISON.md) checks now separate support from
+residual accuracy. Refinement offers a measured tradeoff, not a universal gain.
+Keep both artifacts and do not select settings solely on hit-only error.
+
+The new-object mask trial exposed an input problem before SfM: numerical area
+gates did not detect lost label texture. The mustard candidate is rejected;
+drill remains unmasked. Next prepare label-preserving, reviewed foreground
+support (manual or independently licensed segmentation), freeze that input,
+then test the two-phase alignment policy on the 48 training views only. Preserve
+the 12 held-out views for separately disclosed localization/render evaluation.
+Do not treat these masks as physical ground-truth silhouettes or reuse them for
+geometry acceptance without separate validation. No seed sweep against the
+existing sensor depths is approved by this plan.
+
 ## Current continuation: comparisons and initialization diagnostics
 
 The [three-branch comparison plan](PIPELINE-COMPARISON-PLAN.md) now defines the

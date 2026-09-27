@@ -1,0 +1,39 @@
+# Mustard and drill: training-photo pose support, mustard candidate rejected
+
+The single frozen mustard mask candidate was generated for all 48 training views on the VPS, then **rejected for reconstruction by visual QA**. Numerical support gates passed, but blue/red label strips were removed in multiple views. No SfM or dense reconstruction used these masks. The immutable decision and manifest binding are in the [mustard visual-review record](../tests/datasets/ycb_mustard_support_review.json).
+
+The local training preview at `NP3_000` shows a mustard bottle with blue/red lettering over a yellow body, and a power drill with a red housing, dark chuck, and dark handle. A single color threshold would discard useful object regions; a filled color-component hull could absorb the checkerboard or fill the drill's handle gap. One view does not establish robustness around the orbit. Therefore this batch **does not ship an automatic segmentation policy**. It supplies a bounded 48-view contact-sheet tool and a manual polygon contract for later review. The masks, if generated, are *coarse pose-support masks only*, not silhouettes for mesh evaluation or ground truth.
+
+The [frozen YCB evaluation package](YCB-EVALUATION-PROTOCOL.md) selects 48 `NP3` RGB training photos and holds out 12. The helper [ycb_object_masks.py](../scripts/object_motion/ycb_object_masks.py) accepts only the two VPS-verified package-report SHA-256 values (mustard `45b6ed1430627a747eaeb8d4dff7d2c49502083cca0a7914e25aacd45b594425`; drill `65cae1f7b7b75bbe2e98b015937627864d1705c8b743211345033533e4fd7f3f`), validates the exact selected angle/name sequence, rejects duplicate photo hashes, checks every training photo's byte length and SHA-256 before and after decode, and decodes only those 48 RGB files. It does not open held-out images, supplied masks/depth/poses, or the Google mesh. It produces full-frame and fixed-crop 8×6 contact sheets so object and board placement can be reviewed across the entire training orbit. The crop is **visualization only**, mustard `(350,220,900,800)` or drill `(350,230,1000,780)` in original 1280×1024 coordinates; it is not silently used as a reconstruction mask. Original photos remain unchanged.
+
+On the VPS, with a fresh output directory under `/mnt/storage`:
+
+```sh
+python3 -m scripts.object_motion.ycb_object_masks \
+  --package /mnt/storage/crisp3ds-data/ycb-evaluation-001/mustard-package.json \
+  --dataset-root /path/to/ycb-vps-acquisition-001/006_mustard_bottle \
+  --output /mnt/storage/ycb-mustard-mask-review-001
+```
+
+Use the matching drill package/root and another fresh output path for drill; verify the actual dataset-root directory name on the VPS before invoking. The command requires Python 3.11+ and Pillow; no OpenCV, model weights, download, or external service. A 10 GiB free-space floor on the selected output volume, a 150 MB total training-photo input cap, and a 20 MiB output cap guard accidental expansion. The JSON manifest binds exact package, helper/runner, optional ROI configuration, image, and contact-sheet SHA-256 values; package/ROI/runner hashes are checked again before completion. Failed runs leave an explicit failed manifest; they are not usable masks.
+
+After review, one may supply a JSON manual region file with schema `ycb_manual_pose_regions_v1`, matching `object_id`, and an `images` mapping containing **exactly the 48 training basenames**. Each entry is `{"include": [polygon, ...], "exclude": [polygon, ...]}`; polygon vertices are integer `[x,y]` in the original 1280×1024 photo. Include polygons mark approximate object support; exclusions can preserve a visible handle void or avoid the calibration board. The renderer bounds polygon counts/vertices, rejects degenerate and out-of-image polygons, and requires resulting support between 0.5% and 40% of the image. A call with `--regions regions.json` emits `masks/NP3_000.jpg.png`-style binary masks, each mask SHA-256, and a red-overlay contact sheet for all 48 views. The manifest still says `generated_unreviewed`: a human must inspect the mask overlays, especially object-boundary omissions, checkerboard inclusion, and the drill handle gap, before any use in SfM/MVS. No automatic acceptance or benchmark score is attached.
+
+The manual policy is intentionally object-specific and labor-intensive. It offers a transparent baseline when color segmentation is unreliable, not a generic solution to background/object separation. Any later reconstruction must cite the exact ROI configuration and mask hashes, use only the training images for fitting, and keep these coarse pose masks distinct from evaluation silhouettes or depth/surface scoring.
+
+## One frozen mustard candidate: completed, visually rejected
+
+After examining both 48-view training contact sheets, the mustard bottle has a reasonably consistent warm-yellow/brown body against the cool bluish turntable. The drill does not: its dark chuck and handle are similar to the calibration board. A separate [mustard support candidate](../scripts/object_motion/ycb_mustard_support.py) therefore implements **one** fixed photo-only recipe; drill remains manual-review pending. This is a development mask candidate, not a general segmenter or a reconstruction result.
+
+In each original 1280×1024 training photo, it inspects only ROI `x=480..759, y=300..649`. A seed pixel requires `R≥35`, `G≥25`, both `R>1.05B` and `G>1.05B`, and both `R−B≥10` and `G−B≥10`. A row needs at least four seed pixels; the mask fills between its extreme seeds with a three-pixel margin, keeping blue/red label pixels between warm sides. It linearly bridges at most three consecutive non-seed rows. It rejects fewer than 60 or more than 330 seed rows, bbox width outside 35–240 px, support area outside 5,000–100,000 px, or support touching the ROI boundary. These thresholds were frozen **before** any reconstruction or mesh-quality outcome. A dark bottle edge outside the seed hull may be omitted; horizontal filling can also admit background between unrelated warm pixels. Neither possibility is silently interpreted as accurate segmentation.
+
+The one approved candidate was run once on the VPS with the pinned mustard package and a fresh directory under `/mnt/storage` (command retained for provenance, **not** a retry instruction):
+
+```sh
+python3 -m scripts.object_motion.ycb_mustard_support \
+  --package /mnt/storage/crisp3ds-data/ycb-evaluation-001/mustard-package.json \
+  --dataset-root /path/to/ycb-vps-acquisition-001/006_mustard_bottle \
+  --output /mnt/storage/ycb-mustard-support-preview-001
+```
+
+The VPS run completed 48 masks, with support areas from 12,810 to 20,296 pixels. Its manifest SHA-256 is `33e692ab9f3169f85cce44b3cf0c165b9f290080f8371151acedbe385834e257` at `/mnt/storage/crisp3ds-data/ycb-mustard-support-001/manifest.json`. The masked and overlay sheets were copied locally to `.local-tools/ycb-mustard-support-review-001/`; the original training sheets are in `.local-tools/ycb-training-review-001/mustard/`. The manifest's machine `mask_status` remains `generated_unreviewed` because the producer does not encode a later human decision. The separate [review record](../tests/datasets/ycb_mustard_support_review.json) gives the final decision: **rejected for reconstruction** after inspection of all 48 panels. Visible blue/red label strips were lost, notably around `NP3_060`–`078`, `NP3_120`–`216`, and `NP3_300`–`318`; the review record names representative frames. This failure matters because the removed label texture is discriminative for feature matching. Support-size and bbox gates did not catch it. The original photos remained unchanged; no held-out photo, reference mesh, or depth data informed the review, and no SfM/dense stage consumed these masks. The frozen thresholds and candidate files have not been changed or rerun in response.

@@ -55,6 +55,34 @@ class RayDepthTests(unittest.TestCase):
 
 
 class SupportTests(unittest.TestCase):
+    def test_mesh_filename_binds_only_completed_actual_stage(self):
+        masked = {"schema": "classical_masked_dense_v1", "status": "complete",
+                  "stages": [{"name": "mesh", "status": "complete", "artifact": {"faces": 38902}},
+                             {"name": "refine", "status": "complete", "artifact": {"faces": 5680}}]}
+        self.assertEqual(sd.verified_mesh_stage("mesh.ply", masked),
+                         {"name": "mesh", "reported_faces": 38902})
+        self.assertEqual(sd.verified_mesh_stage("refined.ply", masked),
+                         {"name": "refine", "reported_faces": 5680})
+        failed_later = {"schema": "classical_calibrated_finish_dense_v1", "status": "failed",
+                        "stages": [{"name": "mesh", "status": "complete", "artifact": {"faces": 38550}},
+                                   {"name": "refine", "status": "failed", "artifact": None}]}
+        self.assertEqual(sd.verified_mesh_stage("mesh.ply", failed_later)["reported_faces"], 38550)
+        with self.assertRaisesRegex(ValueError, "completed refine"):
+            sd.verified_mesh_stage("refined.ply", failed_later)
+        recovered = {"schema": "classical_recovered_dense_v1", "status": "complete",
+                     "stages": [{"name": "rough_mesh", "status": "complete",
+                                 "artifact": {"faces": 38440}}]}
+        self.assertEqual(sd.verified_mesh_stage("mesh.ply", recovered)["name"], "rough_mesh")
+        for name in ("other.ply", "mesh.ply.backup", "refine.ply"):
+            with self.assertRaisesRegex(ValueError, "filename"):
+                sd.verified_mesh_stage(name, masked)
+        wrong = {"schema": "unknown", "stages": masked["stages"]}
+        with self.assertRaisesRegex(ValueError, "schema"):
+            sd.verified_mesh_stage("mesh.ply", wrong)
+        duplicate = {"schema": "classical_masked_dense_v1", "stages": masked["stages"] * 2}
+        with self.assertRaisesRegex(ValueError, "completed mesh"):
+            sd.verified_mesh_stage("mesh.ply", duplicate)
+
     def test_calibration_zero_is_missing_and_bias_unknown_rejected(self):
         got = sd.calibrated_depth_metres(np.array([0, 10000], np.uint16), 1.0016965552242483, 0)
         self.assertTrue(math.isnan(got[0]))

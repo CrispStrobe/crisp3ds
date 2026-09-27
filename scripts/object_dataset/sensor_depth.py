@@ -456,6 +456,25 @@ def verify_recovered_dense_lineage(producer_report, source_model, dense_sparse, 
     return {"source_model_sha256": source_hashes, "undistorted_model_sha256": expected_dense}
 
 
+def verified_mesh_stage(mesh, producer):
+    """Bind a native PLY filename to its completed producer stage and face count."""
+    mesh = Path(mesh)
+    schema = producer.get("schema")
+    rough_stage = {"classical_masked_dense_v1": "mesh",
+                   "classical_calibrated_finish_dense_v1": "mesh",
+                   "classical_recovered_dense_v1": "rough_mesh"}.get(schema)
+    if rough_stage is None or mesh.name not in ("mesh.ply", "refined.ply"):
+        raise ValueError("native mesh filename or producer schema is not an approved stage")
+    stage_name = rough_stage if mesh.name == "mesh.ply" else "refine"
+    matches = [row for row in producer.get("stages", []) if row.get("name") == stage_name]
+    artifact = matches[0].get("artifact") if len(matches) == 1 else None
+    if (len(matches) != 1 or matches[0].get("status") != "complete" or
+            not isinstance(artifact, dict) or type(artifact.get("faces")) is not int or
+            artifact["faces"] <= 0):
+        raise ValueError(f"{mesh.name} does not have one completed {stage_name} face-count stage")
+    return {"name": stage_name, "reported_faces": artifact["faces"]}
+
+
 def _prepared_frames(reference_report, projection_report, deadline):
     if (projection_report.get("schema") != "berkeley_rgb_depth_projection_check_v1"
             or projection_report.get("status") != "assumption_qualified_projection_plausible"
@@ -569,6 +588,7 @@ def compare_candidates(candidates, projection_path=PROJECTION_002, deadline=None
             critical += [model / name for name in ("cameras.bin", "images.bin", "points3D.bin")]
             critical += [dense_sparse / name for name in ("cameras.bin", "images.bin", "points3D.bin")]
             before = {str(path): sha256(path) for path in critical}
+            stage = verified_mesh_stage(mesh, json.loads(producer_report.read_text()))
             camera_report, world_to_table = _verified_camera_report(camera_report_path, model, reference_report)
             gauge = verify_dense_camera_gauge(dense_sparse, model)
             recovered_lineage = (verify_recovered_dense_lineage(producer_report, model, dense_sparse, camera_report)
@@ -582,8 +602,14 @@ def compare_candidates(candidates, projection_path=PROJECTION_002, deadline=None
             info, vertices, faces = evaluate.inspect_ply(normalized_path, geometry=True)
             if info["nontriangle_faces"]:
                 raise ValueError("sensor-depth surface must be triangular")
+            if (conversion["faces"] != stage["reported_faces"] or
+                    info["faces"] != stage["reported_faces"] or
+                    conversion["source_sha256"] != before[str(mesh)]):
+                raise ValueError("mesh geometry does not match completed producer stage")
             table_vertices = transform_vertices(vertices, world_to_table)
-            row = {"label": label, "stage": "rough_mesh", "mesh_sha256": before[str(mesh)],
+            row = {"label": label, "stage": stage["name"],
+                   "producer_stage_faces": stage["reported_faces"], "verified_mesh_faces": info["faces"],
+                   "mesh_sha256": before[str(mesh)],
                    "native_mesh_path": str(mesh), "producer_result_sha256": before[str(producer_report)],
                    "normalization": conversion, "dense_camera_gauge": gauge,
                    "recovered_dense_lineage": recovered_lineage,
