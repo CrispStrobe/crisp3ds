@@ -1,0 +1,337 @@
+#!/usr/bin/env python3
+"""Bounded stock PyCOLMAP sparse reconstruction of the pinned Sceaux JPEGs.
+
+The upstream scene and meshes are verified as sample provenance only. The
+reconstruction workers receive copied JPEGs and their own new database.
+"""
+
+from __future__ import annotations
+
+import argparse
+from contextlib import closing
+import json
+import math
+from pathlib import Path
+import platform
+import shutil
+import sqlite3
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.classical_backend.run import (RESERVE, StageError, digest, folder_bytes,
+                                          stage)
+from scripts.upstream_control.fetch import OUTPUT as SAMPLE
+from scripts.upstream_control import fetch as sample_fetch
+from scripts.upstream_control import run as sample_run
+from scripts.upstream_control.run import verify_sample
+
+PYTHON = ROOT / ".local-tools/colmap-sparse/venv/bin/python"
+OUTPUT = Path("/Volumes/backups/code/crisp3ds-data/sceaux-stock-sfm-001")
+SEED = 20260927
+MAX_BYTES = 512 << 20
+MAX_RSS = 4 << 30
+MAX_LOG = 16 << 20
+MAX_SECONDS = 600
+IMAGE_NAMES = tuple(f"{i:05}.jpg" for i in range(11))
+
+
+def options(pycolmap):
+    """Construct defaults anew; bound only the two CPU thread pools."""
+    reader = pycolmap.ImageReaderOptions()
+    extract = pycolmap.SiftExtractionOptions()
+    extract.num_threads = 2
+    matching = pycolmap.SiftMatchingOptions()
+    matching.num_threads = 2
+    exhaustive = pycolmap.ExhaustiveMatchingOptions()
+    verification = pycolmap.TwoViewGeometryOptions()
+    mapping = pycolmap.IncrementalPipelineOptions()
+    mapping.num_threads = 2
+    mapping.mapper.num_threads = 2
+    return reader, extract, matching, exhaustive, verification, mapping
+
+
+def effective_options(pycolmap):
+    reader, extract, matching, exhaustive, verification, mapping = options(pycolmap)
+    return {
+        "camera_mode": pycolmap.CameraMode.AUTO.name,
+        "camera_model": reader.camera_model,
+        "device": pycolmap.Device.cpu.name,
+        "image_reader": reader.todict(),
+        "sift_extraction": extract.todict(),
+        "sift_matching": matching.todict(),
+        "exhaustive_matching": exhaustive.todict(),
+        "two_view_geometry": verification.todict(),
+        "incremental_pipeline": mapping.todict(),
+        "deviations_from_pycolmap_3_11_1_defaults": {
+            "random_seed": SEED,
+            "device": "cpu",
+            "sift_extraction.num_threads": 2,
+            "sift_matching.num_threads": 2,
+            "incremental_pipeline.num_threads": 2,
+            "incremental_pipeline.mapper.num_threads": 2,
+        },
+    }
+
+
+def inspect_model(model, names):
+    registered = sorted(model.images[image_id].name for image_id in model.reg_image_ids())
+    if len(registered) != len(set(registered)) or set(registered) - set(names):
+        raise ValueError("model registers unexpected or duplicate image names")
+    duplicate_tracks = 0
+    nonfinite_points = 0
+    nonfinite_cameras = sum(
+        not all(math.isfinite(float(v)) for v in camera.params)
+        for camera in model.cameras.values())
+    nonfinite_poses = sum(
+        not all(math.isfinite(float(v)) for row in model.images[image_id].cam_from_world.matrix()
+                for v in row)
+        for image_id in model.reg_image_ids())
+    for point in model.points3D.values():
+        if not all(math.isfinite(float(v)) for v in point.xyz):
+            nonfinite_points += 1
+        image_ids = [element.image_id for element in point.track.elements]
+        if len(image_ids) != len(set(image_ids)):
+            duplicate_tracks += 1
+    return {"registered_images": len(registered), "registered_names": registered,
+            "missing_names": sorted(set(names) - set(registered)),
+            "sparse_points": model.num_points3D(),
+            "duplicate_image_tracks": duplicate_tracks,
+            "nonfinite_points": nonfinite_points,
+            "nonfinite_cameras": nonfinite_cameras,
+            "nonfinite_poses": nonfinite_poses}
+
+
+def worker(kind: str, output: Path) -> None:
+    import pycolmap
+
+    if pycolmap.__version__ != "3.11.1":
+        raise ValueError(f"expected PyCOLMAP 3.11.1, got {pycolmap.__version__}")
+
+    names = list(IMAGE_NAMES)
+    images = output / "images"
+    database = output / "database.db"
+    reader, extract, matching, exhaustive, verification, mapping = options(pycolmap)
+    (output / "effective-options.json").write_text(
+        json.dumps({"pycolmap_version": pycolmap.__version__,
+                    "pycolmap_core_sha256": digest(Path(pycolmap._core.__file__)),
+                    **effective_options(pycolmap)}, indent=2, default=str) + "\n")
+    pycolmap.set_random_seed(SEED)
+    if kind == "features":
+        pycolmap.extract_features(str(database), str(images), names,
+                                  camera_mode=pycolmap.CameraMode.AUTO,
+                                  camera_model=reader.camera_model, reader_options=reader,
+                                  sift_options=extract, device=pycolmap.Device.cpu)
+    elif kind == "matching":
+        pycolmap.match_exhaustive(str(database), sift_options=matching,
+                                  matching_options=exhaustive,
+                                  verification_options=verification,
+                                  device=pycolmap.Device.cpu)
+    elif kind == "mapping":
+        models = pycolmap.incremental_mapping(str(database), str(images),
+                                               str(output / "models"), options=mapping)
+        summaries = []
+        for index, model in sorted(models.items()):
+            summary = {"index": index, **inspect_model(model, names)}
+            directory = output / "models" / str(index)
+            files = {name: directory / name for name in
+                     ("cameras.bin", "images.bin", "points3D.bin")}
+            if any(not path.is_file() or path.is_symlink() for path in files.values()):
+                raise ValueError(f"incomplete binary model {index}")
+            summary["files_sha256"] = {name: digest(path) for name, path in files.items()}
+            summaries.append(summary)
+        (output / "models.json").write_text(json.dumps(summaries, indent=2) + "\n")
+    else:
+        raise ValueError(f"unknown worker stage {kind}")
+
+
+def database_counts(database: Path) -> dict:
+    journal_files = [Path(str(database) + suffix) for suffix in ("-wal", "-shm", "-journal")]
+    if any(path.exists() or path.is_symlink() for path in journal_files):
+        raise ValueError("database has a live or leftover SQLite journal")
+    with closing(sqlite3.connect(f"file:{database}?mode=ro&immutable=1", uri=True)) as connection:
+        return {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                for table in ("images", "cameras", "keypoints", "descriptors",
+                              "matches", "two_view_geometries")}
+
+
+def partial_model_hashes(output: Path) -> dict:
+    models = output / "models"
+    if not models.is_dir() or models.is_symlink():
+        return {}
+    return {directory.name: {name: digest(path) for name in
+                              ("cameras.bin", "images.bin", "points3D.bin")
+                              if (path := directory / name).is_file() and not path.is_symlink()}
+            for directory in sorted(models.iterdir())
+            if directory.is_dir() and not directory.is_symlink()}
+
+
+def toolchain(python: Path) -> dict:
+    probe = subprocess.run([str(python), "-c",
+                            "import json,pycolmap; print(json.dumps({'version':pycolmap.__version__,"
+                            "'core':pycolmap._core.__file__}))"],
+                           capture_output=True, text=True, timeout=10, check=True)
+    info = json.loads(probe.stdout)
+    if info["version"] != "3.11.1":
+        raise ValueError(f"expected pinned PyCOLMAP 3.11.1, got {info['version']}")
+    return {"version": info["version"], "core_path": info["core"],
+            "core_sha256": digest(Path(info["core"])),
+            "python_path": str(python),
+            "runner_sha256": digest(Path(__file__)),
+            "stage_helper_sha256": digest(ROOT / "scripts/classical_backend/run.py"),
+            "sample_run_helper_sha256": digest(Path(sample_run.__file__)),
+            "sample_fetch_helper_sha256": digest(Path(sample_fetch.__file__))}
+
+
+def same_digest(path: Path, expected: str) -> bool:
+    try:
+        return digest(path) == expected
+    except OSError:
+        return False
+
+
+def run(sample: Path, output: Path, python: Path = PYTHON) -> dict:
+    sample = Path(sample)
+    output = Path(output)
+    if output.exists() or output.is_symlink():
+        raise FileExistsError(f"output must be fresh: {output}")
+    if not output.parent.is_dir() or output.parent.is_symlink():
+        raise ValueError("output parent must be an existing real directory")
+    output = output.absolute()
+    if not python.is_file():
+        raise ValueError(f"pinned PyCOLMAP interpreter unavailable: {python}")
+    software = toolchain(python)
+    sample_manifest, manifest_hash = verify_sample(sample)
+    manifest_rows = {row["path"]: row for row in sample_manifest["files"]}
+    if any(f"images/{name}" not in manifest_rows for name in IMAGE_NAMES):
+        raise ValueError("Sceaux image manifest is incomplete")
+    image_bytes = sum(manifest_rows[f"images/{name}"]["bytes"] for name in IMAGE_NAMES)
+    if image_bytes >= MAX_BYTES:
+        raise ValueError("source photos exceed output budget")
+    if shutil.disk_usage(output.parent).free < RESERVE + MAX_BYTES:
+        raise ValueError("output volume lacks 10 GiB reserve plus output budget")
+    if shutil.disk_usage(ROOT).free < RESERVE:
+        raise ValueError("workspace volume lacks 10 GiB reserve")
+    output.mkdir()
+    (output / "images").mkdir()
+    deadline = time.monotonic() + MAX_SECONDS
+    report = {"schema": "sceaux_image_only_pycolmap_stock_v1", "status": "running",
+              "lane": "image-only sparse reconstruction; upstream scene/cameras/meshes excluded",
+              "sample_manifest_sha256": manifest_hash,
+              "sample_commit": sample_manifest["commit"],
+              "software": software,
+              "platform": platform.platform(), "machine": platform.machine(),
+              "limits": {"max_output_bytes": MAX_BYTES, "max_child_rss_bytes": MAX_RSS,
+                         "max_log_bytes_per_stage": MAX_LOG, "max_seconds_total": MAX_SECONDS,
+                         "min_free_bytes_each_volume": RESERVE},
+              "inputs": [], "stages": [], "models": [],
+              "quality_accepted": False}
+
+    def save():
+        (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
+
+    save()
+    try:
+        for name in IMAGE_NAMES:
+            source = sample / "images" / name
+            target = output / "images" / name
+            if (shutil.disk_usage(output).free < RESERVE + source.stat().st_size or
+                    shutil.disk_usage(ROOT).free < RESERVE or
+                    folder_bytes(output) + source.stat().st_size > MAX_BYTES):
+                raise ValueError("image copy would exceed disk reserve or output cap")
+            shutil.copyfile(source, target)
+            checksum = manifest_rows[f"images/{name}"]["sha256"]
+            if digest(target) != checksum:
+                raise ValueError(f"copied image hash differs: {name}")
+            report["inputs"].append({"name": name, "sha256": checksum,
+                                     "bytes": source.stat().st_size})
+        save()
+        for kind in ("features", "matching", "mapping"):
+            command = [str(python), "-m", "scripts.upstream_control.image_only",
+                       "--worker", kind, "--output", str(output)]
+            try:
+                result = stage(output, kind, command, deadline, MAX_BYTES, MAX_LOG,
+                               MAX_RSS, extra_reserve_paths=(ROOT,))
+            except StageError as error:
+                report["stages"].append(error.result)
+                raise
+            report["stages"].append(result)
+            if kind == "features":
+                report["effective_options"] = json.loads((output / "effective-options.json").read_text())
+            if kind in ("features", "matching"):
+                report[f"database_after_{kind}"] = {
+                    "sha256": digest(output / "database.db"),
+                    "counts": database_counts(output / "database.db")}
+            save()
+        report["models"] = json.loads((output / "models.json").read_text())
+        report["database_after_mapping"] = {"sha256": digest(output / "database.db"),
+                                            "counts": database_counts(output / "database.db")}
+        best = max(report["models"], key=lambda m: (m["registered_images"], m["sparse_points"]),
+                   default=None)
+        report["best_model_index"] = best["index"] if best else None
+        report["positive_control_pass"] = bool(best and best["registered_images"] == 11 and
+                                               best["sparse_points"] > 0 and
+                                               best["duplicate_image_tracks"] == 0 and
+                                               best["nonfinite_points"] == 0 and
+                                               best["nonfinite_cameras"] == 0 and
+                                               best["nonfinite_poses"] == 0)
+        report["status"] = "complete"
+    except Exception as error:
+        report.update(status="failed", failure=str(error))
+    finally:
+        report["output_bytes"] = folder_bytes(output)
+        report["source_images_unchanged"] = all(
+            same_digest(sample / "images" / item["name"], item["sha256"])
+            for item in report["inputs"])
+        report["copied_images_unchanged"] = all(
+            same_digest(output / "images" / item["name"], item["sha256"])
+            for item in report["inputs"])
+        report["free_bytes_after"] = {"output": shutil.disk_usage(output).free,
+                                      "workspace": shutil.disk_usage(ROOT).free}
+        try:
+            report["software_unchanged"] = toolchain(python) == software
+        except (OSError, ValueError, subprocess.SubprocessError):
+            report["software_unchanged"] = False
+        report["partial_model_files_sha256"] = partial_model_hashes(output)
+        report["elapsed_seconds_total"] = round(MAX_SECONDS - (deadline - time.monotonic()), 3)
+        violations = []
+        if not report["source_images_unchanged"] or not report["copied_images_unchanged"]:
+            violations.append("image input changed")
+        if not report["software_unchanged"]:
+            violations.append("software changed")
+        if report["output_bytes"] > MAX_BYTES:
+            violations.append("output byte limit exceeded")
+        if any(free < RESERVE for free in report["free_bytes_after"].values()):
+            violations.append("10 GiB disk reserve reached")
+        if time.monotonic() > deadline:
+            violations.append("total deadline exceeded")
+        if violations:
+            report.update(status="failed", failure="; ".join(violations),
+                          positive_control_pass=False)
+        save()
+    return report
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--sample", type=Path, default=SAMPLE)
+    parser.add_argument("--output", type=Path, default=OUTPUT)
+    parser.add_argument("--python", type=Path, default=PYTHON)
+    parser.add_argument("--worker", choices=("features", "matching", "mapping"))
+    args = parser.parse_args()
+    if args.worker:
+        worker(args.worker, args.output)
+        return 0
+    report = run(args.sample, args.output, args.python)
+    print(json.dumps({"status": report["status"],
+                      "positive_control_pass": report.get("positive_control_pass", False),
+                      "report": str(args.output / "report.json")}))
+    return 0 if report["status"] == "complete" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
