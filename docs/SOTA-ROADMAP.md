@@ -30,12 +30,14 @@ provenance for fused points, so the depth-versus-fusion cause remains unresolved
 
 Next bounded tasks, ordered by causal value:
 
-1. Use the existing reviewed SAM coarse support on the 48 training views of
-   mustard as a control. A separate [photo-only boundary-trim candidate](MUSTARD-PHOTO-REFINE.md)
-   has passed only limited visual approval as an ablation input, not a better
-   silhouette. Keep 12 held-out views untouched. Compare feature-mask effects
-   first, then native dense-mask effects on the same frozen camera model; do
-   not derive support from scanner/depth ground truth.
+1. The [paired 48-training-view mustard feature-mask test](MUSTARD-FEATURE-MASK-PAIR-PLAN.md)
+   is complete and negative: both masks registered all views but produced
+   folded camera trajectories, with stronger opposing-view aliasing after the
+   small boundary trim. Keep the 12 held-out views untouched. Diagnose
+   correspondences and independent two-view geometry before attempting a
+   native dense-mask comparison; there is no plausible common camera model
+   from this pair. Do not derive support or camera choices from scanner/depth
+   ground truth.
 2. On the existing cracker-box run, the fixed three-view sensor comparison is
    complete; next instrument an evaluation-only fusion trace on sealed DMAPs
    to link candidate fused points to source pixels, support and rejection
@@ -53,6 +55,11 @@ Next bounded tasks, ordered by causal value:
    dependency closure and a second real-object geometry comparison are gates.
    Keep a separately budgeted GPU/neural appearance lane; splat appearance
    alone does not satisfy the mesh-quality gate.
+
+An [evaluation-only OpenMVS fusion trace prototype](OPENMVS-EVAL-FUSION-TRACE.md)
+now identifies the necessary per-pixel instrumentation, but is uncompiled:
+the local checkout lacks Boost system and OpenCV C++ development dependencies.
+Its first-eight-point sample is only plumbing, not a wide-geometry diagnosis.
 
 No KIRI parity claim is possible without the same captures and a matched
 held-out geometry/appearance evaluation. The current result is demonstrably a
