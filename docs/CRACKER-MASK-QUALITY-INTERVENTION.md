@@ -81,7 +81,31 @@ displacement at most three pixels after adjudication; otherwise the annotation
 process is not repeatable enough to release a hull candidate. Require zero
 reviewed foreground pixels in marked checkerboard and hardware patches. A
 nonzero count or failed format/hash check is a QA failure, not permission to
-alter the cameras or threshold. Publish all metrics even if the set abstains.
+alter the cameras or threshold. Publish computed metrics when a validly formed
+set abstains; a malformed file or changed hash fails closed before a full
+report can be produced.
+
+The read-only [mask QA command](../scripts/classical_backend/cracker_mask_qa.py)
+implements exact 60/12 file inventories, sealed RGB/coarse-mask hashes,
+native-size binary PNG validation, connected-component/border/hole checks,
+old-mask excess/omission/IoU, exact Euclidean bidirectional boundary-distance
+summaries, and the three-pixel repeatability gate. It rehashes all inputs
+afterward and prints JSON to stdout; it does not generate masks or write a
+report file. Run it only after photo annotation has been approved, with three
+fresh/read-only input paths:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .local-tools/colmap-sparse/venv/bin/python \
+  -m scripts.classical_backend.cracker_mask_qa \
+  --source /Volumes/backups/code/crisp3ds-data/turntable-fresh-openmvs-005 \
+  --reviewed /path/to/exact-60-reviewed-masks \
+  --repeat /path/to/exact-12-independent-masks
+```
+
+Visible checkerboard/support patches, uncertain arcs, and edge crops require
+the separate RGB reviewer record described above; the command cannot infer
+those semantic labels from binary silhouettes. The tool has only been tested
+on synthetic images and has not been run on the 60-view capture.
 
 ## Frozen geometry test and independent score
 
