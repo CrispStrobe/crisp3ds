@@ -38,6 +38,15 @@ Next bounded tasks, ordered by causal value:
    native dense-mask comparison; there is no plausible common camera model
    from this pair. Do not derive support or camera choices from scanner/depth
    ground truth.
+
+   A [frozen six-pair independent essential-pose audit](MUSTARD-TWO-VIEW-POSE-RESULT.md)
+   has now run. Most long-pair estimates are unavailable under the predeclared
+   parallax/cheirality gates. One apparently distinct opposing-pair estimate
+   changes sharply when just one verified correspondence is added, despite
+   repeatability across RANSAC seeds. This does not certify a physical pose or
+   identify the unique cause of the fold. The next camera experiment needs
+   stronger, independently checked correspondences and an input-stability
+   test; another mask-edge trim or registration-count target is not justified.
 2. On the existing cracker-box run, the fixed three-view sensor comparison is
    complete; next instrument an evaluation-only fusion trace on sealed DMAPs
    to link candidate fused points to source pixels, support and rejection
