@@ -1,0 +1,16 @@
+diff --git a/src/openMVG/multiview/CMakeLists.txt b/src/openMVG/multiview/CMakeLists.txt
+--- a/src/openMVG/multiview/CMakeLists.txt
++++ b/src/openMVG/multiview/CMakeLists.txt
+@@ -26,9 +26,9 @@
+ # - enabled only if OpenMVG_USE_LIGT is set to ON
+ # ==============================================================================
+ if (NOT OpenMVG_USE_LIGT)
+-    file(GLOB_RECURSE REMOVEFILELIGT LiGT_*.cpp)
+-    file(GLOB_RECURSE REMOVEFILELIGT_HEADER LiGT_*.hpp)
++    file(GLOB REMOVEFILELIGT ./LiGT/*.cpp)
++    file(GLOB REMOVEFILELIGT_HEADER ./LiGT/*.hpp)
+     #Remove the LiGT files
+     list(REMOVE_ITEM multiview_files_cpp ${REMOVEFILELIGT})
+-    list(REMOVE_ITEM multiview_files_cpp ${REMOVEFILELIGT_HEADER})
++    list(REMOVE_ITEM multiview_files_header ${REMOVEFILELIGT_HEADER})
+ endif()
