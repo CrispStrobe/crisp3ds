@@ -2,7 +2,9 @@
 
 import tempfile
 import unittest
+import os
 from pathlib import Path
+import stat
 from types import SimpleNamespace
 
 from scripts.metal_backend import sycl_preflight as audit
@@ -53,12 +55,32 @@ class SyclPreflightTests(unittest.TestCase):
     def test_artifacts_require_exact_nonempty_files(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
+            suffix = ".exe" if os.name == "nt" else ""
             for name in audit.TARGETS:
-                (root / name).write_bytes(b"binary")
-                (root / name).chmod(0o755)
+                (root / (name + suffix)).write_bytes(b"binary")
+                if os.name == "posix":
+                    (root / name).chmod(0o755)
             self.assertEqual(audit.artifact_contract(root), [])
-            (root / audit.TARGETS[0]).write_bytes(b"")
+            (root / (audit.TARGETS[0] + suffix)).write_bytes(b"")
             self.assertEqual(len(audit.artifact_contract(root)), 1)
+
+    def test_native_executable_semantics_are_platform_explicit(self):
+        self.assertTrue(audit.native_executable_file(1, 0, "nt"))
+        self.assertFalse(audit.native_executable_file(0, stat.S_IXUSR, "nt"))
+        self.assertTrue(audit.native_executable_file(1, stat.S_IXUSR, "posix"))
+        self.assertFalse(audit.native_executable_file(1, 0, "posix"))
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for name in audit.TARGETS:
+                (root / (name + ".exe")).write_bytes(b"binary")
+            self.assertEqual(audit.artifact_contract(root, platform="nt"), [])
+            self.assertEqual(len(audit.artifact_contract(root, platform="posix")), len(audit.TARGETS))
+            (root / audit.TARGETS[0]).write_bytes(b"wrong extension")
+            self.assertEqual(audit.artifact_contract(root, platform="nt"), [])
+            (root / (audit.TARGETS[0] + ".exe")).write_bytes(b"")
+            self.assertEqual(len(audit.artifact_contract(root, platform="nt")), 1)
+            with self.assertRaises(ValueError):
+                audit.artifact_contract(root, platform="unknown")
 
     def test_adaptivecpp_full_profile_is_required(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -134,12 +134,21 @@ def adaptivecpp_cache_contract(path, source):
     return issues
 
 
-def artifact_contract(path):
+def native_executable_file(size, mode, platform):
+    """Windows uses .exe naming; POSIX additionally requires owner execute."""
+    return size > 0 and (platform == "nt" or bool(mode & stat.S_IXUSR))
+
+
+def artifact_contract(path, *, platform=os.name):
+    """Check native executable naming/permissions without invoking artifacts."""
+    if platform not in ("nt", "posix"):
+        raise ValueError("artifact platform must be nt or posix")
     path = Path(path)
     if path.is_symlink() or not path.is_dir():
         return ["artifact directory missing, linked, or invalid"]
     issues = []
-    found = {name: [] for name in TARGETS}
+    expected_names = {name: name + ".exe" if platform == "nt" else name for name in TARGETS}
+    found = {name: [] for name in expected_names.values()}
     queue = [(path, 0)]
     entries = 0
     while queue:
@@ -155,9 +164,9 @@ def artifact_contract(path):
             elif entry.name in found and entry.is_file(follow_symlinks=False):
                 found[entry.name].append(Path(entry.path))
     for name in TARGETS:
-        matches = found[name]
-        if (len(matches) != 1 or matches[0].stat().st_size == 0 or
-                not matches[0].stat().st_mode & stat.S_IXUSR):
+        matches = found[expected_names[name]]
+        if len(matches) != 1 or not native_executable_file(
+                matches[0].stat().st_size, matches[0].stat().st_mode, platform):
             issues.append(f"expected one nonempty, regular executable artifact: {name}")
     return issues
 
