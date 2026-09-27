@@ -4,6 +4,14 @@ Protocol started 2026-09-27 before inspecting any reconstructed YCB surface.
 This is a development case, not held-out acceptance. Source/photo/reference hashes
 and attribution: [dataset manifest](../tests/datasets/ycb_cracker_box.json).
 
+The latest [fresh 60-photo camera-gated OpenMVS run](TURNTABLE-COMPLETE-PLAN.md#fresh-complete-openmvs-oracle-and-shape-result)
+completed full-resolution dense reconstruction through texture on this M1 and
+passed the 60-view mask audit, but its bare mesh remains rejected: F1@1% is
+42.23% after its own reference fit and 30.92% in the camera-transported older
+`006` gauge. This is not a KIRI comparison or independently calibrated metric
+accuracy. The [AliceVision M1 audit](ALICEVISION-MAC-ORACLE.md) ran an isolated
+Metal depth test, not an AliceVision photo-to-mesh pipeline.
+
 ## Latest fixed-camera ablations
 
 The [consolidated comparison](BENCHMARK-RESULTS.md) and

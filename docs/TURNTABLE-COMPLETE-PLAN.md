@@ -104,3 +104,48 @@ frozen gate: center RMS/radius `0.01894131485` (<0.05) and p95 orientation
 (<10°). Berkeley data remained outside extraction, matching, mapping, and BA.
 This camera agreement does not establish mesh accuracy; the masked native dense
 continuation and bare-shape review remain separate gates.
+
+## Fresh complete OpenMVS oracle and shape result
+
+The camera-gated [fresh native result](/Volumes/backups/code/crisp3ds-data/turntable-fresh-openmvs-005/result.json)
+(SHA-256 `dafc6ccb2a90f0c5a45748291571455237acd8ae08da01dd80adc10222a3625e`)
+used exactly the sealed `004` model and all 60 original photos. It undistorted
+the images, reprojected all 60 coarse object masks, and ran OpenMVS v2.4.0 CPU
+at full native depth resolution (about 1282×1024), two geometric-consistency
+passes, and two threads. This is a **fresh photo-to-textured-mesh completion**,
+not a cached-depth continuation. All native stages and source/binary hash checks
+passed. The depth audit found zero positive-depth pixels outside the masks in
+all 60 DMAPs. Dense fusion yielded 149,337 points; the rough mesh had 70,456
+faces, and the refined textured OBJ has 5,351 vertices / 10,698 faces.
+
+Dense reconstruction took 667.897 s; the complete native-stage sequence
+(undistort through texture, including depth audit) took about 776 s, plus input
+copying. Output was 1,736,236,866 bytes against a 4 GiB cap. The largest sampled
+child RSS was 2,129,297,408 bytes, and the external volume had 17,129,648,128
+bytes free afterward, above the 10 GiB floor. These timings include the slower
+external SSD and are not an optimized throughput claim. The prepared level-1
+fallback was not run.
+
+The separate [frozen surface score](/Volumes/backups/code/crisp3ds-data/turntable-fresh-openmvs-score-005/score.json)
+(SHA-256 `165b8d5169e8bdb917f008864b01c434f4e03455b6ffe688d8ae8a824b2847c9`)
+used the independent Google scanner mesh **only after** reconstruction. Its
+proper-Sim(3) reference-fitted F1 is **22.09%, 42.23%, 58.66%** at 0.5%, 1%,
+2% of the reference diagonal. The reference self-control is 100% at each
+threshold. Under the older `006` transform transported by the 60 named
+image-derived cameras, F1 is **15.98%, 30.92%, 52.71%**. Camera-gauge transport
+itself fits with center RMS 0.374% of the old orbit radius and p95 orientation
+0.291°. This is a conditional common-gauge comparison, not independent metric
+scale: Berkeley rig poses and the Google mesh have no verified cross-scanner
+transform. The earlier full-resolution `011` yielded 42.06% independently
+fitted and 35.52% in the `006` gauge at 1%; therefore this run does **not**
+establish a meaningful shape improvement, despite better fresh-run provenance.
+
+The [neutral three-view preview](/Volumes/backups/code/crisp3ds-data/turntable-fresh-openmvs-score-005/refined-three-view.png)
+and a manually rendered common-gauge preview show a recognizable box, but its
+common-gauge axis-aligned extent is about 20% and 33% larger than the scanner
+mesh on two axes and about 3% smaller on the third. Those ratios depend on the
+conditional `006` reference fit and are not physical dimensional measurements.
+The bare shape is **rejected for object-quality acceptance**. Neither 60/60
+cameras, a closed-looking textured box, nor a complete native pipeline is
+equivalent to KIRI-level surface fidelity. OpenMVS remains an AGPL evaluation
+oracle and is not part of the approved App Store backend.
