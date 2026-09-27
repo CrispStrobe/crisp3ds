@@ -14,7 +14,9 @@
     "sparse_report_ref": "/Volumes/backups/code/crisp3ds-data/turntable-sparse-fresh-fixed-004/turntable-profile.json",
     "sparse_report_sha256": "d302084d806989d86666030c060f64380952f5503162a4b4aad295d04b846571",
     "camera_gate_ref": "/Volumes/backups/code/crisp3ds-data/turntable-sparse-fresh-fixed-004/independent-camera-gate.json",
-    "camera_gate_sha256": "1656ac8aea32650953f4ec83413cd9022f28ad85ef69cf91af0c46026f868214"
+    "camera_gate_sha256": "1656ac8aea32650953f4ec83413cd9022f28ad85ef69cf91af0c46026f868214",
+    "sensor_depth_ref": "/Volumes/backups/code/crisp3ds-data/fresh-sensor-depth-005/report.json",
+    "sensor_depth_sha256": "a4b3d0eda0c7fcb4f508e73f1ce30e5ebfab4112e0e75cc7ddec3524117a3105"
   },
   "result": {
     "status": "complete",
@@ -34,6 +36,18 @@
     "reference_fitted_sim3": 0.4223070276497696,
     "transported_006_gauge": 0.3091683783255086,
     "interpretation": "Post hoc reference fit and conditional shared-gauge diagnostic; neither establishes physical metric accuracy or object-quality acceptance"
+  },
+  "sensor_depth_diagnostic": {
+    "support": "Same frozen 6144 Berkeley NP3 rays over 0/120/240 degrees; coarse photo-derived RGB support; separate camera-only Sim3 for each candidate; reference excluded from reconstruction",
+    "rough_hits": 5013,
+    "rough_supported_rays": 6144,
+    "rough_hit_only_mean_absolute_m": 0.0030763493811583314,
+    "rough_within_5mm_among_all_supported": 0.6988932291666666,
+    "refined_hits": 4892,
+    "refined_hit_only_mean_absolute_m": 0.0031242086931418597,
+    "older_rough_008_hits": 5166,
+    "older_rough_008_hit_only_mean_absolute_m": 0.0028807391385633017,
+    "interpretation": "Assumption-qualified three-view sensor agreement, not whole-object completeness or certified metric accuracy; fresh rough and refined stages do not improve on the older rough control"
   },
   "license_scope": "OpenMVS AGPL-3.0 evaluation oracle; no approval to bundle or ship its binary"
 }

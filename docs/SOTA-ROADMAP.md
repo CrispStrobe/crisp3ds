@@ -18,18 +18,29 @@ finds excess breadth already in dense points (rough mesh 31.79%, refined mesh
 refinement fixes this object. Google-to-Berkeley cross-scanner registration
 remains uncertain, and this repeatedly used object is not held-out acceptance.
 
+The subsequent [fixed-ray Berkeley depth check](FRESH-SENSOR-DEPTH-RESULT.md)
+also did not favor fresh 005 over older rough 008: on the same 6,144 supported
+rays, rough 005 hit 5,013 with 3.076 mm hit-only mean absolute depth residual;
+rough 008 hit 5,166 with 2.881 mm. Refined 005 fell to 4,892 hits and
+3.124 mm. These numbers are assumption-qualified, three-view diagnostics,
+not certified metric accuracy or an explanation of the wide scanner-reference
+shape. A [read-only DMAP inventory](FRESH005-PREFUSION-DMAP-DIAGNOSTIC.md)
+finds 2.61 million masked positive-depth pixels but no retained source-pixel
+provenance for fused points, so the depth-versus-fusion cause remains unresolved.
+
 Next bounded tasks, ordered by causal value:
 
-1. Freeze a reviewed object-only silhouette/support set on the 48 training
-   views of a **second** real object, with an image-only method and an explicit
-   thin-feature/label-retention review. Keep its 12 held-out views untouched.
-   Compare feature-mask and native dense-mask effects separately on the same
-   camera model; do not derive support from scanner/depth ground truth.
-2. On the existing cracker-box run, compare native depths to the separately
-   retained Berkeley sensor-depth frames using the already frozen pixel/ray
-   protocol, including misses and hit-only error. Inspect where the dense
-   cloud broadens before choosing a fusion or segmentation change. A result
-   from three views remains diagnostic, not general metrology.
+1. Use the existing reviewed SAM coarse support on the 48 training views of
+   mustard as a control. A separate [photo-only boundary-trim candidate](MUSTARD-PHOTO-REFINE.md)
+   has passed only limited visual approval as an ablation input, not a better
+   silhouette. Keep 12 held-out views untouched. Compare feature-mask effects
+   first, then native dense-mask effects on the same frozen camera model; do
+   not derive support from scanner/depth ground truth.
+2. On the existing cracker-box run, the fixed three-view sensor comparison is
+   complete; next instrument an evaluation-only fusion trace on sealed DMAPs
+   to link candidate fused points to source pixels, support and rejection
+   reasons. Do not infer a confidence threshold from raw DMAP quantiles or
+   select it using the sensor or scanner reference.
 3. Test one candidate correction at a time on frozen cameras and photo masks:
    depth confidence/visibility fusion, or better object-only support. Preserve
    the unmodified OpenMVS oracle, rough and refined outputs, resource limits,
@@ -52,14 +63,14 @@ working *oracle pipeline* and demonstrably below our object-quality target.
 ### Targeted upstream changes: isolate a cause before patching
 
 Maintaining project forks is permitted; upstream configuration is not a product
-boundary. The next OpenMVS task is a [paired cached-depth fusion experiment](OPENMVS-PATCH-PLAN.md):
-same cameras, masks, images and final depth maps, changing only the fusion mode.
-Root reviews source/cache isolation; a separate Sol reviewer checks the contract.
-Execution requires two independent copies, unchanged source hashes, bounded
-runtime/output, and the 10 GiB local reserve. A point-count increase alone cannot
-accept a mode: surface coverage and outlier/error diagnostics must follow.
-Only then consider a small pinned fork with rejection counters or an algorithm
-fix, preserving an unmodified control and recording the patch's actual effect.
+boundary. The [paired cached-depth fusion experiment](OPENMVS-PATCH-PLAN.md)
+already changed only the fusion filter on sealed 008 DMAPs. Its simpler filter
+produced 2.94 times as many points but gained just 14 fixed supported sensor
+rays and worsened shared-hit error, so it is not adopted. A future pinned
+evaluation fork should first record source-pixel/view IDs, depth/confidence,
+agreement counts and rejection reasons for candidate fused points; preserve
+the unmodified control and the 10 GiB local reserve. Do not repeat the old
+filter pair merely because fresh 005 uses higher-resolution maps.
 
 In parallel, test one separately versioned, label-preserving mustard support
 candidate on the 48 training photos. Visual acceptance is a separate gate from

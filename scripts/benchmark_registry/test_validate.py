@@ -36,6 +36,16 @@ class RegistryTests(unittest.TestCase):
                          "d302084d806989d86666030c060f64380952f5503162a4b4aad295d04b846571")
         self.assertEqual(summary["artifacts"]["camera_gate_sha256"],
                          "1656ac8aea32650953f4ec83413cd9022f28ad85ef69cf91af0c46026f868214")
+        self.assertEqual(summary["artifacts"]["sensor_depth_sha256"],
+                         "a4b3d0eda0c7fcb4f508e73f1ce30e5ebfab4112e0e75cc7ddec3524117a3105")
+        self.assertEqual(summary["sensor_depth_diagnostic"]["rough_hits"], 5013)
+        self.assertEqual(summary["sensor_depth_diagnostic"]["rough_supported_rays"], 6144)
+        self.assertLess(summary["sensor_depth_diagnostic"]["rough_hits"],
+                        summary["sensor_depth_diagnostic"]["older_rough_008_hits"])
+        sensor_run = next(run for run in classical["runs"]
+                          if run["id"] == "ycb_turntable_fresh_005_rough_sensor")
+        self.assertEqual(sensor_run["reference_scope"], "sensor_depth")
+        self.assertEqual(sensor_run["stage"], "rough_mesh")
         self.assertAlmostEqual(summary["score"]["reference_fitted_sim3"], 0.4223070276497696)
         self.assertAlmostEqual(summary["score"]["transported_006_gauge"], 0.3091683783255086)
         self.assertFalse(summary["result"]["quality_accepted"])

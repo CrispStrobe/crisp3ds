@@ -68,9 +68,23 @@
           "composition": "composed",
           "reference_scope": "independent_geometry",
           "result_ref": "benchmarks/ycb-fresh-005-summary.json",
-          "result_sha256": "500f79c313a7e07500022d57b547f354f932dfc51dca38676cf80166bcae9757",
+          "result_sha256": "3c29f1139d58c8970240246a6eba8a727c9b3cac22f866c6cbff75e871a3dbb5",
           "provenance_ref": "benchmarks/ycb-fresh-005-summary.json",
-          "provenance_sha256": "500f79c313a7e07500022d57b547f354f932dfc51dca38676cf80166bcae9757"
+          "provenance_sha256": "3c29f1139d58c8970240246a6eba8a727c9b3cac22f866c6cbff75e871a3dbb5"
+        },
+        {
+          "id": "ycb_turntable_fresh_005_rough_sensor",
+          "dataset_id": "ycb_np3_60",
+          "input_profile": "original_rgb_photo_masks",
+          "camera_lane": "image_estimated",
+          "artifact_type": "mesh",
+          "stage": "rough_mesh",
+          "composition": "composed",
+          "reference_scope": "sensor_depth",
+          "result_ref": "benchmarks/ycb-fresh-005-summary.json",
+          "result_sha256": "3c29f1139d58c8970240246a6eba8a727c9b3cac22f866c6cbff75e871a3dbb5",
+          "provenance_ref": "benchmarks/ycb-fresh-005-summary.json",
+          "provenance_sha256": "3c29f1139d58c8970240246a6eba8a727c9b3cac22f866c6cbff75e871a3dbb5"
         }
       ],
       "evidence": [
@@ -94,6 +108,13 @@
           "doc_ref": "docs/TURNTABLE-COMPLETE-PLAN.md",
           "scope": "Fresh sparse 004 plus separate masked OpenMVS 005 continuation on M1; scanner-reference fitted F1@1%=0.4223070 and transported 006-gauge F1@1%=0.3091684 are conditional diagnostics, object quality rejected; AGPL evaluation oracle only",
           "run_ids": ["ycb_turntable_fresh_005"]
+        },
+        {
+          "kind": "sensor_diagnostic",
+          "metric_target": "mesh",
+          "doc_ref": "docs/FRESH-SENSOR-DEPTH-RESULT.md",
+          "scope": "Fresh 005 rough mesh on the identical three-view 6144-ray Berkeley panel; 5013 hits and 3.076 mm hit-only mean absolute residual, conditional on camera/IR calibration; not metrology",
+          "run_ids": ["ycb_turntable_fresh_005_rough_sensor"]
         }
       ]
     },
