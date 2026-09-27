@@ -48,3 +48,10 @@ pinned `main_SfM.cpp` joins those paths before loading.
 This run provides no camera-recovery comparison. It remains separate from
 any future `-002` output; do not resume, clean, or reinterpret `-001` as a
 completed reconstruction.
+
+After the fresh `-002` wrapper was committed as `ec7fa2c`, I compared its
+five generated command lists with the original contract: the **only** argv
+change is deletion of feature `-n 2`. A no-argument audit of each sealed
+binary confirms every remaining planned option is advertised by that built
+CLI; the preserved `-001` file and receipt seals also still pass. This is a
+parser-contract comparison only, not a judgment on the `-002` run's outputs.
