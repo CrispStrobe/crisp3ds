@@ -13,6 +13,32 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
+### Latest continuation: M1 CPU inference demonstrated
+
+Following the user's compute-policy clarification, inference moved off the VPS.
+A fresh external-only SAM environment (`sam21-m1-002`) completed all 16 setup
+stages with 808,199,810 bytes of output. The pinned source, checkpoint, wheels,
+training photos and sealed mask references were verified before use. Setup001
+is preserved as a pre-install failure caused by inconsistent inventory path
+sorting; all 78 transferred vendor files matched the VPS byte-for-byte, and a
+regression test now covers that ordering rule. No Kaggle job was submitted.
+
+The bounded **M1 CPU** three-view trial completed in **15.612 seconds**, peak
+sampled worker RSS **1,222,672 KiB**. Root independently decoded and compared
+all six raw/clean candidate/reference mask pairs: **pixel equality and IoU 1.0
+for every pair**. PNG file hashes differ, so this is not byte-identical output.
+Root also inspected the RGB/raw/clean sheet and accepted only three-view M1
+parity and coarse bottle support. The [QA record](../tests/datasets/sam21_mustard_m1_parity_review.json)
+binds the setup, runtime and review artifacts. See [M1 SAM](M1-SAM.md).
+
+This demonstrates a real M1 inference path, **not improved mesh accuracy**.
+The remaining 32 training masks have not been generated, and full48 QA and
+the paired SfM comparison remain outstanding. All environment/weight/output
+files are on the external SSD; internal space stayed above the 10 GiB floor.
+Final local regression: **465 tests run, 8 skipped, 457 passed**. Both CI
+workflows passed at `788b812` (including the SQLite-handle Windows fix); the
+M1 implementation still needs its own post-push CI result.
+
 ### Latest continuation: resumable masks and sparse comparison prerequisites
 
 The prompt hash failures on Windows at `1f3a077` were caused by checkout CRLF

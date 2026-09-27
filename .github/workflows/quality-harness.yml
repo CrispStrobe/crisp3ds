@@ -17,6 +17,7 @@ on:
       - 'scripts/brush_backend/**'
       - 'scripts/model_inventory/**'
       - 'scripts/storage/**'
+      - 'scripts/sam_m1_setup/**'
       - 'benchmarks/**'
       - 'docs/MTL-ALICEVISION.md'
   pull_request:
@@ -35,6 +36,7 @@ on:
       - 'scripts/brush_backend/**'
       - 'scripts/model_inventory/**'
       - 'scripts/storage/**'
+      - 'scripts/sam_m1_setup/**'
       - 'benchmarks/**'
       - 'docs/MTL-ALICEVISION.md'
 
@@ -73,4 +75,5 @@ jobs:
           python -m unittest discover -s scripts/brush_backend -p 'test_*.py'
           python -m unittest discover -s scripts/model_inventory -p 'test_*.py'
           python -m unittest discover -s scripts/storage -p 'test_*.py'
+          python -m unittest discover -s scripts/sam_m1_setup -p 'test_*.py'
           python -m scripts.benchmark_registry.validate

@@ -297,7 +297,8 @@ launched**; there was no wait, retry, mask generation, visual QA, or SfM use.
 The VPS launch above is historical blocked evidence, **not** a future
 inference plan. Per the revised compute policy, VPS work is limited to
 smaller CPU tasks; any further SAM2 inference should be evaluated on the
-local M1 or Kaggle. No M1/Kaggle environment has yet been installed or run.
+local M1 or Kaggle. A narrow M1 setup and three-view parity run subsequently
+completed; no Kaggle run occurred.
 
 Read-only M1 preflight found native arm64 Python 3.11.1 and 16 GiB unified
 memory. The existing COLMAP virtual environment has NumPy but not PyTorch or
@@ -307,29 +308,29 @@ little margin above the 10 GiB reserve. Any approved setup must place its
 isolated environment, pip/cache/temp files, pinned source, checkpoint and
 outputs entirely on external storage, with a ≤2 GiB setup cap and ≥10 GiB
 free on **both** volumes throughout. Intended locations are
-`/Volumes/backups/ai/crisp3ds-sam21-m1-001` for environment/model and
+`/Volumes/backups/ai/crisp3ds-sam21-m1-002` for the fresh environment/model setup attempt and
 `/Volumes/backups/code/crisp3ds-data` for artifacts. The pinned checkpoint is
 156,008,466 bytes; the VPS source tree is about 120 MiB and runtime additions
 about 10 MiB. [PyPI lists a CPython 3.11 macOS arm64 PyTorch 2.7.0 wheel](https://pypi.org/project/torch/2.7.0/)
-at 68.6 MB, and [TorchVision 0.22.1](https://pypi.org/project/torchvision/0.22.1/)
-at about 1.9 MB. These are download sizes, not installed-size or runtime
+at 68.6 MB; PyTorch's [version-pair guidance](https://docs.pytorch.org/get-started/previous-versions/)
+matches PyTorch 2.7.0 with TorchVision 0.22.0, whose macOS arm64 wheel is
+approximately 1.9 MB. These are download sizes, not installed-size or runtime
 proof. Meta's [SAM2 setup requirements](https://github.com/facebookresearch/sam2/blob/main/setup.py)
 include matching PyTorch/TorchVision plus Hydra, iopath, Pillow and NumPy;
 the project installation guide primarily documents Linux, so macOS operation
-is a feasibility hypothesis, not established support.
+was a feasibility hypothesis at preflight, not established support then.
 
 The frozen VPS supervisor's RAM/RSS probes read `/proc/meminfo` and
 `/proc/<pid>/status`; they do not work on macOS. An approved M1 lane needs a
-**new**, tested Mac-specific supervisor (e.g. a conservative `vm_stat` memory
-gate and `ps -o rss=` worker probe) while keeping the old runner and its
-provenance untouched. CPU inference should precede any MPS experiment so a
+**new**, tested Mac-specific supervisor (a conservative `vm_stat` free+inactive
+memory gate and `ps -o rss=` worker probe) while keeping the old runner and its
+provenance untouched. CPU inference precedes any MPS experiment so a
 backend change does not confound mask parity. A bounded predeclared three-view
-parity check on training frames `NP3_000`, `NP3_066`, and `NP3_108` can compare
+parity check on training frames `NP3_000`, `NP3_066`, and `NP3_108` compared
 the same source, checkpoint, prompts and box against the corresponding sealed
-VPS first-16 masks. Point membership, raw/clean support area and overlap
-should be reported; cross-platform pixel identity is not assumed. Only after
-that review should the missing 32 masks be considered. No held-out photo,
-reference mesh/depth or reconstruction score informs this proposal.
+VPS first-16 masks. Point membership, raw/clean support area and overlap were
+reported; cross-platform pixel identity was not assumed before the run. No
+held-out photo, reference mesh/depth or reconstruction score informed it.
 
 The user subsequently clarified the compute policy: **future inference belongs
 on the Mac M1 or Kaggle, not the VPS**. The VPS is for smaller CPU tasks and
@@ -339,3 +340,22 @@ separate bounded environment/resource adapter and a cross-host mask comparison
 before continuing the remaining training views. Keep weights and environment
 on the external AI volume, outputs on the external code volume, and reserve
 at least 10 GiB on the internal disk.
+
+The approved external-only Mac setup `002` completed (report SHA-256
+`2c520f3e07729ea881707b13fff234fd5400e851acbe1390b743abcec07fc874`);
+setup `001` remained a preserved pre-install inventory-order failure. The
+single frozen-source CPU parity run finished in 15.61 s, peak RSS 1,222,672
+KiB, under unchanged 180 s/1.5 GiB/20 MiB and 10 GiB disk bounds. Its
+[manifest](</Volumes/backups/code/crisp3ds-data/sam21-m1-parity-001/manifest.json>)
+SHA-256 is `bc99129f36654888b9b9fdbd7f9ac606b8527518d91424ca48e7283ac9f42741`;
+the supervisor SHA-256 is
+`dc82764bb2363aa41597af7280ec3462d85e14e20dae4dbdd7e667b8f4b2cc86`.
+For all three selected training frames, the six decoded M1 raw/clean mask
+arrays are **pixel-identical** to sealed VPS arrays (IoU 1.0, membership
+`[1,0,0]`), although encoded PNG file hashes differ. The [RGB/raw/clean sheet](</Volumes/backups/code/crisp3ds-data/sam21-m1-parity-review-001/review_sheet.jpg>)
+SHA-256 is `f5d84f9c09b6e7a51925572b400c549ff21264e5c69d2ee0824f2eb5dfaf7e4d`.
+Root independently reviewed the sheet and decoded pairs, accepting only the
+three-view M1 CPU parity/coarse-support evidence in the [tracked QA record](../tests/datasets/sam21_mustard_m1_parity_review.json).
+This is **not** a full-48 mask set or exact silhouette approval:
+`full_training_package_ready=false`; no remaining-32 inference or SfM/dense
+use occurred.
