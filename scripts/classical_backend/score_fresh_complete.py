@@ -17,7 +17,7 @@ from scripts.classical_backend import fresh_masked_complete as producer
 from scripts.classical_backend import geometry
 from scripts.classical_backend.dense_masks import MODEL_FILES, model_hashes
 from scripts.classical_backend.run import RESERVE, digest
-from scripts.object_dataset import align, evaluate, surface_metrics
+from scripts.object_dataset import align, evaluate, preview, surface_metrics
 from scripts.upstream_control import colmap_camera_compare
 
 
@@ -107,6 +107,20 @@ def transported_gauge(candidate_model: Path, parent_model: Path,
                                 "orientation_p95_degrees_less_than": CAMERA_ORIENTATION_P95_LIMIT_DEGREES}}
 
 
+def save_geometry_preview(reference_geometry, output_geometry, matrix, path: Path,
+                          *, count: int = 10_000) -> dict:
+    """Render XY/XZ/YZ from deterministic area samples; never mutate either mesh."""
+    path = Path(path)
+    image = preview.make_preview(reference_geometry, output_geometry, matrix,
+                                 count=count, seed=2030)
+    with path.open("xb") as stream:
+        image.save(stream, format="PNG")
+    return {"path": str(path.resolve()), "sha256": digest(path),
+            "views": ["XY", "XZ", "YZ"], "samples_per_mesh": count, "seed": 2030,
+            "basis": "reference-fitted Sim(3); untextured area-sampled geometry",
+            "interpretation": "visual shape review only; same separate Google reference used for fitting"}
+
+
 def score(run: Path, reference: Path, output: Path, *, parent_run: Path | None = None) -> dict:
     run, reference, output = map(Path, (run, reference, output))
     if output.exists() or output.is_symlink() or output.parent.is_symlink() or not output.parent.is_dir():
@@ -186,6 +200,8 @@ def score(run: Path, reference: Path, output: Path, *, parent_run: Path | None =
                 digest(parent_fit) != PARENT_FIT_SHA256):
             raise ValueError("frozen 006 parent changed during evaluation")
         evaluate.load_sim3(parent_fit, reference, parent_mesh)
+    report["geometry_preview"] = save_geometry_preview(
+        reference_mesh[1:], mesh[1:], matrix, output / "refined-three-view.png")
     with (output / "score.json").open("x") as stream:
         json.dump(report, stream, indent=2)
         stream.write("\n")

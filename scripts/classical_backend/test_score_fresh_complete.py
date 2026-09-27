@@ -78,6 +78,22 @@ class FreshScoreTests(unittest.TestCase):
         self.assertEqual(result["status"], "unavailable")
         self.assertIn("5% radius", result["reason"])
 
+    def test_untextured_three_view_preview_is_deterministic_and_hashed(self):
+        vertices = np.array([[0., 0., 0.], [1., 0., 0.],
+                             [0., 1., 0.], [0., 0., 1.]])
+        faces = np.array([[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]])
+        geometry = (vertices, faces)
+        original = vertices.copy()
+        with tempfile.TemporaryDirectory() as temp:
+            first = target.save_geometry_preview(geometry, geometry, np.eye(4),
+                                                 Path(temp) / "one.png", count=64)
+            second = target.save_geometry_preview(geometry, geometry, np.eye(4),
+                                                  Path(temp) / "two.png", count=64)
+            self.assertEqual(first["sha256"], second["sha256"])
+            self.assertEqual(first["sha256"], target.digest(Path(first["path"])))
+            self.assertEqual(first["views"], ["XY", "XZ", "YZ"])
+            np.testing.assert_array_equal(vertices, original)
+
 
 if __name__ == "__main__":
     unittest.main()
