@@ -1,7 +1,7 @@
 """Bounded verified sparse-model → masked OpenMVS rough-mesh continuation.
 
-The producer, bounded supervisor and separate root repair-acceptance gates
-must all pass before undistortion or native stages. No reference geometry or
+    The producer, bounded supervisor and separate root repair-acceptance gates
+must all pass before identity image preparation or native stages. No reference geometry or
 held-out photograph is used to reconstruct the model.
 """
 
@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import shutil
 import sys
 import time
@@ -215,6 +216,21 @@ def finite_positive_depth(value: float) -> bool:
     return bool(np.isfinite(value) and value > 0)
 
 
+def pinhole_params(model: str, params: list[float]) -> list[float]:
+    """Exact projection-equivalent conversion, never approximate undistortion."""
+    if not all(math.isfinite(value) for value in params):
+        raise ValueError("nonfinite undistorted camera parameters")
+    if model == "PINHOLE" and len(params) == 4 and min(params[:2]) > 0:
+        return list(params)
+    if model == "SIMPLE_PINHOLE" and len(params) == 3 and params[0] > 0:
+        f, cx, cy = params
+        return [f, f, cx, cy]
+    if model == "SIMPLE_RADIAL" and len(params) == 4 and params[0] > 0 and params[3] == 0.0:
+        f, cx, cy, _ = params
+        return [f, f, cx, cy]
+    raise ValueError("undistorted camera is not an exact zero-distortion pinhole equivalent")
+
+
 def worker_python() -> str:
     """Preserve the active venv executable even when it links to system Python."""
     return str(Path(sys.executable).absolute())
@@ -299,6 +315,87 @@ def verify_binary_geometry(baseline_dir: Path, repaired_dir: Path,
             "unchanged_clean_points": clean_points,
             "camera_model": new_camera.model.name,
             "camera_params": [float(value) for value in new_camera.params]}
+
+
+def normalize_undistorted_camera(output: Path) -> dict:
+    """Normalize the copied identity-warp zero-distortion camera to PINHOLE.
+
+    With SIMPLE_RADIAL k=0, original RGB pixels are already undistorted.
+    PyCOLMAP's image undistorter can crop these pixels while retaining the
+    original 1280x1024 camera tag; this path instead copies RGB bytes and
+    changes only the copied camera model tag/parameters.
+    """
+    import pycolmap
+    sparse = output / "dense" / "sparse"
+    before_hashes = model_hashes(sparse)
+    before = pycolmap.Reconstruction(str(sparse))
+    converted = pycolmap.Reconstruction(str(sparse))
+    if len(before.cameras) != 1 or len(converted.cameras) != 1:
+        raise ValueError("undistorted model must use one shared camera")
+    old_camera = next(iter(before.cameras.values()))
+    camera = next(iter(converted.cameras.values()))
+    params = pinhole_params(old_camera.model.name, [float(value) for value in old_camera.params])
+    if (old_camera.width != camera.width or old_camera.height != camera.height or
+            not np.array_equal(old_camera.params, camera.params)):
+        raise ValueError("undistorted camera changed before normalization")
+    if old_camera.model.name == "PINHOLE":
+        return {"conversion": "already_pinhole", "original_model_sha256": before_hashes,
+                "normalized_model_sha256": before_hashes,
+                "max_projection_difference_pixels": 0.0,
+                "poses_measurements_tracks_xyz_identical": True}
+    camera.model = pycolmap.CameraModelId.PINHOLE
+    camera.params = np.asarray(params, dtype=float)
+    rays = np.asarray([(x, y, 1.0) for x in (-0.8, -0.4, 0, 0.4, 0.8)
+                       for y in (-0.6, -0.3, 0, 0.3, 0.6)], dtype=float)
+    deviations = [float(np.max(np.abs(np.asarray(old_camera.img_from_cam(ray)) -
+                                      np.asarray(camera.img_from_cam(ray))))) for ray in rays]
+    max_difference = max(deviations)
+    if not math.isfinite(max_difference) or max_difference > 1e-9:
+        raise ValueError("zero-distortion to PINHOLE projection differs")
+    candidate = output / "dense" / "pinhole-candidate"
+    if candidate.exists():
+        raise ValueError("camera normalization candidate path already exists")
+    candidate.mkdir()
+    converted.write_binary(str(candidate))
+    reopened = pycolmap.Reconstruction(str(candidate))
+    if (set(before.images) != set(reopened.images) or
+            set(before.points3D) != set(reopened.points3D) or
+            len(reopened.cameras) != 1 or
+            next(iter(reopened.cameras.values())).model.name != "PINHOLE"):
+        raise ValueError("serialized normalized model changes image/point inventory")
+    for image_id, old in before.images.items():
+        new = reopened.images[image_id]
+        if (old.name != new.name or old.camera_id != new.camera_id or
+                not np.array_equal(old.cam_from_world.matrix(), new.cam_from_world.matrix()) or
+                len(old.points2D) != len(new.points2D) or
+                any(not np.array_equal(a.xy, b.xy) or a.point3D_id != b.point3D_id
+                    for a, b in zip(old.points2D, new.points2D))):
+            raise ValueError("camera normalization changes image poses or measurements")
+    for point_id, old in before.points3D.items():
+        new = reopened.points3D[point_id]
+        old_track = [(int(item.image_id), int(item.point2D_idx)) for item in old.track.elements]
+        new_track = [(int(item.image_id), int(item.point2D_idx)) for item in new.track.elements]
+        if not np.array_equal(old.xyz, new.xyz) or sorted(old_track) != sorted(new_track):
+            raise ValueError("camera normalization changes sparse XYZ or tracks")
+    if (digest(candidate / "images.bin") != before_hashes["images.bin"] or
+            digest(candidate / "points3D.bin") != before_hashes["points3D.bin"]):
+        raise ValueError("normalization rewrites image/point binary bytes")
+    pending = sparse / "cameras.bin.pinhole.tmp"
+    if pending.exists():
+        raise ValueError("camera normalization pending file already exists")
+    shutil.copyfile(candidate / "cameras.bin", pending)
+    if digest(pending) != digest(candidate / "cameras.bin"):
+        raise ValueError("camera normalization copy differs")
+    os.replace(pending, sparse / "cameras.bin")
+    after_hashes = model_hashes(sparse)
+    if (after_hashes["images.bin"] != before_hashes["images.bin"] or
+            after_hashes["points3D.bin"] != before_hashes["points3D.bin"] or
+            after_hashes["cameras.bin"] != digest(candidate / "cameras.bin")):
+        raise ValueError("normalized camera binary differs after replacement")
+    return {"conversion": old_camera.model.name + "_zero_distortion_to_PINHOLE",
+            "original_model_sha256": before_hashes, "normalized_model_sha256": after_hashes,
+            "max_projection_difference_pixels": max_difference,
+            "poses_measurements_tracks_xyz_identical": True}
 
 
 def validate_inputs(args: argparse.Namespace) -> dict:
@@ -497,9 +594,49 @@ def run(args: argparse.Namespace) -> dict:
         # The venv executable may be a symlink to the system interpreter.
         # Preserve its path so subprocesses inherit the same PyCOLMAP site-packages.
         python = worker_python()
-        execute("undistort", [python, "-m", "scripts.classical_backend.calibrated_control",
-                              "--worker", "undistort", "--output", str(output)],
-                lambda: audit.validate_undistorted(output, bound["names"]))
+        identity = {"name": "identity_zero_distortion_copy", "status": "running"}
+        report["stages"].append(identity)
+        save()
+        if (bound["geometry"]["camera_model"] != "SIMPLE_RADIAL" or
+                bound["geometry"]["camera_params"][3] != 0.0):
+            raise ValueError("identity dense images require exactly zero radial distortion")
+        dense = output / "dense"
+        dense.mkdir()
+        (dense / "images").mkdir()
+        for name in bound["names"]:
+            source, target = output / "images" / name, dense / "images" / name
+            if (time.monotonic() > deadline or
+                    shutil.disk_usage(output).free < RESERVE + source.stat().st_size or
+                    shutil.disk_usage(ROOT).free < RESERVE or
+                    folder_bytes(output) + source.stat().st_size > OUTPUT_CAP):
+                raise ValueError("identity image copy exceeds deadline/cap/disk floor")
+            shutil.copyfile(source, target)
+            if digest(target) != bound["stage"]["train_photo_sha256"][name]:
+                raise ValueError(f"identity dense RGB differs: {name}")
+        sparse_bytes = folder_bytes(sparse)
+        if (time.monotonic() > deadline or
+                shutil.disk_usage(output).free < RESERVE + sparse_bytes or
+                shutil.disk_usage(ROOT).free < RESERVE or
+                folder_bytes(output) + sparse_bytes > OUTPUT_CAP):
+            raise ValueError("identity model copy exceeds deadline/cap/disk floor")
+        shutil.copytree(sparse, dense / "sparse")
+        if model_hashes(dense / "sparse") != bound["output_model_hashes"]:
+            raise ValueError("identity dense sparse model differs")
+        identity["artifact"] = {"images": 48, "rgb_bytes_identical": True,
+                                "original_model_sha256": model_hashes(dense / "sparse")}
+        identity["status"] = "complete"
+        save()
+        normalization = {"name": "normalize_zero_distortion_camera", "status": "running"}
+        report["stages"].append(normalization)
+        save()
+        normalization["artifact"] = normalize_undistorted_camera(output)
+        normalization["artifact"]["validated_undistorted"] = audit.validate_undistorted(
+            output, bound["names"])
+        if (time.monotonic() > deadline or folder_bytes(output) > OUTPUT_CAP or
+                min(shutil.disk_usage(output).free, shutil.disk_usage(ROOT).free) < RESERVE):
+            raise ValueError("camera normalization exceeded time/output/disk bounds")
+        normalization["status"] = "complete"
+        save()
         execute("warp_masks", [python, "-m", "scripts.classical_backend.dense_masks",
                                "--source-model", str(sparse),
                                "--undistorted-model", str(output / "dense" / "sparse"),

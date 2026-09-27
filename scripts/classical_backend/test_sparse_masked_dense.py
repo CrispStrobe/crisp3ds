@@ -8,7 +8,8 @@ from unittest.mock import patch
 from scripts.classical_backend.sparse_masked_dense import (REPAIR_GATES, depth_budget,
                                                            finite_positive_depth,
                                                            mask_warp_manifest, native_plan,
-                                                           validate_repair_metrics, validate_seals,
+                                                           pinhole_params, validate_repair_metrics,
+                                                           validate_seals,
                                                            worker_python)
 
 
@@ -62,6 +63,16 @@ class SparseMaskedDenseBudgetTests(unittest.TestCase):
         for value in (0, -1, float("nan"), float("inf"), -float("inf")):
             with self.subTest(value=value):
                 self.assertFalse(finite_positive_depth(value))
+
+    def test_only_exact_zero_distortion_has_pinhole_equivalent(self):
+        self.assertEqual(pinhole_params("SIMPLE_RADIAL", [1536.0, 640.0, 512.0, 0.0]),
+                         [1536.0, 1536.0, 640.0, 512.0])
+        self.assertEqual(pinhole_params("SIMPLE_PINHOLE", [1536.0, 640.0, 512.0]),
+                         [1536.0, 1536.0, 640.0, 512.0])
+        with self.assertRaises(ValueError):
+            pinhole_params("SIMPLE_RADIAL", [1536.0, 640.0, 512.0, 1e-12])
+        with self.assertRaises(ValueError):
+            pinhole_params("SIMPLE_RADIAL", [1536.0, 640.0, 512.0, float("nan")])
 
     def test_repair_gate_requires_complete_true_set_and_real_denominators(self):
         report = {"schema": "mustard_sparse_track_repair_v1", "status": "candidate_unreviewed",
