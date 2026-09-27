@@ -45,13 +45,17 @@ class ForkSupervisorTest(unittest.TestCase):
         self.assertNotIn("--build", command)
 
     def test_patch_context_and_exact_expected_text(self):
-        original = fork.FIXTURE.read_text()
+        original = (HERE / "fixtures/openmvg_v21_multiview_CMakeLists.txt").read_text()
         expected = fork.expected_patched_text(original)
         self.assertNotEqual(original, expected)
         self.assertIn("file(GLOB REMOVEFILELIGT ./LiGT/*.cpp)", expected)
         self.assertIn("list(REMOVE_ITEM multiview_files_header ${REMOVEFILELIGT_HEADER})", expected)
         with self.assertRaisesRegex(RuntimeError, "context changed"):
             fork.expected_patched_text(original.replace("LiGT_*.cpp", "other.cpp"))
+
+    def test_patch_fixture_test_does_not_need_m1_absolute_path(self):
+        with mock.patch.object(fork, "FIXTURE", Path("/unavailable-m1-only/fixture")):
+            self.test_patch_context_and_exact_expected_text()
 
     def test_patch_hash_tamper_stops_before_source_checks(self):
         with mock.patch.object(fork.base, "sha256", return_value="bad"), \
