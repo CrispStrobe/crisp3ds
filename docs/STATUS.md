@@ -13,7 +13,41 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
-### Current continuation: sparse integrity repaired; dense trial fails neighbor support
+### Current continuation: exact crop recovers partial dense geometry; poses remain suspect
+
+The [frozen common-crop trial](MUSTARD-CROP-PLAN.md) preserves all original
+object pixels and the same 48 estimated camera poses, 939 3D points and 4,734
+tracked observations. Its shared 222×302 crop translates pixel coordinates
+and principal points only; lossless PNG output, serialized projections/rays,
+and unchanged 3D-point bytes are checked before native reconstruction.
+
+The live M1 CPU run improves dense support from **1 to 24 depth maps** and
+from **0 to 24,657 fused output points** without changing matching, poses or
+native thresholds. All 24 available maps are 222×302, their cameras agree with
+the cropped model, and none of their 460,545 positive depth pixels lies outside
+its corresponding mask. However, **24 of 48 views still lack depth maps**.
+The unchanged full-coverage audit correctly stops before meshing. This is
+partial dense progress, not a complete pipeline or surface-quality pass.
+See [crop results and evidence](MUSTARD-CROP-RESULTS.md).
+
+The independent [pose trajectory diagnostic](MUSTARD-POSE-DIAGNOSTIC.md)
+finds opposing-label views near-coincident in both position and orientation:
+000/180 differ by 2.67°, 060/240 by 1.46°, and 090/270 by 2.20°. Some adjacent
+capture views instead jump by roughly 85–92°. These observations indicate
+possible pose aliasing; neither registration count nor dense-point count
+establishes correct object geometry. Improving and independently validating
+alignment is now more important than adding meshing, texture or neural stages
+on these same cameras. No reference mesh or held-out image entered the trial.
+
+Local regression: **540 Python tests run, 8 skipped, 532 passed** in 28.66
+seconds; **11/11 native CTests passed**. The crop test includes a portable
+synthetic native fixture and a local real-model serialization check. The short
+native CTest run overlapped the dense trial, so its recorded timing is not a
+controlled performance comparison. Both CI workflows passed at prior commit
+`2737d04`; this batch requires its own CI run. About 23 GiB internal and 18 GiB
+external storage remain free, above both 10 GiB floors.
+
+### Previous continuation: sparse integrity repaired; dense trial fails neighbor support
 
 The one frozen sparse-track repair completed on the M1 in 1.05 seconds
 (sampled worker RSS 174,928 KiB). It preserved all 48 cameras and 939 points,

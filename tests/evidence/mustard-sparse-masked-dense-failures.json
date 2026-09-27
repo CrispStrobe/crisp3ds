@@ -38,6 +38,58 @@
       "output_bytes": 125058971,
       "sources_unchanged": true,
       "interpretation": "The single estimated depth map lacked a reciprocal neighbor depth map; zero fused points are observed. The camera geometry and low area-weighted view scores are possible contributors, not established unique causes."
+    },
+    {
+      "name": "mustard-sparse-masked-dense-003",
+      "external_result_path": "/Volumes/backups/code/crisp3ds-data/mustard-sparse-masked-dense-003/result.json",
+      "result_sha256": "bb5e07d3a49b6b37d32f08535730a951b25c6f4a9825425872c63604658b0366",
+      "runner_sha256": "69115524d01414996fe66cdcab26b470749db8d92cf293ad8cddef3c713517f8",
+      "native_verbose_log_sha256": "1b29bf2b535dfa3173419fa42255efb5b676458b5c9bfd4187ece10f702e34a3",
+      "partial_dense_ply_sha256": "a2c02bf409a78af6a26434b4f031d1bf5bcef38f33108a17b3c1f18cb6b82b48",
+      "status": "failed",
+      "stage": "strict full-view DMAP camera audit",
+      "common_crop_xyxy_half_open": [493, 329, 715, 631],
+      "crop_size": [222, 302],
+      "registered_views": 48,
+      "base_dmap_count": 24,
+      "base_dmap_sha256": {
+        "depth0001.dmap": "09f4012090e081c85c7fdfe09310e6d2b912df2bb36fc7326249ffcf443a6f5e",
+        "depth0002.dmap": "ca3bb6aa326d08cbfb778b121fe79588216789a37d1a06fa16b5409775a76462",
+        "depth0003.dmap": "1929ae13088005811c148eb4ab15f955d20b78e8e5d1e7a092968f5f4454dce8",
+        "depth0004.dmap": "e6e807882b238109988a6850962e6fd69f17e699d539da818c00c0e4d36db39d",
+        "depth0005.dmap": "34892065575c839ff472d14b488e72dd1a051bdedb2aabfe9b18b21955952862",
+        "depth0006.dmap": "668b3e2e02025f4a227df03f9fa9c71e79073c4ea1839abdac083a7321b199be",
+        "depth0021.dmap": "948b9aeeeae03e5437604e9d6512f5fedc0bcaa4ccffd10c9cdaf8c4aaebf89e",
+        "depth0023.dmap": "53fd12995e6423ca0714ac7da9d60cceb46f7e478fc0012eabe5332969e4b79a",
+        "depth0024.dmap": "43a29680423d4b6e6dea4bdcffaf7dd07c5cc1571989e2bb35ad18aab3a21b25",
+        "depth0025.dmap": "a92191a254d1dd9a2f626a58f1bd28685237e9d58347ab49e1389d6d1969ee0f",
+        "depth0026.dmap": "f7f313f703d3837ab766be5e4671f32196db9235f456a0ef2a8d284fee38eb88",
+        "depth0027.dmap": "ad082d72f84be0bc87f0fea3dc96fec211dc80e9c12e615f8e22310234e409a9",
+        "depth0028.dmap": "f26b5b1dbdcb2a461a8ec2bc7f5fe5915cae3a8265e73ab3151b8f5d321c8946",
+        "depth0029.dmap": "2331f779c03dc22d3d5a360b610855f51aee3d3fa436671d285338aa8cc8276f",
+        "depth0030.dmap": "5f6dd4a5a4888914642a5061f3bc7a8c250018cd90650324454931858d0d0ce7",
+        "depth0031.dmap": "ac54c6e5dccd43d67fadd735a1d5e3078c317f81223cc890774554cdcbea9581",
+        "depth0041.dmap": "ade75f084b6abcf5187ae5a00346d8191b495f2b19fa75ffdbbb9ffc01cb89f9",
+        "depth0042.dmap": "0177ac4d27c4d1d1bc3a68ad3a37305ba28e864bc836fb3381b162e9a9419263",
+        "depth0043.dmap": "01324825d033e1498b8c2dfc2e8fdd4c16c963fd76145f1bffea1806f94734f1",
+        "depth0044.dmap": "2a2573ca864513809d65b213869cb5adadd77af419b231ed258447053bfb8fa2",
+        "depth0045.dmap": "dfd6e5153432adcbdaf6e823f2d7cd5ea0751f97a87277cfda7f71e77d87fd18",
+        "depth0046.dmap": "435ddc992caa578182312c4ff65a73d1beeb62d40de19d02a541e146a3b6d65b",
+        "depth0047.dmap": "92f2631e158627d96d612563c2df4ae97eb366952d3831caec0e0f5cf7ab59e1",
+        "depth0048.dmap": "d4fa60d61f99795b98bedc19389f6a67d529230a1c7bf82b90740c0e358ce414"
+      },
+      "base_dmap_positive_depth_pixels": 460545,
+      "base_dmap_positive_depth_outside_mask_pixels": 0,
+      "audited_map_max_abs_krc_difference": {
+        "K": 0.0,
+        "R": 2.220446049250313e-16,
+        "C": 1.3322676295501878e-15
+      },
+      "partial_dense_ply_vertices": 24657,
+      "rough_mesh_started": false,
+      "output_bytes": 40239488,
+      "sources_unchanged": true,
+      "interpretation": "A common TRAIN-mask-only crop yielded partial native dense support. Half the registered views had no base depth map; the predeclared 48-view audit failed. This is not a completed dense-to-mesh pipeline or a geometric quality result."
     }
   ]
 }
