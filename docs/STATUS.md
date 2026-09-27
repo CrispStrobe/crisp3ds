@@ -37,6 +37,19 @@ earlier 60/60 producer before tuning dense geometry. No failed baseline was
 repaired or silently replaced. New post-hoc camera checks seal the rig metadata;
 their unit tests use synthetic fixtures and do not require private local datasets.
 
+A follow-up changed one mapping decision per trial on the same masked matches.
+Freezing heuristic intrinsics yielded 60/60 registrations but failed the rig
+camera diagnostic catastrophically (center RMS 96.65% of reference radius;
+p95 orientation 175.44°). Forcing the earlier 30° initial pair with native
+intrinsic refinement retained only 3/60. **Neither qualifies for meshing.**
+The [diagnostic reports](CRACKER-STOCK-RESULTS.md) demonstrate why counts alone
+were misleading and why stock defaults must not be presented as a tuned
+turntable baseline.
+The earlier 60-view producer, rechecked through exactly the same camera
+diagnostic, has center RMS 1.787% of the rig radius and p95 orientation 2.987°.
+Thus its 60/60 cameras and the new fixed-heuristic 60/60 cameras are not
+equivalent successes. Mesh shape quality in the earlier run remained poor.
+
 Regression after native jobs: **583 Python tests run, 8 skipped, 575 passed**;
 **11/11 native CTests passed**. An unclosed SQLite fixture that failed Windows CI
 was fixed. About 22 GiB internal / 18 GiB external remain, above both 10 GiB floors.

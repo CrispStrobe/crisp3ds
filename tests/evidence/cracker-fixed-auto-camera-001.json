@@ -1,0 +1,437 @@
+{
+  "schema": "ycb_stock_berkeley_camera_diagnostic_v1",
+  "interpretation": "evaluation-only named-camera and trajectory agreement after fitted Sim(3); Berkeley pose convention is not independently reprojected ground truth; no Google mesh transform or metric mesh accuracy claim",
+  "candidate_model_dir": "/Volumes/backups/code/crisp3ds-data/cracker-fixed-auto-001/models/0",
+  "candidate_model_sha256": {
+    "cameras.bin": "ebc18fcca6fa2dacf0b6ff16cfae700d62d44626530d48dcecc7e72767a24348",
+    "images.bin": "c2f4e15605f191e21ef6ff746eee9cf204a958afa9a940af206183ec49e21f8e",
+    "points3D.bin": "778089ba655555803b4cbc842708778a128a386cf40e2d69d7450c3132c73a99"
+  },
+  "reference_evidence": {
+    "report_sha256": "744b50dfcbf66c0801fa9f36c3a7eac124ba09f3053909c10e7c647d585a723e",
+    "metadata_sha256": {
+      "003_cracker_box/calibration.h5": "15f724c10131129183e97cb3ae6fdb3f13ff7ad8c5a50812313f06652a7f6c07",
+      "003_cracker_box/poses/NP5_0_pose.h5": "f303e9b8f8a601a0fe7633278c1acf2f2b81fc84204da9ae2eae47ed9c968aeb",
+      "003_cracker_box/poses/NP5_102_pose.h5": "f68b5c32d0c7d00e49e7f4bb240b02bc7b1f3092c0750aed75b7f2e98045dd26",
+      "003_cracker_box/poses/NP5_108_pose.h5": "9cd8fa4264835278562f8895dca0b666d6d2b1fb08a0b2deb1b27594877d314a",
+      "003_cracker_box/poses/NP5_114_pose.h5": "8ebf88f5c6d4eb8ec7e17a15b48ddb35e6b25a3bb75bce73e77e34ec2d431fda",
+      "003_cracker_box/poses/NP5_120_pose.h5": "5203bb0fd5cb6d8066854d3b08ae9dd202787ab754768a8df11e0f88c05003cb",
+      "003_cracker_box/poses/NP5_126_pose.h5": "6140fb3cabe02ef166e0af582d38be067cdb8ca056850ad967f16401bc1d4766",
+      "003_cracker_box/poses/NP5_12_pose.h5": "0252665a64283c543eb12aac3f1e865c860351e7f2eae6ff16143d04c38a336a",
+      "003_cracker_box/poses/NP5_132_pose.h5": "9e5c50f9bd8c1659a127ccd30ce9fd3d4a188a2d13dcb8039b8f435b8e801b1b",
+      "003_cracker_box/poses/NP5_138_pose.h5": "45fc00bedb42ecb43156333bc13778818e774c30258ccb8e952a3baef7a9e5c1",
+      "003_cracker_box/poses/NP5_144_pose.h5": "c1effad67b12627b1c2eba06d8bf494d2b9e420c147eccb432191e20142b15f9",
+      "003_cracker_box/poses/NP5_150_pose.h5": "c65c5327d1d0c5fed0a838d91af29b41d48d016e8fb4a0a5158dd4cd5aced6a0",
+      "003_cracker_box/poses/NP5_156_pose.h5": "7f6bb0a45a2070ec17406c6e329b94125c0399c9b6288cf7a8287d00ab8e819a",
+      "003_cracker_box/poses/NP5_162_pose.h5": "9adf02875892031911a48e45db79bc69565c1e1c60b40a054186cd42ae0a5f81",
+      "003_cracker_box/poses/NP5_168_pose.h5": "00fda9f9d2ee3c6f71b02d56a961ccf429f619ce50474ad6d1e0410c62bdf41b",
+      "003_cracker_box/poses/NP5_174_pose.h5": "d472d27a98a89bf3d2708925b9a24fe6b28a619362a5e90b57eb2e5d7df20cd8",
+      "003_cracker_box/poses/NP5_180_pose.h5": "e5f249b29fbc909da00d9bcbc0e817f3b2eb98d707b88c01e328b2b5da9d6e60",
+      "003_cracker_box/poses/NP5_186_pose.h5": "7070b50cb460426bcbe606aaafa93cbaeb2cd0b064bde374e632d2d9a0143408",
+      "003_cracker_box/poses/NP5_18_pose.h5": "0f1f8a8ee1b75d09f2fb3f706df8e04e2a1ade087a4f54e1181a0dbc86eed57a",
+      "003_cracker_box/poses/NP5_192_pose.h5": "98f60fa0e2238847f113990651a4e03b65d0e17bb3be3a9e2ac3768cf29b5fa4",
+      "003_cracker_box/poses/NP5_198_pose.h5": "0b209f21d486bdfd3c42ad1d07df293f0fd31b3e456bf2b2c50f0a717da67b44",
+      "003_cracker_box/poses/NP5_204_pose.h5": "8f0129d30f12124b0b9c470ae0a5d2db7aab6af3c2c125e369b033e63173ff5e",
+      "003_cracker_box/poses/NP5_210_pose.h5": "5a72d0ea2fac5082368e00357eebf8a2272b1625f2166ead4eb600db48a79e1d",
+      "003_cracker_box/poses/NP5_216_pose.h5": "5aeffeaa9aa010492c1b1d84f6ad678a809abc699f8949a642be509d68dba8e4",
+      "003_cracker_box/poses/NP5_222_pose.h5": "99de28bd45f24c8ea9edc12939f8734360d4b62f5273f3db88daafae75576e19",
+      "003_cracker_box/poses/NP5_228_pose.h5": "08f8b893bbad86c99035eb380c5b460300a3f20dbc6e1e4c3613b9199cff7550",
+      "003_cracker_box/poses/NP5_234_pose.h5": "e5cff5d214893d5327b92cbe6e9d482d967f86f09a9b05dcc412d8237baa82ab",
+      "003_cracker_box/poses/NP5_240_pose.h5": "15b1a8983255d796718abfcb84b589d7e00836c2529dde713a4b326da5ce3eaf",
+      "003_cracker_box/poses/NP5_246_pose.h5": "8d52d20efede82bd0ab82d316f3668125af7f32a47124d6818575b6090be8c80",
+      "003_cracker_box/poses/NP5_24_pose.h5": "0efce8d2e6879dc7fc18c7e16a6515f5d5b12774265e573e6752304bb90c74e1",
+      "003_cracker_box/poses/NP5_252_pose.h5": "ff793363ded35af47fdef0c03f9e8594ebb964c2483acfa2582d4003c0ab8bc0",
+      "003_cracker_box/poses/NP5_258_pose.h5": "5000b519b602f5d6e7424c664be05cc7a4c803d26d24be107cd10aee9b6db905",
+      "003_cracker_box/poses/NP5_264_pose.h5": "d9ccb78264c6db4956bcc26043d6fc61ee74ead1395f9b8475f50a9eb1c5541c",
+      "003_cracker_box/poses/NP5_270_pose.h5": "e9b8007924fd2076b9c1bd03dba540b9e99274ff4eabf006dce2bc7b952af0ca",
+      "003_cracker_box/poses/NP5_276_pose.h5": "99ffc1549c0705525706e9884229ad49acf87ad2b2aa4c0b484d5af5f2ed1ea9",
+      "003_cracker_box/poses/NP5_282_pose.h5": "824692c35ebea113a92d12fc44aa1ae0d974dec9509af350bc4980d760cb91ad",
+      "003_cracker_box/poses/NP5_288_pose.h5": "9198d3d67ab4492688117e200e69f5974f3dc859d0c88da4796a3cf127d4d3bb",
+      "003_cracker_box/poses/NP5_294_pose.h5": "db8e7da2d67954f6e1454790e40c14f229fad7f4ae22601af82f4f6469509495",
+      "003_cracker_box/poses/NP5_300_pose.h5": "1412522a831d712ca21ca55fca83febe28ac2bf04429a6bb7288375e89d886bb",
+      "003_cracker_box/poses/NP5_306_pose.h5": "fb86f5bbd1e10c6949b58ac5f7faaf0d88b3037ad3f6e2b2a86f3acaf252df52",
+      "003_cracker_box/poses/NP5_30_pose.h5": "fb0cd72a7096762d73a287e85e1b0dcd0567a33b87b7029d037bcfe54fe73c9e",
+      "003_cracker_box/poses/NP5_312_pose.h5": "b1cfe529c80e32dad9e93a680446144b25a13600e7c446972720fd3da709b651",
+      "003_cracker_box/poses/NP5_318_pose.h5": "0997e00069ff7767e84d042ac786f0000fb9197a28f8f5d86417c9e97d853546",
+      "003_cracker_box/poses/NP5_324_pose.h5": "37339bb032d50daa6d7998586bc12c7835cf0ccd263655f4abb90f1f314da54d",
+      "003_cracker_box/poses/NP5_330_pose.h5": "b65946c01a4b5415ae7f45e47aad5bef23347133f5ea95ff90c01f77039c4062",
+      "003_cracker_box/poses/NP5_336_pose.h5": "0ad96f344f8b547a02a9043ce16d51c523061e5b2d3611fa346e484126c93431",
+      "003_cracker_box/poses/NP5_342_pose.h5": "cc1ae438bd6951c2527acef5041bc24296788c1541cd55cb15a8f6fdeb39efb8",
+      "003_cracker_box/poses/NP5_348_pose.h5": "61b325dd141bb61a56c4f0fa81f05b92ba9150832c38d94a6e159878b5c6b556",
+      "003_cracker_box/poses/NP5_354_pose.h5": "96f2044a442f69be67027882d2ea3a5b518901a15a1922951890d6e122cb2793",
+      "003_cracker_box/poses/NP5_36_pose.h5": "8dae17e658b72de1f348e2ac2dd182430450f91a001735733ab2d0d1165e80f9",
+      "003_cracker_box/poses/NP5_42_pose.h5": "25df0119a7cd9e61dbb1dc3e5d70216325b6c03aa156d572f4f0658f1be890e9",
+      "003_cracker_box/poses/NP5_48_pose.h5": "a28aae27ae28b03a27545caa653ffb7c56687bbd542904c0691b779a6eb237ab",
+      "003_cracker_box/poses/NP5_54_pose.h5": "fe0980f5bce8e180d284cbd9dd3f241a00cc092edc0410b23648018a27b50288",
+      "003_cracker_box/poses/NP5_60_pose.h5": "762790f5dd0ab9be1b25385749294dcf262cf80357123660fb458546219942f3",
+      "003_cracker_box/poses/NP5_66_pose.h5": "48ef2d6a96f35785f2460fe67ba68d9aa127b1043e7ff5a97947ffa3959bc14c",
+      "003_cracker_box/poses/NP5_6_pose.h5": "8a336cd50d3cf4d9fa5d4337412fa561cb5b66abe8f28ede585fe2788b7e48cc",
+      "003_cracker_box/poses/NP5_72_pose.h5": "15cd69c1f2faf6592d7f4467c12579def6d03acdb964851b6af32b2404299874",
+      "003_cracker_box/poses/NP5_78_pose.h5": "daf34370033588de31b0aff2ea537e13045bfe5f869218c3347b187fe39f4733",
+      "003_cracker_box/poses/NP5_84_pose.h5": "1604b58e2da8d4d8a52c9b280ef8f90dfbc223014389d8b9e933ee8c12ffd2be",
+      "003_cracker_box/poses/NP5_90_pose.h5": "0aa7cad1cc3edb3a6f344badbb7049b1bd3c74b6ac40c1669e7b7e6575a0413e",
+      "003_cracker_box/poses/NP5_96_pose.h5": "490fcbbf65c607f24a1733206afc2934cdedb46ed1833a7d41509d1b9bed58e4"
+    },
+    "total_uncompressed_bytes": 201304
+  },
+  "software": {
+    "pycolmap_version": "3.11.1",
+    "pycolmap_binary_sha256": "5e306a76bfb1a3a02139ea9d336770091a77376bb870a383ed3882b7250008a8",
+    "numpy_version": "1.26.4",
+    "adapter_sha256": "390e6d187175dff51f9543da32e9fef841c52654a57dbb4fc39d4ef50320d2e1",
+    "colmap_compare_sha256": "bf26cbcc8aeb24d087a7f82ac79752a21e5cd94ca1e5cb35fb6de570f4a117fd",
+    "rig_reader_sha256": "2c408b9c868a07d7acb8eabce148af41239a6950cd706fcfc9167de5e846054c"
+  },
+  "coverage": {
+    "registered": 60,
+    "selected": 60,
+    "fraction": 1.0,
+    "missing_names": []
+  },
+  "comparison": {
+    "source_camera_count": 60,
+    "reference_camera_count": 60,
+    "paired_camera_count": 60,
+    "paired_names": [
+      "NP3_000.jpg",
+      "NP3_006.jpg",
+      "NP3_012.jpg",
+      "NP3_018.jpg",
+      "NP3_024.jpg",
+      "NP3_030.jpg",
+      "NP3_036.jpg",
+      "NP3_042.jpg",
+      "NP3_048.jpg",
+      "NP3_054.jpg",
+      "NP3_060.jpg",
+      "NP3_066.jpg",
+      "NP3_072.jpg",
+      "NP3_078.jpg",
+      "NP3_084.jpg",
+      "NP3_090.jpg",
+      "NP3_096.jpg",
+      "NP3_102.jpg",
+      "NP3_108.jpg",
+      "NP3_114.jpg",
+      "NP3_120.jpg",
+      "NP3_126.jpg",
+      "NP3_132.jpg",
+      "NP3_138.jpg",
+      "NP3_144.jpg",
+      "NP3_150.jpg",
+      "NP3_156.jpg",
+      "NP3_162.jpg",
+      "NP3_168.jpg",
+      "NP3_174.jpg",
+      "NP3_180.jpg",
+      "NP3_186.jpg",
+      "NP3_192.jpg",
+      "NP3_198.jpg",
+      "NP3_204.jpg",
+      "NP3_210.jpg",
+      "NP3_216.jpg",
+      "NP3_222.jpg",
+      "NP3_228.jpg",
+      "NP3_234.jpg",
+      "NP3_240.jpg",
+      "NP3_246.jpg",
+      "NP3_252.jpg",
+      "NP3_258.jpg",
+      "NP3_264.jpg",
+      "NP3_270.jpg",
+      "NP3_276.jpg",
+      "NP3_282.jpg",
+      "NP3_288.jpg",
+      "NP3_294.jpg",
+      "NP3_300.jpg",
+      "NP3_306.jpg",
+      "NP3_312.jpg",
+      "NP3_318.jpg",
+      "NP3_324.jpg",
+      "NP3_330.jpg",
+      "NP3_336.jpg",
+      "NP3_342.jpg",
+      "NP3_348.jpg",
+      "NP3_354.jpg"
+    ],
+    "missing_reference_names": [],
+    "extra_candidate_names": [],
+    "all_reference_cameras_paired": true,
+    "similarity_source_to_reference": {
+      "scale": 0.03341546297103405,
+      "rotation": [
+        [
+          -0.5481101193637566,
+          -0.39054238135048114,
+          0.7396296001514161
+        ],
+        [
+          -0.8253331655363658,
+          0.10912550269364714,
+          -0.5540007134720863
+        ],
+        [
+          0.1356483059856297,
+          -0.9140942364061561,
+          -0.3821403721831477
+        ]
+      ],
+      "translation": [
+        -0.0059439787449240365,
+        0.0037449374613912722,
+        0.7187466281632685
+      ]
+    },
+    "reference_camera_radius": 0.4878958922664546,
+    "reference_camera_radius_definition": "RMS distance of paired reference camera centers from their centroid, in upstream scene units",
+    "center_rms": 0.4715644517731468,
+    "center_rms_over_reference_radius": 0.9665267923912164,
+    "center_p95_over_reference_radius": 1.2526864995107738,
+    "orientation_median_degrees": 160.7277549011739,
+    "orientation_p95_degrees": 175.43977935107063,
+    "per_name": {
+      "NP3_000.jpg": {
+        "center_error_over_reference_radius": 0.9185313880663009,
+        "orientation_error_degrees": 164.32029047454205
+      },
+      "NP3_006.jpg": {
+        "center_error_over_reference_radius": 0.9148995140316495,
+        "orientation_error_degrees": 167.3102550061476
+      },
+      "NP3_012.jpg": {
+        "center_error_over_reference_radius": 0.9074410789885978,
+        "orientation_error_degrees": 170.04882342737645
+      },
+      "NP3_018.jpg": {
+        "center_error_over_reference_radius": 0.8935243402267125,
+        "orientation_error_degrees": 173.27799411361423
+      },
+      "NP3_024.jpg": {
+        "center_error_over_reference_radius": 0.8791724560779243,
+        "orientation_error_degrees": 176.08133224732885
+      },
+      "NP3_030.jpg": {
+        "center_error_over_reference_radius": 0.8636010812083896,
+        "orientation_error_degrees": 179.0836866090094
+      },
+      "NP3_036.jpg": {
+        "center_error_over_reference_radius": 0.8432325144181266,
+        "orientation_error_degrees": 177.82814304506925
+      },
+      "NP3_042.jpg": {
+        "center_error_over_reference_radius": 0.8251460757175375,
+        "orientation_error_degrees": 175.4060134091623
+      },
+      "NP3_048.jpg": {
+        "center_error_over_reference_radius": 0.804821483538196,
+        "orientation_error_degrees": 173.07969253391346
+      },
+      "NP3_054.jpg": {
+        "center_error_over_reference_radius": 0.7869631348561597,
+        "orientation_error_degrees": 171.31649767112353
+      },
+      "NP3_060.jpg": {
+        "center_error_over_reference_radius": 0.76705134674509,
+        "orientation_error_degrees": 169.5459819310239
+      },
+      "NP3_066.jpg": {
+        "center_error_over_reference_radius": 0.7470820732214257,
+        "orientation_error_degrees": 167.80817498084713
+      },
+      "NP3_072.jpg": {
+        "center_error_over_reference_radius": 0.7283706220762277,
+        "orientation_error_degrees": 166.41563447407222
+      },
+      "NP3_078.jpg": {
+        "center_error_over_reference_radius": 0.7090746268669132,
+        "orientation_error_degrees": 165.103266752186
+      },
+      "NP3_084.jpg": {
+        "center_error_over_reference_radius": 0.6939676145471577,
+        "orientation_error_degrees": 164.1989357031833
+      },
+      "NP3_090.jpg": {
+        "center_error_over_reference_radius": 0.6796589283898102,
+        "orientation_error_degrees": 163.4983902011473
+      },
+      "NP3_096.jpg": {
+        "center_error_over_reference_radius": 0.669131017740172,
+        "orientation_error_degrees": 163.08115447914741
+      },
+      "NP3_102.jpg": {
+        "center_error_over_reference_radius": 0.662521518550133,
+        "orientation_error_degrees": 163.0098414312277
+      },
+      "NP3_108.jpg": {
+        "center_error_over_reference_radius": 0.6596946863162607,
+        "orientation_error_degrees": 163.40706787483614
+      },
+      "NP3_114.jpg": {
+        "center_error_over_reference_radius": 0.6612650058397137,
+        "orientation_error_degrees": 164.00550983867186
+      },
+      "NP3_120.jpg": {
+        "center_error_over_reference_radius": 0.666509663361958,
+        "orientation_error_degrees": 165.0013046822494
+      },
+      "NP3_126.jpg": {
+        "center_error_over_reference_radius": 1.2521619273842222,
+        "orientation_error_degrees": 159.75816156343504
+      },
+      "NP3_132.jpg": {
+        "center_error_over_reference_radius": 1.228744891491479,
+        "orientation_error_degrees": 160.9173317407717
+      },
+      "NP3_138.jpg": {
+        "center_error_over_reference_radius": 1.2003897358597755,
+        "orientation_error_degrees": 161.37017150989647
+      },
+      "NP3_144.jpg": {
+        "center_error_over_reference_radius": 1.1722229741575296,
+        "orientation_error_degrees": 161.4882939408065
+      },
+      "NP3_150.jpg": {
+        "center_error_over_reference_radius": 1.1450881006428595,
+        "orientation_error_degrees": 161.30395577516424
+      },
+      "NP3_156.jpg": {
+        "center_error_over_reference_radius": 1.1196202698642135,
+        "orientation_error_degrees": 161.23495102746125
+      },
+      "NP3_162.jpg": {
+        "center_error_over_reference_radius": 1.0983190353219139,
+        "orientation_error_degrees": 160.98287755764855
+      },
+      "NP3_168.jpg": {
+        "center_error_over_reference_radius": 1.0761789717092636,
+        "orientation_error_degrees": 160.6343473357468
+      },
+      "NP3_174.jpg": {
+        "center_error_over_reference_radius": 1.0627360506926784,
+        "orientation_error_degrees": 160.30055272392264
+      },
+      "NP3_180.jpg": {
+        "center_error_over_reference_radius": 1.049336464812527,
+        "orientation_error_degrees": 159.83904894545574
+      },
+      "NP3_186.jpg": {
+        "center_error_over_reference_radius": 1.045099301629498,
+        "orientation_error_degrees": 159.40791027060607
+      },
+      "NP3_192.jpg": {
+        "center_error_over_reference_radius": 1.0456470635768231,
+        "orientation_error_degrees": 158.87717447356047
+      },
+      "NP3_198.jpg": {
+        "center_error_over_reference_radius": 1.052374154473917,
+        "orientation_error_degrees": 158.44900743277884
+      },
+      "NP3_204.jpg": {
+        "center_error_over_reference_radius": 1.0564829871605188,
+        "orientation_error_degrees": 158.28851239214674
+      },
+      "NP3_210.jpg": {
+        "center_error_over_reference_radius": 1.0672774739680235,
+        "orientation_error_degrees": 157.5133789401765
+      },
+      "NP3_216.jpg": {
+        "center_error_over_reference_radius": 1.0927547603453587,
+        "orientation_error_degrees": 157.64278916331637
+      },
+      "NP3_222.jpg": {
+        "center_error_over_reference_radius": 1.1166968998372213,
+        "orientation_error_degrees": 158.438514928912
+      },
+      "NP3_228.jpg": {
+        "center_error_over_reference_radius": 1.1436854614977492,
+        "orientation_error_degrees": 159.13679527272623
+      },
+      "NP3_234.jpg": {
+        "center_error_over_reference_radius": 1.1637447223746398,
+        "orientation_error_degrees": 159.6946810696657
+      },
+      "NP3_240.jpg": {
+        "center_error_over_reference_radius": 1.1877658046192208,
+        "orientation_error_degrees": 159.83651718386778
+      },
+      "NP3_246.jpg": {
+        "center_error_over_reference_radius": 1.2132802901315511,
+        "orientation_error_degrees": 159.9042039600302
+      },
+      "NP3_252.jpg": {
+        "center_error_over_reference_radius": 1.2390691797325641,
+        "orientation_error_degrees": 160.21527467878263
+      },
+      "NP3_258.jpg": {
+        "center_error_over_reference_radius": 1.2626533699152516,
+        "orientation_error_degrees": 160.19736461314716
+      },
+      "NP3_264.jpg": {
+        "center_error_over_reference_radius": 1.290360492306232,
+        "orientation_error_degrees": 160.821162466601
+      },
+      "NP3_270.jpg": {
+        "center_error_over_reference_radius": 1.3152046488688753,
+        "orientation_error_degrees": 161.22195711965568
+      },
+      "NP3_276.jpg": {
+        "center_error_over_reference_radius": 0.7580781641819423,
+        "orientation_error_degrees": 140.64466654713092
+      },
+      "NP3_282.jpg": {
+        "center_error_over_reference_radius": 0.7656183923878238,
+        "orientation_error_degrees": 141.50704972987918
+      },
+      "NP3_288.jpg": {
+        "center_error_over_reference_radius": 0.7789103893125437,
+        "orientation_error_degrees": 142.23559940091843
+      },
+      "NP3_294.jpg": {
+        "center_error_over_reference_radius": 0.7957667495152406,
+        "orientation_error_degrees": 143.33283241903686
+      },
+      "NP3_300.jpg": {
+        "center_error_over_reference_radius": 0.8061611864802569,
+        "orientation_error_degrees": 144.70425201203292
+      },
+      "NP3_306.jpg": {
+        "center_error_over_reference_radius": 0.8392319224619506,
+        "orientation_error_degrees": 145.56608190977062
+      },
+      "NP3_312.jpg": {
+        "center_error_over_reference_radius": 0.8492863155155878,
+        "orientation_error_degrees": 147.1508751409494
+      },
+      "NP3_318.jpg": {
+        "center_error_over_reference_radius": 0.8661118558845933,
+        "orientation_error_degrees": 148.76215987235022
+      },
+      "NP3_324.jpg": {
+        "center_error_over_reference_radius": 0.8801114973415022,
+        "orientation_error_degrees": 150.28258577027188
+      },
+      "NP3_330.jpg": {
+        "center_error_over_reference_radius": 0.893867660406441,
+        "orientation_error_degrees": 152.25555191295282
+      },
+      "NP3_336.jpg": {
+        "center_error_over_reference_radius": 0.9050633591827458,
+        "orientation_error_degrees": 154.26937439982672
+      },
+      "NP3_342.jpg": {
+        "center_error_over_reference_radius": 0.9118608699442442,
+        "orientation_error_degrees": 156.41833292934956
+      },
+      "NP3_348.jpg": {
+        "center_error_over_reference_radius": 0.9168074526024671,
+        "orientation_error_degrees": 158.9394600550784
+      },
+      "NP3_354.jpg": {
+        "center_error_over_reference_radius": 0.9169087280394398,
+        "orientation_error_degrees": 161.47090987142275
+      }
+    }
+  },
+  "google_mesh_cross_frame_transform_known": false,
+  "metric_mesh_accuracy_claim_allowed": false
+}

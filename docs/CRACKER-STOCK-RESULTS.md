@@ -109,3 +109,39 @@ database and original images, in separate fresh directories. No image, mask,
 feature or pair graph is recomputed. Evaluate all saved models and cameras,
 then the named rig cameras after mapping; do not run dense from sparse coverage
 alone. The two interventions are tested separately, not combined.
+
+### Mapping-only diagnostic results
+
+Both arms completed from byte-identical copies of the frozen masked
+correspondence database (`a91caa5b6ae7c3c50f895fe682a006190118846d0510e0c8fa7ed0a1c47d9ae7`)
+and original JPEGs. They made no new features or matches. Exact reports are
+`tests/evidence/cracker-fixed-auto-001.json`,
+`cracker-fixed-auto-camera-001.json`, and `cracker-native-seed30-001.json`.
+
+| Mapping intervention | Retained cameras / points | Camera result | Interpretation |
+| --- | ---: | --- | --- |
+| Fix heuristic `[1536,640,512,0]`; automatic pair #33/#34 | 60/60; 3,805 | Fixed camera remained exact; fitted camera-center RMS 0.9665 of rig radius, p95 orientation 175.44° | Registration count improved, but the orbit is grossly wrong. This does not qualify for dense reconstruction. |
+| Native intrinsic refinement; force pair #33/#28 | 3/60; 211 | Saved `f=1235.31`, `k=1.59543`; too few views for rig Sim(3) evaluation | Wider seed by itself is insufficient with these stock features/matches. |
+
+The first arm's structural sparse flag is `true` by design because it checks
+registration and model integrity *pending* independent camera review. That
+review failed decisively; quality acceptance remains false. Neither arm gets
+a dense continuation. Mapping times (18.745 and 23.276 seconds) exclude prior
+feature/match computation and are not complete pipeline timings.
+
+This corrects our language about “stock COLMAP” for this dataset. Defaults
+target ordinary static unstructured scenes; this is a small rotating object
+against stationary background. One earlier masked, sequential, lower-feature
+configuration registered 60/60 and agreed much better with evaluation rig
+cameras. Changing just the pair or freezing an uncalibrated camera did not
+reproduce it. A controlled turntable configuration and pose review are required
+before mesh quality or product-readiness claims.
+
+Rechecking that prior 60-view model with the **same** sealed rig-camera adapter
+used above gives center RMS 0.01787 of rig radius and p95 orientation 2.987°
+(`tests/evidence/cracker-prior60-camera-recheck-001.json`). This confirms a
+large pose difference between the two 60-view outputs under one metric and
+reference policy. It remains evaluation-only rig agreement, not physical mesh
+accuracy; earlier mesh shape scores remained poor. In four sampled NP3 feature
+masks, the permitted region occupies 2.8–5.0% of the 1280×1024 image, giving
+self-calibration relatively little image area to constrain distortion.
