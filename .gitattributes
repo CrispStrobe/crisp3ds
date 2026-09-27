@@ -3,3 +3,4 @@ tests/datasets/sam21_mustard_point48_prompts.json text eol=lf
 tests/datasets/sam21_mustard_point_prompts.json text eol=lf
 scripts/sam_m1_setup/wheels.lock text eol=lf
 tests/datasets/sam21_mustard_m1_parity_review.json text eol=lf
+tests/datasets/sam21_mustard_m1_full_review.json text eol=lf

@@ -13,6 +13,53 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
+### Current continuation: full-training M1 mask path
+
+The photo-only stage copied and verified exactly 48 mustard TRAIN photographs
+to the external SSD (48,696,280 bytes including metadata). No held-out photos,
+reference geometry, masks or camera poses were transferred by this stage.
+Its report SHA-256 is
+`d6e72143fc02ee3d18dd8961ae508417bf122cbdbc24ebc4465e207a30997861`.
+The reviewed Mac continuation reuses the sealed 16 masks and can infer the
+remaining 32 in bounded four-frame CPU batches. Fake-worker tests cover
+interruption, resumption to the full inventory and tampering; full visual QA
+is still required before the paired sparse comparison.
+
+Both CI workflows passed at `ff64c6b`, fixing a test that incorrectly relied
+on a real `/Volumes/backups` mount on CI. The first local continuation suite
+ran 468 tests with eight errors and eight skips: five existing storage-reserve
+checks and three external-volume temporary-executable timeouts. This is not
+a passing regression result. After verified relocation of the completed
+806 MB bunny run, all five reserve-sensitive tests passed. The stereo matrix
+timeouts were isolated to rewriting a copied executable as a script at the
+same path on macOS; fresh per-script paths fix the test fixture without
+changing production code or timeouts. All four focused matrix tests passed.
+
+The first M1 continuation stopped at the unchanged 2.5 GiB available-memory
+floor after **32.93 seconds**: 16 imported plus seven newly inferred masks,
+23 sealed frames in total. No complete inventory was published. Root viewed
+the RGB and cleaned-mask sheets: the new masks retain bottle, cap and labels,
+with some light boundary fringe; this is partial coarse-support evidence,
+not full-set acceptance or a reconstruction-quality result. A second
+invocation passed a stricter 4 GiB launch-headroom check, reused all 23 sealed
+frames, and completed the remaining 25 in **91.93 seconds**. Peak sampled
+worker RSS was **1,428,528 KiB**. All 48 frames and receipts validated, with
+the original runtime limits unchanged.
+
+**Full visual QA rejected this mask set.** Views 318, 330, 336, 342 and 348
+retain checkerboard background adjoining the bottle; largest-component
+cleanup does not separate that contact. Root inspected the complete RGB,
+raw and cleaned sheets and recorded the [hash-bound rejection](../tests/datasets/sam21_mustard_m1_full_review.json).
+No SfM or dense stage consumed the masks. Next is a separately frozen
+image-only negative-prompt candidate for those five views; do not overwrite
+this result, silently discard failed views, or claim improved mesh accuracy.
+
+Final local regression with small internal test scratch: **473 tests run,
+8 skipped, 465 passed** in 30.10 seconds. Large inputs, masks, environments
+and weights remain on the external SSD. Both CI workflows passed at
+`246c3e8`; the subsequent documentation/test-fix commit still requires its
+own final CI result.
+
 ### Latest continuation: M1 CPU inference demonstrated
 
 Following the user's compute-policy clarification, inference moved off the VPS.

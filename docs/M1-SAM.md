@@ -102,6 +102,98 @@ does not certify exact silhouettes or a complete 48-view mask package.
 `full_training_package_ready=false`; the missing 32 views were not inferred
 and no SfM/dense pipeline consumed these masks.
 
+## Bounded 32-view continuation
+
+The [separate Mac continuation](../scripts/object_motion/sam_m1_resume.py)
+reuses the shared hash-receipt and inventory core with a narrowly explicit
+Mac producer SHA parameter. It does not alter the sealed 16 VPS frames. Each
+new frame declares the Mac runner and resource-adapter SHA-256, its CPU host
+class and exact contract hash. On resume, the shared validator checks the
+receipts and all previous invocation hash seals; extra/held-out or altered
+frames fail closed. The contract requires the tracked accepted three-view QA
+record, its setup/parity/sheet hashes, the sealed prior manifests/masks, and
+the independently staged [48-TRAIN report](</Volumes/backups/code/crisp3ds-data/sam21-m1-train48-001/stage-report.json>).
+The stage report SHA-256 is
+`d6e72143fc02ee3d18dd8961ae508417bf122cbdbc24ebc4465e207a30997861`;
+all 48 photo names and source hashes are rechecked from the frozen package.
+No held-out photo, supplied mask/depth/pose or reference geometry is input.
+
+The continuation freezes four photos per batch, ≤90 s each, ≤600 s total
+including at most 60 s aggregate RAM wait, CPU/two threads, ≤1.5 GiB worker
+RSS, ≥2.5 GiB Mac free+inactive estimate, ≤60 MiB output, ≤1 MiB logs and
+≥10 GiB free on both internal/external volumes. Generated masks remain
+`generated_unreviewed`, even if all 48 are present; an independent root
+full-orbit visual QA decision is required before reconstruction. The focused
+[tests](../scripts/object_motion/test_sam_m1_resume.py), together with the
+shared resume tests, passed 9/9, including a fake interrupted batch resumed
+from 22 to 48 sealed frames and a final classical-compatible inventory.
+Peer review cleared the code, not the masks or a live run.
+
+A read-only Mac preflight verified the 48 staged TRAIN photos, the exact 16
+sealed prior masks, accepted parity QA, source/checkpoint pins, and fresh
+proposed output
+`/Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-resume-001`.
+The frozen Mac wrapper SHA-256 is
+`5a73121d54e6da121e5632f0a84e2159809c77950c2bf780c4717d54ef86c4ea`;
+shared core SHA-256 is
+`c8f09966e067a6fac5d4386ed2cc044377fdb15b3456aab0987c1ebf9df38999`.
+At the first read-only preflight, Mac free+inactive estimate was 3,272,688
+KiB and the smaller disk-free reading was 10,860,130,304 bytes—only about
+123 MB above the 10 GiB floor. Internal-disk relocation and fresh root
+approval preceded the actual run.
+
+### Actual two-invocation run and visual rejection
+
+After relocation restored disk headroom, root approved one fresh invocation
+`001`. It imported the exact 16 sealed VPS masks and produced seven new Mac
+frames before a second batch tripped the unchanged **2.5 GiB free+inactive
+memory gate**. The supervisor stopped the worker; `001` is preserved as
+`failed_or_partial` after 32.93 s, with 23 atomic frame receipts and no
+complete inventory. The invocation report SHA-256 is
+`1b4dda71172611e865b83392f6cb8b09729eae80e1bd3bfbadf84c184a3e713e`.
+The four-view first batch completed in 16.44 s at peak RSS 1,352,656 KiB;
+the interrupted second batch had produced three valid frames before the RAM
+stop. No cap was relaxed.
+
+Root approved **one** resume `002` only after a stricter one-time launch
+check of ≥4 GiB available-memory estimate. The immediate check passed at
+4,276,400 KiB, and all 23 existing receipts plus the prior invocation hash
+seal were revalidated before launch. `002` completed in 91.93 s, with seven
+bounded batches (maximum observed worker RSS 1,428,528 KiB) and zero RAM
+wait. The [completed inventory](</Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-resume-001/complete_inventory.json>)
+has SHA-256 `b47e8caec7d05fae7bb84ae9b3eec7d4a35b1457ca9df67a3b984cbaaeed8a98`;
+invocation `002` report SHA-256 is
+`91ec53c6387a4e8a604e23d3c3ac5e81accd94a5f8b1154ee5b8d3e6a8201b3e`.
+Read-only validation confirmed all 48 photo names and cleaned-mask hashes,
+48 receipts, the exact first 16 prior frames, 32 Mac producer records, and
+both invocation seals. The inventory's machine status is
+`generated_unreviewed`, not an acceptance claim.
+
+Root independently inspected the [48-view cleaned sheet](</Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-resume-001/review_cleaned_48_frames_002.jpg>)
+(SHA-256 `755fb40755f2c8aaca38ec7113a4a074645bc08eb59191d4ccc42fb44a0b4ca4`)
+and [recorded a full-set QA rejection](../tests/datasets/sam21_mustard_m1_full_review.json)
+(review record SHA-256
+`4084e8e458b55c566dd138f9d4b8b853ab2c68bfc20f5f831447a0cc99e9528a`).
+`NP3_318` retains
+checkerboard fragments above the cap; `NP3_330`, `336`, `342`, and `348`
+include large checkerboard regions connected to the bottle. This is board
+leakage, not evidence of a semantic target switch. The previous three-view
+M1 parity acceptance remains valid only for those three views; it does not
+approve the other 45. Full-set visual readiness is false, and no SfM/dense
+reconstruction has used these masks. Any follow-on negative-point prompts
+for the five failed training views must be a separate frozen candidate and
+reviewed before inference; these generated artifacts are preserved unchanged.
+
+One bounded image-only proposal for a later, separate five-view trial is to
+keep the original box, positive point and two negatives, adding a single
+negative point at original pixel `(620,330)` **only** for `NP3_318`, `330`,
+`336`, `342` and `348`. Direct inspection of those five original TRAIN RGB
+photos places that point inside the checkerboard and above the bottle/cap in
+each. This is a proposed prompt, not a generated mask or approved threshold;
+it must be visually reviewed and frozen before any inference, and may still
+fail to exclude other connected board regions. No prompt variant was run
+after the full-set rejection.
+
 Meta's [SAM2 requirements](https://github.com/facebookresearch/sam2/blob/main/setup.py)
 include Python ≥3.10, PyTorch ≥2.5.1 and matching TorchVision. The pinned
 VPS candidate used CPU PyTorch 2.7.0; [PyPI](https://pypi.org/project/torch/2.7.0/)

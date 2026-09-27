@@ -68,6 +68,7 @@ class MatrixRunnerTest(unittest.TestCase):
         self.fake_elas = self.root / "fake-elas"
         shutil.copy2(CENSUS, self.fake_elas)
         self.fake_elas.chmod(0o755)
+        self.fake_script_number = 0
 
     def run_matrix(self, *extra: str) -> tuple[subprocess.CompletedProcess[str], dict | None]:
         process = subprocess.run([
@@ -79,8 +80,22 @@ class MatrixRunnerTest(unittest.TestCase):
         return process, json.loads(report.read_text()) if report and report.is_file() else None
 
     def fake_script(self, body: str) -> None:
+        # On macOS, replacing a copied Mach-O executable with a script at the
+        # same path can stall direct exec. Give each script a fresh identity.
+        self.fake_script_number += 1
+        self.fake_elas = self.root / f"fake-elas-script-{self.fake_script_number}"
         self.fake_elas.write_text("#!/usr/bin/env python3\n" + body + "\n")
         self.fake_elas.chmod(0o755)
+
+    def test_fake_scripts_use_fresh_paths(self) -> None:
+        original = self.fake_elas
+        self.fake_script("import sys\nsys.exit(7)")
+        first = self.fake_elas
+        self.fake_script("import time\ntime.sleep(5)")
+        self.assertNotEqual(first, original)
+        self.assertNotEqual(self.fake_elas, first)
+        self.assertTrue(original.is_file())
+        self.assertIn("time.sleep(5)", self.fake_elas.read_text())
 
     def test_three_engines_share_prepared_inputs_and_search_domain(self) -> None:
         process, report = self.run_matrix()

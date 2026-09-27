@@ -31,11 +31,13 @@ Neither those JPEGs nor Berkeley depth/poses, supplied masks, or Google scan
 geometry may enter either arm. Angle labels select the split only; they do not
 seed camera estimation. Stage exactly the 48 JPEG bytes and, after acceptance,
 the 48 cleaned SAM PNGs in a **fresh ≤150 MiB** external-volume directory.
-Flatten the six batch mask folders to one `masks/` directory with exact names
-`IMAGE_NAME.png` (for example `NP3_000.jpg.png`), as required by the existing
-PyCOLMAP reader. Rehash each staged photo against the package and each mask
-against the sealed batch manifest; reject missing, duplicate, linked, extra,
-or changed files. Record the accepted QA decision and full-run manifest SHA.
+After full-view QA acceptance, read the complete per-frame inventory's
+`frames/IMAGE_NAME/clean.png` files and stage them in one `masks/` directory
+with exact names `IMAGE_NAME.png` (for example `NP3_000.jpg.png`), as required
+by the existing PyCOLMAP reader. Rehash each staged photo against the package
+and each cleaned mask against the sealed complete inventory and accepted QA
+hashes; reject missing, duplicate, linked, extra, or changed files. Record
+the accepted QA decision and complete-inventory SHA.
 Make a basename-only `train-names.txt` in the order above and bind its hash.
 The [train-only staging helper](../scripts/classical_backend/mustard_stage.py)
 now implements these checks, including a fresh exact output, decoded binary
@@ -43,7 +45,11 @@ mask/photo dimensions, hashes and a ≤150 MiB copy cap; its tests are in
 [`test_mustard_stage.py`](../scripts/classical_backend/test_mustard_stage.py).
 It deliberately requires a separately sealed 48-mask inventory and explicit
 root visual-QA acceptance, neither of which this plan substitutes. No staging
-has been run under this protocol yet.
+of accepted masks has been run under this protocol yet. A separate photo-only
+48-TRAIN stage completed at
+`/Volumes/backups/code/crisp3ds-data/sam21-m1-train48-001` (report SHA-256
+`d6e72143fc02ee3d18dd8961ae508417bf122cbdbc24ebc4465e207a30997861`);
+it contains no masks or held-out images and does not satisfy the mask/QA gate.
 
 There is no existing mustard SfM baseline. Prior cracker-box raw/masked trials
 are settings precedent, not a cross-object baseline. The control must be a
