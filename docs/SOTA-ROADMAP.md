@@ -103,6 +103,37 @@ pipeline ranking. The next evaluation task is independently validated registrati
 camera-model and depth-support ablations. Do not keep changing reference crops or
 alignment settings until a preferred pipeline scores well.
 
+### Next supervised batch: distinguish calibration and registration failures
+
+1. **Registration audit (Sol surface agent):** keep the published aligner and
+   prior scores unchanged. Use known proper similarities of asymmetric synthetic
+   geometry, independent surface samples, missing support surfaces, outliers and
+   symmetry stress cases. Add self-transformed real scanner geometry with known
+   transforms. Measure transform error and independent paired-point residuals,
+   not only the same nearest-point objective used to fit. A stress-case failure
+   is evidence, not a reason to tune to the real candidate's F-score.
+2. **Intrinsics ablation (Sol camera agent):** reuse the exact foreground feature
+   database in fresh copies. Freeze a camera-model comparison before running it;
+   keep supplied Berkeley intrinsics in a separate calibration-assisted lane.
+   Verify distortion parameter order, pixel-center conventions and disabled
+   intrinsic refinement. Supplied camera poses and scanner meshes stay out of
+   reconstruction. Compare registration, image residuals and camera-reference
+   diagnostics; distinguish fitted residuals from held-out evidence.
+3. **Bounded dense control (Sol backend agent, after root review):** if a camera
+   trial passes artifact/projection checks, run the existing CPU OpenMVS chain
+   at the earlier low-resolution profile with correctly undistorted photo masks.
+   Record complete provenance and input hashes without mislabeling calibrated
+   inputs as image-only. Reuse helpers rather than implementing another engine.
+4. **Root review:** check independent numerical oracles, inspect projections and
+   bare geometry, rerun unit/live checks and record both successful and failed
+   controls. A known-intrinsics gain is a diagnosis, not a new general-photo
+   quality claim. No promotion into the application until the quality gate passes.
+
+This batch uses already-local data and native tools. New retained output budget
+is at most 1.5 GiB, with a hard 10 GiB free-disk reserve, two native threads,
+bounded stages and no bulk work in `/tmp`. No previous artifacts are overwritten
+or deleted to make a run look successful. Further reconstruction jobs are serial.
+
 - Freeze image hashes, selection, resolution, masks, camera model, parameters,
   versions, timeout, memory/output limits and evaluation scope before comparing.
 - Preserve originals. No reference scan vertices, reference-derived tracks/masks,

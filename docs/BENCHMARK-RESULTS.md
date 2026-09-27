@@ -22,6 +22,32 @@ quality metrics. Face count is not accuracy. Texture is not used to hide defects
 
 ## Current findings
 
+**Registration audit qualification:** the frozen known-transform
+[audit](REGISTRATION-AUDIT.md) now demonstrates that our existing surface
+aligner can misorient independently sampled copies of the *same* scanner mesh
+by 16.67–25.25 degrees. Missing support and outliers can make its objective
+prefer an incorrect transform. Historical scores below are preserved, but
+they are not trustworthy intrinsic pipeline rankings or independently
+registered physical accuracy. Camera-frame and sensor-depth controls are the
+next evaluation lane; this finding does not establish that the underlying
+reconstructions are good.
+
+A [three-frame Berkeley sensor-depth inspection](BERKELEY-DEPTH-FEASIBILITY.md)
+confirms that the already-local archive contains usable 640 × 480 raw depth
+arrays and distinct depth-camera calibration (under 2 MB extracted). This is
+a promising camera-registered oracle, not a completed geometry benchmark:
+pixel conventions, depth/RGB registration and object-only visibility still need
+validation. No depth residual score is reported yet.
+
+The [fixed-intrinsics camera experiment](CALIBRATION-ABLATION.md) retains a
+threaded-verification crash and a serial image-only 2/60 failure. Its preselected
+serial calibrated arm recovers 60/60 cameras and 3,942 sparse points, with
+median camera-orientation disagreement 1.34 degrees and center RMS 0.00848 in
+Berkeley native units. This supplied-calibration result is not an ordinary-photo
+success or a paired mesh-quality improvement. Its [native dense control](CALIBRATED-CONTROL.md)
+exceeded the 1 GiB cap before completing depth reconstruction, so there is no
+new calibrated mesh score.
+
 YCB fixed-camera comparisons (same 60 estimated cameras; 2,048 query samples
 per direction, independent reference fits unless stated):
 

@@ -13,6 +13,32 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
+The new [known-transform registration audit](REGISTRATION-AUDIT.md) isolates
+an evaluator defect: independently sampled copies of identical scanner geometry
+can be aligned 16.67–25.25 degrees incorrectly, and partial coverage can make
+the current objective prefer wrong poses. Historical shape scores remain
+recorded but cannot establish intrinsic pipeline rankings. This does not
+accept any reconstruction or explain away all geometry defects. A bounded
+intrinsics-assisted camera control now recovers 60/60 views and 3,942 points,
+with 1.34-degree median orientation disagreement against the supplied camera
+reference. It remains separate from image-only results. The original threaded
+calibrated verification crashed; a serial two-arm replay retained an image-only
+2/60 failure rather than retuning its seed. The subsequent dense control passed
+undistortion, mask warping and import, but exceeded its 1 GiB output cap while
+writing full-resolution depth maps; no complete cloud or mesh was produced.
+See [camera trials](CALIBRATION-ABLATION.md) and
+[native-control evidence](CALIBRATED-CONTROL.md). No calibrated mesh-quality
+improvement is claimed.
+The [sensor-depth feasibility check](BERKELEY-DEPTH-FEASIBILITY.md) extracted
+three frames, but does not yet provide independently registered shape scores.
+
+This batch's final local Python discovery passes **267 tests (8 skipped)**.
+The new native-resolution preflight has boundary/budget regression tests;
+its corrected explicit-minimum profile has not yet been run through meshing.
+Approximately 12 GiB remains free, above the 10 GiB reserve. Prior application
+build/test results below are unchanged; this batch changes experimental Python
+adapters, diagnostics and documentation, not the production reconstruction gate.
+
 Latest supervised checkpoint: [three real-photo benchmark lanes](BENCHMARK-RESULTS.md)
 now compare MVE and classical COLMAP/OpenMVS on two objects, plus a supplied-camera
 OpenMVS control on Sceaux. The box reaches 42.06% independently fitted F at 1%

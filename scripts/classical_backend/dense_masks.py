@@ -60,7 +60,34 @@ def camera_intrinsics(camera: pycolmap.Camera) -> tuple[float, float, float, flo
     if model == "PINHOLE" and len(params) == 4:
         fx, fy, cx, cy = params
         return fx, fy, cx, cy, 0.0
+    if model == "FULL_OPENCV" and len(params) == 12:
+        # Distortion is handled by full_opencv_project below. Returning a
+        # single radial coefficient here would silently discard k2/p1/p2/k3.
+        fx, fy, cx, cy = params[:4]
+        return fx, fy, cx, cy, 0.0
     raise ValueError(f"unsupported mask camera model {model}; refuse approximate warp")
+
+
+def full_opencv_project(nx: np.ndarray, ny: np.ndarray,
+                        params: list[float] | np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """COLMAP FULL_OPENCV: k1,k2,p1,p2,k3 over k4,k5,k6."""
+    if len(params) != 12 or not np.all(np.isfinite(params)):
+        raise ValueError("FULL_OPENCV needs 12 finite parameters")
+    fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, k5, k6 = map(float, params)
+    if min(fx, fy) <= 0:
+        raise ValueError("FULL_OPENCV focal lengths must be positive")
+    r2 = nx * nx + ny * ny
+    r4, r6 = r2 * r2, r2 * r2 * r2
+    denominator = 1 + k4 * r2 + k5 * r4 + k6 * r6
+    if np.any(~np.isfinite(denominator)) or np.any(np.abs(denominator) < 1e-8):
+        raise ValueError("FULL_OPENCV rational denominator is singular")
+    radial = (1 + k1 * r2 + k2 * r4 + k3 * r6) / denominator
+    xd = nx * radial + 2 * p1 * nx * ny + p2 * (r2 + 2 * nx * nx)
+    yd = ny * radial + p1 * (r2 + 2 * ny * ny) + 2 * p2 * nx * ny
+    px, py = fx * xd + cx, fy * yd + cy
+    if not np.all(np.isfinite(px)) or not np.all(np.isfinite(py)):
+        raise ValueError("FULL_OPENCV projected coordinates are nonfinite")
+    return px, py
 
 
 def remap_binary_mask(source: np.ndarray, source_camera: pycolmap.Camera,
@@ -80,7 +107,7 @@ def remap_binary_mask(source: np.ndarray, source_camera: pycolmap.Camera,
         raise ValueError("pose mask must contain only 0 and 255 labels")
     fx, fy, cx, cy, k = camera_intrinsics(source_camera)
     ux, uy, ucx, ucy, uk = camera_intrinsics(target_camera)
-    if uk != 0 or min(fx, fy, ux, uy) <= 0:
+    if target_camera.model.name not in ("PINHOLE", "SIMPLE_PINHOLE") or uk != 0 or min(fx, fy, ux, uy) <= 0:
         raise ValueError("target camera must be undistorted with positive focal lengths")
     sx = source_camera.width / target_camera.width
     sy = source_camera.height / target_camera.height
@@ -89,9 +116,13 @@ def remap_binary_mask(source: np.ndarray, source_camera: pycolmap.Camera,
                          np.arange(source_camera.height, dtype=np.float32) + 0.5)
     nx = (xx - ucx) / ux
     ny = (yy - ucy) / uy
-    radial = 1.0 + k * (nx * nx + ny * ny)
-    map_x = np.asarray(fx * nx * radial + cx - 0.5, dtype=np.float32)
-    map_y = np.asarray(fy * ny * radial + cy - 0.5, dtype=np.float32)
+    if source_camera.model.name == "FULL_OPENCV":
+        px, py = full_opencv_project(nx, ny, source_camera.params)
+    else:
+        radial = 1.0 + k * (nx * nx + ny * ny)
+        px, py = fx * nx * radial + cx, fy * ny * radial + cy
+    map_x = np.asarray(px - 0.5, dtype=np.float32)
+    map_y = np.asarray(py - 0.5, dtype=np.float32)
     intermediate = cv2.remap(source, map_x, map_y, cv2.INTER_NEAREST,
                              borderMode=cv2.BORDER_CONSTANT, borderValue=0)
     if (target_camera.width, target_camera.height) == (source_camera.width, source_camera.height):
