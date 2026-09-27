@@ -79,10 +79,16 @@ def effective_options(pycolmap):
 
 
 def inspect_model(model, names):
-    registered = sorted(model.images[image_id].name for image_id in model.reg_image_ids())
+    registered_ids = set(model.reg_image_ids())
+    registered = sorted(model.images[image_id].name for image_id in registered_ids)
     if len(registered) != len(set(registered)) or set(registered) - set(names):
         raise ValueError("model registers unexpected or duplicate image names")
     duplicate_tracks = 0
+    duplicate_exact_observations = 0
+    insufficient_distinct_views = 0
+    invalid_track_links = 0
+    orphan_point2d_links = 0
+    nonfinite_observations = 0
     nonfinite_points = 0
     nonfinite_cameras = sum(
         not all(math.isfinite(float(v)) for v in camera.params)
@@ -90,17 +96,50 @@ def inspect_model(model, names):
     nonfinite_poses = sum(
         not all(math.isfinite(float(v)) for row in model.images[image_id].cam_from_world.matrix()
                 for v in row)
-        for image_id in model.reg_image_ids())
-    for point in model.points3D.values():
+        for image_id in registered_ids)
+    track_links = set()
+    for point_id, point in model.points3D.items():
         if not all(math.isfinite(float(v)) for v in point.xyz):
             nonfinite_points += 1
-        image_ids = [element.image_id for element in point.track.elements]
+        elements = point.track.elements
+        image_ids = [element.image_id for element in elements]
         if len(image_ids) != len(set(image_ids)):
             duplicate_tracks += 1
+        if len(set(image_ids) & registered_ids) < 2:
+            insufficient_distinct_views += 1
+        seen = set()
+        for element in elements:
+            link = (element.image_id, element.point2D_idx)
+            if link in seen:
+                duplicate_exact_observations += 1
+            seen.add(link)
+            if element.image_id not in registered_ids or element.image_id not in model.images:
+                invalid_track_links += 1
+                continue
+            image = model.images[element.image_id]
+            if (not 0 <= element.point2D_idx < len(image.points2D) or
+                    not image.points2D[element.point2D_idx].has_point3D() or
+                    image.points2D[element.point2D_idx].point3D_id != point_id):
+                invalid_track_links += 1
+                continue
+            track_links.add(link)
+            if not all(math.isfinite(float(v)) for v in image.points2D[element.point2D_idx].xy):
+                nonfinite_observations += 1
+    for image_id in registered_ids:
+        for index, observation in enumerate(model.images[image_id].points2D):
+            if observation.has_point3D() and (
+                    observation.point3D_id not in model.points3D or
+                    (image_id, index) not in track_links):
+                orphan_point2d_links += 1
     return {"registered_images": len(registered), "registered_names": registered,
             "missing_names": sorted(set(names) - set(registered)),
             "sparse_points": model.num_points3D(),
             "duplicate_image_tracks": duplicate_tracks,
+            "duplicate_exact_observations": duplicate_exact_observations,
+            "points_with_fewer_than_two_distinct_views": insufficient_distinct_views,
+            "invalid_track_links": invalid_track_links,
+            "orphan_point2d_links": orphan_point2d_links,
+            "nonfinite_observations": nonfinite_observations,
             "nonfinite_points": nonfinite_points,
             "nonfinite_cameras": nonfinite_cameras,
             "nonfinite_poses": nonfinite_poses}
@@ -219,7 +258,7 @@ def run(sample: Path, output: Path, python: Path = PYTHON) -> dict:
     output.mkdir()
     (output / "images").mkdir()
     deadline = time.monotonic() + MAX_SECONDS
-    report = {"schema": "sceaux_image_only_pycolmap_stock_v1", "status": "running",
+    report = {"schema": "sceaux_image_only_pycolmap_stock_v2", "status": "running",
               "lane": "image-only sparse reconstruction; upstream scene/cameras/meshes excluded",
               "sample_manifest_sha256": manifest_hash,
               "sample_commit": sample_manifest["commit"],
@@ -273,12 +312,13 @@ def run(sample: Path, output: Path, python: Path = PYTHON) -> dict:
         best = max(report["models"], key=lambda m: (m["registered_images"], m["sparse_points"]),
                    default=None)
         report["best_model_index"] = best["index"] if best else None
-        report["positive_control_pass"] = bool(best and best["registered_images"] == 11 and
-                                               best["sparse_points"] > 0 and
-                                               best["duplicate_image_tracks"] == 0 and
-                                               best["nonfinite_points"] == 0 and
-                                               best["nonfinite_cameras"] == 0 and
-                                               best["nonfinite_poses"] == 0)
+        report["sparse_stage_eligible_not_quality"] = bool(
+            best and best["registered_images"] == 11 and best["sparse_points"] > 0 and
+            best["duplicate_exact_observations"] == 0 and
+            best["points_with_fewer_than_two_distinct_views"] == 0 and
+            best["invalid_track_links"] == 0 and best["orphan_point2d_links"] == 0 and
+            best["nonfinite_observations"] == 0 and best["nonfinite_points"] == 0 and
+            best["nonfinite_cameras"] == 0 and best["nonfinite_poses"] == 0)
         report["status"] = "complete"
     except Exception as error:
         report.update(status="failed", failure=str(error))
@@ -311,7 +351,7 @@ def run(sample: Path, output: Path, python: Path = PYTHON) -> dict:
             violations.append("total deadline exceeded")
         if violations:
             report.update(status="failed", failure="; ".join(violations),
-                          positive_control_pass=False)
+                          sparse_stage_eligible_not_quality=False)
         save()
     return report
 
@@ -328,7 +368,7 @@ def main() -> int:
         return 0
     report = run(args.sample, args.output, args.python)
     print(json.dumps({"status": report["status"],
-                      "positive_control_pass": report.get("positive_control_pass", False),
+                      "sparse_stage_eligible_not_quality": report.get("sparse_stage_eligible_not_quality", False),
                       "report": str(args.output / "report.json")}))
     return 0 if report["status"] == "complete" else 1
 

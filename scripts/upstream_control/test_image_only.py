@@ -20,6 +20,55 @@ class Option:
 
 
 class ImageOnlyTests(unittest.TestCase):
+    @staticmethod
+    def model_with_repeated_image_observations():
+        def observation(point_id):
+            return types.SimpleNamespace(point3D_id=point_id, xy=(1.0, 2.0),
+                                         has_point3D=lambda: point_id is not None)
+
+        def image(name, observations):
+            return types.SimpleNamespace(name=name, points2D=observations,
+                cam_from_world=types.SimpleNamespace(matrix=lambda: [[1., 0., 0., 0.],
+                                                                       [0., 1., 0., 0.],
+                                                                       [0., 0., 1., 0.]]))
+
+        elements = [types.SimpleNamespace(image_id=i, point2D_idx=j)
+                    for i, j in ((1, 0), (1, 1), (2, 0))]
+        model = types.SimpleNamespace(
+            images={1: image("a.jpg", [observation(7), observation(7)]),
+                    2: image("b.jpg", [observation(7)])},
+            cameras={1: types.SimpleNamespace(params=[100., 50., 50.])},
+            points3D={7: types.SimpleNamespace(xyz=(1., 2., 3.),
+                                               track=types.SimpleNamespace(elements=elements))},
+            reg_image_ids=lambda: [1, 2], num_points3D=lambda: 1)
+        return model
+
+    def test_nearby_same_image_observations_are_structurally_valid(self):
+        model = self.model_with_repeated_image_observations()
+        summary = image_only.inspect_model(model, ["a.jpg", "b.jpg"])
+        self.assertEqual(summary["duplicate_image_tracks"], 1)
+        for key in ("duplicate_exact_observations", "points_with_fewer_than_two_distinct_views",
+                    "invalid_track_links", "orphan_point2d_links", "nonfinite_observations"):
+            self.assertEqual(summary[key], 0, key)
+
+    def test_bad_backlink_or_one_distinct_view_fails_structural_check(self):
+        model = self.model_with_repeated_image_observations()
+        model.images[1].points2D[1].point3D_id = 99
+        model.points3D[7].track.elements[2].image_id = 1
+        model.points3D[7].track.elements[2].point2D_idx = 0
+        summary = image_only.inspect_model(model, ["a.jpg", "b.jpg"])
+        self.assertGreater(summary["invalid_track_links"], 0)
+        self.assertGreater(summary["orphan_point2d_links"], 0)
+        self.assertEqual(summary["points_with_fewer_than_two_distinct_views"], 1)
+        self.assertGreater(summary["duplicate_exact_observations"], 0)
+
+    def test_unregistered_image_cannot_supply_second_view(self):
+        model = self.model_with_repeated_image_observations()
+        model.reg_image_ids = lambda: [1]
+        summary = image_only.inspect_model(model, ["a.jpg", "b.jpg"])
+        self.assertEqual(summary["points_with_fewer_than_two_distinct_views"], 1)
+        self.assertEqual(summary["invalid_track_links"], 1)
+
     def test_only_thread_limits_change_numeric_defaults(self):
         fake = types.SimpleNamespace(
             ImageReaderOptions=lambda: Option(camera_model="SIMPLE_RADIAL", camera_params="",
@@ -76,7 +125,11 @@ class ImageOnlyTests(unittest.TestCase):
                 if name == "mapping":
                     (run / "models.json").write_text(json.dumps([{
                         "index": 0, "registered_images": 11, "sparse_points": 10,
-                        "duplicate_image_tracks": 0, "nonfinite_points": 0,
+                        "duplicate_image_tracks": 1,
+                        "duplicate_exact_observations": 0,
+                        "points_with_fewer_than_two_distinct_views": 0,
+                        "invalid_track_links": 0, "orphan_point2d_links": 0,
+                        "nonfinite_observations": 0, "nonfinite_points": 0,
                         "nonfinite_cameras": 0, "nonfinite_poses": 0}]))
                 return {"name": name, "status": "complete"}
 
@@ -88,7 +141,9 @@ class ImageOnlyTests(unittest.TestCase):
                 report = image_only.run(sample, output, python)
 
             self.assertEqual(report["status"], "complete")
-            self.assertTrue(report["positive_control_pass"])
+            self.assertEqual(report["schema"], "sceaux_image_only_pycolmap_stock_v2")
+            self.assertTrue(report["sparse_stage_eligible_not_quality"])
+            self.assertFalse(report["quality_accepted"])
             self.assertEqual([call[0] for call in calls], ["features", "matching", "mapping"])
             self.assertTrue(all(call[2:5] == (512 << 20, 16 << 20, 4 << 30)
                                 and call[5] == (image_only.ROOT,) for call in calls))

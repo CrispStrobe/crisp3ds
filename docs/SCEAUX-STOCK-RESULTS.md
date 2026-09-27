@@ -74,3 +74,53 @@ by this compatibility trial. The existing runner labels external sparse source
 provenance generically; this document and the hash-bound producer report supply
 the specific lineage. Its actual worker command retains the venv interpreter
 even though toolchain metadata resolves the base Python executable path.
+
+## Native dense-to-texture result
+
+The [unchanged-model continuation completed](../tests/evidence/sceaux-stock-dense-001.json)
+with **98,074 dense points**, **122,085 rough faces**, and **40,097 refined and
+textured faces** (20,147 textured vertices). All seven stages completed without
+a retry or geometry repair. Source photos and sparse model hashes are unchanged.
+Report SHA-256: `cbfcc463650b8ab76401a42dfac66b6fa8dded6e9dc92d17654cc225f8edfcbd`.
+
+| Continuation stage | Seconds |
+| --- | ---: |
+| Model reuse / undistortion / native import | 0.512 / 1.054 / 0.514 |
+| Dense reconstruction | 61.699 |
+| Rough mesh | 3.064 |
+| Refinement | 25.518 |
+| Texturing | 4.066 |
+
+Stage sum is 96.427 seconds; final run output is 130,869,854 bytes. Do not call
+this sum plus the sparse run a fresh e2e wall-clock benchmark: the camera and
+track review occurred between invocations. This establishes native compatibility
+and a composed photo-to-textured-mesh control, not rotating-object acceptance.
+
+The [independent handoff/artifact review](../tests/evidence/sceaux-stock-dense-review-001.json)
+verifies byte-identical source/copied sparse models, matching dimensions for all
+11 undistorted images/cameras (five 640×480, six 640×481), valid textured output,
+and no zero-area rough/refined triangles. Root inspected the untextured
+[local orthographic preview](../.local-tools/sceaux-stock-dense-review-001/camera-aligned-refined-vs-upstream.png):
+the main facade pattern corresponds, but substantial surrounding reference
+coverage is missing. Its alignment is the already computed camera similarity,
+not a surface fit. This is encouraging structural agreement with visible
+incompleteness, not a complete-scene quality pass. No surface score was computed.
+
+### How this compares with established paths already exercised
+
+| Same Sceaux photo collection | Camera input / configuration | Observed output |
+| --- | --- | --- |
+| New COLMAP → OpenMVS | Images only; stock sparse defaults; declared 640px dense CPU profile | 11/11 cameras; completed composed chain, 40,097 refined faces |
+| Existing MVE run | Images only; selected SIFT build, 1.5M-pixel cap, dense scale 2 | 11/11 cameras; 41,339 mesh faces |
+| Existing OpenMVS stage control | Supplied upstream OpenMVG cameras; separate 640px profile | Completed through a recovery continuation; 60,727 refined faces |
+
+These are capability/configuration comparisons, **not a triangle-count quality
+ranking**. MVE's earlier camera/surface diagnostics and the supplied-camera
+control remain in [UPSTREAM-COMPARISON.md](UPSTREAM-COMPARISON.md). Camera inputs,
+resolution policies and run composition differ. They must not be silently
+combined into a supposedly controlled head-to-head accuracy or speed table.
+
+The next decisive test is the predeclared real-object matrix, not another
+Sceaux tuning cycle. Keep stock defaults as the first camera-estimation baseline,
+use documented turntable masking policies and compare independently measured
+camera/shape evidence with its registration and coverage limitations disclosed.

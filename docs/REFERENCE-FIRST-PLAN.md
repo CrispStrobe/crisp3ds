@@ -5,6 +5,11 @@ immediate execution priority. Existing failures and scores remain unchanged.
 The objective is a reproducible, useful reconstruction from ordinary RGB photos,
 not a larger sparse cloud or more successful software tests.
 
+The first stock run and an explicit subsequent correction to our overly strict
+track-uniqueness gate are recorded in [SCEAUX-STOCK-RESULTS.md](SCEAUX-STOCK-RESULTS.md).
+The original pre-run text below is preserved; the dated continuation amendment
+does not retroactively change the first report's failed gate flag.
+
 ## What established workflows actually do
 
 | Workflow | Relevant upstream behavior | Consequence for this project |

@@ -1,0 +1,59 @@
+{
+  "schema": "sceaux_stock_track_semantics_diagnostic_v1",
+  "scope": "One-off read-only audit of the saved stock PyCOLMAP 3.11.1 Sceaux sparse model and its feature database. No model, database, photo, or native artifact was rewritten.",
+  "source_run": "/Volumes/backups/code/crisp3ds-data/sceaux-stock-sfm-001",
+  "source_report_sha256": "7fe6d661710e25e55fd6e5d54afab27a2bb517e6b3fe8b6c43fd3c0645e3d44d",
+  "original_positive_control_pass": false,
+  "source_report_photo_integrity": {
+    "source_images_unchanged": true,
+    "copied_images_unchanged": true
+  },
+  "input_sha256_before": {
+    "database.db": "865971b58157dceaf9507fa326b49a2a4b070c07740213cf5939ed1a28609b58",
+    "models/0/cameras.bin": "4bbca83da0f5bf47d3abccbccc72e15bbe79a0dd7a7b565b4669290a401fba4f",
+    "models/0/images.bin": "6ffd6cd9959551a2872b0f8bc5bfa1943ad68b4dffb5b9eac704101d582ccaf7",
+    "models/0/points3D.bin": "88d84d91163064337a245495361407d1df1c79ac55c771932a5cb62c1c207817"
+  },
+  "input_sha256_after": {
+    "database.db": "865971b58157dceaf9507fa326b49a2a4b070c07740213cf5939ed1a28609b58",
+    "models/0/cameras.bin": "4bbca83da0f5bf47d3abccbccc72e15bbe79a0dd7a7b565b4669290a401fba4f",
+    "models/0/images.bin": "6ffd6cd9959551a2872b0f8bc5bfa1943ad68b4dffb5b9eac704101d582ccaf7",
+    "models/0/points3D.bin": "88d84d91163064337a245495361407d1df1c79ac55c771932a5cb62c1c207817"
+  },
+  "model": {
+    "registered_images": 11,
+    "sparse_points": 8412,
+    "track_observations": 39974,
+    "repeated_image_tracks": 183,
+    "repeated_image_track_fraction": 0.021754636233951498,
+    "repeated_image_groups": 204,
+    "group_size_distribution": {"2": 204},
+    "extra_same_image_observations": 204,
+    "extra_observation_fraction": 0.005103317156151498,
+    "distinct_cameras_per_repeated_track": {"min": 3, "median": 7, "max": 11}
+  },
+  "paired_keypoints": {
+    "source": "Saved images.bin point2D indices matched to database.db keypoint rows by image ID and row index.",
+    "database_keypoint_columns": 6,
+    "database_descriptor_columns": 128,
+    "pair_count": 204,
+    "distinct_keypoint_index_pairs": 204,
+    "pixel_separation_bins": {"exact_zero": 1, "greater_zero_less_one": 137, "one_to_less_three": 48, "three_to_ten": 18},
+    "pixel_separation_quantiles": {"min": 0, "p25": 0.3778650322185119, "median": 0.6748148671548699, "p75": 1.357887268137255, "p90": 2.8254461499494408, "p95": 3.4992989671696844, "max": 5.877870848716599},
+    "descriptor_exact_equal_pairs": 0,
+    "descriptor_cosine_at_least_0_95_pairs": 174,
+    "descriptor_cosine_quantiles": {"min": 0.7806051578436675, "median": 0.978863484521286, "p95": 0.9891217005774479, "max": 0.9925710271273237},
+    "model_to_database_xy_max_difference_pixels": 0,
+    "invalid_keypoint_indices": 0,
+    "point_to_image_2d_backlink_mismatches": 0
+  },
+  "all_observation_projection": {
+    "method": "Read-only PyCOLMAP image.project_point over every saved track observation; full backlink and index checks from summarize_model.",
+    "denominator": 39974,
+    "finite_count": 39974,
+    "invalid_projection_count": 0,
+    "behind_camera_count": 0,
+    "reprojection_l2_pixels": {"mean": 0.5635771407591346, "median": 0.432217061396409, "p95": 1.4967416687953583, "p99": 2.4528037367715467, "max": 3.949340330746659}
+  },
+  "interpretation": "The duplicate-image count records different, usually nearby feature observations linked to the same sparse point. This audit does not establish the feature-generation or track-merging cause, nor does it certify dense-stage compatibility or physical accuracy. The frozen source run remains positive_control_pass=false; a revised eligibility rule requires a separately declared protocol correction."
+}

@@ -13,7 +13,51 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
-### Current continuation: local matching alone does not recover reliable poses
+### Current continuation: reference-first control recovers upstream camera layout
+
+The [reference-first plan](REFERENCE-FIRST-PLAN.md) replaces further mustard-only
+tuning as the immediate priority. A fresh stock PyCOLMAP 3.11.1 control on the
+11 upstream Sceaux photos completed in 71.49 seconds with 11/11 cameras and
+8,412 points. Evaluation-only comparison against the supplied OpenMVG cameras
+gives center RMS disagreement of 0.344% of the reference camera-layout radius
+and median orientation disagreement of 1.251°. This is software-camera
+agreement, not ground truth or demonstrated object quality.
+
+It exposed an incorrect assumption in our checks: nearby distinct observations
+from one image are allowed in a COLMAP track. All 39,974 saved observations have
+valid references and finite positive-depth projections, including 183 tracks
+with repeated image IDs. The original zero-repeat gate remains recorded as
+failed, but it is **not a valid general corruption test**. Earlier descriptions
+of such tracks as necessarily needing structural repair were too broad.
+The [result and explicit protocol correction](SCEAUX-STOCK-RESULTS.md) preserve
+the original output and authorize an unchanged native OpenMVS continuation.
+No prior mustard pose-fold warning or rejected shape result is reversed.
+
+That continuation **completed dense reconstruction, meshing, refinement and
+texturing**: 98,074 dense points, 122,085 rough faces and 40,097 refined/textured
+faces. Its native stage times sum to 96.427 seconds and output is about 131 MB.
+This is a composed image-derived control, not a fresh e2e timing or an object
+quality pass. No reference camera or mesh was an input, and no track repair was
+applied. The future v2 structural check now validates reciprocal observations,
+finite values and distinct registered views instead of demanding zero repeated
+image IDs. The original v1 report remains unchanged.
+Root's camera-aligned, untextured preview shows corresponding facade structure
+but substantial missing surrounding coverage; no surface-quality score or
+complete-scene acceptance is claimed.
+
+The next object comparisons use the existing 60-photo cracker box and 73-photo
+bunny with independent scanner references; both require disclosed reference-fit
+and coverage limitations. Stock classical, independent MVE and optional Apple
+Object Capture roles are separated from supplied-camera diagnostics. A new
+comparison-readiness checker prevents unmatched camera/input/metric lanes from
+being presented as a like-for-like quality ranking.
+
+Final local regression: **569 Python tests run, 8 skipped, 561 passed** in
+29.66 seconds; **11/11 native CTests passed**. Native CTests preceded live runs;
+final Python regression followed their completion. Approximately 23 GiB internal
+and 18 GiB external storage remain free, above both 10 GiB floors.
+
+### Previous continuation: local matching alone does not recover reliable poses
 
 The [frozen local-graph experiment](MUSTARD-LOCAL-MATCHING-PLAN.md) reuses the
 same cached features, verified correspondence rows, fixed intrinsics and automatic

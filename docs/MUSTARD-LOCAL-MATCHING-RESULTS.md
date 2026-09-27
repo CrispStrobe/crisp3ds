@@ -1,5 +1,9 @@
 # Mustard local-matching trial: incomplete orbit
 
+Later interpretation correction: repeated image IDs alone are permitted in native
+COLMAP tracks and are not proof of corruption; see the [stock-control finding](SCEAUX-STOCK-RESULTS.md).
+The 24/48 coverage failure and missing opposing-view evidence below remain valid.
+
 The live runner is frozen at commit `a35bcd1`, SHA-256
 `5d1cff55cbd6ddf5e7e27c63358fbe988608bb9cf3f51de7400a244d5b2c030d`.
 The later database-guard changes were not used for this experiment.
