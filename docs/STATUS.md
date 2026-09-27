@@ -13,6 +13,34 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
+### Latest: real-object stock and Apple baselines do not pass quality gates
+
+The [frozen cracker-box comparison](CRACKER-STOCK-PLAN.md) now has three actual
+60-photo M1 runs. Stock COLMAP raw retains 15/60 cameras and 53 points, with
+gross disagreement against the evaluation-only rig diagnostic. The feature-masked
+arm retains only 2/60 cameras and 339 points. Neither qualifies for dense
+continuation; coarse masking plus stock defaults is not a working object pipeline.
+
+Apple Object Capture completes a preview USDZ in 30.525 seconds. The artifact
+passes the installed USD validator; its 2,092-triangle untextured mesh has a
+roughly box-shaped region and a conspicuous unwanted extension. It is not a
+clean object-quality pass, nor a cross-platform backend. See
+[results and preserved evidence](CRACKER-STOCK-RESULTS.md).
+
+A scheduling mistake caused brief overlap between raw mapping and masked
+feature extraction; the masked worker was then paused. This is explicitly
+recorded, so COLMAP timings are **not** presented as an isolated speed ranking.
+The source images, masks and reconstruction software remained unchanged.
+
+The next task is to explain the initialization/intrinsics difference from the
+earlier 60/60 producer before tuning dense geometry. No failed baseline was
+repaired or silently replaced. New post-hoc camera checks seal the rig metadata;
+their unit tests use synthetic fixtures and do not require private local datasets.
+
+Regression after native jobs: **583 Python tests run, 8 skipped, 575 passed**;
+**11/11 native CTests passed**. An unclosed SQLite fixture that failed Windows CI
+was fixed. About 22 GiB internal / 18 GiB external remain, above both 10 GiB floors.
+
 ### Current continuation: reference-first control recovers upstream camera layout
 
 The [reference-first plan](REFERENCE-FIRST-PLAN.md) replaces further mustard-only

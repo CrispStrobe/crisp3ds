@@ -1,0 +1,990 @@
+{
+  "schema": "ycb_object_stock_pycolmap_sparse_v1",
+  "status": "complete",
+  "arm": "masked",
+  "source": "original Berkeley NP3 JPEGs; no supplied calibration, poses, depth, or scanner geometry",
+  "camera_policy": "one shared SIMPLE_RADIAL camera; native self-calibration",
+  "mask_role": "coarse photo-derived feature support; four sample angles received human QA, not all 60",
+  "photo_manifest_sha256": "d3d1945828a34413e2205ff7617850a36a99b4db462585087a8cecade5de9c64",
+  "mask_manifest_sha256": "0b78469039d11516d0ac96b642553099267cd97c9a6439a1ec4b2fcb133615bd",
+  "software": {
+    "version": "3.11.1",
+    "core_path": "/Users/christianstrobele/code/crisp3ds/.local-tools/colmap-sparse/venv/lib/python3.11/site-packages/pycolmap/_core.cpython-311-darwin.so",
+    "core_sha256": "5e306a76bfb1a3a02139ea9d336770091a77376bb870a383ed3882b7250008a8",
+    "python_path": "/Users/christianstrobele/code/crisp3ds/.local-tools/colmap-sparse/venv/bin/python",
+    "runner_sha256": "a467352cc57e951a6275ce21721a493bec3e7a91e5fb62f01f978ce8de97e2aa",
+    "stage_helper_sha256": "c65f73396e52a22e56d7edc358461c1f25a58f163d390a372e3b4c20e9b7441b",
+    "sample_run_helper_sha256": "669eddfd327cae51237a6c1edc757538924fb2ba8c033a27f538f9411fb4a75d",
+    "sample_fetch_helper_sha256": "aca4c34d0fdaaabbe658b513a3dc3e56794d575a4230ad882fc0e5df074ec91d",
+    "object_runner_sha256": "89fd996166ebc3b54c0f2d20302aab7fb750d7387517f59eb6b412c419199137"
+  },
+  "platform": "macOS-26.2-arm64-arm-64bit",
+  "machine": "arm64",
+  "limits": {
+    "max_output_bytes": 536870912,
+    "max_child_rss_bytes": 4294967296,
+    "max_log_bytes_per_stage": 16777216,
+    "max_seconds_total": 600,
+    "min_free_bytes_each_volume": 10737418240
+  },
+  "inputs": [
+    {
+      "name": "NP3_000.jpg",
+      "sha256": "9eeb9ee32bde48486c250692bcdd319752bf16a6a582f69e85b17db20cf13db4",
+      "bytes": 1012752
+    },
+    {
+      "name": "NP3_006.jpg",
+      "sha256": "cfcf6a4aa7fbcfbb687caffb925487fff93961bef6b69c944798f76f02573822",
+      "bytes": 1006111
+    },
+    {
+      "name": "NP3_012.jpg",
+      "sha256": "70383510a1377fc017096a3d3ee7f70e139d26fd0bddeca7ed688bcce4db2e99",
+      "bytes": 1010877
+    },
+    {
+      "name": "NP3_018.jpg",
+      "sha256": "403c6f186db436dfa6afa25a16449a355d19aa4771dd7ac617bc35c8aac82a8a",
+      "bytes": 1018026
+    },
+    {
+      "name": "NP3_024.jpg",
+      "sha256": "ef5018ecedf8bceff770ec99c779bdde0a3d8111a600977940be808f6fadacfc",
+      "bytes": 1022298
+    },
+    {
+      "name": "NP3_030.jpg",
+      "sha256": "6b0e1af999073d5392379a88bd9a3e63b611f54f761d49407aa17bac4a3b489c",
+      "bytes": 1025448
+    },
+    {
+      "name": "NP3_036.jpg",
+      "sha256": "2e7ec5bb44aa717a3a162cdad167a7c01380acc11863c603596e9ae396b60180",
+      "bytes": 1028740
+    },
+    {
+      "name": "NP3_042.jpg",
+      "sha256": "16c8f04a58a7b97817b100f6eccf10f2e4d4cd058f14d4647a0d0ad683571078",
+      "bytes": 1028881
+    },
+    {
+      "name": "NP3_048.jpg",
+      "sha256": "4c8466706662414adfe32d55e1e47cc688f8b9513d8c3d0bb704ca63445360be",
+      "bytes": 1028150
+    },
+    {
+      "name": "NP3_054.jpg",
+      "sha256": "c82c0af77e9e67bbe6cdaba23023b07a03d485ed7e5739d6c611043f41f6bc0b",
+      "bytes": 1027922
+    },
+    {
+      "name": "NP3_060.jpg",
+      "sha256": "97608c07ac415b748cbaa35b621a53e4a7f679069e11df5b1c602e7be3c0ed82",
+      "bytes": 1025129
+    },
+    {
+      "name": "NP3_066.jpg",
+      "sha256": "98d094ec5b6a63160e0d34678b60b6104dd26a625a37037b95cf517192e08f97",
+      "bytes": 1023584
+    },
+    {
+      "name": "NP3_072.jpg",
+      "sha256": "56ad1404c6f10b07d301701151b579ccca18deef7e54042b355c042380a6d1e9",
+      "bytes": 1019236
+    },
+    {
+      "name": "NP3_078.jpg",
+      "sha256": "b0c0d6c2de03e06c12d30d621f5e1a0c4b321f9b28f6e32cdf1902899b20e408",
+      "bytes": 1014466
+    },
+    {
+      "name": "NP3_084.jpg",
+      "sha256": "0b3388d9002c66d872f48a828acc395334ea96c0c71a08013b0c2219928ca88f",
+      "bytes": 1008799
+    },
+    {
+      "name": "NP3_090.jpg",
+      "sha256": "9f024962a582b8d764d81e515f6b169e1c09b083239ce7dfbd3138feaae0a2e5",
+      "bytes": 1003630
+    },
+    {
+      "name": "NP3_096.jpg",
+      "sha256": "0415d19ad9283173612a963124670c8099c956f94431e53be47466a2cce2c678",
+      "bytes": 1005500
+    },
+    {
+      "name": "NP3_102.jpg",
+      "sha256": "7eb0b850fc056d7de0eaad90a7ab298314ef4d7276837d5a172b0520037d5e4d",
+      "bytes": 1010660
+    },
+    {
+      "name": "NP3_108.jpg",
+      "sha256": "712b1a220d9fe20e43cc3af159ebfefc03bb64fae9ae64105a140730fcf6c943",
+      "bytes": 1014546
+    },
+    {
+      "name": "NP3_114.jpg",
+      "sha256": "28090e4e7bf8eea6ce92cd6853b0e0f8e83aee3682c49a95f5f99c37844fe68d",
+      "bytes": 1019561
+    },
+    {
+      "name": "NP3_120.jpg",
+      "sha256": "fc5f61441f2e9975dc2ca281f37b0bc759e9761981aa38384e90865dfa8c222d",
+      "bytes": 1023593
+    },
+    {
+      "name": "NP3_126.jpg",
+      "sha256": "bd6908b0c670fbb24f50103533f54a9ab8b1a1a12f93662dbf8f7ebf36327454",
+      "bytes": 1025521
+    },
+    {
+      "name": "NP3_132.jpg",
+      "sha256": "cccac24c0a30598f712591960e56fa28d685d0d1bab66e840f44d054921fc17e",
+      "bytes": 1026589
+    },
+    {
+      "name": "NP3_138.jpg",
+      "sha256": "4629d3f1504df7cebc7114e1311a3e389c1726f0c5b2a41be4d3dee141a0f83a",
+      "bytes": 1025616
+    },
+    {
+      "name": "NP3_144.jpg",
+      "sha256": "da89e00e5f6427745ff3751f9a52d5cbb8df9255a8b9e42ba86e1b1e8a797f26",
+      "bytes": 1025551
+    },
+    {
+      "name": "NP3_150.jpg",
+      "sha256": "bab45240e31020c24c5928180c2d418f030c44d33d5202e94f9167e17a79198f",
+      "bytes": 1023433
+    },
+    {
+      "name": "NP3_156.jpg",
+      "sha256": "15c95e69a7f40da07acb4261e1c6c23d4638be1b4f1c6c0b20fd58bbee3fabd4",
+      "bytes": 1020856
+    },
+    {
+      "name": "NP3_162.jpg",
+      "sha256": "3367b31dcd53c8c60aacd147559a776a699dd94c997b380b6256180225e56286",
+      "bytes": 1016945
+    },
+    {
+      "name": "NP3_168.jpg",
+      "sha256": "015626a10aebde9cb61431d3bf8ef1c29d4d24276c2f0911a3b27b975845141d",
+      "bytes": 1014730
+    },
+    {
+      "name": "NP3_174.jpg",
+      "sha256": "ad02023ea1b4aeb8e3eb00ee312fee40f3eead700ddb55fbebd0eb8db21a5bd7",
+      "bytes": 1010658
+    },
+    {
+      "name": "NP3_180.jpg",
+      "sha256": "f1ecb5a347bd3ec76fd79a4e8907de1f7ba7a1b0a2d91d0d32bd04390439efaa",
+      "bytes": 1008589
+    },
+    {
+      "name": "NP3_186.jpg",
+      "sha256": "82fa69533d244c6cf0cf2a57c9b3633e55db4c7987b7b1f9e79c9eccb8791344",
+      "bytes": 1008431
+    },
+    {
+      "name": "NP3_192.jpg",
+      "sha256": "cb0320337e6944dc352d6e6de46ca99d673672782c8a2c52f69f6bd241ba6f11",
+      "bytes": 1010638
+    },
+    {
+      "name": "NP3_198.jpg",
+      "sha256": "c2c2874cbb1f96594a6d017c77de253a6d85a3e0550699dc10b08a54032d2403",
+      "bytes": 1013396
+    },
+    {
+      "name": "NP3_204.jpg",
+      "sha256": "430843a13e0d2cdc0686c21c62adef60b0ebf48d0c33777a6a5e9a6310f27de6",
+      "bytes": 1016586
+    },
+    {
+      "name": "NP3_210.jpg",
+      "sha256": "b678bc41767a5a4826e09ebe8a504f266ceac364f5528f9879aa26f2014933db",
+      "bytes": 1018884
+    },
+    {
+      "name": "NP3_216.jpg",
+      "sha256": "e61afe579b6c4ea803dbec76d2372222cdde50b7e20b5d616f5c14b82080bc2e",
+      "bytes": 1021085
+    },
+    {
+      "name": "NP3_222.jpg",
+      "sha256": "70a24d0b1558033e9d4e7b32b227c97fd92dbe491b4bddffebd8a60e7b0084c6",
+      "bytes": 1022952
+    },
+    {
+      "name": "NP3_228.jpg",
+      "sha256": "94146a1e5cd2f651e2a3e37a5a83bf999508986daec1286c7359186b6e3bc022",
+      "bytes": 1023360
+    },
+    {
+      "name": "NP3_234.jpg",
+      "sha256": "c30303cf7c149429fa75e13cf05331ab81546fd57e271cb1b81b4934939fca92",
+      "bytes": 1023713
+    },
+    {
+      "name": "NP3_240.jpg",
+      "sha256": "3a215408d8a1fed4d18dd60fa6b5c67cb6c4f59bf97bb6b139f10c512c5a0f86",
+      "bytes": 1021876
+    },
+    {
+      "name": "NP3_246.jpg",
+      "sha256": "f10ead06d84068e50285352c0a701ae4c254603949d833bdc9685faf8388b11f",
+      "bytes": 1019833
+    },
+    {
+      "name": "NP3_252.jpg",
+      "sha256": "8b21b93940b28d4110634c7c9375a9cf8a65a86f7ed7b86a78c16671e16b8e1c",
+      "bytes": 1017319
+    },
+    {
+      "name": "NP3_258.jpg",
+      "sha256": "c5aab6f0eebed956885e59b31cc6b0737449307eaa78bd32a3016a528fd50448",
+      "bytes": 1013919
+    },
+    {
+      "name": "NP3_264.jpg",
+      "sha256": "ff43e18fa5cd2dec94d0e6cd3033fe64ac5161dc1b5d8949f60f6aae1c82e214",
+      "bytes": 1010854
+    },
+    {
+      "name": "NP3_270.jpg",
+      "sha256": "b6c92b55decc674dc6e9f740e423dfa4ec64961a2958a0b87282f3eb017853d2",
+      "bytes": 1006871
+    },
+    {
+      "name": "NP3_276.jpg",
+      "sha256": "4970b698de96f1c7974df3a680ef6da28986cb419d70fde12d5458455d4aa034",
+      "bytes": 1006288
+    },
+    {
+      "name": "NP3_282.jpg",
+      "sha256": "33f3fb6b3e2759af6808fb1e9cd871dcdffd2a3558f527721fd6fd8155eea272",
+      "bytes": 1007000
+    },
+    {
+      "name": "NP3_288.jpg",
+      "sha256": "f19097f9c4905a431918ad703669efbc2a623e814c2a6fab401322c13a50e478",
+      "bytes": 1011779
+    },
+    {
+      "name": "NP3_294.jpg",
+      "sha256": "b134840acd2bbc5fdac651ed05ccc9eececa8a8a06ad231b8a7d360f03aa5d25",
+      "bytes": 1016986
+    },
+    {
+      "name": "NP3_300.jpg",
+      "sha256": "2a620cb2d55fe11b5283bde5ab6a69eb5124db0708661c3aac842bcda15dbe66",
+      "bytes": 1021241
+    },
+    {
+      "name": "NP3_306.jpg",
+      "sha256": "bb851d8d4fc677a4c586d9f8fa6bba96d16978cc3113e4bcc62787acd8bff3d2",
+      "bytes": 1023979
+    },
+    {
+      "name": "NP3_312.jpg",
+      "sha256": "b6d42737cf217704995b00cc7e32511feca36568c8ac9df75c96a68c46dc8f1e",
+      "bytes": 1026406
+    },
+    {
+      "name": "NP3_318.jpg",
+      "sha256": "3a608681dc4a68e4ea933be24f1d1c4729d54b25e24efa0e96ec9f8857b75249",
+      "bytes": 1028036
+    },
+    {
+      "name": "NP3_324.jpg",
+      "sha256": "2fddba9789676a9616f556868e5e4081306a7f32dbadacf64ff7d131811a9820",
+      "bytes": 1028678
+    },
+    {
+      "name": "NP3_330.jpg",
+      "sha256": "b9c079ad47f31062e75d9f55596389117082da68d7d69a5756bc549a74fbf9d6",
+      "bytes": 1029077
+    },
+    {
+      "name": "NP3_336.jpg",
+      "sha256": "029ff3448a65f48fd731cf91fe84154d22aa6c6d14ca15136728b026408fde66",
+      "bytes": 1027014
+    },
+    {
+      "name": "NP3_342.jpg",
+      "sha256": "cba3b5cad005d9098a30665dc56bf8cb60eb7b94a315667a972743de575bd2c9",
+      "bytes": 1024692
+    },
+    {
+      "name": "NP3_348.jpg",
+      "sha256": "76bbd059aebd30721f811d26b94e818b4e8605752a315ab10f9a76a327dfb944",
+      "bytes": 1020327
+    },
+    {
+      "name": "NP3_354.jpg",
+      "sha256": "a99708bf14a0e71d312c80182ee71cf98f86af3dae103e3caee945e0a2a1eef7",
+      "bytes": 1015650
+    }
+  ],
+  "masks": [
+    {
+      "name": "NP3_000.jpg.png",
+      "sha256": "15564ef66606a0f866641da5d5719bbd146381d1e7c8f8030fe2ae8b8e105412",
+      "bytes": 2050
+    },
+    {
+      "name": "NP3_006.jpg.png",
+      "sha256": "b688b65c626c1fa258462d206d384d33f5937e30ecd627082332e2af16e937df",
+      "bytes": 2223
+    },
+    {
+      "name": "NP3_012.jpg.png",
+      "sha256": "ad911bf85dadee9d582a968cb155016e5741f13874f4c28594cff37f34213c3f",
+      "bytes": 2389
+    },
+    {
+      "name": "NP3_018.jpg.png",
+      "sha256": "3b9ce48ce9f9329966d41625279d35adfce25d9bef504bcc7488c2958d514b25",
+      "bytes": 2542
+    },
+    {
+      "name": "NP3_024.jpg.png",
+      "sha256": "76f822c5d01de1861dfe9f06b659ae87a1800603ebe645b454df8261d7ef70d6",
+      "bytes": 2639
+    },
+    {
+      "name": "NP3_030.jpg.png",
+      "sha256": "4401c0e860bcba2c090e55c803cccc9aa74a0569a735ea07178632e092fc2a64",
+      "bytes": 2700
+    },
+    {
+      "name": "NP3_036.jpg.png",
+      "sha256": "1ceefa95216f028f6fb28ac43630f2894cad881db8baabb7ac9e193d9ae6bee0",
+      "bytes": 2779
+    },
+    {
+      "name": "NP3_042.jpg.png",
+      "sha256": "b37600e87376ec9c5cd33f91ea62b332fd500214c49dc578f6bb44d819bb6f72",
+      "bytes": 2689
+    },
+    {
+      "name": "NP3_048.jpg.png",
+      "sha256": "69bb7a194bb9f2a16692baf8c053c428339becf173a1b40a3d32b01d75195392",
+      "bytes": 2665
+    },
+    {
+      "name": "NP3_054.jpg.png",
+      "sha256": "016400938bf03418af98178c939972752e64c7344f9a295937b0fcdef313813e",
+      "bytes": 2679
+    },
+    {
+      "name": "NP3_060.jpg.png",
+      "sha256": "137870a345a33c9ead932cfe9773eb8c477a2ab8aa9590aecc036275873e73f1",
+      "bytes": 2666
+    },
+    {
+      "name": "NP3_066.jpg.png",
+      "sha256": "1049c71cbd23a1557f82bef3629cc89938ca2ba28c77d03037fb671d7e67024a",
+      "bytes": 2604
+    },
+    {
+      "name": "NP3_072.jpg.png",
+      "sha256": "a3c548f1d0f824c1ea545559a81f2ea4fb574dfeaafa3eda1a2af4a0f6639b48",
+      "bytes": 2470
+    },
+    {
+      "name": "NP3_078.jpg.png",
+      "sha256": "20a089d2ebea7e950e5410a55a5c475d520bb0b11384627126993070cc775627",
+      "bytes": 2427
+    },
+    {
+      "name": "NP3_084.jpg.png",
+      "sha256": "513b4af9ed731db17cc7731f9b423bbf99e1fc28c45c6c949842c67a7d5af835",
+      "bytes": 2333
+    },
+    {
+      "name": "NP3_090.jpg.png",
+      "sha256": "0e2a92d898b0c6c403ba0e6a2251d739f6e72e831eb2349a89f3194c4215d746",
+      "bytes": 2269
+    },
+    {
+      "name": "NP3_096.jpg.png",
+      "sha256": "a214e5af84ec6081f35a5dac710237d9f2281dcb70aed1d2bf7e2799dbf83cda",
+      "bytes": 2347
+    },
+    {
+      "name": "NP3_102.jpg.png",
+      "sha256": "e1ff64ca1e6078cb0e893cf50f826bbaba1df217be4064e4c38251a4b3d07aa1",
+      "bytes": 2440
+    },
+    {
+      "name": "NP3_108.jpg.png",
+      "sha256": "47743066fe535497653fba297d5d9d3049bc1b59e992c0a04b64c82ab712dc91",
+      "bytes": 2558
+    },
+    {
+      "name": "NP3_114.jpg.png",
+      "sha256": "2729fe803a802b60b9702241ef4653a7115e5a243f5bd8d58261bf6713d5e3d9",
+      "bytes": 2662
+    },
+    {
+      "name": "NP3_120.jpg.png",
+      "sha256": "b7faaa645ae1ef2c2311ed1870e55c2175bc2d54aa0363263b0a03cb889fd28d",
+      "bytes": 2755
+    },
+    {
+      "name": "NP3_126.jpg.png",
+      "sha256": "5403ca9eac5943058bff652094cec42249ec4e0fed4604ee86aa424470f2d2dc",
+      "bytes": 2576
+    },
+    {
+      "name": "NP3_132.jpg.png",
+      "sha256": "d812ac7e83b41b164108cb5abc3dbc9276cec40077ec7242f35be14581010402",
+      "bytes": 2353
+    },
+    {
+      "name": "NP3_138.jpg.png",
+      "sha256": "b11d44b8b037a72a2da45b69362dd83992fed0b635e15976d62727593933fb87",
+      "bytes": 2380
+    },
+    {
+      "name": "NP3_144.jpg.png",
+      "sha256": "514324269e65c98aff0bf2ce46860679af855f4e6ef25af51fdc5c250458fd44",
+      "bytes": 2412
+    },
+    {
+      "name": "NP3_150.jpg.png",
+      "sha256": "e8513f9e8dfee95aeda491c72d05dabcb0de4ad93743da496d88b2ec638ca2bb",
+      "bytes": 2358
+    },
+    {
+      "name": "NP3_156.jpg.png",
+      "sha256": "df7082642b50d324e6e8149fe90853c4f07b3d2e1a9177ddfca1cbfc6cf7ea4c",
+      "bytes": 2346
+    },
+    {
+      "name": "NP3_162.jpg.png",
+      "sha256": "51f828346a558dbb1ee54e46978aadc5fe2b6adbc00c17220bc017b379ac34a3",
+      "bytes": 2258
+    },
+    {
+      "name": "NP3_168.jpg.png",
+      "sha256": "e8ffee0f56763287adc5f53183273cec0087cec668e3e7b3ecedc2a6fc2f02c4",
+      "bytes": 2157
+    },
+    {
+      "name": "NP3_174.jpg.png",
+      "sha256": "a48310c8e2d5f66f0a9844e3cd2e36c852a7a9a4b3eed4f99cf1dd56384f6811",
+      "bytes": 2079
+    },
+    {
+      "name": "NP3_180.jpg.png",
+      "sha256": "352b70ad0fc5510e1ae74ab2e9ec4205fd591cafe2cc2cefbd9fa9cd2be14324",
+      "bytes": 2138
+    },
+    {
+      "name": "NP3_186.jpg.png",
+      "sha256": "ce43f58b28b79152af2df583c2060de427b31e7628385cfd0d09fab8141f1152",
+      "bytes": 2295
+    },
+    {
+      "name": "NP3_192.jpg.png",
+      "sha256": "f2b369321ca46d4428e3a79df8b5546031959d38f1f5ed9264ab8aac0af26aae",
+      "bytes": 2413
+    },
+    {
+      "name": "NP3_198.jpg.png",
+      "sha256": "b3dcaa22585b52b2aa4daa90eee98597a58d36e774fb2792ee950ceeb8c58d8d",
+      "bytes": 2470
+    },
+    {
+      "name": "NP3_204.jpg.png",
+      "sha256": "716bf6c3e5319cb4b6cfdc01b7277442ef674a3b284724aa51fab3d418c0fc11",
+      "bytes": 2567
+    },
+    {
+      "name": "NP3_210.jpg.png",
+      "sha256": "aaffe8a63c2e5250a8088e7c8640054687e3f9f187a6c48c0fdef205d9b31ae4",
+      "bytes": 2576
+    },
+    {
+      "name": "NP3_216.jpg.png",
+      "sha256": "395f48cf3fa41bbbcfa3ec6c7ad433e7ea0ae97155ef0754eaa358efe1ddcd4e",
+      "bytes": 2572
+    },
+    {
+      "name": "NP3_222.jpg.png",
+      "sha256": "8e51a93787a93e5a30479cc0cfaa39826104461eafb7d3c538af92de184f6e00",
+      "bytes": 2306
+    },
+    {
+      "name": "NP3_228.jpg.png",
+      "sha256": "868c2162fbe62613489917e01d6a86b81bd8ea991309ffe4ee429a67b928ff1b",
+      "bytes": 2441
+    },
+    {
+      "name": "NP3_234.jpg.png",
+      "sha256": "cbd17625f561502ab64be0485767ec6154aa7b0bb1e93c7355bf4bd028eb2306",
+      "bytes": 2592
+    },
+    {
+      "name": "NP3_240.jpg.png",
+      "sha256": "d507b874b9aee650d3d60fbd3cdf261bb049c0dbadbb3176be650403e427c262",
+      "bytes": 2635
+    },
+    {
+      "name": "NP3_246.jpg.png",
+      "sha256": "3d76938f9e9ba338a77f1aacb959324c3c8596c17c81f6798426cc4ce84ade4a",
+      "bytes": 2519
+    },
+    {
+      "name": "NP3_252.jpg.png",
+      "sha256": "7aa0e84f85566cccba9220aab5fcc8dbbcbc498ca5963bbd0d50ac86d4b85282",
+      "bytes": 2421
+    },
+    {
+      "name": "NP3_258.jpg.png",
+      "sha256": "a7ca6aba0ff55b7f1cdff66f77a49682dc87355bd93c376bc20f4c1b793f8f17",
+      "bytes": 2314
+    },
+    {
+      "name": "NP3_264.jpg.png",
+      "sha256": "dd20bbe59c2c92fdb856fc9d0a6d1570a625433e4d960bac3249d09032edb7b0",
+      "bytes": 2238
+    },
+    {
+      "name": "NP3_270.jpg.png",
+      "sha256": "04b59d8d59c4c0e0167e59b81f6854e2c4edead7a92e65d7be8799d9a2556afc",
+      "bytes": 2234
+    },
+    {
+      "name": "NP3_276.jpg.png",
+      "sha256": "9372262fea1a5136da2ac63e20fdb7aa0d5f0616275392a01f045c8c77af05b4",
+      "bytes": 2308
+    },
+    {
+      "name": "NP3_282.jpg.png",
+      "sha256": "ec7509dc54696cff0fe785a9a52d1fcdf6851b4f621393fc62f2d5c14edec497",
+      "bytes": 2370
+    },
+    {
+      "name": "NP3_288.jpg.png",
+      "sha256": "4d502c44e9a974e7ff66d60c16e7f64c45f2b02fbe1deb2c969d46089a643038",
+      "bytes": 2498
+    },
+    {
+      "name": "NP3_294.jpg.png",
+      "sha256": "3b98ea99b032ad4e86e146e8a8543f574aee40e07d813dc852f75ef3b792a9a2",
+      "bytes": 2584
+    },
+    {
+      "name": "NP3_300.jpg.png",
+      "sha256": "f0f6c2a50ebada0653149ebe79be68cbfbe33409a66374ae24e87c7f43331709",
+      "bytes": 2608
+    },
+    {
+      "name": "NP3_306.jpg.png",
+      "sha256": "9878a6fdf0cc236284585c30a59e4400ac3499f31a1355cc620d42ec1fc99bc9",
+      "bytes": 2633
+    },
+    {
+      "name": "NP3_312.jpg.png",
+      "sha256": "03b963b475d1d2b3b13f139aa8cbe9ab0c585914150e89bb0505b6ff4f069215",
+      "bytes": 2595
+    },
+    {
+      "name": "NP3_318.jpg.png",
+      "sha256": "97e16aeb4527138c8204e6f83ad18e66fe2856b1bf9c1df6c5bb3521192e0246",
+      "bytes": 2564
+    },
+    {
+      "name": "NP3_324.jpg.png",
+      "sha256": "d4b94df7c236e563089b67c4e01f02f2ac6c137269bae915352998e6bdda136e",
+      "bytes": 2501
+    },
+    {
+      "name": "NP3_330.jpg.png",
+      "sha256": "9310b353ba735a0fd58b942ac6a45cb83b09230f8e2c3d0d20a6400c7eca7b4e",
+      "bytes": 2434
+    },
+    {
+      "name": "NP3_336.jpg.png",
+      "sha256": "25c4b4173fe89cf74bff0d55b956ef0588bcb9f7d53f1db99f9d1f9a08c730c0",
+      "bytes": 2390
+    },
+    {
+      "name": "NP3_342.jpg.png",
+      "sha256": "a858b8d249964188b65bfd55a3af8e908e645469f95bd25c7c93eeca364e0b29",
+      "bytes": 2262
+    },
+    {
+      "name": "NP3_348.jpg.png",
+      "sha256": "bd5191baa833097cbefa82faf801ec4bb3da6c5700af2246abb4e7adbea51124",
+      "bytes": 2155
+    },
+    {
+      "name": "NP3_354.jpg.png",
+      "sha256": "9470719b3c9028ff85574534cdb0afeadc45d603707a8ab067dddd08fd100085",
+      "bytes": 2060
+    }
+  ],
+  "stages": [
+    {
+      "name": "features",
+      "command": [
+        "/Users/christianstrobele/code/crisp3ds/.local-tools/colmap-sparse/venv/bin/python",
+        "-m",
+        "scripts.upstream_control.object_sparse",
+        "--worker",
+        "features",
+        "--output",
+        "/Volumes/backups/code/crisp3ds-data/cracker-stock-masked-001"
+      ],
+      "log": "/Volumes/backups/code/crisp3ds-data/cracker-stock-masked-001/features.log",
+      "status": "complete",
+      "exit_code": 0,
+      "seconds": 119.731,
+      "output_bytes": 67658089,
+      "peak_sampled_child_rss_bytes": 946814976,
+      "failure": null
+    },
+    {
+      "name": "matching",
+      "command": [
+        "/Users/christianstrobele/code/crisp3ds/.local-tools/colmap-sparse/venv/bin/python",
+        "-m",
+        "scripts.upstream_control.object_sparse",
+        "--worker",
+        "matching",
+        "--output",
+        "/Volumes/backups/code/crisp3ds-data/cracker-stock-masked-001"
+      ],
+      "log": "/Volumes/backups/code/crisp3ds-data/cracker-stock-masked-001/matching.log",
+      "status": "complete",
+      "exit_code": 0,
+      "seconds": 30.241,
+      "output_bytes": 69710554,
+      "peak_sampled_child_rss_bytes": 78364672,
+      "failure": null
+    },
+    {
+      "name": "mapping",
+      "command": [
+        "/Users/christianstrobele/code/crisp3ds/.local-tools/colmap-sparse/venv/bin/python",
+        "-m",
+        "scripts.upstream_control.object_sparse",
+        "--worker",
+        "mapping",
+        "--output",
+        "/Volumes/backups/code/crisp3ds-data/cracker-stock-masked-001"
+      ],
+      "log": "/Volumes/backups/code/crisp3ds-data/cracker-stock-masked-001/mapping.log",
+      "status": "complete",
+      "exit_code": 0,
+      "seconds": 2.048,
+      "output_bytes": 70004228,
+      "peak_sampled_child_rss_bytes": 86343680,
+      "failure": null
+    }
+  ],
+  "models": [
+    {
+      "index": 0,
+      "registered_images": 2,
+      "registered_names": [
+        "NP3_192.jpg",
+        "NP3_198.jpg"
+      ],
+      "missing_names": [
+        "NP3_000.jpg",
+        "NP3_006.jpg",
+        "NP3_012.jpg",
+        "NP3_018.jpg",
+        "NP3_024.jpg",
+        "NP3_030.jpg",
+        "NP3_036.jpg",
+        "NP3_042.jpg",
+        "NP3_048.jpg",
+        "NP3_054.jpg",
+        "NP3_060.jpg",
+        "NP3_066.jpg",
+        "NP3_072.jpg",
+        "NP3_078.jpg",
+        "NP3_084.jpg",
+        "NP3_090.jpg",
+        "NP3_096.jpg",
+        "NP3_102.jpg",
+        "NP3_108.jpg",
+        "NP3_114.jpg",
+        "NP3_120.jpg",
+        "NP3_126.jpg",
+        "NP3_132.jpg",
+        "NP3_138.jpg",
+        "NP3_144.jpg",
+        "NP3_150.jpg",
+        "NP3_156.jpg",
+        "NP3_162.jpg",
+        "NP3_168.jpg",
+        "NP3_174.jpg",
+        "NP3_180.jpg",
+        "NP3_186.jpg",
+        "NP3_204.jpg",
+        "NP3_210.jpg",
+        "NP3_216.jpg",
+        "NP3_222.jpg",
+        "NP3_228.jpg",
+        "NP3_234.jpg",
+        "NP3_240.jpg",
+        "NP3_246.jpg",
+        "NP3_252.jpg",
+        "NP3_258.jpg",
+        "NP3_264.jpg",
+        "NP3_270.jpg",
+        "NP3_276.jpg",
+        "NP3_282.jpg",
+        "NP3_288.jpg",
+        "NP3_294.jpg",
+        "NP3_300.jpg",
+        "NP3_306.jpg",
+        "NP3_312.jpg",
+        "NP3_318.jpg",
+        "NP3_324.jpg",
+        "NP3_330.jpg",
+        "NP3_336.jpg",
+        "NP3_342.jpg",
+        "NP3_348.jpg",
+        "NP3_354.jpg"
+      ],
+      "sparse_points": 339,
+      "duplicate_image_tracks": 0,
+      "duplicate_exact_observations": 0,
+      "points_with_fewer_than_two_distinct_views": 0,
+      "invalid_track_links": 0,
+      "orphan_point2d_links": 0,
+      "nonfinite_observations": 0,
+      "nonfinite_points": 0,
+      "nonfinite_cameras": 0,
+      "nonfinite_poses": 0,
+      "files_sha256": {
+        "cameras.bin": "b21d75c710e1cb58239e0ef8ae154e970228abccf7fae773f970d6c5e7ed3996",
+        "images.bin": "37920362b133d612d51ec32491203c37fafeb5e589a3319dd5225c7adc43e8b5",
+        "points3D.bin": "67d63e2f9236959f78047bf06864626b736277c5ccf93f627c4de873ec4e5726"
+      }
+    }
+  ],
+  "quality_accepted": false,
+  "independent_camera_review_complete": false,
+  "worker_config_sha256": "7c97a07bf579ccbfa94d64245b4a368603bdbf948baa7f0efb621e2cd40916e2",
+  "effective_options": {
+    "pycolmap_version": "3.11.1",
+    "pycolmap_core_sha256": "5e306a76bfb1a3a02139ea9d336770091a77376bb870a383ed3882b7250008a8",
+    "camera_mode": "SINGLE",
+    "camera_model": "SIMPLE_RADIAL",
+    "device": "cpu",
+    "image_reader": {
+      "camera_model": "SIMPLE_RADIAL",
+      "mask_path": "/Volumes/backups/code/crisp3ds-data/cracker-stock-masked-001/masks",
+      "existing_camera_id": -1,
+      "camera_params": "",
+      "default_focal_length_factor": 1.2,
+      "camera_mask_path": ""
+    },
+    "sift_extraction": {
+      "num_threads": 2,
+      "gpu_index": "-1",
+      "max_image_size": 3200,
+      "max_num_features": 8192,
+      "first_octave": -1,
+      "num_octaves": 4,
+      "octave_resolution": 3,
+      "peak_threshold": 0.006666666666666667,
+      "edge_threshold": 10.0,
+      "estimate_affine_shape": false,
+      "max_num_orientations": 2,
+      "upright": false,
+      "darkness_adaptivity": false,
+      "domain_size_pooling": false,
+      "dsp_min_scale": 0.16666666666666666,
+      "dsp_max_scale": 3.0,
+      "dsp_num_scales": 10,
+      "normalization": "Normalization.L1_ROOT"
+    },
+    "sift_matching": {
+      "num_threads": 2,
+      "gpu_index": "-1",
+      "max_ratio": 0.8,
+      "max_distance": 0.7,
+      "cross_check": true,
+      "max_num_matches": 32768,
+      "guided_matching": false
+    },
+    "exhaustive_matching": {
+      "block_size": 50
+    },
+    "two_view_geometry": {
+      "min_num_inliers": 15,
+      "min_E_F_inlier_ratio": 0.95,
+      "max_H_inlier_ratio": 0.8,
+      "watermark_min_inlier_ratio": 0.7,
+      "watermark_border_size": 0.1,
+      "detect_watermark": true,
+      "multiple_ignore_watermark": true,
+      "force_H_use": false,
+      "compute_relative_pose": false,
+      "multiple_models": false,
+      "ransac": {
+        "max_error": 4.0,
+        "min_inlier_ratio": 0.25,
+        "confidence": 0.999,
+        "dyn_num_trials_multiplier": 3.0,
+        "min_num_trials": 100,
+        "max_num_trials": 10000
+      }
+    },
+    "incremental_pipeline": {
+      "min_num_matches": 15,
+      "ignore_watermarks": false,
+      "multiple_models": true,
+      "max_num_models": 50,
+      "max_model_overlap": 20,
+      "min_model_size": 10,
+      "init_image_id1": -1,
+      "init_image_id2": -1,
+      "init_num_trials": 200,
+      "extract_colors": true,
+      "num_threads": 2,
+      "min_focal_length_ratio": 0.1,
+      "max_focal_length_ratio": 10.0,
+      "max_extra_param": 1.0,
+      "ba_refine_focal_length": true,
+      "ba_refine_principal_point": false,
+      "ba_refine_extra_params": true,
+      "ba_min_num_residuals_for_cpu_multi_threading": 50000,
+      "ba_local_num_images": 6,
+      "ba_local_function_tolerance": 0.0,
+      "ba_local_max_num_iterations": 25,
+      "ba_global_images_ratio": 1.1,
+      "ba_global_points_ratio": 1.1,
+      "ba_global_images_freq": 500,
+      "ba_global_points_freq": 250000,
+      "ba_global_function_tolerance": 0.0,
+      "ba_global_max_num_iterations": 50,
+      "ba_local_max_refinements": 2,
+      "ba_local_max_refinement_change": 0.001,
+      "ba_global_max_refinements": 5,
+      "ba_global_max_refinement_change": 0.0005,
+      "snapshot_path": "",
+      "snapshot_images_freq": 0,
+      "image_names": "set()",
+      "fix_existing_images": false,
+      "mapper": {
+        "init_min_num_inliers": 100,
+        "init_max_error": 4.0,
+        "init_max_forward_motion": 0.95,
+        "init_min_tri_angle": 16.0,
+        "init_max_reg_trials": 2,
+        "abs_pose_max_error": 12.0,
+        "abs_pose_min_num_inliers": 30,
+        "abs_pose_min_inlier_ratio": 0.25,
+        "abs_pose_refine_focal_length": true,
+        "abs_pose_refine_extra_params": true,
+        "local_ba_num_images": 6,
+        "local_ba_min_tri_angle": 6.0,
+        "min_focal_length_ratio": 0.1,
+        "max_focal_length_ratio": 10.0,
+        "max_extra_param": 1.0,
+        "filter_max_reproj_error": 4.0,
+        "filter_min_tri_angle": 1.5,
+        "max_reg_trials": 3,
+        "fix_existing_images": false,
+        "num_threads": 2,
+        "image_selection_method": "ImageSelectionMethod.MIN_UNCERTAINTY"
+      },
+      "triangulation": {
+        "max_transitivity": 1,
+        "create_max_angle_error": 2.0,
+        "continue_max_angle_error": 2.0,
+        "merge_max_reproj_error": 4.0,
+        "complete_max_reproj_error": 4.0,
+        "complete_max_transitivity": 5,
+        "re_max_angle_error": 5.0,
+        "re_min_ratio": 0.2,
+        "re_max_trials": 1,
+        "min_angle": 1.5,
+        "ignore_two_view_tracks": true,
+        "min_focal_length_ratio": 0.1,
+        "max_focal_length_ratio": 10.0,
+        "max_extra_param": 1.0
+      }
+    },
+    "deviations_from_pycolmap_3_11_1_defaults": {
+      "random_seed": 20260927,
+      "device": "cpu",
+      "sift_extraction.num_threads": 2,
+      "sift_matching.num_threads": 2,
+      "incremental_pipeline.num_threads": 2,
+      "incremental_pipeline.mapper.num_threads": 2,
+      "camera_mode": "SINGLE",
+      "image_reader.mask_path": "/Volumes/backups/code/crisp3ds-data/cracker-stock-masked-001/masks"
+    }
+  },
+  "database_after_features": {
+    "sha256": "1fce71ce034b9db6eb58083754711a6bb3d8dd50b7ca0e13dbcd5b884934d3b5",
+    "counts": {
+      "images": 60,
+      "cameras": 1,
+      "keypoints": 60,
+      "descriptors": 60,
+      "matches": 0,
+      "two_view_geometries": 0
+    }
+  },
+  "database_after_matching": {
+    "sha256": "13a535f65299bc373618cc5a08f716692b3664b73d64aeeab465150649d92f8c",
+    "counts": {
+      "images": 60,
+      "cameras": 1,
+      "keypoints": 60,
+      "descriptors": 60,
+      "matches": 1770,
+      "two_view_geometries": 1770
+    }
+  },
+  "database_after_mapping": {
+    "sha256": "a91caa5b6ae7c3c50f895fe682a006190118846d0510e0c8fa7ed0a1c47d9ae7",
+    "counts": {
+      "images": 60,
+      "cameras": 1,
+      "keypoints": 60,
+      "descriptors": 60,
+      "matches": 1770,
+      "two_view_geometries": 1770
+    }
+  },
+  "best_model_index": 0,
+  "structural_sparse_eligible_pending_camera_review": false,
+  "output_bytes": 70004846,
+  "source_images_unchanged": true,
+  "photo_manifest_unchanged": true,
+  "copied_images_unchanged": true,
+  "source_masks_unchanged": true,
+  "mask_manifest_unchanged": true,
+  "worker_config_unchanged": true,
+  "copied_masks_unchanged": true,
+  "free_bytes_after": {
+    "output": 19181293568,
+    "workspace": 23993692160
+  },
+  "software_unchanged": true,
+  "partial_model_files_sha256": {
+    "0": {
+      "cameras.bin": "b21d75c710e1cb58239e0ef8ae154e970228abccf7fae773f970d6c5e7ed3996",
+      "images.bin": "37920362b133d612d51ec32491203c37fafeb5e589a3319dd5225c7adc43e8b5",
+      "points3D.bin": "67d63e2f9236959f78047bf06864626b736277c5ccf93f627c4de873ec4e5726"
+    }
+  },
+  "elapsed_seconds_total": 156.77
+}

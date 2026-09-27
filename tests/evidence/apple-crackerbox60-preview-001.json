@@ -1,0 +1,362 @@
+{
+  "schema": "apple_photogrammetry_probe_v1",
+  "status": "complete",
+  "mode": "rgb_to_usdz",
+  "binary_sha256": "f6fe2bbb5677177eeba8b1b19b8a1c49c2e785305b9cfa1f781b67ae10bd277b",
+  "inputs": [
+    {
+      "name": "NP3_000.jpg",
+      "sha256": "9eeb9ee32bde48486c250692bcdd319752bf16a6a582f69e85b17db20cf13db4",
+      "bytes": 1012752
+    },
+    {
+      "name": "NP3_006.jpg",
+      "sha256": "cfcf6a4aa7fbcfbb687caffb925487fff93961bef6b69c944798f76f02573822",
+      "bytes": 1006111
+    },
+    {
+      "name": "NP3_012.jpg",
+      "sha256": "70383510a1377fc017096a3d3ee7f70e139d26fd0bddeca7ed688bcce4db2e99",
+      "bytes": 1010877
+    },
+    {
+      "name": "NP3_018.jpg",
+      "sha256": "403c6f186db436dfa6afa25a16449a355d19aa4771dd7ac617bc35c8aac82a8a",
+      "bytes": 1018026
+    },
+    {
+      "name": "NP3_024.jpg",
+      "sha256": "ef5018ecedf8bceff770ec99c779bdde0a3d8111a600977940be808f6fadacfc",
+      "bytes": 1022298
+    },
+    {
+      "name": "NP3_030.jpg",
+      "sha256": "6b0e1af999073d5392379a88bd9a3e63b611f54f761d49407aa17bac4a3b489c",
+      "bytes": 1025448
+    },
+    {
+      "name": "NP3_036.jpg",
+      "sha256": "2e7ec5bb44aa717a3a162cdad167a7c01380acc11863c603596e9ae396b60180",
+      "bytes": 1028740
+    },
+    {
+      "name": "NP3_042.jpg",
+      "sha256": "16c8f04a58a7b97817b100f6eccf10f2e4d4cd058f14d4647a0d0ad683571078",
+      "bytes": 1028881
+    },
+    {
+      "name": "NP3_048.jpg",
+      "sha256": "4c8466706662414adfe32d55e1e47cc688f8b9513d8c3d0bb704ca63445360be",
+      "bytes": 1028150
+    },
+    {
+      "name": "NP3_054.jpg",
+      "sha256": "c82c0af77e9e67bbe6cdaba23023b07a03d485ed7e5739d6c611043f41f6bc0b",
+      "bytes": 1027922
+    },
+    {
+      "name": "NP3_060.jpg",
+      "sha256": "97608c07ac415b748cbaa35b621a53e4a7f679069e11df5b1c602e7be3c0ed82",
+      "bytes": 1025129
+    },
+    {
+      "name": "NP3_066.jpg",
+      "sha256": "98d094ec5b6a63160e0d34678b60b6104dd26a625a37037b95cf517192e08f97",
+      "bytes": 1023584
+    },
+    {
+      "name": "NP3_072.jpg",
+      "sha256": "56ad1404c6f10b07d301701151b579ccca18deef7e54042b355c042380a6d1e9",
+      "bytes": 1019236
+    },
+    {
+      "name": "NP3_078.jpg",
+      "sha256": "b0c0d6c2de03e06c12d30d621f5e1a0c4b321f9b28f6e32cdf1902899b20e408",
+      "bytes": 1014466
+    },
+    {
+      "name": "NP3_084.jpg",
+      "sha256": "0b3388d9002c66d872f48a828acc395334ea96c0c71a08013b0c2219928ca88f",
+      "bytes": 1008799
+    },
+    {
+      "name": "NP3_090.jpg",
+      "sha256": "9f024962a582b8d764d81e515f6b169e1c09b083239ce7dfbd3138feaae0a2e5",
+      "bytes": 1003630
+    },
+    {
+      "name": "NP3_096.jpg",
+      "sha256": "0415d19ad9283173612a963124670c8099c956f94431e53be47466a2cce2c678",
+      "bytes": 1005500
+    },
+    {
+      "name": "NP3_102.jpg",
+      "sha256": "7eb0b850fc056d7de0eaad90a7ab298314ef4d7276837d5a172b0520037d5e4d",
+      "bytes": 1010660
+    },
+    {
+      "name": "NP3_108.jpg",
+      "sha256": "712b1a220d9fe20e43cc3af159ebfefc03bb64fae9ae64105a140730fcf6c943",
+      "bytes": 1014546
+    },
+    {
+      "name": "NP3_114.jpg",
+      "sha256": "28090e4e7bf8eea6ce92cd6853b0e0f8e83aee3682c49a95f5f99c37844fe68d",
+      "bytes": 1019561
+    },
+    {
+      "name": "NP3_120.jpg",
+      "sha256": "fc5f61441f2e9975dc2ca281f37b0bc759e9761981aa38384e90865dfa8c222d",
+      "bytes": 1023593
+    },
+    {
+      "name": "NP3_126.jpg",
+      "sha256": "bd6908b0c670fbb24f50103533f54a9ab8b1a1a12f93662dbf8f7ebf36327454",
+      "bytes": 1025521
+    },
+    {
+      "name": "NP3_132.jpg",
+      "sha256": "cccac24c0a30598f712591960e56fa28d685d0d1bab66e840f44d054921fc17e",
+      "bytes": 1026589
+    },
+    {
+      "name": "NP3_138.jpg",
+      "sha256": "4629d3f1504df7cebc7114e1311a3e389c1726f0c5b2a41be4d3dee141a0f83a",
+      "bytes": 1025616
+    },
+    {
+      "name": "NP3_144.jpg",
+      "sha256": "da89e00e5f6427745ff3751f9a52d5cbb8df9255a8b9e42ba86e1b1e8a797f26",
+      "bytes": 1025551
+    },
+    {
+      "name": "NP3_150.jpg",
+      "sha256": "bab45240e31020c24c5928180c2d418f030c44d33d5202e94f9167e17a79198f",
+      "bytes": 1023433
+    },
+    {
+      "name": "NP3_156.jpg",
+      "sha256": "15c95e69a7f40da07acb4261e1c6c23d4638be1b4f1c6c0b20fd58bbee3fabd4",
+      "bytes": 1020856
+    },
+    {
+      "name": "NP3_162.jpg",
+      "sha256": "3367b31dcd53c8c60aacd147559a776a699dd94c997b380b6256180225e56286",
+      "bytes": 1016945
+    },
+    {
+      "name": "NP3_168.jpg",
+      "sha256": "015626a10aebde9cb61431d3bf8ef1c29d4d24276c2f0911a3b27b975845141d",
+      "bytes": 1014730
+    },
+    {
+      "name": "NP3_174.jpg",
+      "sha256": "ad02023ea1b4aeb8e3eb00ee312fee40f3eead700ddb55fbebd0eb8db21a5bd7",
+      "bytes": 1010658
+    },
+    {
+      "name": "NP3_180.jpg",
+      "sha256": "f1ecb5a347bd3ec76fd79a4e8907de1f7ba7a1b0a2d91d0d32bd04390439efaa",
+      "bytes": 1008589
+    },
+    {
+      "name": "NP3_186.jpg",
+      "sha256": "82fa69533d244c6cf0cf2a57c9b3633e55db4c7987b7b1f9e79c9eccb8791344",
+      "bytes": 1008431
+    },
+    {
+      "name": "NP3_192.jpg",
+      "sha256": "cb0320337e6944dc352d6e6de46ca99d673672782c8a2c52f69f6bd241ba6f11",
+      "bytes": 1010638
+    },
+    {
+      "name": "NP3_198.jpg",
+      "sha256": "c2c2874cbb1f96594a6d017c77de253a6d85a3e0550699dc10b08a54032d2403",
+      "bytes": 1013396
+    },
+    {
+      "name": "NP3_204.jpg",
+      "sha256": "430843a13e0d2cdc0686c21c62adef60b0ebf48d0c33777a6a5e9a6310f27de6",
+      "bytes": 1016586
+    },
+    {
+      "name": "NP3_210.jpg",
+      "sha256": "b678bc41767a5a4826e09ebe8a504f266ceac364f5528f9879aa26f2014933db",
+      "bytes": 1018884
+    },
+    {
+      "name": "NP3_216.jpg",
+      "sha256": "e61afe579b6c4ea803dbec76d2372222cdde50b7e20b5d616f5c14b82080bc2e",
+      "bytes": 1021085
+    },
+    {
+      "name": "NP3_222.jpg",
+      "sha256": "70a24d0b1558033e9d4e7b32b227c97fd92dbe491b4bddffebd8a60e7b0084c6",
+      "bytes": 1022952
+    },
+    {
+      "name": "NP3_228.jpg",
+      "sha256": "94146a1e5cd2f651e2a3e37a5a83bf999508986daec1286c7359186b6e3bc022",
+      "bytes": 1023360
+    },
+    {
+      "name": "NP3_234.jpg",
+      "sha256": "c30303cf7c149429fa75e13cf05331ab81546fd57e271cb1b81b4934939fca92",
+      "bytes": 1023713
+    },
+    {
+      "name": "NP3_240.jpg",
+      "sha256": "3a215408d8a1fed4d18dd60fa6b5c67cb6c4f59bf97bb6b139f10c512c5a0f86",
+      "bytes": 1021876
+    },
+    {
+      "name": "NP3_246.jpg",
+      "sha256": "f10ead06d84068e50285352c0a701ae4c254603949d833bdc9685faf8388b11f",
+      "bytes": 1019833
+    },
+    {
+      "name": "NP3_252.jpg",
+      "sha256": "8b21b93940b28d4110634c7c9375a9cf8a65a86f7ed7b86a78c16671e16b8e1c",
+      "bytes": 1017319
+    },
+    {
+      "name": "NP3_258.jpg",
+      "sha256": "c5aab6f0eebed956885e59b31cc6b0737449307eaa78bd32a3016a528fd50448",
+      "bytes": 1013919
+    },
+    {
+      "name": "NP3_264.jpg",
+      "sha256": "ff43e18fa5cd2dec94d0e6cd3033fe64ac5161dc1b5d8949f60f6aae1c82e214",
+      "bytes": 1010854
+    },
+    {
+      "name": "NP3_270.jpg",
+      "sha256": "b6c92b55decc674dc6e9f740e423dfa4ec64961a2958a0b87282f3eb017853d2",
+      "bytes": 1006871
+    },
+    {
+      "name": "NP3_276.jpg",
+      "sha256": "4970b698de96f1c7974df3a680ef6da28986cb419d70fde12d5458455d4aa034",
+      "bytes": 1006288
+    },
+    {
+      "name": "NP3_282.jpg",
+      "sha256": "33f3fb6b3e2759af6808fb1e9cd871dcdffd2a3558f527721fd6fd8155eea272",
+      "bytes": 1007000
+    },
+    {
+      "name": "NP3_288.jpg",
+      "sha256": "f19097f9c4905a431918ad703669efbc2a623e814c2a6fab401322c13a50e478",
+      "bytes": 1011779
+    },
+    {
+      "name": "NP3_294.jpg",
+      "sha256": "b134840acd2bbc5fdac651ed05ccc9eececa8a8a06ad231b8a7d360f03aa5d25",
+      "bytes": 1016986
+    },
+    {
+      "name": "NP3_300.jpg",
+      "sha256": "2a620cb2d55fe11b5283bde5ab6a69eb5124db0708661c3aac842bcda15dbe66",
+      "bytes": 1021241
+    },
+    {
+      "name": "NP3_306.jpg",
+      "sha256": "bb851d8d4fc677a4c586d9f8fa6bba96d16978cc3113e4bcc62787acd8bff3d2",
+      "bytes": 1023979
+    },
+    {
+      "name": "NP3_312.jpg",
+      "sha256": "b6d42737cf217704995b00cc7e32511feca36568c8ac9df75c96a68c46dc8f1e",
+      "bytes": 1026406
+    },
+    {
+      "name": "NP3_318.jpg",
+      "sha256": "3a608681dc4a68e4ea933be24f1d1c4729d54b25e24efa0e96ec9f8857b75249",
+      "bytes": 1028036
+    },
+    {
+      "name": "NP3_324.jpg",
+      "sha256": "2fddba9789676a9616f556868e5e4081306a7f32dbadacf64ff7d131811a9820",
+      "bytes": 1028678
+    },
+    {
+      "name": "NP3_330.jpg",
+      "sha256": "b9c079ad47f31062e75d9f55596389117082da68d7d69a5756bc549a74fbf9d6",
+      "bytes": 1029077
+    },
+    {
+      "name": "NP3_336.jpg",
+      "sha256": "029ff3448a65f48fd731cf91fe84154d22aa6c6d14ca15136728b026408fde66",
+      "bytes": 1027014
+    },
+    {
+      "name": "NP3_342.jpg",
+      "sha256": "cba3b5cad005d9098a30665dc56bf8cb60eb7b94a315667a972743de575bd2c9",
+      "bytes": 1024692
+    },
+    {
+      "name": "NP3_348.jpg",
+      "sha256": "76bbd059aebd30721f811d26b94e818b4e8605752a315ab10f9a76a327dfb944",
+      "bytes": 1020327
+    },
+    {
+      "name": "NP3_354.jpg",
+      "sha256": "a99708bf14a0e71d312c80182ee71cf98f86af3dae103e3caee945e0a2a1eef7",
+      "bytes": 1015650
+    }
+  ],
+  "command": [
+    "/Users/christianstrobele/code/crisp3ds/.local-tools/tmp/apple-probe.9SE5u9/photogrammetry-probe",
+    "--images",
+    "/Users/christianstrobele/code/crisp3ds/.local-tools/test-data/ycb-cracker-box/photos",
+    "--output",
+    "/Volumes/backups/code/crisp3ds-data/apple-crackerbox60-preview-001/model.usdz"
+  ],
+  "limits": {
+    "max_output_bytes": 536870912,
+    "max_log_bytes": 16777216,
+    "max_child_rss_bytes": 8589934592,
+    "timeout_minutes": 10.0,
+    "min_free_bytes": 10737418240,
+    "source_reserve_paths": [
+      "/Users/christianstrobele/code/crisp3ds/.local-tools/tmp/apple-probe.9SE5u9",
+      "/Users/christianstrobele/code/crisp3ds/.local-tools/test-data/ycb-cracker-box/photos"
+    ]
+  },
+  "stages": [
+    {
+      "name": "photogrammetry",
+      "command": [
+        "/Users/christianstrobele/code/crisp3ds/.local-tools/tmp/apple-probe.9SE5u9/photogrammetry-probe",
+        "--images",
+        "/Users/christianstrobele/code/crisp3ds/.local-tools/test-data/ycb-cracker-box/photos",
+        "--output",
+        "/Volumes/backups/code/crisp3ds-data/apple-crackerbox60-preview-001/model.usdz"
+      ],
+      "log": "/Volumes/backups/code/crisp3ds-data/apple-crackerbox60-preview-001/photogrammetry.log",
+      "status": "complete",
+      "exit_code": 0,
+      "seconds": 30.525,
+      "output_bytes": 394921,
+      "peak_sampled_child_rss_bytes": 859635712,
+      "failure": null
+    }
+  ],
+  "apple_only": true,
+  "cross_platform_backend": false,
+  "quality_accepted": false,
+  "binary_unchanged": true,
+  "source_images_unchanged": true,
+  "output_bytes": 394921,
+  "free_bytes_after": 19355578368,
+  "source_free_bytes_after": {
+    "/Users/christianstrobele/code/crisp3ds/.local-tools/tmp/apple-probe.9SE5u9": 24083464192,
+    "/Users/christianstrobele/code/crisp3ds/.local-tools/test-data/ycb-cracker-box/photos": 24083464192
+  },
+  "artifact": {
+    "path": "/Volumes/backups/code/crisp3ds-data/apple-crackerbox60-preview-001/model.usdz",
+    "bytes": 380651,
+    "sha256": "00e6e5bc15a79634ffb7b0bd42492c8df5ebe575d63b228f53f737d4f23e1ae7",
+    "validity": "nonempty_file_only; USDZ contents and mesh not inspected"
+  }
+}
