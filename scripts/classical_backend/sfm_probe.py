@@ -7,6 +7,7 @@ multi-model retry separately from feature and matching nondeterminism.
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import json
 from pathlib import Path
 import shutil
@@ -36,7 +37,7 @@ def probe(database: Path, images: Path, output: Path, seed: int, retry_models: b
         raise ValueError(f"output must be fresh: {output}")
     if database.is_symlink() or not database.is_file() or images.is_symlink() or not images.is_dir():
         raise ValueError("database and image directory must be real inputs")
-    with sqlite3.connect(f"file:{database}?mode=ro", uri=True) as connection:
+    with closing(sqlite3.connect(f"file:{database}?mode=ro", uri=True)) as connection:
         names = [row[0] for row in connection.execute("SELECT name FROM images ORDER BY name")]
     ids = init_pair_ids(database, names, pair)
     options = options_for(retry_models, ids)

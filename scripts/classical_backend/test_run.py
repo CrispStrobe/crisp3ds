@@ -1,5 +1,6 @@
 import sys
 import argparse
+from contextlib import closing
 import json
 import hashlib
 import contextlib
@@ -21,6 +22,31 @@ from scripts.classical_backend import masked_dense
 
 
 class SelectionAndFailureTests(unittest.TestCase):
+    def test_initial_pair_sqlite_handle_closes_on_success_and_query_error(self):
+        class Connection:
+            def __init__(self, fail):
+                self.fail = fail
+                self.closed = False
+
+            def execute(self, *_):
+                if self.fail:
+                    raise sqlite3.DatabaseError("query failed")
+                return SimpleNamespace(fetchall=lambda: [(7, "a.jpg"), (3, "b.jpg")])
+
+            def close(self):
+                self.closed = True
+
+        for fail in (False, True):
+            connection = Connection(fail)
+            with mock.patch.object(run.sqlite3, "connect", return_value=connection):
+                if fail:
+                    with self.assertRaises(sqlite3.DatabaseError):
+                        run.init_pair_ids(Path("dummy.db"), ["a.jpg", "b.jpg"], ["a.jpg", "b.jpg"])
+                else:
+                    self.assertEqual(run.init_pair_ids(Path("dummy.db"), ["a.jpg", "b.jpg"],
+                                                        ["a.jpg", "b.jpg"]), (7, 3))
+            self.assertTrue(connection.closed)
+
     def test_finish_rough_rejects_symlink_and_unbounded_settings_before_source_read(self):
         with tempfile.TemporaryDirectory(dir=run.ROOT / ".local-tools/tmp") as tmp:
             root = Path(tmp)
@@ -102,10 +128,11 @@ class SelectionAndFailureTests(unittest.TestCase):
     def test_initial_pair_uses_names_not_threaded_insertion_order(self):
         with tempfile.TemporaryDirectory(dir=run.ROOT / ".local-tools/tmp") as tmp:
             database = Path(tmp) / "database.db"
-            with sqlite3.connect(database) as connection:
-                connection.execute("CREATE TABLE images (image_id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
-                connection.executemany("INSERT INTO images VALUES (?, ?)",
-                                       [(1, "c.jpg"), (9, "a.jpg"), (4, "b.jpg")])
+            with closing(sqlite3.connect(database)) as connection:
+                with connection:
+                    connection.execute("CREATE TABLE images (image_id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
+                    connection.executemany("INSERT INTO images VALUES (?, ?)",
+                                           [(1, "c.jpg"), (9, "a.jpg"), (4, "b.jpg")])
             self.assertEqual(run.init_pair_ids(database, ["a.jpg", "b.jpg", "c.jpg"],
                                                ["a.jpg", "b.jpg"]), (9, 4))
             with self.assertRaisesRegex(ValueError, "two distinct"):

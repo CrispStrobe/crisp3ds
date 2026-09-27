@@ -5,6 +5,7 @@ Outputs are research artifacts. No metric scale or product integration is implie
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import hashlib
 import json
 import math
@@ -149,7 +150,7 @@ def init_pair_ids(database: Path, selected_names: list[str], pair: list[str] | N
         return None
     if len(pair) != 2 or pair[0] == pair[1] or not set(pair).issubset(selected_names):
         raise ValueError("initial pair needs two distinct selected image names")
-    with sqlite3.connect(f"file:{database}?mode=ro", uri=True) as connection:
+    with closing(sqlite3.connect(f"file:{database}?mode=ro", uri=True)) as connection:
         rows = connection.execute("SELECT image_id, name FROM images WHERE name IN (?, ?)", pair).fetchall()
     ids = {name: image_id for image_id, name in rows}
     if len(ids) != 2:
