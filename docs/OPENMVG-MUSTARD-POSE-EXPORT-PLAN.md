@@ -1,6 +1,7 @@
 # Read-only audit: OpenMVG mustard camera-pose JSON export
 
-Status: **plan only; no sixth-target build or conversion has run**. The sealed
+Status: **sixth target built and conversion read-only preflight passed; no
+conversion has run**. The sealed
 mustard photo-only SfM attempt remains a failed sparse gate: its receipt at
 `/Volumes/backups/code/crisp3ds-data/openmvg-mustard-photo-sfm-001/receipt.json`
 has SHA-256
@@ -64,11 +65,15 @@ libraries already present across the five-target union: OpenMVG static
 archives, CoinUtils/Clp/Osi, vendored Ceres, existing Homebrew image
 libraries, Accelerate and system libraries. The source/link graph therefore
 shows **no new unresolved dependency class**. It does not clear the existing
-LGPL/EPL/Ceres-Eigen/VLFeat questions, nor establish shipping rights. After
-any separately approved build, hash the exact binary and source, inspect
-archive members for LiGT, and compare `otool -L` with the five-target receipts;
-stop if a new dynamic dependency appears. Do not state a binary-level
-closure result before that check.
+LGPL/EPL/Ceres-Eigen/VLFeat questions, nor establish shipping rights. The
+one-shot sixth-target build completed in 3.009 seconds. Its manifest SHA-256
+is `e7f0b3cce52612466756aad53231eb6e1b2fc83b884bec829e548f9f6b4a22fa`,
+license receipt SHA-256 is
+`51f8e5855bc7158f27cfdcbd6a84c4bee594e9ee24d42155d7d7837f43290bf4`,
+and converter binary SHA-256 is
+`95bebb65afd1374aadae21aecc5f4cf66f4257432477d54ceae22c4cc35636b0`.
+Its sealed `otool -L` receipt reports no new dynamic dependency; the prior
+shipping-license questions remain.
 
 The proposed one-shot build extension should require the existing five-target
 build manifests, receipts, source and generated/frozen graph hashes to match;
@@ -94,8 +99,8 @@ It pins the five-target receipt/log/source/graph hashes, requires the exact
 two-command delta and no new link library or framework, and rejects any
 existing sixth-target attempt. The separate `--build` path would create only
 `logs/07-converter-build.log`, `converter-build-manifest.json`, the converter
-binary and `converter-license-receipt.json` in the fork. **That path has not
-been run.** The manifest and receipt preserve the evaluation-only status.
+binary and `converter-license-receipt.json` in the fork. **That path completed
+once.** The manifest and receipt preserve the evaluation-only status.
 
 ## Separate one-shot conversion and neutral check
 
@@ -122,3 +127,19 @@ geometry with the previously frozen fold thresholds. Missing two poses and
 any folded orbit remain failures; this export is diagnostic only. Reference
 poses/mesh may be consulted later for a separately sealed posthoc score, never
 fed back into conversion or threshold selection.
+
+The [one-shot conversion supervisor](../scripts/classical_backend/openmvg_mustard_pose_export.py)
+now implements the separate export gate. Its default invocation is read-only:
+
+```text
+python -m scripts.classical_backend.openmvg_mustard_pose_export
+```
+
+The `--convert` path is unrun and awaits review. It pins the failed mustard
+receipt and binary model, the sixth build manifest/receipt/log/binary, and a
+fresh output path. Its command contains only `-i`, `-o`, `-V`, `-I`, `-E`.
+The worker checks the exported JSON for the 48 sealed view names, exactly 46
+named finite poses with valid rotations, and empty structure/control-point
+containers. This is an export-integrity check; it does not score orbit shape
+or reverse the failed 48-camera gate. A separate ID-bound orbit validator
+must wait for the export receipt and JSON hashes to be sealed.
