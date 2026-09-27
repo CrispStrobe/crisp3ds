@@ -124,6 +124,11 @@ class CandidateTests(unittest.TestCase):
         self.patches.enter_context(patch.object(candidate, "BASE_SHA", self.base_sha))
         self.patches.enter_context(patch.object(candidate, "REJECTED_QA_SHA", self.rejected_sha))
         self.patches.enter_context(patch.object(candidate, "BOARD5_PROMPTS_SHA", self.prompts_sha))
+        # The runtime is Mac-only and pins LF source bytes. Windows checkouts may
+        # convert this Python file to CRLF; fixture lineage uses the actual bytes.
+        self.patches.enter_context(patch.object(
+            candidate, "BOARD5_RUNNER_SHA",
+            stage.sha256(candidate.ROOT / "scripts/object_motion/sam_m1_board5.py")))
         self.patches.enter_context(patch.object(candidate.shutil, "disk_usage", return_value=SimpleNamespace(free=1 << 50)))
 
     def args(self):
