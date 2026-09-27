@@ -1,6 +1,7 @@
 """Analytic checks for sealed-pair perturbation construction and reporting."""
 
 import unittest
+from contextlib import closing
 from pathlib import Path
 import sqlite3
 import tempfile
@@ -18,7 +19,7 @@ class PairStabilityTests(unittest.TestCase):
                                               dtype="<f4"), np.zeros((4, 4), dtype="<f4")))
             right = left.copy()
             right[:, 0] += 10
-            with sqlite3.connect(db) as connection:
+            with closing(sqlite3.connect(db)) as connection:
                 connection.execute("CREATE TABLE images (image_id INTEGER, name TEXT)")
                 connection.execute("CREATE TABLE keypoints (image_id INTEGER, rows INTEGER, cols INTEGER, data BLOB)")
                 connection.execute("CREATE TABLE two_view_geometries (pair_id INTEGER, rows INTEGER, cols INTEGER, data BLOB)")
@@ -28,6 +29,7 @@ class PairStabilityTests(unittest.TestCase):
                 pair_id = 1 * target.pose.MAX_IMAGE_ID + 2
                 connection.execute("INSERT INTO two_view_geometries VALUES (?,?,?,?)",
                                    (pair_id, 2, 2, np.array([[0, 1], [2, 3]], dtype="<u4").tobytes()))
+                connection.commit()
             row = {"left": "left", "right": "right", "verified_correspondences": 2,
                    "points_left": (left[[1, 3], :2].astype(float) - [640, 512]) / 1536,
                    "points_right": (right[[0, 2], :2].astype(float) - [640, 512]) / 1536}
