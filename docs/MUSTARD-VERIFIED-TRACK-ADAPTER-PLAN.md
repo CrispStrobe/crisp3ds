@@ -32,6 +32,12 @@ pixels enter candidate edges. This is **mask-supported**, not proof of a
 physical object-only track: coarse masks may include board/support, so a
 visual/semantic mask review remains necessary before dense use.
 
+The separate scalar-only audit found 728 COLMAP zero-match rows encoded as
+`rows=0, cols=2, data=NULL, config=0`. These exact rows are now counted as
+`empty_geometry_rows` and skipped. A positive row still requires a byte blob
+of exactly `rows*8`, `cols=2`, and positive configuration; malformed zero
+rows, including `data=b''` with positive configuration, fail closed.
+
 ## Deterministic graph rule and caps
 
 Decode pair ID to ascending image IDs, sort pair rows, and use the stored blob

@@ -50,6 +50,7 @@ class TrackCandidates:
     database_sha256: str
     image_count: int
     geometry_rows: int
+    empty_geometry_rows: int
     verified_edges: int
     mask_supported_edges: int
     components: int
@@ -185,7 +186,7 @@ def extract_candidate_tracks(
     masks = _sources(image_dir, mask_dir, sources, required_images)
     manifest = {source.name: source for source in sources}
     components = _Components()
-    geometry_rows = verified_edges = supported_edges = edge_ordinal = 0
+    geometry_rows = empty_geometry_rows = verified_edges = supported_edges = edge_ordinal = 0
     with closing(sqlite3.connect(database.resolve().as_uri() + "?mode=ro&immutable=1", uri=True)) as db:
         db.execute("PRAGMA query_only=ON")
         if db.execute("PRAGMA quick_check").fetchone() != ("ok",):
@@ -218,12 +219,19 @@ def extract_candidate_tracks(
             geometry_rows += 1
             if (not isinstance(pair_id, int) or pair_id <= 0 or
                     not isinstance(count, int) or not 0 <= count <= MAX_KEYPOINTS_PER_IMAGE or
-                    columns != 2 or not isinstance(blob, bytes) or len(blob) != count * 8 or
-                    not isinstance(config, int) or (count and config <= 0)):
+                    columns != 2 or not isinstance(config, int)):
+                raise TrackAdapterError("invalid verified geometry row")
+            if count == 0:
+                if blob is not None or config != 0:
+                    raise TrackAdapterError("invalid verified geometry row")
+            elif not isinstance(blob, bytes) or len(blob) != count * 8 or config <= 0:
                 raise TrackAdapterError("invalid verified geometry row")
             first, second = divmod(pair_id, MAX_IMAGE_ID)
             if first not in id_to_name or second not in id_to_name or first >= second:
                 raise TrackAdapterError("invalid COLMAP pair ID")
+            if count == 0:
+                empty_geometry_rows += 1
+                continue
             matches = np.frombuffer(blob, dtype="<u4").reshape(count, 2)
             if (np.any(matches[:, 0] >= len(keypoints[first])) or
                     np.any(matches[:, 1] >= len(keypoints[second])) or
@@ -279,6 +287,6 @@ def extract_candidate_tracks(
         tracks.append((nodes, observations))
     tracks.sort(key=lambda item: item[0])
     return TrackCandidates(tuple(ObjectTrack(i, obs) for i, (_, obs) in enumerate(tracks)),
-                           expected_database_sha256, required_images, geometry_rows,
+                           expected_database_sha256, required_images, geometry_rows, empty_geometry_rows,
                            verified_edges, supported_edges, len(components.nodes),
                            conflicting, oversized, short)

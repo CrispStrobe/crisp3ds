@@ -1,8 +1,9 @@
 # Bounded sealed TRAIN verified-track receipt
 
-Status: frozen runner and synthetic report-schema tests, **not run on sealed
-data**. Proposed fresh receipt path after review:
-`/Volumes/backups/code/crisp3ds-data/mustard-verified-tracks-001.json`.
+Status: two bounded attempts at `-001` failed without a receipt; the narrow
+zero-row correction was reviewed and one fresh `-002` counts-only diagnostic
+completed. Its receipt path was:
+`/Volumes/backups/code/crisp3ds-data/mustard-verified-tracks-002.json`.
 
 The runner pins the prior sealed exhaustive fixed-initial masked PyCOLMAP
 database SHA-256
@@ -26,14 +27,15 @@ at least 10 GiB free (including a 2 MiB output allowance), then runs the
 read-only extraction in a child with a 75-second supervisor timeout; the
 adapter itself has a 60-second wall and bounded graph/DB caps. No receipt is
 written if the child fails, times out, or exceeds output/log limits. The
-receipt is under 2 MiB and contains counts, source/runner/manifest hashes,
+receipt is under 2 MiB and contains counts (including skipped empty geometry
+rows), source/runner/manifest hashes,
 and the board/support leakage caution only—no feature coordinates, tracks,
 camera poses, scanner/depth/reference data, or reconstructed geometry.
 
-On an approved run, use the pinned
+The approved run used the pinned
 `.local-tools/colmap-sparse/venv/bin/python -m scripts.object_motion.mustard_verified_track_receipt`
 with `--output` set to the fresh path above, `PYTHONDONTWRITEBYTECODE=1`,
-and verify the resulting file SHA-256, status, source/runner hashes, and both
+and verified the resulting file SHA-256, status, source/runner hashes, and both
 disk floors afterward. Do not tune union thresholds from the result. Any
 candidate track count is **not** an object-only quality metric: accepted
 coarse pose masks may include the checkerboard or rotating support. No

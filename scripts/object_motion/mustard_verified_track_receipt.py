@@ -190,6 +190,7 @@ def _worker_receipt() -> dict:
         "counts": {
             "images": result.image_count,
             "geometry_rows": result.geometry_rows,
+            "empty_geometry_rows": result.empty_geometry_rows,
             "verified_edges": result.verified_edges,
             "mask_supported_edges": result.mask_supported_edges,
             "components": result.components,

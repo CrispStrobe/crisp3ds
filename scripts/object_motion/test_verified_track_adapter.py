@@ -104,6 +104,34 @@ class VerifiedTrackAdapterTest(unittest.TestCase):
         with self.assertRaisesRegex(TrackAdapterError, "feature-index"):
             self.extract()
 
+    def test_null_zero_row_is_counted_and_only_exact_shape_is_skipped(self):
+        self.edges({(1, 2): [(0, 0)], (2, 3): [(0, 0)]})
+        pair_id = MAX_IMAGE_ID + 4
+        with closing(sqlite3.connect(self.database)) as db:
+            db.execute("INSERT INTO two_view_geometries VALUES(?,?,?,?,?)",
+                       (pair_id, 0, 2, None, 0))
+            db.commit()
+        result = self.extract()
+        self.assertEqual(result.geometry_rows, 3)
+        self.assertEqual(result.empty_geometry_rows, 1)
+        self.assertEqual(result.verified_edges, 2)
+        self.assertEqual(len(result.tracks), 1)
+        with closing(sqlite3.connect(self.database)) as db:
+            db.execute("UPDATE two_view_geometries SET data=? WHERE pair_id=?", (b"bad", pair_id))
+            db.commit()
+        with self.assertRaisesRegex(TrackAdapterError, "geometry row"):
+            self.extract()
+        with closing(sqlite3.connect(self.database)) as db:
+            db.execute("UPDATE two_view_geometries SET data=?,config=1 WHERE pair_id=?", (b"", pair_id))
+            db.commit()
+        with self.assertRaisesRegex(TrackAdapterError, "geometry row"):
+            self.extract()
+        with closing(sqlite3.connect(self.database)) as db:
+            db.execute("UPDATE two_view_geometries SET data=NULL,config=1 WHERE pair_id=?", (pair_id,))
+            db.commit()
+        with self.assertRaisesRegex(TrackAdapterError, "geometry row"):
+            self.extract()
+
     def test_giant_component_is_poisoned_even_if_later_extended(self):
         graph = _Components()
         for index in range(MAX_COMPONENT_NODES):

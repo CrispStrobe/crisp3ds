@@ -5,14 +5,17 @@ import hashlib
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 from PIL import Image
 
 from scripts.object_motion.mustard_verified_track_receipt import (
-    ReceiptError, _bounded_json, _child_failure, _safe_failure,
+    ReceiptError, _bounded_json, _child_failure, _safe_failure, _worker_receipt,
     sources_from_reports,
 )
+from scripts.object_motion import mustard_verified_track_receipt as receipt
 
 
 def digest(path: Path) -> str:
@@ -106,6 +109,35 @@ class ReceiptSchemaTest(unittest.TestCase):
         self.assertLessEqual(len(rendered), 1024)
         self.assertEqual(_child_failure(b"Traceback /private/secret"),
                          "bounded diagnostic unavailable")
+
+    def test_worker_receipt_counts_skipped_empty_geometry_rows(self):
+        stage_root = Path(self.temp.name) / "stage"
+        producer_root = Path(self.temp.name) / "producer"
+        stage_root.mkdir()
+        producer_root.mkdir()
+        result = SimpleNamespace(database_sha256=receipt.DATABASE_SHA256, image_count=48,
+                                 geometry_rows=1128, empty_geometry_rows=728,
+                                 verified_edges=400, mask_supported_edges=300,
+                                 components=20, tracks=(), rejected_conflicting_components=2,
+                                 rejected_oversize_components=1, rejected_short_components=3)
+        def source_hash(path):
+            if Path(path).name == "stage-report.json":
+                return receipt.STAGE_REPORT_SHA256
+            if Path(path).name == "result.json":
+                return receipt.PRODUCER_RESULT_SHA256
+            return "f" * 64
+        def fake_extract(*_args):
+            return result
+        with (patch.object(receipt, "STAGE", stage_root),
+              patch.object(receipt, "PRODUCER", producer_root),
+              patch.object(receipt, "_disk_floor"),
+              patch.object(receipt, "_bounded_json", side_effect=[{"output": str(stage_root)}, {}]),
+              patch.object(receipt, "sources_from_reports", return_value=()),
+              patch.object(receipt, "extract_candidate_tracks", new=fake_extract),
+              patch.object(receipt, "sha256", side_effect=source_hash)):
+            report = _worker_receipt()
+        self.assertEqual(report["counts"]["empty_geometry_rows"], 728)
+        self.assertNotIn("tracks", report)
 
 
 if __name__ == "__main__":
