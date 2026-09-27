@@ -1,0 +1,23 @@
+{
+  "schema": "crisp3ds_mapanything_artifact_lock_v1",
+  "code": {
+    "repo": "facebookresearch/map-anything",
+    "revision": "3d10cf7a3016fc0f9bb13a071ee66c47b10be0d9",
+    "license": "Apache-2.0",
+    "license_path": "LICENSE",
+    "license_sha256": "a172097153c8dec07f872bf749f4f856351b0690fde58ab2c4f570fc1d354931"
+  },
+  "model": {
+    "repo": "facebook/map-anything-apache",
+    "revision": "00f9c245bbcb60522d1ed7f9e9d88462c6e3f38a",
+    "card_license": "apache-2.0",
+    "card_sha256": "1481978d474172ee1acac213eddaf3572e54dba369190d898c8578f26097f1d2",
+    "config_sha256": "65701d09d99ed37a21d295f0d138978b3d584ab3bccdbcb4a2853da212b676c5",
+    "gated": false,
+    "artifact": {
+      "path": "model.safetensors",
+      "bytes": 4914062480,
+      "sha256": "fa06c0fdccefc5048e072c85935d5789b1e36b307f3859033c17f9dcb9fd5201"
+    }
+  }
+}
