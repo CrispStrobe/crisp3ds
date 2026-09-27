@@ -1,6 +1,7 @@
 """Frozen-seed and intrinsic plausibility contracts without native mapping."""
 
 import json
+from contextlib import closing
 from pathlib import Path
 import tempfile
 import unittest
@@ -14,7 +15,7 @@ class InitializationRecoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             database = Path(folder) / "fixture.db"
             import sqlite3
-            with sqlite3.connect(database) as connection:
+            with closing(sqlite3.connect(database)) as connection, connection:
                 connection.execute("CREATE TABLE cameras(id INTEGER PRIMARY KEY, model INTEGER, width INTEGER, height INTEGER, params BLOB, prior_focal_length INTEGER)")
                 connection.execute("INSERT INTO cameras VALUES(1,2,1280,1024,?,0)", (b"camera",))
                 connection.execute("CREATE TABLE images(image_id INTEGER PRIMARY KEY, name TEXT)")
@@ -26,6 +27,26 @@ class InitializationRecoveryTests(unittest.TestCase):
             result = recovery.read_cache_logical(database)
             self.assertEqual(before, recovery.bounded.digest(database))
             self.assertEqual(result["tables"]["matches"]["rows"], 1)
+
+    def test_cache_logical_reader_closes_connection_on_error(self):
+        class FailingConnection:
+            closed = False
+
+            def execute(self, *_args):
+                raise RuntimeError("injected query failure")
+
+            def close(self):
+                self.closed = True
+
+        with tempfile.TemporaryDirectory() as folder:
+            database = Path(folder) / "fixture.db"
+            database.touch()
+            connection = FailingConnection()
+            with patch.object(recovery.sqlite3, "connect", return_value=connection) as connect:
+                with self.assertRaisesRegex(RuntimeError, "injected query failure"):
+                    recovery.read_cache_logical(database)
+            self.assertTrue(connection.closed)
+            self.assertIn("mode=ro&immutable=1", connect.call_args.args[0])
 
     def test_intrinsics_gate_accepts_predeclared_plausible_camera(self):
         self.assertTrue(recovery.plausible_intrinsics("SIMPLE_RADIAL", 1280, 1024,
