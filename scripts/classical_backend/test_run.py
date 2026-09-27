@@ -93,6 +93,66 @@ class SelectionAndFailureTests(unittest.TestCase):
         self.assertFalse(assisted.multiple_models)
         self.assertEqual((assisted.init_image_id1, assisted.init_image_id2), (9, 4))
 
+    def test_fixed_initial_intrinsics_policy_sets_every_mapping_refinement_flag(self):
+        class Options:
+            def __init__(self):
+                self.mapper = SimpleNamespace()
+        fake = SimpleNamespace(IncrementalPipelineOptions=Options)
+        options = run.sfm_options(fake, 5, 10, None, "fixed-initial")
+        self.assertFalse(options.ba_refine_focal_length)
+        self.assertFalse(options.ba_refine_principal_point)
+        self.assertFalse(options.ba_refine_extra_params)
+        self.assertFalse(options.mapper.abs_pose_refine_focal_length)
+        self.assertFalse(options.mapper.abs_pose_refine_extra_params)
+        with self.assertRaisesRegex(ValueError, "intrinsics policy"):
+            run.sfm_options(fake, 5, 10, None, "unknown")
+        argv = ["classical", "--images", "photos", "--output", "out", "--stop-after-sfm",
+                "--sfm-intrinsics-policy", "fixed-initial"]
+        with (mock.patch.object(sys, "argv", argv),
+              mock.patch.object(run, "run", return_value={"status": "sparse_complete"}) as execute,
+              mock.patch("builtins.print")):
+            self.assertEqual(run.main(), 0)
+        self.assertEqual(execute.call_args.args[0].sfm_intrinsics_policy, "fixed-initial")
+        with (mock.patch.object(sys, "argv", argv + ["--sparse-model", "model"]),
+              contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit)):
+            run.main()
+
+    def test_worker_records_effective_fixed_initial_options_before_mapper(self):
+        class Options:
+            def __init__(self):
+                self.mapper = SimpleNamespace()
+            def todict(self):
+                return {"ba_refine_focal_length": self.ba_refine_focal_length,
+                        "ba_refine_principal_point": self.ba_refine_principal_point,
+                        "ba_refine_extra_params": self.ba_refine_extra_params,
+                        "mapper": {"abs_pose_refine_focal_length": self.mapper.abs_pose_refine_focal_length,
+                                   "abs_pose_refine_extra_params": self.mapper.abs_pose_refine_extra_params}}
+        def no_mapping(*args, **kwargs):
+            raise RuntimeError("stop before native mapping")
+        fake = SimpleNamespace(IncrementalPipelineOptions=Options,
+                               set_random_seed=lambda seed: None,
+                               incremental_mapping=no_mapping)
+        with tempfile.TemporaryDirectory(dir=run.ROOT / ".local-tools/tmp") as scratch:
+            output = Path(scratch)
+            (output / "images").mkdir()
+            (output / "inputs.json").write_text(json.dumps([{"name": "a.jpg"},
+                                                               {"name": "b.jpg"},
+                                                               {"name": "c.jpg"}]))
+            (output / "pycolmap-options.json").write_text(json.dumps({"seed": 7}))
+            with (mock.patch.dict(sys.modules, {"pycolmap": fake}),
+                  self.assertRaisesRegex(RuntimeError, "stop before native mapping")):
+                run.worker("sfm", output, 1600, sfm_intrinsics_policy="fixed-initial")
+            metadata = json.loads((output / "pycolmap-options.json").read_text())
+            self.assertEqual(metadata["sfm_intrinsics_policy"], "fixed-initial")
+            self.assertIn("no explicit calibration supplied", metadata["intrinsics_origin"])
+            flags = metadata["incremental_pipeline"]
+            self.assertEqual([flags[key] for key in ("ba_refine_focal_length",
+                                                     "ba_refine_principal_point",
+                                                     "ba_refine_extra_params")], [False] * 3)
+            self.assertEqual([flags["mapper"][key] for key in
+                              ("abs_pose_refine_focal_length", "abs_pose_refine_extra_params")],
+                             [False, False])
+
     def test_masked_dense_rejects_wrong_native_stem_even_with_valid_hashes(self):
         with tempfile.TemporaryDirectory(dir=run.ROOT / ".local-tools/tmp") as tmp:
             base = Path(tmp)

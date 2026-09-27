@@ -159,9 +159,12 @@ def init_pair_ids(database: Path, selected_names: list[str], pair: list[str] | N
 
 
 def sfm_options(pycolmap_module, max_models: int, min_model_size: int,
-                pair_ids: tuple[int, int] | None):
+                pair_ids: tuple[int, int] | None,
+                intrinsics_policy: str = "refine"):
     if not 1 <= max_models <= 10 or min_model_size < 2:
         raise ValueError("invalid SfM model retry bounds")
+    if intrinsics_policy not in ("refine", "fixed-initial"):
+        raise ValueError("unknown SfM intrinsics policy")
     options = pycolmap_module.IncrementalPipelineOptions()
     options.num_threads = 2
     options.mapper.num_threads = 2
@@ -170,6 +173,14 @@ def sfm_options(pycolmap_module, max_models: int, min_model_size: int,
     options.min_model_size = min_model_size
     if pair_ids:
         options.init_image_id1, options.init_image_id2 = pair_ids
+    if intrinsics_policy == "fixed-initial":
+        # Hold ImageReader's initial intrinsics (EXIF if present, otherwise
+        # its heuristic fallback) through incremental and absolute-pose fitting.
+        options.ba_refine_focal_length = False
+        options.ba_refine_principal_point = False
+        options.ba_refine_extra_params = False
+        options.mapper.abs_pose_refine_focal_length = False
+        options.mapper.abs_pose_refine_extra_params = False
     return options
 
 
@@ -178,7 +189,8 @@ def worker(kind: str, run: Path, max_pixels: int, external_model: Path | None = 
            sequential_overlap: int = 8, sift_max_features: int = 8192,
            sift_max_image_size: int = 3200, seed: int = 0,
            init_image_pair: list[str] | None = None, sfm_max_models: int = 5,
-           sfm_min_model_size: int = 10) -> None:
+           sfm_min_model_size: int = 10,
+           sfm_intrinsics_policy: str = "refine") -> None:
     os.environ.setdefault("OPENBLAS_NUM_THREADS", "2")
     import pycolmap
 
@@ -188,7 +200,7 @@ def worker(kind: str, run: Path, max_pixels: int, external_model: Path | None = 
     recorded = json.loads(options_path.read_text()) if options_path.exists() else {
         "version": pycolmap.__version__, "binary_sha256": digest(Path(pycolmap._core.__file__)),
         "seed": seed, "device": "cpu", "camera_mode": "SINGLE", "camera_model": camera_model,
-        "matching_strategy": matching}
+        "matching_strategy": matching, "sfm_intrinsics_policy": sfm_intrinsics_policy}
     pycolmap.set_random_seed(seed)
     if kind == "features":
         reader = pycolmap.ImageReaderOptions()
@@ -232,10 +244,13 @@ def worker(kind: str, run: Path, max_pixels: int, external_model: Path | None = 
     elif kind in ("sfm", "reuse_sfm"):
         if kind == "sfm":
             pair_ids = init_pair_ids(run / "database.db", names, init_image_pair)
-            options = sfm_options(pycolmap, sfm_max_models, sfm_min_model_size, pair_ids)
+            options = sfm_options(pycolmap, sfm_max_models, sfm_min_model_size, pair_ids,
+                                  sfm_intrinsics_policy)
             if pair_ids:
                 recorded["init_image_pair_names"] = init_image_pair
-            recorded.update(incremental_pipeline=options.todict())
+            recorded.update(incremental_pipeline=options.todict(),
+                            sfm_intrinsics_policy=sfm_intrinsics_policy,
+                            intrinsics_origin="ImageReader initial intrinsics: EXIF or heuristic fallback; no explicit calibration supplied")
             options_path.write_text(json.dumps(recorded, indent=2, default=str) + "\n")
             models = pycolmap.incremental_mapping(str(run / "database.db"), str(image_dir),
                                                     str(run / "models"), options=options)
@@ -394,6 +409,9 @@ def run(args: argparse.Namespace) -> dict:
         raise ValueError("internal 10 GiB reserve not met for external output")
     selection = photos(args.images.resolve(), args.image_list, args.max_views)
     args.sfm_min_model_size = effective_sfm_min_model_size(args.sfm_min_model_size, len(selection))
+    policy = getattr(args, "sfm_intrinsics_policy", "refine")
+    if policy not in ("refine", "fixed-initial") or (args.sparse_model and policy != "refine"):
+        raise ValueError("SfM intrinsics policy is invalid or not applied to imported sparse model")
     software = None
     output.mkdir(parents=True)
     (output / "images").mkdir()
@@ -408,6 +426,7 @@ def run(args: argparse.Namespace) -> dict:
               "metric_scale_verified": False, "quality_accepted": False,
               "sfm_camera_mode": "from_imported_model" if args.sparse_model else "SINGLE",
               "sfm_camera_model": "from_imported_model" if args.sparse_model else args.camera_model,
+              "sfm_intrinsics_policy": "from_imported_model" if args.sparse_model else policy,
               "pose_masks": []}
     def save():
         (output / "result.json").write_text(json.dumps(report, indent=2) + "\n")
@@ -467,6 +486,8 @@ def run(args: argparse.Namespace) -> dict:
             report["sfm_source"] = {"kind": "internal_image_only_pycolmap", "random_seed": args.seed,
                                     "matching": args.matching, "camera_mode": "SINGLE",
                                     "camera_model": args.camera_model,
+                                    "intrinsics_policy": policy,
+                                    "intrinsics_origin": "ImageReader initial intrinsics: EXIF or heuristic fallback; no explicit calibration supplied",
                                     "init_image_pair_names": args.init_image_pair,
                                     "sfm_max_models": args.sfm_max_models,
                                     "sfm_min_model_size": args.sfm_min_model_size,
@@ -553,6 +574,7 @@ def run(args: argparse.Namespace) -> dict:
                            "--seed", args.seed,
                            "--sfm-max-models", args.sfm_max_models,
                            "--sfm-min-model-size", args.sfm_min_model_size,
+                           "--sfm-intrinsics-policy", policy,
                            *(["--init-image-pair", *args.init_image_pair] if args.init_image_pair else []),
                            *(["--sparse-model", args.sparse_model.resolve()] if args.sparse_model else [])], check)
             if kind in ("sfm", "reuse_sfm") and report["stages"][-1]["artifact"]["registered_images"] / len(selection) < args.min_registered_fraction:
@@ -648,6 +670,8 @@ def main() -> int:
                         help="COLMAP mapper model attempts; 5 enables generic retries after weak starts")
     parser.add_argument("--sfm-min-model-size", type=int,
                         help="minimum COLMAP candidate model size; default min(10, selected view count)")
+    parser.add_argument("--sfm-intrinsics-policy", choices=("refine", "fixed-initial"), default="refine",
+                        help="fixed-initial holds unknown heuristic focal/radial during mapping; no calibration input")
     parser.add_argument("--stop-after-sfm", action="store_true", help="record a sparse-only diagnostic run")
     parser.add_argument("--max-threads", type=int, default=2)
     parser.add_argument("--min-registered-fraction", type=float, default=0.7)
@@ -663,7 +687,7 @@ def main() -> int:
         worker(args.worker, args.output, args.max_image_size, args.sparse_model, args.camera_model,
                args.matching, args.sequential_overlap, args.sift_max_features,
                args.sift_max_image_size, args.seed, args.init_image_pair,
-               args.sfm_max_models, args.sfm_min_model_size)
+               args.sfm_max_models, args.sfm_min_model_size, args.sfm_intrinsics_policy)
         return 0
     if (not args.images or not (3 <= args.max_views <= 200) or args.max_threads < 1
             or not math.isfinite(args.max_gib) or args.max_gib <= 0
@@ -677,6 +701,7 @@ def main() -> int:
             (args.sfm_min_model_size is not None and
              not 2 <= args.sfm_min_model_size <= args.max_views)
             or (args.init_image_pair and args.sparse_model)
+            or (args.sparse_model and args.sfm_intrinsics_policy != "refine")
             or bool(args.sparse_provenance) != bool(args.sparse_manifest)
             or bool(args.sparse_provenance) != bool(args.sparse_result)
             or (args.sparse_provenance and not args.sparse_model)):
