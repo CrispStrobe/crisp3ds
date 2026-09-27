@@ -96,3 +96,16 @@ eligibility requirement. Keep the same 600-second, 4-GiB RSS, 512-MiB output and
 dual disk-floor bounds, fresh output and untouched parent evidence. A further
 two-view failure would show that preventing intrinsic drift alone is insufficient.
 This is not authorization for automatic parameter search or geometry repair.
+
+### 2026-09-27 follow-up to the initialization audit
+
+For this diagnostic batch, a second mapping-only arm is declared before either
+new result: retain stock intrinsic refinement but set the initial pair to
+NP3_192/NP3_162 (30° nominal separation, database image IDs 33/28).
+This pair comes from the earlier successful 60-view producer. Its choice is
+**post hoc**, so a success would diagnose seed sensitivity, not count as an
+unbiased benchmark. Both arms reuse the same sealed masked feature/match
+database and original images, in separate fresh directories. No image, mask,
+feature or pair graph is recomputed. Evaluate all saved models and cameras,
+then the named rig cameras after mapping; do not run dense from sparse coverage
+alone. The two interventions are tested separately, not combined.
