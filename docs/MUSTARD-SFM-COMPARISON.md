@@ -1,11 +1,9 @@
 # Proposed mustard sparse-SfM mask comparison
 
-Status: **plan only**. The original 48-view SAM mask inventory was generated
-but root rejected it for checkerboard leakage in five views. Do not stage
-masks or run either SfM arm until a new complete 48-view candidate has its
-own independent root visual-QA acceptance. A successful inference manifest
-or five-view correction review alone remains unaccepted for SfM. This
-experiment compares image-estimated sparse reconstruction, not mesh quality.
+Status: **paired 48-view sparse comparison executed; both arms failed**. The
+original SAM inventory was rejected; a separately reviewed 43+3+2 candidate
+was composed and staged before the frozen serial runs. This experiment
+compares image-estimated sparse reconstruction, not mesh quality.
 
 ## Immutable input boundary
 
@@ -45,8 +43,8 @@ now implements these checks, including a fresh exact output, decoded binary
 mask/photo dimensions, hashes and a ≤150 MiB copy cap; its tests are in
 [`test_mustard_stage.py`](../scripts/classical_backend/test_mustard_stage.py).
 It deliberately requires a separately sealed 48-mask inventory and explicit
-root visual-QA acceptance, neither of which this plan substitutes. No staging
-of accepted masks has been run under this protocol yet. A separate photo-only
+root visual-QA acceptance. The reviewed v2 candidate below satisfied that
+gate before staging. A separate photo-only
 48-TRAIN stage completed at
 `/Volumes/backups/code/crisp3ds-data/sam21-m1-train48-001` (report SHA-256
 `d6e72143fc02ee3d18dd8961ae508417bf122cbdbc24ebc4465e207a30997861`);
@@ -78,9 +76,87 @@ The [stager](../scripts/classical_backend/mustard_stage.py) recognizes this
 new lane only with a *second*, independent
 `mustard_sam_composed_candidate_qa_v1` decision accepting and hashing all
 48 composed cleaned masks. The old inventory lane and its QA contract remain
-separate. Neither corrected inference, composition, staging, nor SfM has
-been run under this correction protocol yet. Tests use tiny synthetic masks
-and do not substitute for the root's image review.
+separate. Tests use tiny synthetic masks and do not substitute for the root's
+image review.
+
+The first corrected five-view attempt at
+`/Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-board5-001` **failed**.
+Its manifest SHA-256 is
+`1008fc7bdbaa75ac33f17f8ddf44eaa275b3e98eb21466906060ebc3300c638c`
+(`partial_unusable`); its separate supervisor SHA-256 is
+`b4485b72c539d59b6b3229917f0099ceb11359cdb8c9228bd0553208989619ce`
+(`failed`, worker exit 1, 27.78 seconds, 1,436,656 KiB sampled peak RSS).
+Three masks completed unreviewed (318°, 330°, 348°). The 336° mask failed
+the four-point foreground/background check; the 342° mask failed the
+predeclared cleanup limit of 10% raw foreground removal. These failures are
+not a visual-QA acceptance or an invitation to use a partial set. The
+v1 whole-five composer requires both a five-of-five manifest and a successful
+supervisor, so that *v1 route* could not compose. The later v2 selector
+retained the failed parent status and used only separately accepted rows.
+
+Root subsequently accepted only the three complete board5-001 rows (318°,
+330°, 348°) for possible coarse feature support in a
+[separate subset review](../tests/datasets/sam21_mustard_board5_subset_review.json)
+(SHA-256 `940f7e76be973edb74b09a73be49e254911a99a8b8a7a3b654eeada270babecd`)
+and [bounded-parent audit](../tests/datasets/sam21_mustard_board5_resource_audit.json)
+(SHA-256 `bf058458fd0b5c3bc5c51b2840936c1ce9c40f41d2249867cec0b80ccef6088e`).
+The five-view parent remains **partial/failed**. A distinct declarative
+[two-view recipe](../tests/datasets/sam21_mustard_m1_two_view_recipe.json)
+(SHA-256 `38f2a40af084df4c177925bfcfad7b5ebe5f131388283d14d15f5e690a8d0367`)
+produced masks for 336° and 342° in a fresh run at
+`/Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-recipe-001` (manifest
+SHA-256 `361d32f4342fa193d5bfed68289f0a44151b3768b54d2a30998dd4a6b11c6f01`,
+supervisor SHA-256 `c9124c9d1fe921396fda801f15a7f2cb9a7022a6d1829494aad9bc12ff7e703d`).
+Both new producer statuses were `generated_unreviewed`, then the two masks
+received a separate root subset QA. Its smaller box
+`[520,365,665,600]` intentionally allows the negative point `(620,330,0)`
+outside the box but inside the original image; pinned SAM2 transforms box
+corners and point coordinates independently. This is valid input syntax,
+not evidence of mask quality.
+
+The same composer/stager now contain a separate `--selection` v2 lane for an
+exact ordered 43 original + 3 accepted partial-parent + 2 accepted ROI-recipe
+candidate. It preserves each parent status, per-image recipe-row SHA, source
+manifest/supervisor SHA, reviewed contact-sheet SHA and subset QA. The
+candidate was composed fresh at
+`/Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-candidate48-002`
+(inventory SHA-256 `c341e3798a792c83abbacac8a7f882a761c878cdd9dba693c02c5877bbb75751`),
+with full-frame training RGB/mask sheet SHA-256
+`fba2b0cc9c271857d7eb4170e34889c1c96bf79c2cfc1345df040c0bfe2496be`.
+Root's [independent full-48 QA-v2](../tests/datasets/sam21_mustard_candidate48_v2_review.json)
+(SHA-256 `c07a62441a4846f53619d28d16f931bfd3a0e85f99a26df83bc6b664cdd8a2da`)
+accepted the exact 48-mask inventory and sheet only for coarse pose support.
+The fresh train-only stage at
+`/Volumes/backups/code/crisp3ds-data/mustard-sfm-train-001` copied exactly
+48,794,098 bytes; report SHA-256
+`bbcba624f6a51f82e0ebdebf6e7e4cda10804bc8df34cfd0d5b3242983a225d0`.
+No held-out photo, depth, supplied pose, or reference mesh entered staging.
+
+For a *future* independently accepted complete correction, run from the
+repository root with the pinned interpreter
+`/Users/christianstrobele/code/crisp3ds/.local-tools/colmap-sparse/venv/bin/python`
+and `PYTHONDONTWRITEBYTECODE=1`. The read-only composer module is
+`-m scripts.classical_backend.mustard_candidate48`
+with `--correction-root <fresh-complete-board5-root>`,
+`--correction-manifest-sha256 <sealed-new-manifest-sha>`,
+`--correction-prompts tests/datasets/sam21_mustard_m1_board5_prompts.json`,
+`--correction-prompts-sha256 8cc0b6fa49d977194870ef91f10b83a793294d6b3903cb1e08643016bdc9b4f8`,
+`--correction-qa <tracked-five-view-review>` and
+`--correction-qa-sha256 <accepted-review-sha>`. Only separate root approval
+permits repeating with `--compose`; that writes fresh
+`/Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-candidate48-001`.
+The analogous read-only staging module is
+`-m scripts.classical_backend.mustard_stage` with
+`--train-photos /Volumes/backups/code/crisp3ds-data/sam21-m1-train48-001/photos`,
+`--inventory /Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-candidate48-001/complete_inventory.json`,
+`--inventory-root /Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-candidate48-001`,
+`--inventory-sha256 <composed-inventory-sha>`,
+`--qa <tracked-full48-review>` and
+`--qa-sha256 <accepted-full48-review-sha>`. Only separate approval permits
+repeating with `--prepare`, producing fresh
+`/Volumes/backups/code/crisp3ds-data/mustard-sfm-train-001`. The currently
+failed board5-001 artifact cannot satisfy these placeholders; a future
+complete artifact requires its own fresh path and reviewed hashes.
 
 There is no existing mustard SfM baseline. Prior cracker-box raw/masked trials
 are settings precedent, not a cross-object baseline. The control must be a
@@ -120,6 +196,19 @@ The runner captures effective `pycolmap-options.json`, input hashes, stages,
 and `sfm.json`, including registered and missing names and candidate models.
 An arm below 70% registration is a failed *preset gate*, but retain its
 diagnostic counts; do not erase or relabel it as a completed result.
+The prepared paired output names are fresh
+`/Volumes/backups/code/crisp3ds-data/mustard-sfm-raw-001` and
+`/Volumes/backups/code/crisp3ds-data/mustard-sfm-masked-001`.
+Both use `/Volumes/backups/code/crisp3ds-data/mustard-sfm-train-001/images`
+for `--images`, that directory's `train-names.txt` for `--image-list`,
+the absolute interpreter above for `--python`, and
+`/Users/christianstrobele/code/crisp3ds/.local-tools/classical-backend/bin`
+for `--binary-dir`. The masked-only `--pose-mask-dir` is
+`/Volumes/backups/code/crisp3ds-data/mustard-sfm-train-001/masks`.
+Set `TMPDIR=/Volumes/backups/code/crisp3ds-data` for each run. Both frozen
+arms were subsequently launched with the same listed settings and image order;
+their sealed outcomes are reported below. These commands describe that paired
+run, not a new launch request.
 
 Each run is capped at **2 GiB output**, **10 minutes**, **32 MiB per stage
 log**, **4 GiB sampled child RSS**, and two CPU threads. The runner already
@@ -155,12 +244,100 @@ feature/match database and binary sparse model, hashes them before/after,
 and reports these metrics with finite/invalid reprojection denominators.
 Its analytic and tiny native PyCOLMAP tests are in
 [`test_sparse_sfm_metrics.py`](../scripts/object_dataset/test_sparse_sfm_metrics.py).
-It has **not** been run on a mustard reconstruction because neither paired
-SfM arm exists yet.
+The two arms did not produce an accepted sparse export, so the failure-aware
+path of that evaluator was used on their sealed results. It reads a
+sidecar-free, byte-identical database snapshot, verifies the original database
+and archived producer source before and after, and never treats a rejected
+candidate as a successful model.
 Report all denominators and any missing models. Lower reprojection error with
 fewer tracks or cameras is not automatically better. Camera gauge is arbitrary
 Sim(3), and a sparse success is neither an object mesh nor physical accuracy.
 
+### Sealed paired outcome (training images only)
+
+| Arm | Producer result | Verified-pair graph | Saved geometry |
+| --- | --- | --- | --- |
+| Raw | Failed: no initial pair/model | 348 nonempty verified-pair edges; all 48 images in one connected component | None; registration, tracks, and reprojection are unavailable, not zero |
+| Masked | Failed the preset three-camera gate | 229 nonempty verified-pair edges; all 48 images in one connected component | Rejected candidate only: 2/48 registered (`NP3_006`, `NP3_030`), 69 points, 138/138 finite track-observation projections |
+| Masked, fixed-initial intrinsics ablation | Sparse stage complete: 37/48 registered, not quality-accepted | 228 nonempty verified-pair edges; all 48 images in one connected component | 717 points; 3,437/3,437 finite track-observation projections, with repeated-image track anomalies disclosed below |
+| Masked, fixed-initial + exhaustive matching ablation | Sparse stage complete: 48/48 registered, not quality-accepted | 400 nonempty verified-pair edges; all 48 images in one connected component | 939 points; 4,815/4,815 finite track-observation projections, with repeated-image track anomalies disclosed below |
+
+For the **rejected two-camera candidate**, reprojection L2 is mean 0.4329 px,
+median 0.2588 px, p95 1.4115 px over 138 observations; each of the 69 tracks
+has length two. These small residuals on two selected views are not evidence of
+48-view reconstruction quality. Its saved SIMPLE_RADIAL intrinsics are
+`f=336.1569`, `cx=640`, `cy=512`, `k=5.6530` for 1280×1024 images. The radial
+parameter exceeds the mapper's recorded `max_extra_param=1.0`; this is a
+diagnostic of an implausible rejected candidate, not a proven sole cause of
+the failure. The raw arm's connected match graph likewise does not imply a
+recoverable initial pair. No held-out image, reference scan, or GT was used to
+select either arm or compute these metrics.
+
+The fixed-initial masked ablation held the image reader's initial intrinsics
+fixed during mapping; its single saved SIMPLE_RADIAL camera is
+`[f=1536,cx=640,cy=512,k=0]` on 1280×1024 images. This is the fixed initial
+value (consistent with the 1.2×width heuristic fallback), **not measured
+calibration**. Its registered views omit eleven
+train images, including the contiguous tail `NP3_276` through `NP3_348`.
+Of 717 tracks, 604 (84.24%) contain at least three **distinct views**;
+distinct-view median length is 4 and p95 is 10. Reprojection L2 across all
+3,437 saved track observations is mean 1.1590 px, median 0.9498 px, p95
+2.8418 px. Crucially, 31 tracks contain 53 extra observations from images
+already present in those tracks (different 2D keypoints). The evaluator counts
+all observations, verifies every 2D↔3D backlink, and separately reports
+distinct-view track lengths. This saved-model anomaly prevents treating the
+small residuals or the evaluator's `status=complete` as an integrity-clean or
+object-quality success. The policy ablation changed mapping intrinsics, not
+the frozen images/masks/matching settings; it is a distinct run, not a paired
+raw-versus-masked effect estimate. No object mesh or held-out camera evaluation
+was produced here.
+
+One final **matching-only** ablation retained the same 48 masked training
+photos, SIMPLE_RADIAL single camera, fixed-initial policy, feature cap,
+resolution, seed, model retry bounds, and registration gate, but switched
+sequential matching to exhaustive matching. It registered 48/48 training
+views with 939 points; its camera remained `[1536,640,512,0]`. Of 939
+tracks, 753 (80.19%) contain at least three distinct views; distinct-view
+median is 4 and p95 is 12. Across 4,815 saved track observations,
+reprojection L2 is mean 1.0839 px, median 0.8677 px, p95 2.7589 px. Here
+42 tracks contain 81 extra observations from images already represented in
+their tracks. More registration and points with exhaustive matching are a
+training-SfM diagnostic, **not** a held-out pose or shape-quality result;
+the repeated-image anomalies remain, and initial intrinsics are still not
+independently calibrated. Worker stage wall times overlapped an unrelated
+test suite, so they must not be ranked as controlled speed measurements.
+
+The full small reports are preserved as
+[`raw failure metrics v2`](../tests/evidence/mustard-sfm-raw-failure-metrics-v2.json)
+(SHA-256 `4ca65c22c56cc78a72476a0523dedc2d3b49389f8054f4c18226b942c5fe5983`),
+[`masked failure metrics v2`](../tests/evidence/mustard-sfm-masked-failure-metrics-v2.json)
+(SHA-256 `8b81729269be28df76bf6b9b73b85821b6e12b747e428aeb5bdeaab724a5e205`),
+[`fixed-initial sparse metrics`](../tests/evidence/mustard-sfm-masked-fixed-initial-sparse-metrics.json)
+(SHA-256 `a2242996cb9d0c48ff1281665461769b8e4041f5550c5c5f42a110d25b2085af`),
+and [`fixed-initial exhaustive sparse metrics`](../tests/evidence/mustard-sfm-masked-fixed-exhaustive-sparse-metrics.json)
+(SHA-256 `76bc60d9aba999b50a73ad51ffbe7d08e0c0a8a2bd68f1d45279ac51f7a1cf26`).
+These are final-helper reports; the earlier external v1 failure diagnostics
+remain as immutable superseded evidence, not the cited comparison.
+They bind the original producer reports, archived historical runner source,
+database snapshots for the failed runs, logs, effective options, and saved
+binary models. The original producer databases and sidecars were not modified
+by this analysis. The fixed-initial run does not retroactively change the
+paired failure result.
+
 Do not inspect held-out photos to choose masks or SfM options. A later
 held-out image evaluation needs separately estimated test cameras and its
 own leakage disclosure; this paired training-only result is not that test.
+
+## Next scoped quality tasks
+
+1. Audit and repair repeated-image tracks in a separate candidate model. Keep
+   the original model immutable; define the observation-selection rule before
+   scoring, retriangulate/refine, and compare distinct-view support and finite
+   reprojection denominators without rewarding deletion alone.
+2. Evaluate guarded delayed intrinsics refinement only after that structural
+   audit. Fixed initial intrinsics stabilized this capture but are not known
+   calibration; reject collapsed focal/radial solutions and preserve the fixed
+   baseline. Do not tune against the reference mesh or held-out photographs.
+3. Run a bounded dense/mesh pipeline from accepted camera candidates and score
+   independent reference-surface accuracy and completeness together. Full
+   camera registration is not the acceptance criterion for that milestone.

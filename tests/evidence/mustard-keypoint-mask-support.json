@@ -1,0 +1,34 @@
+{
+  "schema": "mustard_keypoint_mask_support_evidence_v1",
+  "status": "diagnostic_only",
+  "source_scope": "48 staged mustard TRAIN RGB photographs; no held-out photographs, reference mesh, supplied poses, or depth",
+  "mask_role": "root-accepted coarse pose support, not exact silhouette or ground-truth object/background",
+  "pixel_mapping": "floor measured COLMAP keypoint XY into full-resolution binary PNG; out-of-bounds counted separately",
+  "stage_report_sha256": "bbcba624f6a51f82e0ebdebf6e7e4cda10804bc8df34cfd0d5b3242983a225d0",
+  "auditor_source_sha256": "e24ed0545a4dafc810cd3f3c7f628c277e65df380e18e72f6fc38fb1b86fb6cc",
+  "raw": {
+    "producer_status": "failed",
+    "producer_result_sha256": "92a1d3b74bd5b28a92894f790c4536391f265afd28685f3c57ed90265c8b3732",
+    "producer_database_and_snapshot_sha256": "314e4ea4e817ef20e0b64b58eb83070d3af4286bab00aa9b6c9f86236d4386a7",
+    "audit_report_sha256": "7b0aa6a07fa1a791b75f125b80c2b7d46026c84d8da5206fbbb73abeb07a3160",
+    "total_keypoints": 109954,
+    "inside_coarse_pose_mask": 8882,
+    "outside_coarse_pose_mask": 101072,
+    "outside_image_grid": 0
+  },
+  "masked": {
+    "producer_status": "failed",
+    "producer_result_sha256": "a8219d7283c18a215085dfe9052989a4934958c513da191d61afdc0dfb73b4a2",
+    "producer_database_and_snapshot_sha256": "04fe6c3754116902e320ae7d9494b8b5b4bd26a62224ea8e03c86c90a6aeed4a",
+    "audit_report_sha256": "79627c68ac1f3828eba9cae53435040b2f889c3aea877cb67433e5e20860e556",
+    "total_keypoints": 8882,
+    "inside_coarse_pose_mask": 8882,
+    "outside_coarse_pose_mask": 0,
+    "outside_image_grid": 0
+  },
+  "per_image_masked_count_equals_raw_in_mask_count": {
+    "compared_image_count": 48,
+    "mismatch_count": 0
+  },
+  "interpretation_limit": "Equality shows masking retained the same detected in-mask keypoint counts while excluding out-of-mask detections. It does not establish object-track quality, camera accuracy, shape accuracy, or SfM success."
+}

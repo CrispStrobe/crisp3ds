@@ -4,6 +4,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sqlite3
+import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -126,8 +127,20 @@ class SparseSFMMetricsTests(unittest.TestCase):
         image = FakeImage("A", 0, [((50, 50), 1)])
         bad = SimpleNamespace(images={1: image}, reg_image_ids=lambda: [1], points3D={
             1: point((0, 0, 2), (1, 0), (1, 0))})
-        with self.assertRaisesRegex(ValueError, "duplicate image"):
+        with self.assertRaisesRegex(ValueError, "duplicate track observation"):
             metrics.summarize_model(bad, ["A"])
+
+    def test_distinct_2d_observations_in_same_image_are_counted_not_hidden(self):
+        images = {1: FakeImage("A", 0, [((50, 50), 1), ((51, 50), 1)]),
+                  2: FakeImage("B", 0, [((50, 50), 1)])}
+        model = SimpleNamespace(images=images, reg_image_ids=lambda: [1, 2], points3D={
+            1: point((0, 0, 2), (1, 0), (1, 1), (2, 0))})
+        report = metrics.summarize_model(model, ["A", "B"])
+        self.assertEqual(report["repeated_image_tracks"], 1)
+        self.assertEqual(report["repeated_image_observations"], 1)
+        self.assertEqual(report["track_length"]["at_least_three_count"], 1)
+        self.assertEqual(report["distinct_image_track_length"]["at_least_three_count"], 0)
+        self.assertEqual(report["reprojection_l2_pixels"]["track_observation_denominator"], 3)
 
     def test_broken_2d_3d_backlink_rejected(self):
         images = {1: FakeImage("A", 0, [((50, 50), 99)]),
@@ -224,6 +237,130 @@ class SparseSFMMetricsTests(unittest.TestCase):
             self.assertEqual(report["matching_graph"]["component_count"], 47)
             self.assertEqual(report["model"]["reprojection_l2_pixels"]["finite_count"], 2)
             self.assertTrue(output.is_file())
+
+
+class FailedSparseDiagnosticsTests(unittest.TestCase):
+    def setUp(self):
+        temp_root = Path(__file__).resolve().parents[2] / ".local-tools/tmp"
+        temp_root.mkdir(parents=True, exist_ok=True)
+        self.temp = tempfile.TemporaryDirectory(dir=temp_root)
+        self.addCleanup(self.temp.cleanup)
+        self.base = Path(self.temp.name)
+        self.run = self.base / "run"
+        (self.run / "models").mkdir(parents=True)
+        self.producer_source = self.base / "historical-run.py"
+        self.producer_source.write_bytes(
+            (metrics.ROOT / "scripts/classical_backend/run.py").read_bytes())
+        self.snapshot = self.base / "database-snapshot.db"
+        self.package = self.base / "package.json"
+        self.names = [f"NP3_{index * 6:03}.jpg" for index in range(48)]
+        self.rows = [{"path": "photos/" + name, "sha256": f"{index:064x}"}
+                     for index, name in enumerate(self.names)]
+        self.package.write_text(json.dumps({"schema": "ycb_object_evaluation_package_v1",
+                                            "object_id": "006_mustard_bottle",
+                                            "training_inputs": self.rows}))
+        with closing(sqlite3.connect(self.run / "database.db")) as connection:
+            connection.execute("CREATE TABLE images (image_id INTEGER, name TEXT)")
+            connection.execute("CREATE TABLE two_view_geometries (pair_id INTEGER, rows INTEGER)")
+            connection.executemany("INSERT INTO images VALUES (?,?)",
+                                   [(index + 1, name) for index, name in enumerate(self.names)])
+            connection.execute("INSERT INTO two_view_geometries VALUES (?,?)",
+                               (metrics.PAIR_BASE + 2, 15))
+            connection.commit()
+        self.snapshot.write_bytes((self.run / "database.db").read_bytes())
+        source = {"kind": "internal_image_only_pycolmap", "random_seed": 20260927,
+                  "camera_model": "SIMPLE_RADIAL", "camera_mode": "SINGLE",
+                  "matching": "sequential"}
+        (self.run / "pycolmap-options.json").write_text(json.dumps({
+            "version": "3.11.1", "seed": 20260927, "camera_model": "SIMPLE_RADIAL",
+            "camera_mode": "SINGLE", "matching_strategy": "sequential"}))
+        self.result = {"schema": "classical_backend_v1", "status": "failed",
+                       "failure": "sfm failed: exit 1", "sfm_source": source,
+                       "inputs": [{"name": name, "sha256": row["sha256"]}
+                                  for name, row in zip(self.names, self.rows)],
+                       "stages": [{"name": name, "status": "failed" if name == "sfm" else "complete",
+                                   "exit_code": 1 if name == "sfm" else 0,
+                                   "log": str(self.run / f"{name}.log")}
+                                  for name in ("features", "matching", "sfm")],
+                       "changed_source_images": [], "changed_pose_masks": [],
+                       "changed_binaries": [], "software": {"runner_sha256":
+                           metrics.sha256(self.producer_source)}}
+        for name in ("features", "matching"):
+            (self.run / f"{name}.log").write_text(name + " complete\n")
+        self.no_model_log = "ValueError: SfM produced no model\n"
+        (self.run / "sfm.log").write_text(self.no_model_log)
+        self.save_result()
+
+    def save_result(self):
+        (self.run / "result.json").write_text(json.dumps(self.result))
+
+    def evaluate(self, output_name="metrics.json"):
+        with patch.object(metrics, "PACKAGE_SHA", metrics.sha256(self.package)), \
+             patch.object(metrics, "MIN_FREE", 0):
+            return metrics.evaluate_failed_sfm(self.run, self.package, self.base / output_name,
+                                               self.snapshot, self.producer_source)
+
+    def test_no_model_graph_only_and_no_invented_geometry(self):
+        report = self.evaluate()
+        self.assertEqual(report["status"], "failed_no_model")
+        self.assertEqual(report["matching_graph"]["component_sizes"], [2] + [1] * 46)
+        self.assertIsNone(report["model"])
+        self.assertEqual(report["model_role"], "unavailable_no_model")
+        self.assertFalse(report["accepted_sparse_export"])
+        self.assertIn(str((self.run / "sfm.log").resolve()), report["source_sha256"])
+        self.assertEqual(report["source_sha256"][str(self.snapshot.resolve())],
+                         report["source_sha256"][str((self.run / "database.db").resolve())])
+
+    def test_snapshot_or_historical_producer_drift_rejected(self):
+        self.snapshot.write_bytes(b"changed")
+        with self.assertRaisesRegex(ValueError, "database snapshot"):
+            self.evaluate()
+        self.snapshot.write_bytes((self.run / "database.db").read_bytes())
+        self.producer_source.write_bytes(b"changed")
+        with self.assertRaisesRegex(ValueError, "producer"):
+            self.evaluate()
+
+    def test_nonempty_source_wal_or_snapshot_sidecar_rejected(self):
+        (self.run / "database.db-wal").write_bytes(b"uncheckpointed")
+        with self.assertRaisesRegex(ValueError, "database snapshot"):
+            self.evaluate()
+        (self.run / "database.db-wal").unlink()
+        (self.base / "database-snapshot.db-shm").write_bytes(b"sidecar")
+        with self.assertRaisesRegex(ValueError, "database snapshot"):
+            self.evaluate()
+
+    def test_no_model_rejects_wrong_failure_or_hidden_export(self):
+        self.result["stages"][-1]["status"] = "complete"
+        self.save_result()
+        with self.assertRaisesRegex(ValueError, "producer"):
+            self.evaluate()
+        self.result["stages"][-1]["status"] = "failed"
+        self.save_result()
+        (self.run / "sparse/0").mkdir(parents=True)
+        with self.assertRaisesRegex(ValueError, "accepted sparse"):
+            self.evaluate()
+
+    def test_rejected_two_camera_candidate_is_not_success(self):
+        (self.run / "sfm.log").write_text(
+            "ValueError: SfM model has fewer than 3 cameras or no points\n")
+        (self.run / "sfm.json").write_text(json.dumps({
+            "registered_images": 2, "sparse_points": 3,
+            "registered_names": self.names[:2], "selected_model_index": 0,
+            "candidate_models": [{"index": 0, "registered_images": 2, "sparse_points": 3}]}))
+        model_dir = self.run / "models/0"
+        model_dir.mkdir()
+        for name in metrics.MODEL_FILES:
+            (model_dir / name).write_bytes(name.encode())
+        fake = SimpleNamespace(Reconstruction=lambda path: object())
+        model_report = {"registered_count": 2, "sparse_points": 3,
+                        "registered_names": sorted(self.names[:2])}
+        with patch.dict(sys.modules, {"pycolmap": fake}), \
+             patch.object(metrics, "summarize_model", return_value=model_report):
+            report = self.evaluate()
+        self.assertEqual(report["status"], "failed_degenerate_model")
+        self.assertEqual(report["model_role"], "rejected_candidate_model")
+        self.assertFalse(report["accepted_sparse_export"])
+        self.assertEqual(report["model"]["registered_count"], 2)
 
 
 if __name__ == "__main__":

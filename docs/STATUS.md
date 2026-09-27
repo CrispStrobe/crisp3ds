@@ -13,7 +13,69 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
-### Current continuation: five-view correction ready, RAM-gated
+### Current continuation: all 48 cameras recovered; surface accuracy still untested
+
+The M1 CPU correction trial completed in 27.78 seconds but only three of five
+masks passed its checks. Its parent remains failed/partial. Root accepted those
+three masks separately; a frozen, versioned tighter-ROI recipe then produced
+the remaining two in 8.34 seconds (sampled peak RSS 1,430,416 KiB). Root reviewed
+both broad-context sheets and the new complete 48-view sheet. Acceptance is
+for **coarse camera-alignment support**, not exact silhouettes or mesh accuracy.
+
+The new candidate preserves 43 original masks and selects the five reviewed
+repairs with per-view source, prompt, producer and QA hashes. Its
+[independent full-set review](../tests/datasets/sam21_mustard_candidate48_v2_review.json)
+binds every mask and the contact sheet. A fresh train-only stage contains
+48 exact photographs and masks (48,794,098 copied bytes) on the external SSD;
+no held-out photographs, supplied poses or reference geometry enter it.
+The [paired comparison](MUSTARD-SFM-COMPARISON.md) ran with identical frozen CPU
+COLMAP settings, raw then masked, and no dense reconstruction. **Both failed.**
+Raw images produced no model (45.915 seconds summed worker stages); masked
+images produced only a rejected two-camera, 69-point candidate (22.995 seconds).
+Neither is a usable 48-view reconstruction. The masked candidate's focal length
+fell from the heuristic 1536 px to 336.16 px and its radial parameter reached
+5.653, beyond the mapper's configured extra-parameter limit of 1.0. This is
+evidence of a self-calibration failure to investigate, not proof that fixing
+intrinsics will recover accurate geometry.
+
+The reusable `--sfm-intrinsics-policy fixed-initial` ablation then recovered
+**37/48 cameras (77.1%), 717 points and 3,437 track observations** in 27.136
+seconds summed worker time, with the same masks, matching, seed and acceptance
+thresholds. Its actual camera parameters remain `[1536,640,512,0]`; these are
+initial estimates, not supplied calibration. Eleven consecutive late views
+(276–348 degrees in the selected split) remain unregistered. The producer's
+sparse gate passed, but deeper inspection found **31/717 tracks with multiple
+observations from the same image**. Diagnostics must disclose that integrity
+warning and distinguish observation counts from distinct-view support.
+No dense reconstruction, reference-mesh accuracy or KIRI-quality claim follows
+from this result. The baseline failures remain preserved.
+
+A read-only boundary audit found only 20, 22 and 11 unique existing-point
+correspondences for the first three missing views, below the unchanged 30-inlier
+pose gate; later missing views had no verified edges to the registered model.
+Sequential matching also had not attempted wrap-around pairs. A separate final
+ablation changed **only matching to exhaustive**, retaining fixed initial
+intrinsics and all other settings. It recovered **48/48 cameras, 939 sparse
+points and 4,815 observations**, with no missing views and camera parameters
+still `[1536,640,512,0]`. Summed worker time was 38.558 seconds. Regression tests
+overlapped these runs, so these timings are not a controlled speed benchmark.
+The final model has 753/939 tracks supported by at least three distinct views;
+median distinct-view support is four. Recomputed observation reprojection
+median is 0.868 px and p95 2.759 px (4,815 finite observations). **42/939 tracks
+contain repeated-image observations**, so track-integrity warnings remain.
+Full registration is an alignment milestone, not 100% geometric accuracy:
+the next gate is sparse-track integrity followed by dense/mesh evaluation
+against independent reference geometry. No additional reconstruction trials
+or dense stages were run after this ablation.
+
+Local regression: **514 Python tests run, 8 skipped, 506 passed** in 29.67
+seconds; **11/11 native CTests passed**.
+Both CI workflows passed at the intrinsics-policy commit `7416af7`; the final
+diagnostics/evidence commit requires its own post-push CI result.
+Large data and AI weights remain on the SSD, with the 10 GiB free-space floors
+unchanged. Sparse results are not yet a surface-quality measurement.
+
+### Previous continuation: five-view correction ready, RAM-gated
 
 The separately frozen [board-negative experiment](M1-SAM.md) adds the
 original-image negative point `(620,330)` only to the five rejected training

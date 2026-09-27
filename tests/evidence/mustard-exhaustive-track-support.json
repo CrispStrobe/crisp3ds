@@ -1,0 +1,32 @@
+{
+  "schema": "mustard_exhaustive_track_support_evidence_v1",
+  "status": "diagnostic_only",
+  "source_scope": "48 staged mustard TRAIN RGB photographs, accepted coarse pose PNGs; no held-out photos, supplied poses, depth, or reference geometry",
+  "producer_result_sha256": "5a83c3e05e2b66887411799ecc8c5f3f41e3b8af3bbd775d308055ef7ee0041e",
+  "stage_report_sha256": "bbcba624f6a51f82e0ebdebf6e7e4cda10804bc8df34cfd0d5b3242983a225d0",
+  "track_audit_report_sha256": "4f746ddc85a260222573ea6e6c8e13aaf86cfe0f7a1b84b2b3358bd7c5ef3eb6",
+  "runner_sha256": "38b9465bf667459ac6ef5ae0cd3c6e709846c3ee03d71fe237126bc35c7ea055",
+  "helper_sha256": "e24ed0545a4dafc810cd3f3c7f628c277e65df380e18e72f6fc38fb1b86fb6cc",
+  "model_files_sha256": {
+    "cameras.bin": "ebc18fcca6fa2dacf0b6ff16cfae700d62d44626530d48dcecc7e72767a24348",
+    "images.bin": "67a1e75744aad52eef299a59c5a91ec1ec06d45b0f98ffff96fcb65698d1cfa6",
+    "points3D.bin": "eb60667d3e4145fb423e1fa7ec37169830ef19e49a56fe620efa9c7322803b02"
+  },
+  "registered_training_images": 48,
+  "sparse_points": 939,
+  "measured_track_observations": 4815,
+  "inside_coarse_pose_png": 4815,
+  "outside_coarse_pose_png": 0,
+  "outside_image_grid": 0,
+  "tracks_with_at_least_three_distinct_registered_views": 753,
+  "tracks_with_duplicate_same_image_observations": 42,
+  "extra_same_image_observations": 81,
+  "shared_camera": {
+    "model": "SIMPLE_RADIAL",
+    "size": [1280, 1024],
+    "params": [1536.0, 640.0, 512.0, 0.0],
+    "focal_over_width": 1.2,
+    "intrinsics_origin": "frozen initial EXIF/heuristic shared camera; no independent calibration supplied"
+  },
+  "interpretation_limit": "All measured sparse observations land inside accepted coarse pose masks, not ground-truth object silhouettes. The 42 duplicate-image tracks and fixed heuristic intrinsics preclude a camera/geometry accuracy claim."
+}

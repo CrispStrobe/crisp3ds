@@ -215,11 +215,110 @@ and ≥10 GiB free on both internal/external volumes. Six hermetic
 fourth-negative forwarding, board-foreground rejection, baseline tamper,
 partial raw-mask preservation and cap boundaries. Read-only input preflight
 passed on the actual Mac bundle, but free+inactive was only 3,811,184 KiB,
-below the 4,194,304 KiB launch gate. **No five-view inference has run.**
+below the 4,194,304 KiB launch gate at that preflight. No inference ran then.
 Root approved one bounded trial conditional on that gate. The permitted
 60-second observation sampled 3,664,560–3,916,176 KiB, never reaching it;
 the proposed fresh output and supervisor sidecar remained absent. No retry or
 resource-limit change was made.
+
+Root later approved exactly one live run after a fresh preflight measured
+6,535,536 KiB available and ≥20,269,854,720 bytes free on the smaller disk.
+The fresh [board5 output](</Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-board5-001/manifest.json>)
+is **partial/unusable**, not a five-view mask set: `NP3_318`, `330` and `348`
+completed as unreviewed candidates; `NP3_336` still marked the new negative
+point as foreground (`[1,0,0,1]`), and `NP3_342` exceeded the predeclared 10%
+largest-component removal limit. All five raw masks and the
+[review sheet](</Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-board5-001/review_sheet.jpg>)
+are preserved; the two failed views have no cleaned masks. Manifest SHA-256 is
+`1008fc7bdbaa75ac33f17f8ddf44eaa275b3e98eb21466906060ebc3300c638c`,
+review-sheet SHA-256 is
+`610936086ea359290567d6627d1bd0309e1038c6e7b2f644f70b1e636c98b9fc`,
+and [supervisor report](</Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-board5-001/supervisor.json>)
+SHA-256 is
+`b4485b72c539d59b6b3229917f0099ceb11359cdb8c9228bd0553208989619ce`
+with `status=failed`. The run took 27.78 s total with peak worker RSS
+1,436,656 KiB; no resource cap was relaxed. No automatic retry, visual QA
+acceptance, 48-view composition, SfM or dense reconstruction followed.
+
+### Versioned prompt recipe for the two still-failed views
+
+A separate [v2 recipe](../tests/datasets/sam21_mustard_m1_two_view_recipe.json)
+(SHA-256 `38f2a40af084df4c177925bfcfad7b5ebe5f131388283d14d15f5e690a8d0367`)
+selects only TRAIN `NP3_336` and `NP3_342`, with box
+`[520,365,665,600]` and the same four original-image points. The bottle is
+inside the tighter box in both original RGB photos; the three negative
+points are outside the box but inside the image, which pinned SAM2 handles
+as independently transformed prompt tokens. The box still overlaps some
+checkerboard near the cap, so this is a candidate, not proof of exclusion.
+The [versioned validator](../scripts/object_motion/sam_prompt_recipe.py)
+binds per-view canonical SHA-256 of `{name, source_sha256,
+box_xyxy_original_pixels, points_xy_label}`. Its v1 adapter reads the frozen
+five-view prompt bytes without modifying that runner or its artifacts; v2
+permits 1–16 labeled, image-valid points, requires at least one positive
+inside the box, and permits negative points outside it. A required reviewed
+`--recipe-sha256` binds the selected TRAIN names, box and points for each run.
+
+The bounded [generic Mac runner](../scripts/object_motion/sam_m1_recipe_trial.py)
+binds the rejected base48 inventory and exact failed/partial five-view parent
+hashes and file sets. It preserves raw output on per-view mask rejection,
+retains the 90 s worker/240 s total, 4 GiB launch/2.5 GiB runtime memory,
+1.5 GiB RSS, 20 MiB output and dual-10 GiB disk gates, and shows the broad
+`[480,300,760,650]` context in review sheets even though prediction uses the
+tighter recipe box. Seven focused tests passed, including v1 compatibility,
+out-of-box negatives, tamper/reordered names, parent file-set safety and a
+fake two-view predictor. The source SHA-256 values at the actual run were
+`814fecab6cb30fafd3abd03d320ec1d4f3584437cc2697589168deb19a4da4d7`
+for the runner and
+`cacf2b031f3378bf8c2b9d64daf6c38ce17bdfe2e104b20008129eba82b33aaf`
+for the recipe helper.
+
+Root approved one fresh run after read-only preflight found 6,305,024 KiB
+available and 20,200,599,552 bytes free on the smaller volume. Both
+generated masks passed the frozen *numeric* point/area/cleanup checks, each
+with one 8-connected component and zero removed pixels. The
+[manifest](</Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-recipe-001/manifest.json>)
+SHA-256 is
+`361d32f4342fa193d5bfed68289f0a44151b3768b54d2a30998dd4a6b11c6f01`;
+the [supervisor](</Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-recipe-001/supervisor.json>)
+SHA-256 is
+`c9124c9d1fe921396fda801f15a7f2cb9a7022a6d1829494aad9bc12ff7e703d`
+(`generated_unreviewed`, no failure reason, 8.34 s total, peak worker RSS
+1,430,416 KiB). The [broad-context review sheet](</Volumes/backups/code/crisp3ds-data/sam21-mustard-m1-recipe-001/review_sheet.jpg>)
+SHA-256 is
+`58a5c387d7204099197441282f467ad4093e3e2cf44de0d048680f99dacf85b1`.
+Root subsequently inspected that broad-context RGB/raw/cleaned sheet and
+[accepted exactly these two masks for coarse pose support](../tests/datasets/sam21_mustard_two_view_subset_review.json)
+(QA record SHA-256
+`fb26b831e340062267fbb8093c9ec7b1255212ac01523a75d130126ad188f656`).
+Both retain bottle, cap and labels without visible board leakage in this
+review, but a fine boundary fringe remains. Acceptance is **only** for the
+named two-view subset; these are not exact silhouettes, measured geometry,
+or direct SfM approval. The original full48 rejection and failed five-view
+parent remain unchanged. A separately QA-accepted, hash-composed full48
+inventory was required before any masked SfM arm; neither that composition
+nor reconstruction had run at the time of this subset-only QA.
+
+### Subsequent TRAIN-only sparse diagnostics
+
+A later separately reviewed complete candidate was staged, and paired
+mustard SfM experiments ran. The [tracked exact-PNG keypoint audit](../tests/evidence/mustard-keypoint-mask-support.json)
+binds read-only sidecar-free database snapshots: raw extraction had 109,954
+keypoints, of which 8,882 fell inside the accepted coarse pose masks;
+masked extraction retained exactly those 8,882 in-mask keypoints, with
+per-image equality for all 48 photographs. Both initial sparse arms failed,
+so this is feature-selection evidence, not successful object-track evidence.
+
+The final image-only fixed-initial/exhaustive sparse arm registered 48/48
+TRAIN photographs with 939 points. Its independently
+[hash-bound observation audit](../tests/evidence/mustard-exhaustive-track-support.json)
+sampled every measured COLMAP point2D against the accepted binary PNGs:
+4,815/4,815 observations landed inside the coarse masks, 753 points have
+observations in at least three *distinct* cameras, and 42 tracks contain 81
+extra same-image observations that were retained in the denominator. The
+shared SIMPLE_RADIAL parameters `[1536,640,512,0]` are fixed initial
+EXIF/heuristic values, **not independently verified calibration**. These
+checks support image-derived foreground-track coverage, but neither the
+coarse masks nor reprojection/registration prove camera or mesh accuracy.
 
 Meta's [SAM2 requirements](https://github.com/facebookresearch/sam2/blob/main/setup.py)
 include Python ≥3.10, PyTorch ≥2.5.1 and matching TorchVision. The pinned
