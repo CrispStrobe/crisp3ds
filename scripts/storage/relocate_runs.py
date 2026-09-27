@@ -48,6 +48,16 @@ def sync_files(root: Path, relative_names: list[str]) -> None:
             os.fsync(stream.fileno())
 
 
+def link_points_to_destination(link: Path, destination: Path) -> bool:
+    """Compare resolved targets; Windows may spell readlink() with a device prefix."""
+    if not link.is_symlink():
+        return False
+    try:
+        return link.resolve(strict=False) == destination.resolve(strict=False)
+    except (OSError, RuntimeError):
+        return False
+
+
 def inventory(root: Path) -> dict:
     """Full relative file hashes plus empty-directory inventory; reject links/devices."""
     if root.is_symlink() or not root.is_dir():
@@ -172,7 +182,7 @@ def relocate(name: str, *, workspace: Path = WORKSPACE,
         # No deletion has begun. Restore the original path only if our exact
         # symlink and intact backup are still present; never replace an
         # unexpected user path.
-        if (source.is_symlink() and source.readlink() == dest and
+        if (link_points_to_destination(source, dest) and
                 backup.is_dir() and not backup.is_symlink()):
             source.unlink()
             backup.rename(source)

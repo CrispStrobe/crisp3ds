@@ -4,7 +4,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from scripts.storage.relocate_runs import ALLOWLIST, inventory, relocate, sync_files, sync_open_mode
+from scripts.storage.relocate_runs import (ALLOWLIST, inventory, link_points_to_destination,
+                                           relocate, sync_files, sync_open_mode)
 
 
 class RelocationTests(unittest.TestCase):
@@ -85,6 +86,13 @@ class RelocationTests(unittest.TestCase):
         before = inventory(self.source)
         sync_files(self.source, ["nested/result.json"])
         self.assertEqual(inventory(self.source), before)
+
+    def test_link_target_comparison_accepts_equivalent_relative_spelling(self):
+        link = self.workspace / "relative-link"
+        link.symlink_to(self.source.relative_to(self.workspace), target_is_directory=True)
+        self.assertNotEqual(link.readlink(), self.source)
+        self.assertTrue(link_points_to_destination(link, self.source))
+        self.assertFalse(link_points_to_destination(link, self.destination))
 
     def test_copy_mutation_during_flush_rolls_back_before_deletion(self):
         import scripts.storage.relocate_runs as mod
