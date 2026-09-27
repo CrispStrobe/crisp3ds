@@ -13,6 +13,31 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
+### Latest continuation: fusion isolation ready, execution disk-blocked
+
+Supervised Sol work adds a [source-reviewed OpenMVS fusion comparison](OPENMVS-PATCH-PLAN.md)
+and a bounded executor. It copies the same sealed 008 cameras/images/masks/final
+depth maps into independent arms; only fusion filter 2 versus 1 changes.
+Independent review confirmed relative scene paths and the pinned cached-depth
+code path. Tests reject changed maps, config overrides and changed binaries.
+The fresh execution preflight stopped before creating either arm: free space
+was 12,369,154,048 bytes versus 12,473,860,096 required for the 10 GiB reserve,
+two 700 MiB caps and a 256 MiB buffer. No native process, source rebuild, fork
+algorithm change or quality comparison ran. No data was deleted to make room.
+
+The separate mustard row-envelope candidate completed once on the VPS for all
+48 training photos. Root reviewed both sheets: label bands are preserved, but
+checkerboard background leaks into multiple masks (particularly NP3_282).
+The [successor QA record](../tests/datasets/ycb_mustard_envelope_review.json)
+therefore rejects it for reconstruction. Both failed candidates remain intact;
+no held-out/reference inputs were used. Mustard and drill are still not ready
+for object-only reconstruction. Explicit board exclusions or validated
+segmentation are next; another blind colour-threshold sweep is not planned.
+
+Local regression: **369 tests run, 8 skipped, remaining passed**. Both CI
+workflows passed for prior commit `f8b2a42`; this continuation requires its own
+CI result. No reconstruction-quality gain is claimed.
+
 ### Latest continuation: isolate coverage loss and evaluate refinement
 
 The [paired coverage audit](COVERAGE-LOSS.md) identifies 215 fixed sensor rays

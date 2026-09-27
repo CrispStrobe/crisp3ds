@@ -2,6 +2,23 @@
 
 ## Current acceptance findings and next steps
 
+### Targeted upstream changes: isolate a cause before patching
+
+Maintaining project forks is permitted; upstream configuration is not a product
+boundary. The next OpenMVS task is a [paired cached-depth fusion experiment](OPENMVS-PATCH-PLAN.md):
+same cameras, masks, images and final depth maps, changing only the fusion mode.
+Root reviews source/cache isolation; a separate Sol reviewer checks the contract.
+Execution requires two independent copies, unchanged source hashes, bounded
+runtime/output, and the 10 GiB local reserve. A point-count increase alone cannot
+accept a mode: surface coverage and outlier/error diagnostics must follow.
+Only then consider a small pinned fork with rejection counters or an algorithm
+fix, preserving an unmodified control and recording the patch's actual effect.
+
+In parallel, test one separately versioned, label-preserving mustard support
+candidate on the 48 training photos. Visual acceptance is a separate gate from
+successful generation; it is coarse feature support, not dense geometry truth.
+The rejected predecessor, held-out split and original photos remain unchanged.
+
 The [coverage-loss](COVERAGE-LOSS.md), [pre-mesh support](DEPTH-SUPPORT-AUDIT.md)
 and [rough/refined](ROUGH-REFINED-COMPARISON.md) checks now separate support from
 residual accuracy. Refinement offers a measured tradeoff, not a universal gain.
