@@ -28,8 +28,9 @@ structure adjustment. Other initializers or non-BA computation could cause
 nonlinear downstream differences; this is an **intrinsic-refinement-policy**
 ablation, not a guarantee that only the final focal-length number differs.
 
-Use these existing `-001` paths directly, without copying, regenerating, or
-rewriting them:
+Copy these existing `-001` files byte-for-byte into a **fresh** ablation
+`matches/` directory, then point SfM at the copies; do not regenerate or
+rewrite the originals:
 
 | Input | SHA-256 |
 | --- | --- |
@@ -52,37 +53,47 @@ initial intrinsics, **not** baseline reconstructed poses.
 ## One-variable comparison
 
 Hold fixed the binary, initial `sfm_data.json`, 48 TRAIN images addressed by
-it, all match-directory bytes, `-s INCREMENTAL`, `-M matches.e.bin`, all
-implicit/default SfM flags, thread setting, and resource limits. Change only
-`-f ADJUST_ALL` to `-f NONE`; change `-o` solely to isolate outputs in a
-fresh `/Volumes/backups/code/crisp3ds-data/openmvg-mustard-intrinsic-none-001/sparse`
-directory. No Berkeley/reference poses, held-out images, masks, scanner
+it, all consumed match/feature bytes, `-s INCREMENTAL`, `-M matches.e.bin`,
+all implicit/default SfM flags and the two-thread setting. Stage
+the initial scene, describer, essential-matrix matches, and **all 96** region
+files into fresh `/Volumes/backups/code/crisp3ds-data/openmvg-mustard-photo-sfm-fixed-002/matches`;
+verify each staged SHA-256 against the `-001` receipt before launch. Change
+only `-f ADJUST_ALL` to `-f NONE` in the SfM algorithm; `-i`, `-m`, and `-o`
+change paths solely to isolate the byte-identical inputs and fresh outputs.
+No Berkeley/reference poses, held-out images, masks, scanner
 assets, dense/MVS, or threshold search may enter the ablation.
 
 The planned argument sequence is:
 
 ```text
 openMVG_main_SfM
-  -i /Volumes/backups/code/crisp3ds-data/openmvg-mustard-photo-sfm-001/matches/sfm_data.json
-  -m /Volumes/backups/code/crisp3ds-data/openmvg-mustard-photo-sfm-001/matches
+  -i /Volumes/backups/code/crisp3ds-data/openmvg-mustard-photo-sfm-fixed-002/matches/sfm_data.json
+  -m /Volumes/backups/code/crisp3ds-data/openmvg-mustard-photo-sfm-fixed-002/matches
   -M matches.e.bin
-  -o /Volumes/backups/code/crisp3ds-data/openmvg-mustard-intrinsic-none-001/sparse
+  -o /Volumes/backups/code/crisp3ds-data/openmvg-mustard-photo-sfm-fixed-002/sparse
   -s INCREMENTAL
   -f NONE
 ```
 
 Source-level path review: `main_SfM.cpp` loads `sfm_data.json`,
 `image_describer.json`, features and matches; the providers' `load` methods
-read files into memory. The main and incremental engine direct reports,
-intermediate PLYs, `sfm_data.bin`, and `cloud_and_poses.ply` to `-o`, not to
-`-m`. This is not a filesystem-enforced guarantee: independently hash the
-entire 105-file match directory and `-001` receipt **before and after** and
-fail on any difference. Require a nonexistent output root before starting;
-never use `-001/sparse` as an input or output.
+read files into memory. The copied scene's `root_path` intentionally remains
+the sealed `-001/images` directory. `Features_Provider::load` combines it with
+view paths to derive image **basenames** for the staged `.feat` files; the
+inspected SfM main, sequential engine and providers show no JPEG pixel load.
+That original 48-photo directory is still an absolute path embedded in the
+input scene and must remain sealed/available. The main and incremental engine
+direct reports, intermediate PLYs, `sfm_data.bin`, and `cloud_and_poses.ply`
+to fresh `-o`, not to `-m`. This is source-level evidence, not a
+filesystem-enforced guarantee: independently hash the entire original
+105-file match directory, all 48 original photos, receipt, and all staged
+files **before and after** and fail on any difference. Require a nonexistent
+output root before starting; never use `-001/sparse` as an input or output.
 
-For a separately approved run, retain the prior photo supervisor's evaluation
-caps: no network/install/rebuild, at most two CPU threads, 4 GiB peak RSS,
-900 s SfM wall time, 16 MiB log, 1 GiB new output, and at least 11 GiB free
+For a separately approved run, the draft one-shot supervisor tightens the
+evaluation caps: no network/install/rebuild, at most two CPU threads,
+1 GiB peak RSS, 300 s SfM wall time, 600 s CPU time, 4 MiB log,
+256 MiB new output, and at least 11 GiB free
 on both internal and external disks before launch and throughout. Seal the
 command, binary, input hashes, output inventory, log, wall/RSS, and postflight
 free space in a fresh receipt. At this audit, external free is 13,973,180 KiB
