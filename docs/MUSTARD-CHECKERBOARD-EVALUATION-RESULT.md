@@ -1,0 +1,18 @@
+# Posthoc mustard checkerboard-camera / Berkeley-rig comparison
+
+Status, 2026-09-27: **one evaluation-only run; partial-arc camera diagnostic, not reconstruction accuracy.** The [frozen comparison plan](MUSTARD-CHECKERBOARD-EVALUATION-PLAN.md), proper-Sim(3) evaluator, and eight synthetic tests preceded scoring. No supplied camera, scanner mesh, sensor depth, held-out photo, or reference score entered the image-derived 9×8 corner detection, assumed intrinsics, PnP, 180° label choice, or pose selection. The board moves with the bottle, so the result is assisted-capture-only and does not establish board-free photo reconstruction.
+
+The evaluator runner SHA-256 was `f24442884ecb9e102ee5ad96fb4727b56dc30e94d0f92aa783c6350704878c7b`. Read-only preflight verified the image-derived report SHA-256 `e4b686795cc6f3bfba57ac77e9225113714d9d306b5919990191dffbd049a856`, correct mustard archive SHA-256 `5d9b1837eb58b0760463e99021a53fe6e82d5cd2457141945445ed6df06ff3f7`, metadata receipt SHA-256 `3a2b156289b7f7f11d20ef5026ffe9f19893333d155f0acb6e326f027ceb0747`, and all 40 receipt-bound H5 hashes. The sealed image-derived report, receipt, and H5 hashes were rechecked after scoring. The cracker-box metadata was not used.
+
+The sole fresh output is [`mustard-checkerboard-camera-eval-001.json`](</Volumes/backups/code/crisp3ds-data/mustard-checkerboard-camera-eval-001.json>), 20,889 bytes, SHA-256 `0e295eee45a0c4750b61f497c9d11502157d9698be03cb44aa3cafe7eaacc5cc`. It contains all 39 per-frame residuals and 40 H5 hashes. Exact TRAIN names were matched; no outlier was removed or per-frame transform fitted. `NP3_000`, `300`, `306`, `312`, `318`, `330`, `336`, `342`, `348` remain undetected and were not scored.
+
+| Frozen metric, 39 matched frames | Median | P95 | Max |
+| --- | ---: | ---: | ---: |
+| Fitted center error / supplied median center radius | 0.0567 | 0.1143 | 0.1265 |
+| Leave-one-out center error / supplied median radius | 0.0601 | 0.1200 | 0.1332 |
+| Fitted center error, supplied H5 translation units | 0.0274 | 0.0552 | 0.0611 |
+| Same-center-fit-rotation orientation difference | 5.53° | 11.14° | 11.57° |
+
+One proper positive-scale center Sim(3) fitted scale `0.0136979` supplied units per arbitrary checker-square unit, with determinant `+1`. The supplied median center radius was `0.482628` in its native units. The centered cross-covariance singular values were `11.2446`, `6.14343`, and `4.13×10⁻⁸`; smallest/largest ratio `3.68×10⁻⁹`. Although the numerical matrix rank is reported as three, this is **effectively planar** and constrains the third axis poorly. The same fitted world rotation—not an independently optimized orientation offset—was used for orientation differences. The global 180° board-label gauge is absorbed by a proper world-frame similarity, not selected from reference scores.
+
+This fit shows moderate trajectory agreement only under the documented `H_NP3_from_table = H_NP3_from_NP5 @ inverse(H_table_from_reference_camera)` interpretation. That interpretation has not independently resolved `/board_frame_offset` against depth or an absolute board-to-bottle frame. The image-derived PnP assumed `fx=fy=1536`, `(cx,cy)=(640,512)`, zero distortion, whereas supplied NP3 RGB calibration is approximately `fx=fy=1075.24`, `(cx,cy)=(614.25,483.27)` with nonzero distortion. The detected cameras cover only a partial turn and the frozen full-turn orbit gate remains `unavailable` at 39/60 slots. No score threshold was selected from this result, and no physical mesh-accuracy claim follows. Both disks remained above 10 GiB free (postflight internal 23,834,755,072 bytes; external 14,619,164,672 bytes).
