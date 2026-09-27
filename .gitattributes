@@ -13,3 +13,4 @@ tests/datasets/sam21_mustard_two_view_subset_review.json text eol=lf
 tests/datasets/sam21_mustard_candidate_selection_v2.json text eol=lf
 tests/datasets/sam21_mustard_candidate48_v2_review.json text eol=lf
 tests/evidence/*.json text eol=lf
+benchmarks/ycb-fresh-005-summary.json text eol=lf
