@@ -1,6 +1,6 @@
 # OpenMVG v2.1 photo-only SfM control, M1
 
-Status: **synthetic supervisor review only; no OpenMVG photo run authorized**.
+Status: **read-only preflight passed; no OpenMVG photo run authorized**.
 This is an evaluation oracle. The built fork and its linked components have
 unresolved license closure; no shipping, permissive, GPL-free, or App Store
 claim follows from a successful run. The fork source pin is OpenMVG v2.1
@@ -9,7 +9,7 @@ OFF CMake exclusion. The build tree stays untouched by the photo control.
 
 ## Dependency gate discovered in the pinned source
 
-The four built targets are insufficient for a standard SfM sequence.
+The initial four built targets were insufficient for a standard SfM sequence.
 `main_ComputeMatches.cpp` accepts `-o` as a **filename** and writes putative
 matches only; it has no `-g` switch. The older Sphinx `ComputeMatches.rst` and
 the earlier mustard M1 plan describe the pre-split `-o DIR -g e` interface and
@@ -17,12 +17,20 @@ must not be used for this pin. `main_GeometricFilter.cpp` is a separate fifth
 target, takes `-m PUTATIVE -o GEOMETRIC -g e`, and performs essential-matrix
 verification. `main_SfM.cpp` then reads the verified file with `-M
 matches.e.bin`. Feeding putative matches directly to SfM would change the
-control. The [photo supervisor](../scripts/classical_backend/openmvg_photo_control.py)
-requires both the existing four-target license receipt and a separately
-reviewed `geometric-filter-extension-receipt.json` binding the fifth binary
-hash, target name and `reviewed_evaluation_only` status. That extension first
-needs its own target graph, license/link closure, storage, RSS and build-time
-review; it is outside this photo trial. No install or network fetch is needed.
+control. The fifth target has since passed a separate two-step Ninja closure
+and one-shot bounded build, with no new static or dynamic libraries. The
+[photo supervisor](../scripts/classical_backend/openmvg_photo_control.py)
+pins the four-target license receipt SHA-256
+`9aec9a7ac01c76f683416cd8eb47c57bbcbfa006a642348568a04298570078c1`,
+the fifth `geometric-filter-build-manifest.json` SHA-256
+`4b3dc5ac03ea2232067bebabc0b4d41dc5bfb91076bf0e31211162f32842774b`,
+the fifth `geometric-filter-license-receipt.json` SHA-256
+`49db5dca401c827cac53a5b1337256effd198ed36de23de283b2b32548e53dc2`,
+and the fifth binary SHA-256
+`49a5ca029356f3f8bb3eb68eaae58d98f77204b2b4cdf85f52aa0448f0ab1b77`.
+It checks the four original binary hashes against their sealed receipt.
+The fifth receipt remains explicitly evaluation-only; no install or network
+fetch is part of this control.
 
 ## Sceaux first: fixed input and process contract
 
@@ -39,7 +47,7 @@ dense scene, meshes, logs and README are never copied into the worker tree or
 passed to any CLI. The sample photo rights remain those stated in its
 manifest; outputs are local evaluation artifacts.
 
-The Sceaux command contract after fifth-target review is:
+The Sceaux command contract is:
 
 ```text
 SfMInit_ImageListing -i IMAGES -o MATCHES -f 3398.4 -c 2 -g 1
@@ -64,8 +72,10 @@ Read-only preflight is the default command:
 python -m scripts.classical_backend.openmvg_photo_control
 ```
 
-It must fail while the fifth target or receipt is absent. Only after a review
-of all five target hashes, command syntax and this plan may the one-shot
+The read-only preflight now passes with all five targets. It hashes the sealed
+photos and executable files and reads receipts; it does not launch OpenMVG.
+Only after a review of all five target hashes, command syntax and this plan
+may the one-shot
 `--run-sceaux` path be used. It refuses an existing output directory and
 never cleans failed output. The external output allocation is at most 1 GiB;
 before starting it reserves that allocation plus a 1 GiB margin above the

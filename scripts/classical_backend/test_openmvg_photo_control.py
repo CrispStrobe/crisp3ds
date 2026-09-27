@@ -39,16 +39,17 @@ class PhotoControlTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             build = Path(temporary)
             (build / "license-closure-receipt.json").write_text("{}")
-            with self.assertRaisesRegex(RuntimeError, "extension-receipt"):
+            with self.assertRaisesRegex(RuntimeError, "geometric-filter-license-receipt"):
                 control.verify_binaries(build)
 
-    def test_unpinned_fifth_receipt_fails_closed(self):
+    def test_changed_fifth_receipt_fails_closed(self):
         with tempfile.TemporaryDirectory() as temporary:
             build = Path(temporary)
             (build / "license-closure-receipt.json").write_text("{}")
-            (build / "geometric-filter-extension-receipt.json").write_text("{}")
+            (build / "geometric-filter-license-receipt.json").write_text("{}")
+            (build / "geometric-filter-build-manifest.json").write_text("{}")
             with patch.object(control, "FOUR_RECEIPT_SHA", control.sha(build / "license-closure-receipt.json")):
-                with self.assertRaisesRegex(RuntimeError, "not reviewed and pinned"):
+                with self.assertRaisesRegex(RuntimeError, "manifest/receipt seal mismatch"):
                     control.verify_binaries(build)
 
     def test_disk_reserve_includes_full_output_allocation(self):

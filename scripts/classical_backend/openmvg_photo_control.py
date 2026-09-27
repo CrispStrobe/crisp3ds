@@ -26,9 +26,9 @@ OUTPUT = Path("/Volumes/backups/code/crisp3ds-data/openmvg-sceaux-photo-sfm-001"
 SAMPLE = fetch.OUTPUT
 SAMPLE_MANIFEST_SHA = "1ee34cff7e6d75fca9f56de4aa5644b45a382030af54a474824ada6af77316a3"
 FOUR_RECEIPT_SHA = "9aec9a7ac01c76f683416cd8eb47c57bbcbfa006a642348568a04298570078c1"
-# Set only after the fifth-target graph/license/resource review. An unset pin
-# deliberately blocks both the read-only readiness preflight and live run.
-EXTENSION_RECEIPT_SHA: str | None = None
+FIFTH_MANIFEST_SHA = "4b3dc5ac03ea2232067bebabc0b4d41dc5bfb91076bf0e31211162f32842774b"
+FIFTH_RECEIPT_SHA = "49db5dca401c827cac53a5b1337256effd198ed36de23de283b2b32548e53dc2"
+FIFTH_BINARY_SHA = "49a5ca029356f3f8bb3eb68eaae58d98f77204b2b4cdf85f52aa0448f0ab1b77"
 NAMES = tuple(f"{i:05}.jpg" for i in range(11))
 TARGETS = (*base.TARGETS[:3], "openMVG_main_GeometricFilter", base.TARGETS[3])
 BIN_DIR = BUILD / "build/Darwin-arm64-Release"
@@ -69,17 +69,28 @@ def verify_photos(sample: Path = SAMPLE) -> dict:
 def verify_binaries(build: Path = BUILD) -> dict:
     if build.is_symlink() or not build.is_dir():
         raise RuntimeError("pinned OpenMVG build directory unavailable")
-    # A successful four-target build receipt and a separate fifth-target review
-    # receipt are prerequisites. The latter does not yet exist by design.
-    for receipt in (build / "license-closure-receipt.json",
-                    build / "geometric-filter-extension-receipt.json"):
+    # Both exact one-shot build receipts are independently sealed.
+    first_receipt = build / "license-closure-receipt.json"
+    fifth_receipt = build / "geometric-filter-license-receipt.json"
+    fifth_manifest = build / "geometric-filter-build-manifest.json"
+    for receipt in (first_receipt, fifth_receipt, fifth_manifest):
         if receipt.is_symlink() or not receipt.is_file():
             raise RuntimeError(f"reviewed build receipt missing: {receipt}")
-    if sha(build / "license-closure-receipt.json") != FOUR_RECEIPT_SHA:
+    if sha(first_receipt) != FOUR_RECEIPT_SHA:
         raise RuntimeError("four-target build receipt seal mismatch")
-    if EXTENSION_RECEIPT_SHA is None or sha(build / "geometric-filter-extension-receipt.json") != EXTENSION_RECEIPT_SHA:
-        raise RuntimeError("fifth-target receipt hash not reviewed and pinned")
-    first = json.loads((build / "license-closure-receipt.json").read_text())
+    if sha(fifth_receipt) != FIFTH_RECEIPT_SHA or sha(fifth_manifest) != FIFTH_MANIFEST_SHA:
+        raise RuntimeError("fifth-target build manifest/receipt seal mismatch")
+    first = json.loads(first_receipt.read_text())
+    fifth = json.loads(fifth_receipt.read_text())
+    manifest = json.loads(fifth_manifest.read_text())
+    if (manifest.get("schema") != "openmvg_geometric_filter_build_v1" or
+            manifest.get("status") != "built_fifth_oracle_only" or
+            manifest.get("receipt_sha256") != FIFTH_RECEIPT_SHA or
+            len(manifest.get("stages", [])) != 1 or
+            manifest["stages"][0].get("status") != "completed" or
+            manifest["stages"][0].get("returncode") != 0 or
+            manifest.get("input", {}).get("input_sha256", {}).get(str(first_receipt)) != FOUR_RECEIPT_SHA):
+        raise RuntimeError("fifth-target build manifest contract differs")
     binaries = {}
     for name in TARGETS:
         item = build / "build/Darwin-arm64-Release" / name
@@ -88,14 +99,18 @@ def verify_binaries(build: Path = BUILD) -> dict:
         binaries[name] = sha(item)
         if name in base.TARGETS and first.get("binaries", {}).get(name, {}).get("sha256") != binaries[name]:
             raise RuntimeError(f"four-target binary differs from sealed receipt: {name}")
-    extension = json.loads((build / "geometric-filter-extension-receipt.json").read_text())
-    if (extension.get("target") != "openMVG_main_GeometricFilter" or
-            extension.get("binary_sha256") != binaries["openMVG_main_GeometricFilter"] or
-            extension.get("status") != "reviewed_evaluation_only"):
-        raise RuntimeError("fifth-target extension receipt differs")
+    if (fifth.get("schema") != "openmvg_geometric_filter_license_receipt_v1" or
+            fifth.get("target") != "openMVG_main_GeometricFilter" or
+            fifth.get("decision") != "evaluation oracle only; no commercial/App Store clearance" or
+            fifth.get("four_target_receipt_sha256") != FOUR_RECEIPT_SHA or
+            fifth.get("binary", {}).get("path") != str(build / "build/Darwin-arm64-Release/openMVG_main_GeometricFilter") or
+            fifth.get("binary", {}).get("sha256") != FIFTH_BINARY_SHA or
+            binaries["openMVG_main_GeometricFilter"] != FIFTH_BINARY_SHA):
+        raise RuntimeError("fifth-target binary/receipt contract differs")
     return {"binary_sha256": binaries,
-            "four_target_receipt_sha256": sha(build / "license-closure-receipt.json"),
-            "extension_receipt_sha256": sha(build / "geometric-filter-extension-receipt.json")}
+            "four_target_receipt_sha256": FOUR_RECEIPT_SHA,
+            "fifth_manifest_sha256": FIFTH_MANIFEST_SHA,
+            "fifth_receipt_sha256": FIFTH_RECEIPT_SHA}
 
 
 def capacity(output: Path, prospective: bool = False) -> dict:
