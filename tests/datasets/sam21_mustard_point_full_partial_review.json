@@ -1,0 +1,30 @@
+{
+  "schema": "photo_support_visual_review_v1",
+  "object_id": "006_mustard_bottle",
+  "decision": "accepted_sealed_sixteen_view_coarse_support_evidence_only",
+  "candidate_status": "failed_or_partial_unusable",
+  "candidate_manifest_vps": "/mnt/storage/crisp3ds-data/sam21-mustard-point-full-001/manifest.json",
+  "candidate_manifest_sha256": "0ff3c6203301988890ded40276c58d510582bb08a7fa2f1884d2ba792349fd09",
+  "batch_manifest_sha256": [
+    "ec40a87c334f1168da4e56c54dd7373dd8650bd4b71a4bdcf70a124b580436c8",
+    "2f0c8d51ee40e14c3dd57679d868fae01167563479abde29fbfc262bce839ee0"
+  ],
+  "source_prompt_manifest_sha256": "28440795d5f38590df8c5568969970d6623fbe22ea6b3e8781cba10608149d32",
+  "sealed_training_views": 16,
+  "unsealed_batch_2_raw_clean_pairs_preserved_vps_only": 6,
+  "missing_training_views_for_full_candidate": 32,
+  "stop_reason": "Third batch exceeded its frozen 90-second wall cap; terminated before its batch manifest, with no retry or cap change.",
+  "review_scope": "Original-RGB, raw-mask and cleaned-mask crop sheets for first 16 sealed training views; remaining 32 tiles explicitly missing. Six unsealed batch-2 pairs were not considered usable review evidence.",
+  "local_review_directory": ".local-tools/sam21-mustard-point-full-review-001",
+  "review_sheet_sha256": {
+    "rgb": "76842c8f032e61047f16337df79e90d89cac09d3877e07bcfd9f314d792f2d41",
+    "raw": "881971b008da163c575905769263379ed3fd62ec4f880a53e4f032194c3fe5cd",
+    "cleaned": "74f21d067eefaa80df6059999787f29566da463d0410e7f57436823d9ff8459b"
+  },
+  "reason": "For the 16 sealed views, cleaned masks visibly retain the bottle body, cap and labels and remove early detached background specks, with no target switch seen. A thin pale boundary remains. This is only partial coarse pose-support evidence, not an exact silhouette or full-orbit quality finding.",
+  "mask_role": "coarse pose support, not certified geometry mask",
+  "full_training_package_ready": false,
+  "heldout_photos_used_for_review": false,
+  "reference_mesh_or_depth_used_for_review": false,
+  "reconstruction_run_with_candidate": false
+}

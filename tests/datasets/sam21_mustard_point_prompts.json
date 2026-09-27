@@ -1,0 +1,22 @@
+{
+  "schema": "sam21_mustard_three_point_prompts_v1",
+  "source": "original RGB training photos only; visually approved by root before inference",
+  "box_xyxy_original_pixels": [480, 300, 760, 650],
+  "images": [
+    {
+      "name": "NP3_000.jpg",
+      "source_sha256": "4e0a06a19cb28938503f429f2aa22d9cc990151b9bd91b199fb6dce1487a2d96",
+      "points_xy_label": [[600, 525, 1], [720, 620, 0], [700, 400, 0]]
+    },
+    {
+      "name": "NP3_066.jpg",
+      "source_sha256": "97c07407747415781e300dba563a6bcbf48c8d1871218b0c35f53fe9921d3514",
+      "points_xy_label": [[600, 525, 1], [700, 620, 0], [750, 560, 0]]
+    },
+    {
+      "name": "NP3_180.jpg",
+      "source_sha256": "2efc15848ac9a7c7b5ca6aee3ee7b5daaf51cb73a1cab98751c035df5ae08f74",
+      "points_xy_label": [[600, 525, 1], [720, 620, 0], [520, 630, 0]]
+    }
+  ]
+}

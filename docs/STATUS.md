@@ -13,6 +13,46 @@ real-photo reconstruction on Windows/Linux remains unverified.
 
 ## Active quality-first implementation
 
+### Latest continuation: prompt correction and masked Brush execution
+
+The storage relocation regressions are fixed: Windows requires a writable flush
+handle and normalized symlink-target comparison during rollback. The quality
+harness at `9205b26` [passed on Windows, macOS and Ubuntu](https://github.com/CrispStrobe/crisp3ds/actions/runs/36306164359).
+
+Explicit foreground/background points corrected the known SAM target-switching
+failure in three reviewed mustard training photos. All three masks retained the
+bottle and labels, excluded the board, and needed zero component cleanup. This
+is an accepted **three-view coarse-support smoke**, not an exact-silhouette or
+full-orbit result. Root reviewed common-point placements on all 48 training
+photos before approving a separate bounded candidate. That run stopped at the
+third batch's 90-second limit after 219.53 seconds overall: 16 views have sealed
+results; six additional raw/clean file pairs lack a completed batch manifest and
+are unusable. The full candidate remains **incomplete and not reconstruction-ready**;
+there was no retry or resource-gate relaxation. Held-out images, reference
+geometry and sensor depth remain excluded from mask generation and review.
+Root independently checked the partial manifest/sheet hashes and reviewed all
+16 sealed cleaned masks: the bottle, cap and labels remain, with detached
+background specks removed where present. This accepts only partial coarse-support
+visual evidence, not exact silhouettes or the incomplete full candidate. The
+next mask-run improvement is hash-verified resumable smaller batches, retaining
+the same prompts and acceptance rules rather than weakening resource limits.
+See [the SAM trial](SAM-MASK-TRIAL.md) for the candidate's current status.
+
+The [Brush mask bridge](BRUSH-PREFLIGHT.md) fixes a release-specific filename
+contract: v0.3.0 needs `NP3_000.png`, not `NP3_000.mask.png`. All 123 prepared
+RGB/model/mask files were independently rehashed. The masked 20-step M1 smoke
+completed in 7.099 seconds and exported 3,939 finite splats. No loader telemetry
+confirmed mask attachment, and no held-out appearance or mesh-quality score was
+measured. This remains execution evidence, **not a quality improvement**. The
+completed run monitored external disk space continuously; the launcher now also
+monitors internal free space for future runs. No new weights were downloaded.
+
+Local regression: **432 Python tests run, 8 skipped, the remainder passed**.
+The [paired mustard SfM plan](MUSTARD-SFM-COMPARISON.md) freezes the next raw-versus-
+masked alignment comparison, but requires accepted full48 masks and additional
+staging/diagnostic safeguards before execution. No new dense mesh-quality result
+was produced in this continuation.
+
 ### Latest continuation: neural prerequisites and controlled fusion
 
 Four completed reconstruction runs were checksum-verified and relocated to the

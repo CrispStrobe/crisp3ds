@@ -1,0 +1,18 @@
+{
+  "schema": "photo_support_visual_review_v1",
+  "object_id": "006_mustard_bottle",
+  "decision": "accepted_three_view_coarse_support_smoke_only",
+  "candidate_manifest_vps": "/mnt/storage/crisp3ds-data/sam21-mustard-point-smoke-001/manifest.json",
+  "candidate_manifest_sha256": "09bdd382bc23d26d9306f1e0698f55ad6b8ce7fb92f230ac1a8acc982f2c38ae",
+  "review_sheet_sha256": "0c2cedc235dab3bef33f6e49815e1dca4d30525edc1c9c3985b829cc0df0d1fc",
+  "local_review_directory": ".local-tools/sam21-mustard-point-review-001",
+  "review_scope": "Original-RGB, raw-mask and optional-cleaned-mask crops of NP3_000, NP3_066 and NP3_180 training views only; not all 48 training views",
+  "reason": "The point-prompt masks keep the visible mustard bottle and labels and suppress the checkerboard in the three reviewed views; exact approved positive/negative point membership passes.",
+  "mask_role": "coarse pose support, not exact silhouette",
+  "training_views_reviewed": 3,
+  "training_views_not_reviewed": 45,
+  "full_training_package_ready": false,
+  "heldout_photos_used_for_review": false,
+  "reference_mesh_or_depth_used_for_review": false,
+  "reconstruction_run_with_candidate": false
+}

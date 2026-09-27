@@ -1,0 +1,1020 @@
+{
+  "schema": "sam21_mustard_common_point_prompts_48_v1",
+  "source": "48 frozen training RGB photos only; review required before inference",
+  "box_xyxy_original_pixels": [
+    480,
+    300,
+    760,
+    650
+  ],
+  "images": [
+    {
+      "name": "NP3_000.jpg",
+      "source_sha256": "4e0a06a19cb28938503f429f2aa22d9cc990151b9bd91b199fb6dce1487a2d96",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_006.jpg",
+      "source_sha256": "a5fb2851bb23f4529410beb2873e8415234b21f1f042c8b503d50bb023465192",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_012.jpg",
+      "source_sha256": "4a345b90666bc2f31cca8f6cdb4f00c8e82817c5b94045f820c68bade14aa6e1",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_018.jpg",
+      "source_sha256": "e658858a6b3e7a0fa0f4a5d65162f8c8376a43fa13a27766c57034389302be02",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_030.jpg",
+      "source_sha256": "63d13fd04b207a8c11c87944ec50f770b54835f5268dfc46012d02ca35d18660",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_036.jpg",
+      "source_sha256": "a629d377ac5739470e1799955d8437b5e9fe23105324b08828e715feb047287d",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_042.jpg",
+      "source_sha256": "d036dbfbc53bbbb627944691a3de68d21d58ed182c791a4afdecff4d01535e25",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_048.jpg",
+      "source_sha256": "0298053128b1e012a19ed550a019615758d58f513f4a235d6cfb8b93f84540d8",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_060.jpg",
+      "source_sha256": "b414aec85040f24eacc72167191e5087362fd8daf32e15fdd2fe0f90db505432",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_066.jpg",
+      "source_sha256": "97c07407747415781e300dba563a6bcbf48c8d1871218b0c35f53fe9921d3514",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_072.jpg",
+      "source_sha256": "4b0040b8da464acc67bad2f4bd94da96732fd0836062fb4594d1d58636898999",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_078.jpg",
+      "source_sha256": "a24b4a7a6be5c195fac446da7aa83f205a567b549f82f369d196be2d5fceaf4e",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_090.jpg",
+      "source_sha256": "4ebd8320236957cb5f90a73786aa55d6795f94b0bc890051256885bb78af28b4",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_096.jpg",
+      "source_sha256": "731a9428d27b667a7a8251f31eba11b5016980774dd4f1520a3ba4cf05ef04c7",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_102.jpg",
+      "source_sha256": "eaac8f020d7348e400c7691ec6728bd1bc47f47e732235eea9f0bd2ac82b6846",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_108.jpg",
+      "source_sha256": "9b9d8dc1df11a400212a994306ca43a11c25ea02e5b7dd6f2eaab215a70d6cc0",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_120.jpg",
+      "source_sha256": "2c53a864e71a21893c813ea9930ee792a15eb0372e96346055bc816270938668",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_126.jpg",
+      "source_sha256": "ad496f9a84855cd2b234bbaa0f38eeae094a29bd0eda2df98c1c8470d00d3516",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_132.jpg",
+      "source_sha256": "109f55c6e80a9d91d311cbe1f95121c5d6279275e609d69193e6e3e2cacd7f2f",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_138.jpg",
+      "source_sha256": "eb3805c6edd5bec5224467b093a1e30ec9be8aca6fca36036dead744ff5e5282",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_150.jpg",
+      "source_sha256": "5d1d46d31427bb222a458da1b590e406f495c9bfadd1e672fea2ba65a82825d8",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_156.jpg",
+      "source_sha256": "b826ac3fddd233753efa0d44bf9b125a76df761678a3edabf60ea079f1026353",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_162.jpg",
+      "source_sha256": "a967ad1f6f29d3bf6bff77fd51475abb34a2bfad33786682934a518a155eb52a",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_168.jpg",
+      "source_sha256": "1c1f7516b419608d5f317200ed82691c9ba734a943b7f022a647b5a676f97610",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_180.jpg",
+      "source_sha256": "2efc15848ac9a7c7b5ca6aee3ee7b5daaf51cb73a1cab98751c035df5ae08f74",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_186.jpg",
+      "source_sha256": "26a9ffd8d3d93dfd404c130f4faf5b5d5297704c3ab637e95aea3c60c8405df0",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_192.jpg",
+      "source_sha256": "4779726f9a09c23264ace68b8e5fc120eeaf521beb1a3eda654436c2f6628c77",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_198.jpg",
+      "source_sha256": "556747e758419541b13b38885f19e2707bbb86bb9eac8939bef53b51c2d8979c",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_210.jpg",
+      "source_sha256": "1e0fb2552c614fbb4bd32be9053c10d9d1edc8c3ce46bfd5942f3a7a50d846e5",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_216.jpg",
+      "source_sha256": "0fbbebb21ca5b9157739ea35bc0c78089996698af387072367020ad54d6f6ff2",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_222.jpg",
+      "source_sha256": "0fcb4dbecab04fb7a169f8869c54bede4cfabb3ecc9377410a6941209b1d20c4",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_228.jpg",
+      "source_sha256": "c9959544965220c4d31274fbbbeee248836ddf6a0120f105f094da7bc2730c9e",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_240.jpg",
+      "source_sha256": "7bde96e1caeefdcbf38ac3a7b9848107f06e722cf6ec3465c4d6e6cfe4735fb7",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_246.jpg",
+      "source_sha256": "475a8db0513048f5d9a58bf5291945fd2198d9040d9b50e654aba111ae79c29b",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_252.jpg",
+      "source_sha256": "4d3f5adb57ddf79194be999662bc47c406415d78d12ce786561733d31c47c53c",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_258.jpg",
+      "source_sha256": "24b75063c175e38016cbaa60ba61bd937d4efdc33c389d23ec1ed09cc0ee11ce",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_270.jpg",
+      "source_sha256": "4daee3be804eb8d42f5b5b064d81aa6bdff5d92075133f0a61f7d154b47da1c0",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_276.jpg",
+      "source_sha256": "1a1f4450dc480467e6259fe634c1aa2d765d47b7a38594a0ee77563c8e2f660d",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_282.jpg",
+      "source_sha256": "b96d92c873dee0176da26110afad77613b502c9fc9d739fda1d2df6f6348bdb0",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_288.jpg",
+      "source_sha256": "2ff5f1f5a7e440393130cc582dcf881fd50a78be4eea201cfb24156e99010e57",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_300.jpg",
+      "source_sha256": "955a09d5d62e896c1c4961baafc80bb3da17087f5ae73719832d983d5259e1ed",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_306.jpg",
+      "source_sha256": "68f1b8b9fae94bad8a872667d290ae6c26ea09d796b374c2b33fb2fec8a889f3",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_312.jpg",
+      "source_sha256": "e0b01ee4973c1d82fa5c9ab5937840b879bdf3ea3322c0b41398d4c540855462",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_318.jpg",
+      "source_sha256": "c19d377824bc0aa7e937244f797f810b333b1e853c698688629926c066846991",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_330.jpg",
+      "source_sha256": "fccafec5b4b44c5b03d3c927b211b2c942d0a6e343dbbbdaba95022e83c773b5",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_336.jpg",
+      "source_sha256": "b38f4232499b27fd108960280fef2868ddb172d81088d7044475eceb10f24fc2",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_342.jpg",
+      "source_sha256": "59901cf97ce97b2de0b46d428818fd676d6a169e67eaf72094dcd8c4058b5998",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "NP3_348.jpg",
+      "source_sha256": "fda8eed74101a71e14f8828a03b7ef29a61b2d65d928f87e783894b2b691562d",
+      "points_xy_label": [
+        [
+          600,
+          525,
+          1
+        ],
+        [
+          720,
+          620,
+          0
+        ],
+        [
+          520,
+          630,
+          0
+        ]
+      ]
+    }
+  ]
+}

@@ -154,9 +154,100 @@ binds report/sheet hashes and rejects this candidate for reconstruction.
 No SfM or dense stage used any of these masks; no held-out photo or reference
 mesh/depth informed selection or QA.
 
-A separate future candidate could use an explicit positive object point and
-negative background points on frozen training views 0°, 66°, and 180° to test
-whether prompting prevents target switching. That is a proposed **new trial**,
-not an adjustment or rerun here; prompts and acceptance rules must be frozen
-before inference, with no held-out/reference use and no reconstruction before
-full visual QA.
+A separate positive-object/negative-background point-prompt candidate was
+therefore scoped on frozen training views 0°, 66°, and 180°; it is documented
+below as a **new trial**, not a relabeling or retry of the rejected box-only
+run. No held-out/reference input or reconstruction is introduced.
+
+## Frozen positive/negative point-prompt three-view smoke
+
+Root visually approved original-RGB crops and exact points **before any new
+inference**. The [tracked prompt manifest](../tests/datasets/sam21_mustard_point_prompts.json)
+(SHA-256 `d4c8c913e831f1b78e21143d789060c0626f589baeb3f180ef2ec0526ab0c4ca`)
+selects only training photos `NP3_000`, `066`, and `180`. In original 1280×1024
+pixels, each has positive `(600,525)` inside the bottle and two photo-reviewed
+negative points: `000` `(720,620),(700,400)`; `066` `(700,620),(750,560)`;
+`180` `(720,620),(520,630)`. The box remains `[480,300,760,650]`.
+The local [prompt-review crop](../.local-tools/sam21-point-review-001/prompt_review_sheet.png)
+shows the chosen points on original RGB, not reference- or model-derived masks.
+SAM2's [image predictor](https://github.com/facebookresearch/sam2/blob/2b90b9f5ceec907a1c18123530e92e794ad901a4/sam2/sam2_image_predictor.py)
+accepts point and box coordinates in original image pixels and internally
+normalizes them. The [new runner](../scripts/object_motion/sam_point_trial.py)
+passes exactly those coordinates with `multimask_output=False`, retains raw
+masks before acceptance, requires positive foreground and both negatives
+background in raw **and** optional largest-component masks, and retains the
+previous area and image-boundary guards. The same source/checkpoint hashes,
+two CPU threads, available-RAM≥2.5 GiB, worker RSS≤1.5 GiB, wall≤120 s,
+output≤20 MiB, and disk floor≥10 GiB apply. Nine focused SAM tests passed.
+
+The one fresh VPS run at
+`/mnt/storage/crisp3ds-data/sam21-mustard-point-smoke-001/` completed in
+34.52 s, peak worker RSS 1,033,008 KiB. Its manifest SHA-256 is
+`09bdd382bc23d26d9306f1e0698f55ad6b8ce7fb92f230ac1a8acc982f2c38ae`.
+All three raw masks obeyed point memberships `[1,0,0]`, formed a single
+8-connected component, and lost zero pixels to cleanup; areas were 20,408,
+16,674, and 19,642 pixels. The [three-view RGB/raw/clean review sheet](../.local-tools/sam21-mustard-point-review-001/point_review_sheet.jpg)
+has SHA-256 `0c2cedc235dab3bef33f6e49815e1dca4d30525edc1c9c3985b829cc0df0d1fc`.
+Initial inspection shows bottle body/labels retained and checkerboard
+suppressed in these three. This is **smoke evidence only**: mask status remains
+`complete_unreviewed`; it does not establish full-orbit quality. Root later
+accepted exactly this three-view smoke as coarse support, recorded in the
+[tracked narrow QA decision](../tests/datasets/sam21_mustard_point_smoke_review.json).
+The rejected box-only 32-view
+candidate remains rejected and is not retroactively reclassified.
+
+## Common-point 48-view attempt: partial 16 sealed views
+
+Root independently reviewed all 48 **original training RGB** crops before
+inference. The proposed common point `(600,525)` lay visibly inside the bottle
+in every crop; negatives `(720,620)` and `(520,630)` lay off-object. The four
+12-view annotated sheets and the generated prompt file are preserved locally
+at `.local-tools/sam21-mustard-point-review48-001/`. The exact
+[tracked full prompt manifest](../tests/datasets/sam21_mustard_point48_prompts.json)
+has SHA-256 `28440795d5f38590df8c5568969970d6623fbe22ea6b3e8781cba10608149d32`.
+This is a **new common-point candidate**, not the same negatives as the
+three-view smoke, and its prompt freeze preceded the larger inference run.
+
+The [separate full runner](../scripts/object_motion/sam_point_full.py) fixed six
+sequential batches of eight training photos, ≤90 s and ≤1.5 GiB worker RSS
+per batch, two CPU threads, ≤600 s overall including at most 60 s aggregate
+wait for ≥2.5 GiB available RAM before each batch, ≤60 MiB output, and a
+≥10 GiB free-space floor. It preserves raw masks before membership, area,
+boundary, and optional largest-component checks. Incomplete/unusable views
+are never treated as approved masks. The reviewed model/source, package,
+prompt and helper hashes are rebound throughout. The runner and synthetic
+resource-exit guard tests passed independent peer review before launch.
+
+The fresh VPS run at `/mnt/storage/crisp3ds-data/sam21-mustard-point-full-001/`
+stopped at its **third batch's 90-second wall cap**, not at a RAM limit.
+Batch 0 sealed eight views in 58.33 s (peak RSS 1,096,116 KiB); batch 1 sealed
+eight in 63.91 s (peak RSS 1,068,244 KiB). All 16 sealed masks passed exact
+positive/negative membership, old area/boundary guards and optional
+largest-component cleanup. Their raw areas spanned 13,892–21,432 pixels;
+cleanup removed 972, 553 and 89 detached pixels from `NP3_000`, `006` and
+`012`, respectively, and zero from the other 13. Batch 2 was terminated at
+90.23 s (peak RSS 1,085,936 KiB) before writing a batch manifest. Six raw/
+clean PNG pairs remain in that directory for failure diagnosis but are
+**unsealed and unusable** as candidate evidence. There was no retry, prompt
+change or resource-cap relaxation. The parent report is
+`failed_or_partial_unusable`, SHA-256
+`0ff3c6203301988890ded40276c58d510582bb08a7fa2f1884d2ba792349fd09`;
+total elapsed 219.53 s. Batches 0/1 have manifest SHA-256 values
+`ec40a87c334f1168da4e56c54dd7373dd8650bd4b71a4bdcf70a124b580436c8`
+and `2f0c8d51ee40e14c3dd57679d868fae01167563479abde29fbfc262bce839ee0`.
+
+The [RGB](../.local-tools/sam21-mustard-point-full-review-001/training_rgb_sheet.jpg),
+[raw](../.local-tools/sam21-mustard-point-full-review-001/training_raw_sheet.jpg),
+and [cleaned](../.local-tools/sam21-mustard-point-full-review-001/training_cleaned_sheet.jpg)
+48-tile QA sheets show all training RGB crops; the mask sheets show only the
+16 sealed views, with the remaining 32 mask tiles marked missing. Their hashes are
+`76842c8f032e61047f16337df79e90d89cac09d3877e07bcfd9f314d792f2d41`,
+`881971b008da163c575905769263379ed3fd62ec4f880a53e4f032194c3fe5cd`,
+and `74f21d067eefaa80df6059999787f29566da463d0410e7f57436823d9ff8459b`.
+Root's [tracked visual decision](../tests/datasets/sam21_mustard_point_full_partial_review.json)
+accepts these first 16 only as **partial coarse pose-support evidence**:
+bottle body, cap and labels are retained, detached background specks removed,
+and no semantic target switch visible in those panels. A thin pale boundary
+remains. There is no full 48-view mask set, no exact-silhouette certification,
+and no SfM/dense reconstruction used these masks. Held-out photos and
+reference mesh/depth were not accessed for inference or QA.
