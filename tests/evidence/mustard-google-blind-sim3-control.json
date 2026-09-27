@@ -1,0 +1,32 @@
+{
+  "schema": "mustard_google_known_sim3_blind_alignment_control_v1",
+  "role": "analytic transformed-reference control, not candidate registration validation",
+  "reference_sha256": "b82268e4ea6c9ad9dbcf8e6fd35b4a3b3631af3ecfcd413722df07f87cf601b4",
+  "align_script_sha256": "24f27a0e2ff8879e5635151f73340b4abebbc04276f115cce627fec515f37b64",
+  "surface_metrics_script_sha256": "466541e870f51411db647f96e1f1060e7c574ededdb9d92ded81b4ce43bebb16",
+  "known_transform_source": "registration_audit.known_sim3()",
+  "fit_samples_per_mesh": 1024,
+  "fit_seed": 2026,
+  "evaluation_samples_per_mesh": 4096,
+  "evaluation_seed": 2027,
+  "known_truth_output_to_reference": [
+    [1.168951431926347, -1.2116727298380947, -0.2353757539850761, 2.3],
+    [0.9647778220747406, 1.0991205232775854, -0.8666820808939842, -1.1],
+    [0.7699066851444161, 0.4623670306982396, 1.4434196981797187, 3.7],
+    [0.0, 0.0, 0.0, 1.0]
+  ],
+  "blind_fitted_output_to_reference": [
+    [1.168951431926347, -1.2116727298380956, -0.23537575398507615, 2.299999999999997],
+    [0.9647778220747415, 1.0991205232775851, -0.866682080893985, -1.1000000000000016],
+    [0.7699066851444167, 0.4623670306982405, 1.4434196981797194, 3.7000000000000037],
+    [0.0, 0.0, 0.0, 1.0]
+  ],
+  "rotation_error_degrees": 0.0,
+  "scale_relative_error": 4.440892098500626e-16,
+  "translation_error_normalized_by_reference_bbox_diagonal": 2.094091308259254e-14,
+  "heldout_corresponding_rms_normalized_by_reference_bbox_diagonal": 1.8385065697152164e-14,
+  "f_scores_at_0p5_1_2pct_reference_bbox_diagonal": [1.0, 1.0, 1.0],
+  "chamfer_l1_mean_reference_units": 2.081043558116622e-15,
+  "elapsed_seconds_observed": 4.339676374991541,
+  "interpretation": "The blind aligner recovers a known proper Sim(3) on an identical transformed reference mesh. Partial overlap and different candidate geometry remain unvalidated."
+}

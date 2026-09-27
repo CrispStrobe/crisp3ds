@@ -1,0 +1,155 @@
+{
+  "method": "area-weighted Monte Carlo query samples; closest target triangle via exhaustive-pruning AABB tree",
+  "target_distance_exact_for_samples_up_to_floating_point": true,
+  "barycentric_boundary_tolerance": 1e-12,
+  "surface_integral_approximate": true,
+  "sample_count_per_mesh": 4096,
+  "reference_seed": 2027,
+  "output_seed": 2028,
+  "reference_zero_area_faces_excluded": 2,
+  "output_zero_area_faces_excluded": 2,
+  "output_to_reference_accuracy": {
+    "mean": 2.5038682822075475e-18,
+    "rms": 4.0633964162921155e-18,
+    "median": 1.3045376189414283e-18,
+    "p90": 6.182732979318845e-18,
+    "p95": 8.579372123999207e-18
+  },
+  "reference_to_output_completeness": {
+    "mean": 2.5967261116601853e-18,
+    "rms": 4.280675900915966e-18,
+    "median": 1.4130533253546502e-18,
+    "p90": 6.224996069125833e-18,
+    "p95": 8.837343949912086e-18
+  },
+  "chamfer_l1_mean": 2.5502971969338666e-18,
+  "chamfer_l1_mean_normalized_by_reference_bbox_diagonal": 1.1350709576559227e-17,
+  "reference_bbox_diagonal": 0.2246817416772411,
+  "normal_consistency_abs_dot": {
+    "output_to_reference_mean": 1.0,
+    "reference_to_output_mean": 1.0
+  },
+  "topology": {
+    "reference": {
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "vertex_connected_components": 1,
+      "largest_component_face_fraction": 1.0,
+      "euler_v_minus_e_plus_f": 2,
+      "referenced_vertices": 8194,
+      "unique_edges": 24576
+    },
+    "output": {
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "vertex_connected_components": 1,
+      "largest_component_face_fraction": 1.0,
+      "euler_v_minus_e_plus_f": 2,
+      "referenced_vertices": 8194,
+      "unique_edges": 24576
+    },
+    "definition": "raw triangle edges; vertex-connected face components"
+  },
+  "threshold_scores": [
+    {
+      "threshold": 0.0011234087083862056,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f_score": 1.0,
+      "accuracy_normal_abs_dot_within_threshold": 1.0,
+      "completeness_normal_abs_dot_within_threshold": 1.0
+    },
+    {
+      "threshold": 0.002246817416772411,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f_score": 1.0,
+      "accuracy_normal_abs_dot_within_threshold": 1.0,
+      "completeness_normal_abs_dot_within_threshold": 1.0
+    },
+    {
+      "threshold": 0.004493634833544822,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f_score": 1.0,
+      "accuracy_normal_abs_dot_within_threshold": 1.0,
+      "completeness_normal_abs_dot_within_threshold": 1.0
+    }
+  ],
+  "stage_seconds": {
+    "triangle_preparation": 0.0142023749940563,
+    "topology": 0.3413351670023985,
+    "tree_build": 0.057400958001380786,
+    "sampling": 0.014373457990586758,
+    "distance_queries": 1.5848922500008484,
+    "total": 2.012204207989271
+  },
+  "limits": {
+    "samples_per_mesh": 4096,
+    "time_seconds": 300,
+    "leaf_triangles": 16,
+    "geometry_vertices_per_mesh": 1000000,
+    "geometry_faces_per_mesh": 2000000
+  },
+  "reference": {
+    "path": "/Volumes/backups/code/crisp3ds-data/mustard-eval-reference-001/google_geometry_f64.ply",
+    "bytes": 409827,
+    "vertices": 8194,
+    "faces": 16384,
+    "nontriangle_faces": 0,
+    "faces_with_repeated_indices": 0,
+    "zero_area_triangle_faces": 2,
+    "bbox_min": [
+      -0.063937999,
+      -0.056809001,
+      -0.003153
+    ],
+    "bbox_max": [
+      0.033259999,
+      0.0098120002,
+      0.18814801
+    ],
+    "bbox_extent": [
+      0.097197998,
+      0.0666210012,
+      0.19130101
+    ],
+    "all_coordinates_finite": true,
+    "all_face_indices_valid": true
+  },
+  "output": {
+    "path": "/Volumes/backups/code/crisp3ds-data/mustard-eval-reference-001/google_geometry_f64.ply",
+    "bytes": 409827,
+    "vertices": 8194,
+    "faces": 16384,
+    "nontriangle_faces": 0,
+    "faces_with_repeated_indices": 0,
+    "zero_area_triangle_faces": 2,
+    "bbox_min": [
+      -0.063937999,
+      -0.056809001,
+      -0.003153
+    ],
+    "bbox_max": [
+      0.033259999,
+      0.0098120002,
+      0.18814801
+    ],
+    "bbox_extent": [
+      0.097197998,
+      0.0666210012,
+      0.19130101
+    ],
+    "all_coordinates_finite": true,
+    "all_face_indices_valid": true
+  },
+  "reference_sha256": "b82268e4ea6c9ad9dbcf8e6fd35b4a3b3631af3ecfcd413722df07f87cf601b4",
+  "output_sha256": "b82268e4ea6c9ad9dbcf8e6fd35b4a3b3631af3ecfcd413722df07f87cf601b4",
+  "reference_units": "reference-coordinate units (physical units unverified)",
+  "registration_basis": "identity-self-control",
+  "sim3_scale_output_to_reference": 1.0,
+  "scale_provenance": "identity self-control",
+  "transform_provenance": "same exact reference mesh",
+  "interpretation": "same-mesh numerical and sampling control; not reconstruction quality",
+  "metric_accuracy_claim_allowed": false
+}
