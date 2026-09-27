@@ -200,6 +200,17 @@ def save_receipt(report: dict) -> None:
     os.replace(temp, RECEIPT)
 
 
+def completed(report: dict) -> bool:
+    return (not report.get('failure') and not report.get('final_audit_failure') and
+            len(report.get('arms', [])) == 2 and
+            all(row.get('exit_code') == 0 and row.get('producer_status') == 'sparse_complete'
+                for row in report['arms']) and
+            report.get('sources_unchanged') is True and
+            report.get('internal_free_bytes_after', 0) >= MIN_FREE and
+            report.get('external_free_bytes_after', 0) >= MIN_FREE and
+            report.get('total_output_bytes', TOTAL_LIMIT) < TOTAL_LIMIT)
+
+
 def run_pair() -> dict:
     start_preflight = preflight()
     report = {'schema': 'mustard_mask_pair_receipt_v1', 'status': 'running',
@@ -249,13 +260,7 @@ def run_pair() -> dict:
                                             for name in row['output_hashes']) for row in report['arms'])
     except Exception as error:
         report['final_audit_failure'] = f'{type(error).__name__}: {error}'
-    report['status'] = ('completed' if not report.get('failure') and not report.get('final_audit_failure') and
-                        len(report['arms']) == 2 and
-                        all(row['exit_code'] == 0 for row in report['arms']) and
-                        report.get('sources_unchanged') and
-                        report.get('internal_free_bytes_after', 0) >= MIN_FREE and
-                        report.get('external_free_bytes_after', 0) >= MIN_FREE and
-                        report.get('total_output_bytes', TOTAL_LIMIT) < TOTAL_LIMIT else 'partial_or_failed')
+    report['status'] = 'completed' if completed(report) else 'partial_or_failed'
     save_receipt(report)
     return report
 

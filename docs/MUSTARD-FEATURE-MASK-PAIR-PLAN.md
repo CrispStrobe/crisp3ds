@@ -9,7 +9,7 @@ are immutable. No live arm has run under this plan.
 
 The read-only [wrapper](../scripts/classical_backend/mustard_mask_pair.py)
 is frozen at SHA-256
-`198d66870fedc23eed2391ab4b2ab5645747db6db6294b82605d805dba003a3a`.
+`47d5f5db014ee3fb249967f8ffbd5fd8d333c25b728d4af32488fe930cf8b584`.
 Its
 preflight checks the 48-name sealed train list, exact staged JPEG/SAM PNG bytes,
 the v2 report and root visual decision, binary 1280×1024 masks, no added v2
@@ -54,12 +54,16 @@ volumes and the per-arm limit during stages. Temporary files stay on the
 external volume. The wrapper's fresh receipt saves the preflight, exact
 commands, each arm's exit/producer status, effective PyCOLMAP options,
 SHA-256 of every output file and all source photo/mask hashes before and after.
-A failed/partial arm remains retained, not silently replaced or promoted.
+A failed/partial arm remains retained, not silently replaced or promoted. The
+wrapper marks the pair `completed` only if **both** producer processes exit
+zero **and** both producer reports say `sparse_complete`, plus unchanged sources,
+bounded total output and the final disk floors. A zero exit with any other
+producer status is `partial_or_failed`.
 
-The read-only preflight passed with 48 verified training views, 23,708,839,936
-bytes internal and 17,117,290,496 bytes external free. Three focused wrapper
+The read-only preflight passed with 48 verified training views, 23,711,059,968
+bytes internal and 17,118,318,592 bytes external free. Four focused wrapper
 tests passed, including a simulated failure after receipt creation that seals
-`partial_or_failed`. After approved
+`partial_or_failed` and a zero-exit/non-`sparse_complete` rejection. After approved
 execution, compare registered names/count, verified-pair graph, tracks with
 distinct-view counts, reciprocal track links, reprojection residual
 denominators, saved intrinsics and acquisition-order orbit fold diagnostics.

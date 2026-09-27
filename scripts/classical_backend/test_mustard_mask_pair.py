@@ -41,6 +41,17 @@ class TestMustardMaskPair(unittest.TestCase):
         self.assertEqual(saved[-1]['status'], 'partial_or_failed')
         self.assertEqual(result['arms'], [])
 
+    def test_zero_exit_without_sparse_complete_cannot_complete_pair(self):
+        report = {'arms': [{'exit_code': 0, 'producer_status': 'sparse_complete'},
+                           {'exit_code': 0, 'producer_status': 'failed'}],
+                  'sources_unchanged': True,
+                  'internal_free_bytes_after': pair.MIN_FREE,
+                  'external_free_bytes_after': pair.MIN_FREE,
+                  'total_output_bytes': 100}
+        self.assertFalse(pair.completed(report))
+        report['arms'][1]['producer_status'] = 'sparse_complete'
+        self.assertTrue(pair.completed(report))
+
 
 if __name__ == '__main__':
     unittest.main()
