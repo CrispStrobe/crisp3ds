@@ -69,6 +69,8 @@ class CalibratedReferenceAdapterTests(unittest.TestCase):
                     patch.object(adapter, 'RECEIPT_SHA256', adapter.shared.sha256(receipt_path)), \
                     patch.object(adapter, 'ARCHIVE_BYTES', archive.stat().st_size), \
                     patch.object(adapter, 'ARCHIVE_SHA256', adapter.shared.sha256(archive)), \
+                    patch.object(adapter, 'SHARED_EVALUATOR_SHA256',
+                                 adapter.shared.sha256(Path(adapter.shared.__file__))), \
                     patch.object(adapter, 'disk_space', return_value={'internal_free_bytes': 20*1024**3,
                                                                        'external_free_bytes': 20*1024**3}), \
                     patch.object(adapter.shared, 'dataset', side_effect=AssertionError('numeric H5 load')):
