@@ -1,0 +1,38 @@
+{
+  "schema": "bunny_independent_camera_review_v1",
+  "decision": "approved_for_openmvs",
+  "scope": "exploratory_dense_continuation_only",
+  "camera_geometry_reviewed": true,
+  "object_region_consistent": true,
+  "metric_scale_verified": false,
+  "mesh_quality_accepted": false,
+  "reviewer": "Codex independent sparse camera and saved-observation audit, 2026-09-27",
+  "source_receipt_sha256": "97cf72ab72c75a88f04d97baa29c6de49a1640103d7143dd151bc2efe54c507d",
+  "sparse_model_sha256": "aea2b3129cb317663435461fd12fa4c0078c57211fc1c08cf7b1a29ad6902975",
+  "prepare_manifest_sha256": "eca0bfa60badd7fa5c9b5311e7f413a3f337159c158f856066086e44b0a90ecd",
+  "pose_only_json_sha256": "8552a165dac3181e66b57ef1c585af0ab47831c944b0983ff40fe04373a8960f",
+  "structure_json_sha256": "3930629a8da1baca576984d9554d226f7f54f1b6e9f86be7e76227290d59a1b9",
+  "mask_manifest_sha256": "e5b242f837ee0971408b976ee9fed45e8ee3c660e56fda3f0db2e7a6749c6521",
+  "numeric_order_orbit": {
+    "tested_slots": 72,
+    "status": "pass",
+    "winding_degrees": 360.0,
+    "reversed_significant_step_fraction": 0.0,
+    "maximum_adjacent_center_step_over_radius": 0.17988314571775912,
+    "maximum_adjacent_orientation_step_degrees": 10.184847620706188
+  },
+  "saved_observation_mask_support": {
+    "observations": 23619,
+    "in_bounds": 23619,
+    "inside_coarse_photo_only_mask": 22695,
+    "per_view_inside_fraction_min": 0.9241071428571429,
+    "per_view_inside_fraction_median": 0.9610778443113772,
+    "per_view_inside_fraction_max": 0.9898734177215189,
+    "tracks_with_at_least_two_inside_observations": 6154
+  },
+  "limitations": [
+    "Bunny 13 to 14 are near-duplicate RGB views with a near-zero recovered baseline.",
+    "Masks are coarse photo-derived object support and include some contact shadow.",
+    "No independent camera truth, metric scale, or mesh geometry has passed."
+  ]
+}
