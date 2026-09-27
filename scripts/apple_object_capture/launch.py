@@ -63,9 +63,13 @@ def launch(binary: Path, run_dir: Path, *, images: Path | None = None,
         photos = _photos(images)
     else:
         photos = []
+    source_volumes = (binary.parent,) if images is None else (binary.parent, images)
     cap = max_output_mib << 20
     if shutil.disk_usage(run_dir.parent).free < RESERVE + cap + PREFLIGHT_BUFFER:
         raise ValueError("insufficient free space for output cap and 10 GiB reserve")
+    if any(shutil.disk_usage(path).free < RESERVE + PREFLIGHT_BUFFER
+           for path in source_volumes):
+        raise ValueError("insufficient free space for source-volume 10 GiB reserve")
     command = [str(binary), "--check-support"] if images is None else [
         str(binary), "--images", str(images), "--output", str(run_dir / "model.usdz")]
     run_dir.mkdir()
@@ -74,7 +78,8 @@ def launch(binary: Path, run_dir: Path, *, images: Path | None = None,
               "binary_sha256": digest(binary), "inputs": photos, "command": command,
               "limits": {"max_output_bytes": cap, "max_log_bytes": 16 << 20,
                          "max_child_rss_bytes": 8 << 30,
-                         "timeout_minutes": timeout_minutes, "min_free_bytes": RESERVE},
+                         "timeout_minutes": timeout_minutes, "min_free_bytes": RESERVE,
+                         "source_reserve_paths": [str(path) for path in source_volumes]},
               "stages": [], "apple_only": True, "cross_platform_backend": False,
               "quality_accepted": False}
     report_path = run_dir / "result.json"
@@ -83,7 +88,8 @@ def launch(binary: Path, run_dir: Path, *, images: Path | None = None,
     try:
         if digest(binary) != report["binary_sha256"]:
             raise ValueError("probe binary changed before launch")
-        result = stage(run_dir, "photogrammetry", command, deadline, cap, 16 << 20, 8 << 30)
+        result = stage(run_dir, "photogrammetry", command, deadline, cap, 16 << 20,
+                       8 << 30, source_volumes)
         report["stages"].append(result)
         if images is None:
             support_text = (run_dir / "photogrammetry.log").read_text(errors="replace")
@@ -96,9 +102,6 @@ def launch(binary: Path, run_dir: Path, *, images: Path | None = None,
             output = run_dir / "model.usdz"
             if output.is_symlink() or not output.is_file() or output.stat().st_size == 0:
                 raise ValueError("PhotogrammetrySession did not produce a nonempty USDZ")
-            report["artifact"] = {"path": str(output), "bytes": output.stat().st_size,
-                                  "sha256": digest(output),
-                                  "validity": "nonempty_file_only; USDZ contents and mesh not inspected"}
         report["status"] = "complete"
     except StageError as error:
         report["stages"].append(error.result)
@@ -108,19 +111,38 @@ def launch(binary: Path, run_dir: Path, *, images: Path | None = None,
     try:
         report["binary_unchanged"] = binary.is_file() and not binary.is_symlink() and \
             digest(binary) == report["binary_sha256"]
-        report["source_images_unchanged"] = (all((images / item["name"]).is_file() and
-                                                 not (images / item["name"]).is_symlink() and
-                                                 digest(images / item["name"]) == item["sha256"]
-                                                 for item in photos) if images is not None else None)
-    except OSError:
+    except (OSError, ValueError):
         report["binary_unchanged"] = False
-        report["source_images_unchanged"] = False if images is not None else None
+    try:
+        report["source_images_unchanged"] = (_photos(images) == photos
+                                             if images is not None else None)
+    except (OSError, ValueError):
+        report["source_images_unchanged"] = False
     if not report["binary_unchanged"] or report["source_images_unchanged"] is False:
         report.update(status="failed", provenance_failure="binary or source images changed")
-    report["output_bytes"] = folder_bytes(run_dir)
+    try:
+        report["output_bytes"] = folder_bytes(run_dir)
+    except ValueError as error:
+        report["output_bytes"] = None
+        report.update(status="failed", output_inventory_failure=str(error))
     report["free_bytes_after"] = shutil.disk_usage(run_dir).free
-    if report["output_bytes"] > cap or report["free_bytes_after"] < RESERVE:
+    report["source_free_bytes_after"] = {str(path): shutil.disk_usage(path).free
+                                         for path in source_volumes}
+    if ((report["output_bytes"] is not None and report["output_bytes"] > cap) or
+            report["free_bytes_after"] < RESERVE or
+            any(free < RESERVE for free in report["source_free_bytes_after"].values())):
         report.update(status="failed", resource_postcheck_failure="output cap or disk reserve exceeded")
+    if images is not None:
+        output = run_dir / "model.usdz"
+        if output.is_symlink():
+            report["artifact"] = {"path": str(output), "validity": "rejected_symlink"}
+            report.update(status="failed", artifact_failure="USDZ output is a symlink")
+        elif output.is_file():
+            report["artifact"] = {"path": str(output), "bytes": output.stat().st_size,
+                                  "sha256": digest(output),
+                                  "validity": ("nonempty_file_only; USDZ contents and mesh not inspected"
+                                               if report["status"] == "complete" else
+                                               "partial_or_unverified; USDZ contents and mesh not inspected")}
     report_path.write_text(json.dumps(report, indent=2) + "\n")
     return report
 

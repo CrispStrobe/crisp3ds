@@ -40,9 +40,11 @@ MAX_SECONDS = 600
 IMAGE_NAMES = tuple(f"{i:05}.jpg" for i in range(11))
 
 
-def options(pycolmap):
+def options(pycolmap, mask_path: str = ""):
     """Construct defaults anew; bound only the two CPU thread pools."""
     reader = pycolmap.ImageReaderOptions()
+    if mask_path:
+        reader.mask_path = mask_path
     extract = pycolmap.SiftExtractionOptions()
     extract.num_threads = 2
     matching = pycolmap.SiftMatchingOptions()
@@ -55,10 +57,23 @@ def options(pycolmap):
     return reader, extract, matching, exhaustive, verification, mapping
 
 
-def effective_options(pycolmap):
-    reader, extract, matching, exhaustive, verification, mapping = options(pycolmap)
+def effective_options(pycolmap, camera_mode=None, mask_path: str = ""):
+    reader, extract, matching, exhaustive, verification, mapping = options(pycolmap, mask_path)
+    camera_mode = camera_mode or pycolmap.CameraMode.AUTO
+    deviations = {
+        "random_seed": SEED,
+        "device": "cpu",
+        "sift_extraction.num_threads": 2,
+        "sift_matching.num_threads": 2,
+        "incremental_pipeline.num_threads": 2,
+        "incremental_pipeline.mapper.num_threads": 2,
+    }
+    if camera_mode.name != "AUTO":
+        deviations["camera_mode"] = camera_mode.name
+    if mask_path:
+        deviations["image_reader.mask_path"] = mask_path
     return {
-        "camera_mode": pycolmap.CameraMode.AUTO.name,
+        "camera_mode": camera_mode.name,
         "camera_model": reader.camera_model,
         "device": pycolmap.Device.cpu.name,
         "image_reader": reader.todict(),
@@ -67,14 +82,7 @@ def effective_options(pycolmap):
         "exhaustive_matching": exhaustive.todict(),
         "two_view_geometry": verification.todict(),
         "incremental_pipeline": mapping.todict(),
-        "deviations_from_pycolmap_3_11_1_defaults": {
-            "random_seed": SEED,
-            "device": "cpu",
-            "sift_extraction.num_threads": 2,
-            "sift_matching.num_threads": 2,
-            "incremental_pipeline.num_threads": 2,
-            "incremental_pipeline.mapper.num_threads": 2,
-        },
+        "deviations_from_pycolmap_3_11_1_defaults": deviations,
     }
 
 
@@ -151,18 +159,28 @@ def worker(kind: str, output: Path) -> None:
     if pycolmap.__version__ != "3.11.1":
         raise ValueError(f"expected PyCOLMAP 3.11.1, got {pycolmap.__version__}")
 
-    names = list(IMAGE_NAMES)
+    config_path = output / "worker-config.json"
+    config = json.loads(config_path.read_text()) if config_path.is_file() else {}
+    names = config.get("image_names", list(IMAGE_NAMES))
+    if (not isinstance(names, list) or not names or len(names) != len(set(names)) or
+            any(Path(name).name != name or name in (".", "..") for name in names)):
+        raise ValueError("invalid worker image inventory")
+    mode_name = config.get("camera_mode", "AUTO")
+    if mode_name not in ("AUTO", "SINGLE"):
+        raise ValueError("invalid worker camera mode")
+    camera_mode = getattr(pycolmap.CameraMode, mode_name)
+    mask_path = str(output / "masks") if config.get("use_masks", False) else ""
     images = output / "images"
     database = output / "database.db"
-    reader, extract, matching, exhaustive, verification, mapping = options(pycolmap)
+    reader, extract, matching, exhaustive, verification, mapping = options(pycolmap, mask_path)
     (output / "effective-options.json").write_text(
         json.dumps({"pycolmap_version": pycolmap.__version__,
                     "pycolmap_core_sha256": digest(Path(pycolmap._core.__file__)),
-                    **effective_options(pycolmap)}, indent=2, default=str) + "\n")
+                    **effective_options(pycolmap, camera_mode, mask_path)}, indent=2, default=str) + "\n")
     pycolmap.set_random_seed(SEED)
     if kind == "features":
         pycolmap.extract_features(str(database), str(images), names,
-                                  camera_mode=pycolmap.CameraMode.AUTO,
+                                  camera_mode=camera_mode,
                                   camera_model=reader.camera_model, reader_options=reader,
                                   sift_options=extract, device=pycolmap.Device.cpu)
     elif kind == "matching":

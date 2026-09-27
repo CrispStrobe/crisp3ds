@@ -1,5 +1,6 @@
 """Small contract checks for the stock image-only Sceaux control."""
 
+from contextlib import closing
 import json
 from pathlib import Path
 import sqlite3
@@ -117,7 +118,7 @@ class ImageOnlyTests(unittest.TestCase):
                 calls.append((name, command, max_bytes, max_log, max_rss,
                               extra_reserve_paths))
                 database = run / "database.db"
-                with sqlite3.connect(database) as connection:
+                with closing(sqlite3.connect(database)) as connection:
                     for table in ("images", "cameras", "keypoints", "descriptors",
                                   "matches", "two_view_geometries"):
                         connection.execute(f"CREATE TABLE IF NOT EXISTS {table} (id INTEGER)")

@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from scripts.apple_object_capture import launch as target
-from scripts.classical_backend.run import RESERVE
+from scripts.classical_backend.run import RESERVE, StageError
 
 
 class AppleLauncherTests(unittest.TestCase):
@@ -75,6 +75,65 @@ class AppleLauncherTests(unittest.TestCase):
         self.assertEqual(native.call_args.args[2][1:5],
                          ["--images", str(images.resolve()), "--output",
                           str((self.run_dir / "model.usdz").resolve())])
+        self.assertEqual(native.call_args.args[-1], (self.binary.parent.resolve(), images.resolve()))
+        self.assertEqual(report["artifact"]["validity"],
+                         "nonempty_file_only; USDZ contents and mesh not inspected")
+
+    def test_added_source_file_fails_exact_post_run_inventory(self):
+        images = self.root / "images"
+        images.mkdir()
+        for index in range(3):
+            (images / f"photo{index}.jpg").write_bytes(b"image")
+        def model_stage(run, *args):
+            (images / "photo3.jpg").write_bytes(b"added")
+            (run / "model.usdz").write_bytes(b"generated USDZ fixture")
+            return {"name": "photogrammetry", "status": "complete", "seconds": 1.0}
+        with patch.object(target, "stage", side_effect=model_stage):
+            report = target.launch(self.binary, self.run_dir, images=images, max_output_mib=10)
+        self.assertEqual(report["status"], "failed")
+        self.assertFalse(report["source_images_unchanged"])
+        self.assertIn("partial_or_unverified", report["artifact"]["validity"])
+
+    def test_failed_stage_records_partial_usdz(self):
+        images = self.root / "images"
+        images.mkdir()
+        for index in range(3):
+            (images / f"photo{index}.jpg").write_bytes(b"image")
+        def failed_stage(run, *args):
+            (run / "model.usdz").write_bytes(b"partial USDZ")
+            raise StageError({"name": "photogrammetry", "status": "failed",
+                              "exit_code": 1, "failure": "native error"})
+        with patch.object(target, "stage", side_effect=failed_stage):
+            report = target.launch(self.binary, self.run_dir, images=images, max_output_mib=10)
+        self.assertEqual(report["status"], "failed")
+        self.assertEqual(report["artifact"]["bytes"], len(b"partial USDZ"))
+        self.assertIn("partial_or_unverified", report["artifact"]["validity"])
+
+    def test_source_volume_reserve_preflight_and_postcheck(self):
+        images = self.root / "images"
+        images.mkdir()
+        for index in range(3):
+            (images / f"photo{index}.jpg").write_bytes(b"image")
+        ample = types.SimpleNamespace(free=RESERVE + (2 << 30))
+        low = types.SimpleNamespace(free=RESERVE - 1)
+        with patch.object(target.shutil, "disk_usage",
+                          side_effect=lambda path: low if Path(path) == images.resolve() else ample):
+            with self.assertRaisesRegex(ValueError, "source-volume"):
+                target.launch(self.binary, self.run_dir, images=images, max_output_mib=10)
+        native_finished = False
+        def disk_usage(path):
+            return low if native_finished and Path(path) == images.resolve() else ample
+        def model_stage(run, *args):
+            nonlocal native_finished
+            (run / "model.usdz").write_bytes(b"generated USDZ fixture")
+            native_finished = True
+            return {"name": "photogrammetry", "status": "complete", "seconds": 1.0}
+        with patch.object(target.shutil, "disk_usage", side_effect=disk_usage), \
+                patch.object(target, "stage", side_effect=model_stage):
+            report = target.launch(self.binary, self.run_dir, images=images, max_output_mib=10)
+        self.assertEqual(report["status"], "failed")
+        self.assertEqual(report["source_free_bytes_after"][str(images.resolve())], RESERVE - 1)
+        self.assertIn("partial_or_unverified", report["artifact"]["validity"])
 
     def test_overwrite_disk_and_platform_gates(self):
         self.run_dir.mkdir()
