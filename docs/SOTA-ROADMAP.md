@@ -91,6 +91,18 @@ object-specific, surface quality is rejected and held-out/portable live scans ar
 outstanding. See [YCB-COMPARISON.md](YCB-COMPARISON.md). Stabilizing the replay and
 improving object-only depth/support now precede learned/GPU/product expansion.
 
+The [subsequent comparative batch](BENCHMARK-RESULTS.md) adds multiple surface
+metrics, an upstream supplied-camera software control, native depth-mask proof,
+full-resolution YCB and a second classical object. Explicit seed selection recovers
+a fresh 60/60 box camera run; generic retries recover 73/73 bunny cameras, but neither
+establishes universal automatic robustness. Four times as many YCB depth pixels
+does not materially improve its score. Bunny whole-scan and post-hoc object-ROI
+fits expose registration failure, so their F-scores are not a reliable standalone
+pipeline ranking. The next evaluation task is independently validated registration
+(including partial overlap and known-frame/landmark controls), alongside isolated
+camera-model and depth-support ablations. Do not keep changing reference crops or
+alignment settings until a preferred pipeline scores well.
+
 - Freeze image hashes, selection, resolution, masks, camera model, parameters,
   versions, timeout, memory/output limits and evaluation scope before comparing.
 - Preserve originals. No reference scan vertices, reference-derived tracks/masks,

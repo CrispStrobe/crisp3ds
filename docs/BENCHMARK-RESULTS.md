@@ -70,8 +70,37 @@ camera model or align the separate Google mesh. See
 [reference-frame caveats and reproduction](YCB-REFERENCE-FRAMES.md).
 
 No missing mesh receives a fabricated zero surface score: report the failure
-and registration count instead. Bunny dense outcomes are recorded separately
-as their bounded continuation and masked comparison finish.
+and registration count instead. The unmasked bunny continuation completed
+refinement and texturing (42,919 refined faces). Its whole-scan F is 17.73%,
+versus 16.65% for the rough mesh and 29.47% for MVE. **These numbers cannot
+establish an intrinsic geometry ranking:** the scanner includes a large support
+disk, and the classical reference-fit alignment visibly fails. A separately
+frozen, post-hoc scanner-only object ROI diagnostic is therefore evaluated on
+every candidate, retaining all candidate triangles and the original scores.
+See [bunny comparison and evaluation caveats](BUNNY-CLASSICAL-COMPARISON.md).
+
+The post-hoc ROI did **not** solve registration: at 1% of its own diagonal,
+F is 20.68% for MVE, 13.13% for classical rough and 13.99% for classical refined.
+MVE's high recall accompanies diffuse extra geometry and poor normals; the
+classical outputs look bunny-like but are visibly misoriented against the scan.
+These are recorded diagnostic outcomes, not a defensible winner/loser ranking.
+Independently validated registration is now an evaluation prerequisite.
+
+Native bunny masks also have direct payload evidence: all 73 depth maps retain
+4,332,340 positive inside-mask depths and zero outside, versus 4,332,360 inside
+and 4,436,808 outside in the unmasked baseline. Dense runtime was 307.25 versus
+897.53 seconds in these observed trials. This supports correct mask application
+and a promising cost reduction, not a controlled speedup or geometry-quality claim.
+The masked fixed-camera chain completed through textured OBJ export: 294,257
+fused points, 41,283 refined faces, 806 MB output, with source hashes unchanged.
+Both masked and unmasked classical completions reuse the recovered camera model;
+neither is a fresh uninterrupted automatic photo-to-textured-mesh replay.
+Masked refined F is 17.40% against the whole scan, 19.92% at 1% of the object
+ROI's diagonal, and 32.36% on that ROI using the original whole-scan absolute
+tolerance. These are distinct evaluation questions, not interchangeable scores.
+The ROI normalized mean is 3.547%, versus 4.738% unmasked, and the output has
+one component instead of six. However, registration/coverage disagreement remains
+visible; these diagnostic changes do not establish accepted geometric accuracy.
 
 ## What the evidence says to do next
 
@@ -107,6 +136,8 @@ Selected observed stage costs (seconds; different profiles, no speed ranking):
 | YCB native masks 008 | 56.97 | 2.60 | 122.47 | 6.27 | Previously computed 60-camera scene; 641 × 512 depth |
 | YCB full-resolution continuation 011 | 111.02 | 7.85 | 101.71 | 6.17 | Dense figure excludes cached initial depth work; both geometric passes rerun |
 | Sceaux OpenMVS CPU | 128.30 | 10.00 | 102.36 | 22.08 | Supplied upstream cameras; recovered refinement/texturing after a handoff failure |
+| Bunny unmasked classical | 897.53 | 21.10 | 236.08 | 35.43 | Cached recovered cameras; successful refinement/texturing continuation after timeout |
+| Bunny native masks 005 | 307.25 | 18.57 | 262.46 | 35.52 | Same cached cameras and dense profile; new native mask arm |
 
 Sceaux MVE's image-only pipeline took 135.96 seconds across all its stages, but
 its geometry disagrees substantially with the software oracle. Faster completion
@@ -123,3 +154,13 @@ dependencies are not automatically approved for App Store distribution.
 Details: [YCB](YCB-COMPARISON.md), [bunny](BUNNY-EVALUATION.md),
 [classical backend](CLASSICAL-BACKEND.md), [upstream control](UPSTREAM-CONTROL.md),
 [software-oracle comparison](UPSTREAM-COMPARISON.md).
+
+## Verification checkpoint
+
+Local checks: 245 Python tests (8 skipped), 11 native CTests, 30 desktop tests,
+43 CLI/web contract cases, web production build, live Chromium interaction test,
+and the 530-entry locked dependency inventory check passed. At code commit
+`0f470ad`, both the [quality harness](https://github.com/CrispStrobe/crisp3ds/actions/runs/36287594304)
+and [foundation matrix](https://github.com/CrispStrobe/crisp3ds/actions/runs/36287594254)
+passed on macOS, Windows and Linux. Photo reconstructions in this report ran on
+M1 only. No native UI, mobile packaging, GPU or KIRI comparison is implied by CI.

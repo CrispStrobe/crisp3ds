@@ -28,8 +28,17 @@ Automatic camera initialization remains fragile: generic retries recover all
 seed pair. The latest box/native-mask meshes remain rejected. No KIRI parity is
 established; the C++/Tauri production reconstruction action remains gated.
 
+Both unmasked and native-masked bunny classical paths now complete through
+textured OBJ export using that recovered model, with explicit continuation/cached
+camera provenance. Native mask effects are checked in all 73 depth payloads.
+The [whole-scan and post-hoc object-ROI evaluations](BUNNY-CLASSICAL-COMPARISON.md)
+expose unreliable geometric registration; their F-scores do not establish a
+pipeline ranking. This narrows the next evaluation work, not a quality acceptance.
+
 Latest local validation: all 11 native CTests, 30 desktop tests, 43 CLI/web
 contract cases, the web build and live Chromium interaction test passed again.
+The complete Python discovery passed 245 tests (8 skipped), including the new
+SQLite handle-lifetime regression test in the 33-test classical suite.
 The dependency metadata checker matches 530 exact entries. New quality-harness
 tests cover multiple surface metrics, camera-reference composition, native mask
 warping and upstream controls. The disk reserve remains 10 GiB.
@@ -38,6 +47,14 @@ with a checked-in, hash-traced mapper-options fixture. At commit `975cd8a`, both
 [foundation matrix](https://github.com/CrispStrobe/crisp3ds/actions/runs/36278628665)
 and [quality harness matrix](https://github.com/CrispStrobe/crisp3ds/actions/runs/36278628682)
 passed. This verifies builds/contracts, not portable real-photo quality.
+
+The expanded quality harness now also passes on macOS, Linux and Windows at
+`0f470ad` ([run 36287594304](https://github.com/CrispStrobe/crisp3ds/actions/runs/36287594304)).
+Its first Windows attempt exposed SQLite connections left open after a lookup;
+explicit closure on success and error fixed the issue without skipping the test.
+The [foundation matrix at that same commit](https://github.com/CrispStrobe/crisp3ds/actions/runs/36287594254)
+also passes on all three platforms. These remain build/contract checks, not
+real-photo reconstruction or packaging validation on Windows and Linux.
 
 The user approved [SOTA-ROADMAP.md](SOTA-ROADMAP.md). Supervised Sol tasks implement
 the classical CPU path, object-motion experiments and benchmark tooling. Measured
