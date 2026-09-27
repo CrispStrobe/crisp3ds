@@ -195,6 +195,10 @@ external report and nine feature artifacts were not modified. All six focused
 unit tests passed in the pinned external overlay, covering RootSIFT norms,
 artifact hashes, the TRAIN panel seal, match indices, row-order sensitivity,
 and local-only model loading.
+The evaluation test module now skips those six tests during ordinary CI
+discovery when its optional Torch/LightGlue dependencies are absent; the
+local lean PyCOLMAP environment discovered 150 object-motion tests with six
+expected skips and no import error. The external overlay still runs all six.
 These counts are **raw tentative matcher outputs** passed to an independent
 OpenCV E/H RANSAC fit. They have not been COLMAP geometrically verified; the
 reused estimator's JSON field `verified_correspondences` names its input count

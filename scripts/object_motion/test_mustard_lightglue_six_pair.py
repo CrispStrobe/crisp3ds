@@ -7,12 +7,21 @@ import tempfile
 import unittest
 from unittest import mock
 
-import numpy as np
-import torch
+try:
+    import numpy as np
+    import torch
+    from scripts.object_motion import mustard_lightglue_six_pair as pilot
+except ModuleNotFoundError as error:
+    if error.name not in {"numpy", "torch", "torchvision", "lightglue", "cv2", "kornia", "kornia_rs"}:
+        raise
+    np = torch = pilot = None
+    OPTIONAL_DEPENDENCY = error.name
+else:
+    OPTIONAL_DEPENDENCY = None
 
-from scripts.object_motion import mustard_lightglue_six_pair as pilot
 
-
+@unittest.skipIf(OPTIONAL_DEPENDENCY is not None,
+                 f"evaluation-only matcher dependency unavailable: {OPTIONAL_DEPENDENCY}")
 class SixPairPilotTests(unittest.TestCase):
     def test_rootsift_is_finite_unit_float_and_does_not_mutate_input(self):
         source = np.arange(4 * 128, dtype=np.float32).reshape(4, 128)
@@ -88,7 +97,8 @@ class SixPairPilotTests(unittest.TestCase):
         self.assertEqual(canonical, reverse)
         self.assertEqual(len(observed), 3)
 
-    @unittest.skipUnless(pilot.WEIGHT.is_file(), "external evaluation weight unavailable")
+    @unittest.skipUnless(pilot is not None and pilot.WEIGHT.is_file(),
+                         "external evaluation weight unavailable")
     def test_model_load_does_not_download(self):
         with mock.patch.object(torch.hub, "load_state_dict_from_url", side_effect=AssertionError("implicit download")) as fetch:
             model = pilot.load_model()
