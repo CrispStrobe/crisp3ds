@@ -23,8 +23,9 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE = Path("/Volumes/backups/code/crisp3ds-data/openmvg-bunny-high-openmvs-cache-fusion-003")
 OUTPUT = Path("/Volumes/backups/code/crisp3ds-data/openmvg-bunny-high-openmvs-refine-004")
 BIN = ROOT / ".local-tools/classical-backend/bin"
-SCHEMA = "openmvg_bunny_high_refine_texture_v2"
+SCHEMA = "openmvg_bunny_high_refine_texture_v3"
 ROUGH_SCHEMA = "openmvg_bunny_high_cached73_fusion_rough_v1"
+RESCUE_SCHEMA = "openmvg_bunny_high_rough_rescue_v1"
 REVIEW_SCHEMA = "openmvg_bunny_high_rough_visual_review_v1"
 NAMES = {f"frame_{i:04}.png" for i in range(73)}
 TOOLS = ("RefineMesh", "TextureMesh")
@@ -51,18 +52,36 @@ def _sha256_arg(value: str) -> str:
 
 def validate(args: argparse.Namespace) -> dict:
     source_receipt = _real_file(args.source / "result.json")
+    rescue_path = _real_file(args.rescue_receipt)
     review_path = _real_file(args.review_receipt)
     source_sha = digest(source_receipt)
+    rescue_sha = digest(rescue_path)
     review_sha = digest(review_path)
-    if source_sha != args.source_receipt_sha256 or review_sha != args.review_receipt_sha256:
-        raise ValueError("rough or native/visual review receipt hash differs")
+    if (source_sha != args.source_receipt_sha256 or
+            rescue_sha != args.rescue_receipt_sha256 or
+            review_sha != args.review_receipt_sha256):
+        raise ValueError("rough, rescue, or native/visual review receipt hash differs")
     source = json.loads(source_receipt.read_text())
+    rescue = json.loads(rescue_path.read_text())
     review = json.loads(review_path.read_text())
     if (source.get("schema") != ROUGH_SCHEMA or
-            source.get("status") != "rough_complete_pending_quality_review" or
+            source.get("status") != "failed" or
+            source.get("failure") != f"[Errno 2] No such file or directory: '{args.source / 'mesh.mvs'}'" or
             source.get("source_unchanged") is not True or
             source.get("quality_accepted") is not False):
-        raise ValueError("rough source has not completed native densify and mesh")
+        raise ValueError("rough source does not match sealed missing-mesh.mvs receipt")
+    if (rescue.get("schema") != RESCUE_SCHEMA or
+            rescue.get("status") != "native_rough_complete_pending_visual_review" or
+            rescue.get("rough_source") != str(args.source.resolve()) or
+            rescue.get("failed_receipt_sha256") != source_sha or
+            rescue.get("native_mesh_valid") is not True or
+            rescue.get("source_unchanged") is not True or
+            rescue.get("cached_base_dmaps_verified") != 73 or
+            rescue.get("converted_images_verified") != 73 or
+            rescue.get("visual_object_shape_reviewed") is not False or
+            rescue.get("quality_accepted") is not False or
+            rescue.get("mesh_geometry", {}).get("zero_area_faces") != 0):
+        raise ValueError("rescue sidecar does not seal this native rough run")
     stages = {row.get("name"): row for row in source.get("stages", []) if isinstance(row, dict)}
     if any(stages.get(name, {}).get("status") != "complete" for name in ("densify", "mesh")):
         raise ValueError("rough densify/mesh stage not sealed complete")
@@ -76,24 +95,30 @@ def validate(args: argparse.Namespace) -> dict:
             not has_option("--resolution-level", "3")):
         raise ValueError("rough fusion was not verified with frozen geom0 profile")
     inventory = source.get("output_inventory", {})
-    artifacts = source.get("artifacts", {})
+    artifacts = rescue.get("native_artifacts", {})
     if not isinstance(inventory, dict) or not isinstance(artifacts, dict):
         raise ValueError("rough receipt lacks artifact inventory")
     core = {}
-    for name in ("dense.mvs", "dense.ply", "mesh.mvs", "mesh.ply"):
+    for name in ("dense.mvs", "dense.ply", "mesh.ply"):
         path = _real_file(args.source / name)
         expected = artifacts.get(name, {}).get("sha256")
         if (not isinstance(expected, str) or digest(path) != expected or
                 inventory.get(name, {}).get("sha256") != expected or
+                artifacts[name].get("path") != str(path) or
                 artifacts[name].get("bytes") != path.stat().st_size):
             raise ValueError(f"rough native artifact differs: {name}")
         core[name] = expected
     for stage_name, artifact_name in (("densify", "dense.ply"), ("mesh", "mesh.ply")):
         stage_artifact = stages[stage_name].get("artifact", {})
+        rescued_stage = rescue.get("stage_status", {}).get(stage_name, {})
         if (stage_artifact.get("sha256") != core[artifact_name] or
                 stage_artifact.get("path") != str((args.source / artifact_name).resolve()) or
                 stage_artifact.get("bytes") != (args.source / artifact_name).stat().st_size or
-                stages[stage_name].get("returncode") != 0):
+                stages[stage_name].get("returncode") != 0 or
+                rescued_stage.get("status") != "complete" or
+                rescued_stage.get("returncode") != 0 or
+                rescued_stage.get("log_sha256") != stages[stage_name].get("log_sha256") or
+                rescued_stage.get("artifact_sha256") != core[artifact_name]):
             raise ValueError(f"rough {stage_name} stage does not seal its native artifact")
     rough_faces = checked_ply(args.source / "mesh.ply", "face")
     dense_points = checked_ply(args.source / "dense.ply", "vertex")
@@ -115,7 +140,7 @@ def validate(args: argparse.Namespace) -> dict:
             review.get("native_mesh_valid") is not True or
             review.get("visual_object_shape_reviewed") is not True or
             not isinstance(review.get("reviewer"), str) or not review["reviewer"].strip() or
-            review.get("rough_receipt_sha256") != source_sha or
+            review.get("rescue_receipt_sha256") != rescue_sha or
             review.get("dense_mvs_sha256") != core["dense.mvs"] or
             review.get("mesh_ply_sha256") != core["mesh.ply"]):
         raise ValueError("separate native/visual review does not approve exact rough mesh")
@@ -138,6 +163,7 @@ def validate(args: argparse.Namespace) -> dict:
         if shutil.disk_usage(volume).free < RESERVE + CAP:
             raise ValueError(f"11 GiB reserve plus 256 MiB headroom unavailable: {volume}")
     return {"source": str(args.source.resolve()), "source_receipt_sha256": source_sha,
+            "rescue_receipt": str(rescue_path), "rescue_receipt_sha256": rescue_sha,
             "review_receipt": str(review_path), "review_receipt_sha256": review_sha,
             "rough_artifact_sha256": core, "image_sha256": image_sha,
             "rough_faces": rough_faces, "dense_points": dense_points,
@@ -292,6 +318,7 @@ def execute(args: argparse.Namespace) -> dict:
     report["free_bytes_after"] = {str(path): shutil.disk_usage(path).free for path in reserve_paths}
     try:
         report["source_unchanged"] = (digest(Path(bound["source"]) / "result.json") == bound["source_receipt_sha256"] and
+            digest(Path(bound["rescue_receipt"])) == bound["rescue_receipt_sha256"] and
             digest(Path(bound["review_receipt"])) == bound["review_receipt_sha256"] and
             all(digest(Path(bound["source"]) / "images" / name) == sha
                 for name, sha in bound["image_sha256"].items()) and
@@ -312,6 +339,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=SOURCE)
     parser.add_argument("--source-receipt-sha256", type=_sha256_arg, required=True)
+    parser.add_argument("--rescue-receipt", type=Path, required=True)
+    parser.add_argument("--rescue-receipt-sha256", type=_sha256_arg, required=True)
     parser.add_argument("--review-receipt", type=Path, required=True)
     parser.add_argument("--review-receipt-sha256", type=_sha256_arg, required=True)
     parser.add_argument("--output", type=Path, default=OUTPUT)
