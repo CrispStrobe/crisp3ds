@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 from pathlib import Path
 import sys
@@ -11,7 +12,6 @@ import unittest
 
 FOLDER = Path(__file__).resolve().parent / "alicevision_three_photo_smoke"
 sys.path.insert(0, str(FOLDER))
-import alicevision_binary_smoke as binary  # noqa: E402
 import alicevision_three_photo_smoke as smoke  # noqa: E402
 
 
@@ -36,10 +36,14 @@ class ThreePhotoSmokeTests(unittest.TestCase):
         self.assertEqual([items[filename]["source"] for filename in smoke.PHOTOS],
                          ["bunny_0_rgb.png", "bunny_2_rgb.png", "bunny_4_rgb.png"])
 
-    def test_helper_copy_is_identical(self) -> None:
-        original = FOLDER.parent / "alicevision_binary_smoke" / "alicevision_binary_smoke.py"
-        self.assertEqual((FOLDER / "alicevision_binary_smoke.py").read_bytes(),
-                         original.read_bytes())
+    def test_kernel_entry_is_self_contained(self) -> None:
+        imports = [node.module for node in ast.walk(ast.parse((FOLDER / "alicevision_three_photo_smoke.py").read_text()))
+                   if isinstance(node, ast.ImportFrom)]
+        imports += [alias.name for node in ast.walk(ast.parse((FOLDER / "alicevision_three_photo_smoke.py").read_text()))
+                    if isinstance(node, ast.Import) for alias in node.names]
+        self.assertNotIn("alicevision_binary_smoke", imports)
+        self.assertEqual(sorted(path.name for path in FOLDER.glob("*.py")),
+                         ["alicevision_three_photo_smoke.py"])
 
     def test_work_cap_and_locations(self) -> None:
         self.assertEqual(smoke.MAX_SECONDS, 1200)
@@ -47,7 +51,7 @@ class ThreePhotoSmokeTests(unittest.TestCase):
         self.assertEqual(smoke.MIN_FREE_AFTER, 4 << 30)
         self.assertEqual(smoke.SCRATCH.parent, Path("/tmp"))
         self.assertEqual(smoke.OUTPUT.parent, Path("/kaggle/working"))
-        self.assertEqual(binary.ARCHIVE_BYTES, 1_505_191_867)
+        self.assertEqual(smoke.ARCHIVE_BYTES, 1_505_191_867)
         with tempfile.TemporaryDirectory() as directory:
             (Path(directory) / "test.bin").write_bytes(b"1234")
             self.assertEqual(smoke.work_bytes(Path(directory)), 4)
