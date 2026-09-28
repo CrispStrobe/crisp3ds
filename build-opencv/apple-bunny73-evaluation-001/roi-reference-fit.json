@@ -1,0 +1,97 @@
+{
+  "matrix": [
+    [
+      -78.80617118109382,
+      -117.33797752565253,
+      -151.65180591172486,
+      47.03350977871182
+    ],
+    [
+      -17.721976936838974,
+      167.7158100085672,
+      -120.5579629429023,
+      -22.093602794612433
+    ],
+    [
+      190.9251233849232,
+      -32.86472159750514,
+      -73.7861176447995,
+      -166.58559671401687
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "object_id": "bunny-roi-posthoc",
+  "source_frame": "reconstruction PLY coordinates",
+  "target_frame": "independent reference PLY coordinates",
+  "reference_units": "Revopoint scanner coordinate units; physical scale unverified",
+  "provenance": "reference-fitted diagnostic: 24 proper PCA seeds, top 4 bidirectional trimmed nearest-sample Sim(3) refinements; fixed algorithm",
+  "scale_provenance": "scale fitted to the same reference used for comparison; not independently recovered metric scale",
+  "registration_basis": "reference-fit",
+  "reference_sha256": "113c1a230a88559760fb7dbedf3e9e09fda9b099ebb4bf11953d5c860d33accc",
+  "output_sha256": "41a6de35cad340f805cec567e2c69f12eed9691f8ae7672d664814756f661303",
+  "reference_geometry": {
+    "vertices": 99103,
+    "faces": 197747,
+    "zero_area_triangle_faces": 4
+  },
+  "output_geometry": {
+    "vertices": 7431,
+    "faces": 14837,
+    "zero_area_triangle_faces": 0
+  },
+  "fitted_scale": 207.30866798646377,
+  "sample_count_per_mesh": 1024,
+  "sample_seed": 2026,
+  "alignment_script_sha256": "24f27a0e2ff8879e5635151f73340b4abebbc04276f115cce627fec515f37b64",
+  "alignment_diagnostics": {
+    "initial_candidate_count": 24,
+    "refined_candidate_count": 4,
+    "refine_steps_per_candidate": 8,
+    "final_steps": 20,
+    "deadline_seconds": 60,
+    "objective": "symmetric RMS nearest sampled-point distance in reference units",
+    "trim_fraction": 0.8,
+    "selected_initial_rank": 0,
+    "selected_initial_symmetric_rms_nearest_sampled_point": 6.537904746718453,
+    "final_symmetric_rms_nearest_sampled_point": 5.517529942605606,
+    "selected_history": [
+      6.537904746718453,
+      6.227850345504586,
+      6.048219051925629,
+      5.92521226208751,
+      5.8342534273814435,
+      5.769296404413844,
+      5.728578406118999,
+      5.710834982597006,
+      5.7030080513183545,
+      5.7030080513183545,
+      5.701936939179619,
+      5.695760379815207,
+      5.691857179580695,
+      5.686530236472756,
+      5.677894394232012,
+      5.663832104395479,
+      5.645026077376803,
+      5.622250976126123,
+      5.598886733559787,
+      5.571987139294929,
+      5.550995113952658,
+      5.535333163449369,
+      5.527473890333685,
+      5.5244573087593505,
+      5.522676010998036,
+      5.522468407247189,
+      5.518085112939169,
+      5.517529942605606,
+      5.519315403378293,
+      5.522481325927171
+    ],
+    "converged_by_final_relative_change": false
+  },
+  "interpretation": "reference-fitted descriptive comparison only; not independent scale or metric accuracy"
+}

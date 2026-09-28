@@ -1,0 +1,155 @@
+{
+  "method": "area-weighted Monte Carlo query samples; closest target triangle via exhaustive-pruning AABB tree",
+  "target_distance_exact_for_samples_up_to_floating_point": true,
+  "barycentric_boundary_tolerance": 1e-12,
+  "surface_integral_approximate": true,
+  "sample_count_per_mesh": 4096,
+  "reference_seed": 2027,
+  "output_seed": 2028,
+  "reference_zero_area_faces_excluded": 4,
+  "output_zero_area_faces_excluded": 0,
+  "output_to_reference_accuracy": {
+    "mean": 8.27441097775101,
+    "rms": 10.847170217639837,
+    "median": 6.50349715792799,
+    "p90": 17.701691309685415,
+    "p95": 23.30292445268801
+  },
+  "reference_to_output_completeness": {
+    "mean": 9.326074050936828,
+    "rms": 11.67046446840764,
+    "median": 7.870036373558125,
+    "p90": 19.46579556083521,
+    "p95": 22.842959880174952
+  },
+  "chamfer_l1_mean": 8.80024251434392,
+  "chamfer_l1_mean_normalized_by_reference_bbox_diagonal": 0.04218959601804934,
+  "reference_bbox_diagonal": 208.58797772273155,
+  "normal_consistency_abs_dot": {
+    "output_to_reference_mean": 0.6166746190905847,
+    "reference_to_output_mean": 0.5533838796286308
+  },
+  "topology": {
+    "reference": {
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "vertex_connected_components": 1,
+      "largest_component_face_fraction": 1.0,
+      "euler_v_minus_e_plus_f": 2,
+      "referenced_vertices": 217505,
+      "unique_edges": 652509
+    },
+    "output": {
+      "boundary_edges": 25,
+      "nonmanifold_edges": 0,
+      "vertex_connected_components": 1,
+      "largest_component_face_fraction": 1.0,
+      "euler_v_minus_e_plus_f": 0,
+      "referenced_vertices": 7431,
+      "unique_edges": 22268
+    },
+    "definition": "raw triangle edges; vertex-connected face components"
+  },
+  "threshold_scores": [
+    {
+      "threshold": 1.0429398885,
+      "precision": 0.098876953125,
+      "recall": 0.07421875,
+      "f_score": 0.0847915197461213,
+      "accuracy_normal_abs_dot_within_threshold": 0.636628420714469,
+      "completeness_normal_abs_dot_within_threshold": 0.62988495113196
+    },
+    {
+      "threshold": 2.085879777,
+      "precision": 0.183349609375,
+      "recall": 0.1484375,
+      "f_score": 0.16405675128771155,
+      "accuracy_normal_abs_dot_within_threshold": 0.6223922908524842,
+      "completeness_normal_abs_dot_within_threshold": 0.6355490831538425
+    },
+    {
+      "threshold": 4.171759554,
+      "precision": 0.3583984375,
+      "recall": 0.29052734375,
+      "f_score": 0.320913574586155,
+      "accuracy_normal_abs_dot_within_threshold": 0.6436101984203737,
+      "completeness_normal_abs_dot_within_threshold": 0.6324820181341089
+    }
+  ],
+  "stage_seconds": {
+    "triangle_preparation": 0.291658041998744,
+    "topology": 7.016888332989765,
+    "tree_build": 2.1486894999979995,
+    "sampling": 0.4374542500008829,
+    "distance_queries": 16.349092249991372,
+    "total": 26.243782374978764
+  },
+  "limits": {
+    "samples_per_mesh": 4096,
+    "time_seconds": 300,
+    "leaf_triangles": 16,
+    "geometry_vertices_per_mesh": 1000000,
+    "geometry_faces_per_mesh": 2000000
+  },
+  "reference": {
+    "path": "/Users/christianstrobele/code/crisp3ds/.local-tools/test-data/3dlf-scan-bunny/revopoint/bunny/fuse_mesh_rgb.ply",
+    "bytes": 11745565,
+    "vertices": 217505,
+    "faces": 435006,
+    "nontriangle_faces": 0,
+    "faces_with_repeated_indices": 0,
+    "zero_area_triangle_faces": 4,
+    "bbox_min": [
+      -39.68907928466797,
+      -38.566890716552734,
+      -244.6595916748047
+    ],
+    "bbox_max": [
+      95.80537414550781,
+      44.93769836425781,
+      -109.8368148803711
+    ],
+    "bbox_extent": [
+      135.49445343017578,
+      83.50458908081055,
+      134.8227767944336
+    ],
+    "all_coordinates_finite": true,
+    "all_face_indices_valid": true
+  },
+  "output": {
+    "path": "/Volumes/backups/code/crisp3ds-data/apple-bunny73-review-001/mesh-untextured.ply",
+    "bytes": 282230,
+    "vertices": 7431,
+    "faces": 14837,
+    "nontriangle_faces": 0,
+    "faces_with_repeated_indices": 0,
+    "zero_area_triangle_faces": 0,
+    "bbox_min": [
+      -0.17633521556854248,
+      0.0,
+      -0.1342366486787796
+    ],
+    "bbox_max": [
+      0.17633521556854248,
+      0.3537931740283966,
+      0.1342366486787796
+    ],
+    "bbox_extent": [
+      0.35267043113708496,
+      0.3537931740283966,
+      0.2684732973575592
+    ],
+    "all_coordinates_finite": true,
+    "all_face_indices_valid": true
+  },
+  "reference_sha256": "28ed4462b6ee84edcc87157b49aee9216ef170ddd1e176928c72c74233ef9520",
+  "output_sha256": "41a6de35cad340f805cec567e2c69f12eed9691f8ae7672d664814756f661303",
+  "reference_units": "Revopoint scanner coordinate units; physical scale unverified",
+  "registration_basis": "reference-fit",
+  "sim3_scale_output_to_reference": 291.2010979812989,
+  "scale_provenance": "scale fitted to the same reference used for comparison; not independently recovered metric scale",
+  "transform_provenance": "reference-fitted diagnostic: 24 proper PCA seeds, top 4 bidirectional trimmed nearest-sample Sim(3) refinements; fixed algorithm",
+  "interpretation": "reference-fitted shape diagnostic; scale and alignment depend on this reference",
+  "metric_accuracy_claim_allowed": false
+}
