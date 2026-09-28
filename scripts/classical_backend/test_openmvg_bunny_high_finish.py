@@ -35,7 +35,11 @@ class FinishPreflightTest(unittest.TestCase):
         self.receipt = {
             "schema": finish.ROUGH_SCHEMA,
             "status": "rough_complete_pending_quality_review",
+            "source_unchanged": True, "quality_accepted": False,
             "stages": [{"name": stage, "status": "complete", "returncode": 0,
+                        "cache_fusion_verified": True if stage == "densify" else None,
+                        "command": ["DensifyPointCloud", "--geometric-iters", "0",
+                                    "--resolution-level", "3"] if stage == "densify" else ["ReconstructMesh"],
                         "artifact": {"path": str((self.source / name).resolve()),
                                      **artifacts[name]}}
                        for stage, name in (("densify", "dense.ply"), ("mesh", "mesh.ply"))],
@@ -100,6 +104,16 @@ class FinishPreflightTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "native artifact differs"):
             finish.validate(self.args)
 
+    def test_failed_cache_resume_schema_is_not_accepted(self) -> None:
+        self.receipt["schema"] = "openmvg_bunny_high_cache_rough_v1"
+        self._save_receipt()
+        self.args.source_receipt_sha256 = digest(self.receipt_path)
+        self.review["rough_receipt_sha256"] = self.args.source_receipt_sha256
+        self._save_review()
+        self.args.review_receipt_sha256 = digest(self.review_path)
+        with self.assertRaisesRegex(ValueError, "rough source has not completed"):
+            finish.validate(self.args)
+
     def test_incomplete_stage_abstains(self) -> None:
         self.receipt["stages"][1]["status"] = "failed"
         self._save_receipt()
@@ -118,6 +132,16 @@ class FinishPreflightTest(unittest.TestCase):
         self._save_review()
         self.args.review_receipt_sha256 = digest(self.review_path)
         with self.assertRaisesRegex(ValueError, "does not seal"):
+            finish.validate(self.args)
+
+    def test_unverified_or_geometric_fusion_abstains(self) -> None:
+        self.receipt["stages"][0]["command"][2] = "2"
+        self._save_receipt()
+        self.args.source_receipt_sha256 = digest(self.receipt_path)
+        self.review["rough_receipt_sha256"] = self.args.source_receipt_sha256
+        self._save_review()
+        self.args.review_receipt_sha256 = digest(self.review_path)
+        with self.assertRaisesRegex(ValueError, "frozen geom0"):
             finish.validate(self.args)
 
     def test_insufficient_new_output_headroom_abstains(self) -> None:

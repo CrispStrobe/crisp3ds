@@ -20,11 +20,11 @@ from scripts.classical_backend.openmvg_photo_control import base as supervisor
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = Path("/Volumes/backups/code/crisp3ds-data/openmvg-bunny-high-openmvs-cache-resume-002")
-OUTPUT = Path("/Volumes/backups/code/crisp3ds-data/openmvg-bunny-high-openmvs-refine-003")
+SOURCE = Path("/Volumes/backups/code/crisp3ds-data/openmvg-bunny-high-openmvs-cache-fusion-003")
+OUTPUT = Path("/Volumes/backups/code/crisp3ds-data/openmvg-bunny-high-openmvs-refine-004")
 BIN = ROOT / ".local-tools/classical-backend/bin"
-SCHEMA = "openmvg_bunny_high_refine_texture_v1"
-ROUGH_SCHEMA = "openmvg_bunny_high_cache_rough_v1"
+SCHEMA = "openmvg_bunny_high_refine_texture_v2"
+ROUGH_SCHEMA = "openmvg_bunny_high_cached73_fusion_rough_v1"
 REVIEW_SCHEMA = "openmvg_bunny_high_rough_visual_review_v1"
 NAMES = {f"frame_{i:04}.png" for i in range(73)}
 TOOLS = ("RefineMesh", "TextureMesh")
@@ -59,11 +59,22 @@ def validate(args: argparse.Namespace) -> dict:
     source = json.loads(source_receipt.read_text())
     review = json.loads(review_path.read_text())
     if (source.get("schema") != ROUGH_SCHEMA or
-            source.get("status") != "rough_complete_pending_quality_review"):
+            source.get("status") != "rough_complete_pending_quality_review" or
+            source.get("source_unchanged") is not True or
+            source.get("quality_accepted") is not False):
         raise ValueError("rough source has not completed native densify and mesh")
     stages = {row.get("name"): row for row in source.get("stages", []) if isinstance(row, dict)}
     if any(stages.get(name, {}).get("status") != "complete" for name in ("densify", "mesh")):
         raise ValueError("rough densify/mesh stage not sealed complete")
+    densify = stages["densify"]
+    command = densify.get("command", [])
+    def has_option(flag: str, value: str) -> bool:
+        return flag in command and command[command.index(flag) + 1:command.index(flag) + 2] == [value]
+    if (densify.get("cache_fusion_verified") is not True or
+            not isinstance(command, list) or
+            not has_option("--geometric-iters", "0") or
+            not has_option("--resolution-level", "3")):
+        raise ValueError("rough fusion was not verified with frozen geom0 profile")
     inventory = source.get("output_inventory", {})
     artifacts = source.get("artifacts", {})
     if not isinstance(inventory, dict) or not isinstance(artifacts, dict):
