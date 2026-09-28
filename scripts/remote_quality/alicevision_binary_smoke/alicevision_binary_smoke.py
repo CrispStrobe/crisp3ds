@@ -28,12 +28,12 @@ OUTPUT = Path("/kaggle/working/alicevision-binary-smoke.json")
 SCRATCH = Path("/tmp/alicevision-binary-smoke")
 
 
-def short_command(argv: list[str], timeout: int = 20) -> dict:
+def short_command(argv: list[str], timeout: int = 20, env: dict[str, str] | None = None) -> dict:
     start = time.monotonic()
     process = None
     try:
         process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                   start_new_session=True)
+                                   start_new_session=True, env=env)
         assert process.stdout is not None
         output = bytearray()
         deadline = start + timeout
@@ -144,13 +144,22 @@ def main() -> None:
         located = {name: list(extracted.rglob(name)) for name in names}
         if any(len(paths) != 1 or not paths[0].is_file() for paths in located.values()):
             raise RuntimeError("expected CLI inventory missing or ambiguous")
+        lib_dirs = {path.parent for path in extracted.rglob("libaliceVision_cmdline.so.3")
+                    if path.is_file()}
+        if len(lib_dirs) != 1:
+            raise RuntimeError("bundled AliceVision library directory missing or ambiguous")
+        lib_dir = lib_dirs.pop()
+        report["bundled_lib_dir"] = str(lib_dir.relative_to(extracted))
+        cli_env = os.environ.copy()
+        cli_env["LD_LIBRARY_PATH"] = str(lib_dir) + (
+            ":" + cli_env["LD_LIBRARY_PATH"] if cli_env.get("LD_LIBRARY_PATH") else "")
         report["cli"] = {}
         for name, paths in located.items():
             executable = paths[0]
             report["cli"][name] = {
                 "relative_path": str(executable.relative_to(extracted)),
-                "ldd": short_command(["ldd", str(executable)], 20),
-                "help": short_command([str(executable), "--help"], 20),
+                "ldd": short_command(["ldd", str(executable)], 20, env=cli_env),
+                "help": short_command([str(executable), "--help"], 20, env=cli_env),
             }
         report["gpu"] = short_command(["nvidia-smi", "--query-gpu=name,driver_version,memory.total",
                                         "--format=csv,noheader"], 10)

@@ -69,6 +69,12 @@ class CommandSafetyTests(unittest.TestCase):
         result = smoke.short_command(["/bin/sh", "-c", "sleep 5"], 1)
         self.assertTrue(result["timed_out"])
 
+    def test_loader_environment_is_scoped_to_command(self) -> None:
+        result = smoke.short_command(["/usr/bin/env"], 1,
+                                     env={"LD_LIBRARY_PATH": "/synthetic/bundled/lib"})
+        self.assertEqual(result["returncode"], 0)
+        self.assertIn("LD_LIBRARY_PATH=/synthetic/bundled/lib", result["output_tail"])
+
 
 class MetadataSafetyTests(unittest.TestCase):
     def test_private_cpu_only_no_sources(self) -> None:
