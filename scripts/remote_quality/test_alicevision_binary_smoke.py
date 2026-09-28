@@ -55,6 +55,20 @@ class ArchiveSafetyTests(unittest.TestCase):
         finally:
             smoke.MAX_EXPANDED = original
 
+    def test_runtime_root_requires_bundled_config(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            extracted = Path(directory)
+            lib_dir = extracted / "aliceVision" / "lib"
+            lib_dir.mkdir(parents=True)
+            (lib_dir / "libaliceVision_cmdline.so.3").touch()
+            with self.assertRaisesRegex(RuntimeError, "OCIO configuration missing"):
+                smoke.bundled_runtime_paths(extracted)
+            config = extracted / "aliceVision" / "share" / "aliceVision" / "config.ocio"
+            config.parent.mkdir(parents=True)
+            config.touch()
+            self.assertEqual(smoke.bundled_runtime_paths(extracted),
+                             (lib_dir, extracted / "aliceVision"))
+
 
 class CommandSafetyTests(unittest.TestCase):
     def test_missing_optional_gpu_utility(self) -> None:

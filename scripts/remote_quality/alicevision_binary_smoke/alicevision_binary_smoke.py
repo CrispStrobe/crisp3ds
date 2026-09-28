@@ -110,6 +110,18 @@ def inspect_tar(path: Path) -> dict:
     return {"members": files, "expanded_regular_bytes": expanded}
 
 
+def bundled_runtime_paths(extracted: Path) -> tuple[Path, Path]:
+    lib_dirs = {path.parent for path in extracted.rglob("libaliceVision_cmdline.so.3")
+                if path.is_file()}
+    if len(lib_dirs) != 1:
+        raise RuntimeError("bundled AliceVision library directory missing or ambiguous")
+    lib_dir = lib_dirs.pop()
+    install_root = lib_dir.parent
+    if not (install_root / "share" / "aliceVision" / "config.ocio").is_file():
+        raise RuntimeError("bundled AliceVision OCIO configuration missing")
+    return lib_dir, install_root
+
+
 def main() -> None:
     start = time.monotonic()
     signal.signal(signal.SIGALRM, lambda *_: (_ for _ in ()).throw(TimeoutError("overall deadline exceeded")))
@@ -144,15 +156,13 @@ def main() -> None:
         located = {name: list(extracted.rglob(name)) for name in names}
         if any(len(paths) != 1 or not paths[0].is_file() for paths in located.values()):
             raise RuntimeError("expected CLI inventory missing or ambiguous")
-        lib_dirs = {path.parent for path in extracted.rglob("libaliceVision_cmdline.so.3")
-                    if path.is_file()}
-        if len(lib_dirs) != 1:
-            raise RuntimeError("bundled AliceVision library directory missing or ambiguous")
-        lib_dir = lib_dirs.pop()
+        lib_dir, install_root = bundled_runtime_paths(extracted)
         report["bundled_lib_dir"] = str(lib_dir.relative_to(extracted))
+        report["bundled_install_root"] = str(install_root.relative_to(extracted))
         cli_env = os.environ.copy()
         cli_env["LD_LIBRARY_PATH"] = str(lib_dir) + (
             ":" + cli_env["LD_LIBRARY_PATH"] if cli_env.get("LD_LIBRARY_PATH") else "")
+        cli_env["ALICEVISION_ROOT"] = str(install_root)
         report["cli"] = {}
         for name, paths in located.items():
             executable = paths[0]
