@@ -67,14 +67,26 @@ private before any upload. No dataset or notebook was created in this audit.
 A runnable plan requires these gates in order:
 
 1. Select the intended Kaggle account explicitly without putting credentials
-   in code or output. The local access-token file exists, but the Kaggle Python
-   module was absent in the tested interpreter. Confirm account, current GPU
+   in code or output. The local access-token file exists with owner-only
+   permissions. The Kaggle Python module was absent in the initially tested
+   system interpreter, but the installed Miniconda CLI v2.1.2 authenticated
+   read-only as `chr1str` on 2026-09-28 via `kaggle kernels list --mine`.
+   That CLI/API does not expose a GPU allowance endpoint. Confirm current GPU
    allowance, GPU type, CUDA driver, free disk, and notebook time limit in a
    read-only session. The historical local guide's 30-hour weekly quota is
    not a verified current allowance. Kaggle documents that GPU availability
    and limits can vary in its [notebook guide](https://www.kaggle.com/docs/notebooks).
 2. Pin the official Linux asset by SHA-256, download it inside a disposable
-   GPU notebook, and run only `aliceVision_cameraInit --help` and a CUDA/depth
+   **CPU-only** private notebook first, and run only `aliceVision_cameraInit
+   --help` and `aliceVision_depthMapEstimation --help` as loader checks. The
+   staged [binary-smoke script](../scripts/remote_quality/alicevision_binary_smoke/alicevision_binary_smoke.py)
+   and [metadata](../scripts/remote_quality/alicevision_binary_smoke/kernel-metadata.json)
+   contain no photo input and are not pushed or launched. They cap the 1.505 GB
+   download by exact size and hash, total wall time at 15 minutes, extracted
+   regular files at 8 GiB, and each command's output at 64 KiB. A 4 GiB
+   free-space floor is enforced. The first smoke records optional GPU
+   availability but does not consume GPU quota. If the CLI loaders work,
+   separately review a GPU-enabled revision and a CUDA/depth
    capability probe. Record extracted bytes, dynamic loader errors, GPU
    details, commands, and runtime. Stop if the binary cannot load or exceeds
    the notebook's disk/time budget.
