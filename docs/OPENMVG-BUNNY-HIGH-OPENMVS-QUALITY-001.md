@@ -20,7 +20,7 @@ the Python monotonic watchdog counted only 569 seconds and failed to enforce
 the promised 20-minute real wall limit. This is a supervised resource stop,
 not evidence of a native OpenMVS crash. The partial output is preserved.
 
-A separate, fresh-root rough-mesh cache continuation is planned at
+A separate, fresh-root rough-mesh cache continuation ran at
 `/Volumes/backups/code/crisp3ds-data/openmvg-bunny-high-openmvs-cache-resume-002`.
 The [preflight and runner](../scripts/classical_backend/openmvg_bunny_high_cache_rough.py)
 seal the failed receipt, scene, all 73 converted images, 46 completed base
@@ -35,9 +35,35 @@ within 90 real seconds while all 46 copied maps remain unchanged. It wraps
 native commands with `caffeinate -disu` and checks both epoch time and
 `ps` elapsed time against 20 minutes. It retains the 1 GiB output cap,
 11 GiB disk floor, 4 GiB process-tree RSS cap, and 16 MiB per-stage log cap.
-Only densification and native rough meshing are in scope; refinement and
-texturing require a distinct, hash-bound continuation after visual review.
-The retry has not been launched.
+It reused the 46 original maps and completed all 73 base maps, then exceeded
+the 1 GiB logical output cap while generating geometric-consistency maps.
+Its receipt (SHA-256
+`b559ef8970065b15cbf3df4a7796fef2275fd3b6831ea42321ddc1540933fd2e`)
+records `failed`, `source_unchanged: true`, 1,077,497,289 output bytes,
+387.428 real-wall seconds, and 22 `.geo.dmap` files. It produced no rough
+mesh. The supervisor stopped it on its configured output cap; this is not a
+native crash. Both failed roots remain preserved.
+
+A third, separately labeled cached-fusion arm is prepared at the fresh root
+`/Volumes/backups/code/crisp3ds-data/openmvg-bunny-high-openmvs-cache-fusion-003`.
+Its [runner](../scripts/classical_backend/openmvg_bunny_high_cache_fusion.py)
+seals the 73 converted images, 73 completed base maps, source receipt, scene,
+and binaries. It clones these inputs as distinct APFS copy-on-write inodes,
+hash-checks every file, and excludes all partial `.geo.dmap` files. The native
+densifier uses the same resolution settings but `--geometric-iters 0` to fuse
+the cached base maps directly. It fails closed if the native log does not
+reach fusion within 90 real seconds, reports depth-map re-estimation, or
+rewrites a cached map. A verified local `cp -c` probe consumed only 16 KiB
+of additional free space for a 10,086,207-byte map. Because `cp -c` may
+silently fall back to a physical copy, each clone is also checked against
+a 4 MiB physical free-space delta and the whole staging against 32 MiB.
+The full run retains the 11 GiB floor, 20-minute epoch/`ps` wall watchdog,
+4 GiB process-tree RSS and 16 MiB log caps. Its raised 1.25 GiB logical cap
+allows native dense and mesh outputs, while incremental physical use is
+limited to 400 MiB. Read-only preflight passed with 12,343,361,536 external
+free bytes, 21,974,142,976 internal free bytes, and 855,555,526 logical
+bytes to clone. This arm has **not been launched**. Only rough meshing is in
+scope; refinement and texturing still require a separate hash-bound review.
 
 ## Frozen evaluation when a completed native mesh exists
 
