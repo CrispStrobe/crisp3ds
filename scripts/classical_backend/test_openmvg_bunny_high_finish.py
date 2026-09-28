@@ -84,6 +84,8 @@ class FinishPreflightTest(unittest.TestCase):
             path = self.bin / name
             path.write_bytes(b"#!/bin/sh\nexit 0\n")
             path.chmod(0o755)
+        fake_caffeinate = self.bin / "caffeinate"
+        fake_caffeinate.write_bytes(b"synthetic macOS availability marker")
         self.args = argparse.Namespace(source=self.source,
             source_receipt_sha256=digest(self.receipt_path),
             rescue_receipt=self.rescue_path, rescue_receipt_sha256=digest(self.rescue_path),
@@ -92,10 +94,16 @@ class FinishPreflightTest(unittest.TestCase):
         self.ply_patch = patch.object(finish, "checked_ply", return_value=1)
         self.disk_patch = patch.object(finish.shutil, "disk_usage",
                                        return_value=type("Disk", (), {"free": 100 << 30})())
+        self.caffeinate_patch = patch.object(finish, "CAFFEINATE", fake_caffeinate)
+        self.executable_patch = patch.object(finish.os, "access", return_value=True)
         self.ply_patch.start()
         self.disk_patch.start()
+        self.caffeinate_patch.start()
+        self.executable_patch.start()
         self.addCleanup(self.ply_patch.stop)
         self.addCleanup(self.disk_patch.stop)
+        self.addCleanup(self.caffeinate_patch.stop)
+        self.addCleanup(self.executable_patch.stop)
 
     def _save_receipt(self) -> None:
         self.receipt_path.write_text(json.dumps(self.receipt))
@@ -175,6 +183,11 @@ class FinishPreflightTest(unittest.TestCase):
     def test_insufficient_new_output_headroom_abstains(self) -> None:
         with patch.object(finish, "MIN_NEW_OUTPUT_HEADROOM", finish.CAP):
             with self.assertRaisesRegex(ValueError, "less than 96 MiB"):
+                finish.validate(self.args)
+
+    def test_missing_mac_caffeinate_abstains_in_production_preflight(self) -> None:
+        with patch.object(finish, "CAFFEINATE", self.base / "absent-caffeinate"):
+            with self.assertRaisesRegex(ValueError, "macOS caffeinate is unavailable"):
                 finish.validate(self.args)
 
 
