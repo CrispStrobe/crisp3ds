@@ -1,0 +1,14 @@
+{
+  "id": "chr1str/crisp3ds-alicevision-bunny-three-photo-cpu-smoke",
+  "title": "crisp3ds-alicevision-bunny-three-photo-cpu-smoke",
+  "code_file": "alicevision_three_photo_smoke.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "false",
+  "enable_internet": "true",
+  "competition_sources": [],
+  "dataset_sources": ["chr1str/crisp3ds-bunny-3photo-research-smoke"],
+  "kernel_sources": [],
+  "model_sources": []
+}

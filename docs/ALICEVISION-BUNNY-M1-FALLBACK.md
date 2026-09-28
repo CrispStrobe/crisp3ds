@@ -62,7 +62,9 @@ the physical print derives from the Stanford bunny, whose commercial rights
 are not cleared here. [Kaggle's dataset guide](https://www.kaggle.com/docs/datasets)
 supports private datasets, but private still means uploading the files to an
 external service. Review that transfer and keep both dataset and notebook
-private before any upload. No dataset or notebook was created in this audit.
+private before any upload. A subsequent private **no-photo** binary smoke is
+documented [separately](ALICEVISION-BUNNY-KAGGLE-BINARY-SMOKE.md); no bunny
+dataset was created or uploaded in that smoke.
 
 A runnable plan requires these gates in order:
 
@@ -79,9 +81,10 @@ A runnable plan requires these gates in order:
 2. Pin the official Linux asset by SHA-256, download it inside a disposable
    **CPU-only** private notebook first, and run only `aliceVision_cameraInit
    --help` and `aliceVision_depthMapEstimation --help` as loader checks. The
-   staged [binary-smoke script](../scripts/remote_quality/alicevision_binary_smoke/alicevision_binary_smoke.py)
+   [binary-smoke script](../scripts/remote_quality/alicevision_binary_smoke/alicevision_binary_smoke.py)
    and [metadata](../scripts/remote_quality/alicevision_binary_smoke/kernel-metadata.json)
-   contain no photo input and are not pushed or launched. They cap the 1.505 GB
+   contain no photo input. Their private CPU-only run is reported
+   [here](ALICEVISION-BUNNY-KAGGLE-BINARY-SMOKE.md). They cap the 1.505 GB
    download by exact size and hash, total wall time at 15 minutes, extracted
    regular files at 8 GiB, and each command's output at 64 KiB. A 4 GiB
    free-space floor is enforced. The first smoke records optional GPU
@@ -103,5 +106,5 @@ The existing `scripts/remote_quality/prepare_kaggle.py` stages private
 kernel metadata but does not push or run it. Its associated package helper
 permits at most 250 MiB of explicit input files and checks for credential
 patterns; the 121.8 MB photo payload fits that *nominal* cap, subject to a
-fresh archive size/hash check. No Kaggle upload or job launch was authorized
-or performed here.
+fresh archive size/hash check. The M1 audit performed no Kaggle action;
+the later no-photo loader probes are reported in the separate smoke record.

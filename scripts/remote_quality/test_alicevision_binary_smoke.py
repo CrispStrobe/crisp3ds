@@ -85,9 +85,12 @@ class CommandSafetyTests(unittest.TestCase):
 
     def test_loader_environment_is_scoped_to_command(self) -> None:
         result = smoke.short_command(["/usr/bin/env"], 1,
-                                     env={"LD_LIBRARY_PATH": "/synthetic/bundled/lib"})
+                                     env={"LD_LIBRARY_PATH": "/synthetic/bundled/lib"},
+                                     required_tokens=("LD_LIBRARY_PATH=", "NOT_PRESENT"))
         self.assertEqual(result["returncode"], 0)
         self.assertIn("LD_LIBRARY_PATH=/synthetic/bundled/lib", result["output_tail"])
+        self.assertEqual(result["required_tokens_present"],
+                         {"LD_LIBRARY_PATH=": True, "NOT_PRESENT": False})
 
 
 class MetadataSafetyTests(unittest.TestCase):
