@@ -78,6 +78,8 @@ class MetadataSafetyTests(unittest.TestCase):
         self.assertEqual(metadata["enable_internet"], "true")
         for key in ("competition_sources", "dataset_sources", "kernel_sources", "model_sources"):
             self.assertEqual(metadata[key], [])
+        self.assertEqual(smoke.SCRATCH.parent, Path("/tmp"))
+        self.assertEqual(smoke.OUTPUT.parent, Path("/kaggle/working"))
 
 
 if __name__ == "__main__":

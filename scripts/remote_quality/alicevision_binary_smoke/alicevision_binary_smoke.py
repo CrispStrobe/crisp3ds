@@ -24,7 +24,8 @@ MAX_SECONDS = 15 * 60
 MAX_DOWNLOAD_SECONDS = 8 * 60
 MAX_EXTRACT_SECONDS = 5 * 60
 OUTPUT = Path("/kaggle/working/alicevision-binary-smoke.json")
-SCRATCH = Path("/kaggle/temp/alicevision-binary-smoke")
+# /tmp is ephemeral and is not published as a Kaggle kernel output.
+SCRATCH = Path("/tmp/alicevision-binary-smoke")
 
 
 def short_command(argv: list[str], timeout: int = 20) -> dict:
