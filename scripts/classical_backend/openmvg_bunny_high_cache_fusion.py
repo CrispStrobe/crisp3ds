@@ -30,6 +30,7 @@ IMAGE_AGGREGATE_SHA = "2b66539cfd5757747fe12b626104a7236c60afa648b01b7c05a1e9439
 DMAP_AGGREGATE_SHA = "5ca1f3b7ac16bfa2f9ecb34bcc544efa113235b1f2c2c6beec2ceb21c1ea6263"
 NAMES = tuple(f"frame_{i:04}.png" for i in range(73))
 DMAP_NAMES = tuple(f"depth{i:04}.dmap" for i in range(73))
+NATIVE_ARTIFACTS = ("dense.mvs", "dense.ply", "mesh.ply")
 LOGICAL_CAP = 5 * (1 << 28)  # 1.25 GiB including COW-cloned inputs
 PHYSICAL_CAP = 400 << 20
 CLONE_PHYSICAL_CAP = 32 << 20
@@ -366,7 +367,7 @@ def run(output: Path = OUTPUT) -> dict:
             raise RuntimeError("cached 73 base DMAP hashes changed during fusion")
         report["artifacts"] = {name: {"bytes": (output / name).stat().st_size,
                                        "sha256": sha(output / name)}
-                               for name in ("dense.mvs", "dense.ply", "mesh.mvs", "mesh.ply")}
+                               for name in NATIVE_ARTIFACTS}
         report["status"] = "rough_complete_pending_quality_review"
     except BaseException as exc:
         report.update(status="failed", failure=str(exc))

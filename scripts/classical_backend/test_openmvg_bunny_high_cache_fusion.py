@@ -12,6 +12,10 @@ from scripts.classical_backend import openmvg_bunny_high_cache_fusion as control
 
 
 class BunnyCachedFusionTest(unittest.TestCase):
+    def test_native_artifact_contract_does_not_require_mesh_mvs(self):
+        self.assertEqual(control.NATIVE_ARTIFACTS,
+                         ("dense.mvs", "dense.ply", "mesh.ply"))
+
     def test_commands_disable_geometric_pass_and_stop_at_rough_mesh(self):
         stages = control.commands(Path("/synthetic"),
                                   {"DensifyPointCloud": "/bin/dense",
