@@ -75,10 +75,14 @@ class BunnyCachedFusionTest(unittest.TestCase):
     def test_failure_receipt_preserves_capacity_and_source_errors(self):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "fresh"
+            source = Path(temporary) / "synthetic-source"
+            source.mkdir()
+            (source / "scene.mvs").write_bytes(b"synthetic scene")
             checked = {"schema": "openmvg_bunny_high_cached73_fusion_rough_v1",
                        "output": str(output),
                        "sealed_source": {"images": {}, "dmaps": {}}}
-            with patch.object(control, "preflight", return_value=checked), \
+            with patch.object(control, "SOURCE", source), \
+                 patch.object(control, "preflight", return_value=checked), \
                  patch.object(control, "clone_one", side_effect=RuntimeError("synthetic COW stop")), \
                  patch.object(control, "capacity", side_effect=RuntimeError("synthetic floor breach")), \
                  patch.object(control, "verify_source", side_effect=RuntimeError("synthetic seal error")):
