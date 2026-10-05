@@ -1,0 +1,15 @@
+import { humanise } from "../core/format";
+
+/** Display names of the pipeline stages. Stages added later fall back to their own name. */
+export const STAGE_TEXT: Record<string, { title: string; what: string }> = {
+  inputs: { title: "Inputs", what: "Photos, cameras, masks" },
+  stereo: { title: "Stereo", what: "Depth from photo pairs" },
+  mesh: { title: "Mesh", what: "Closed surface" },
+  check: { title: "Check", what: "Compare with the photos" },
+  evaluate: { title: "Evaluate", what: "Compare with a scan" },
+  run: { title: "Run", what: "" },
+};
+
+export function stageTitle(name: string): string {
+  return STAGE_TEXT[name]?.title ?? humanise(name);
+}
