@@ -147,11 +147,11 @@ pyramid level; a shorter tuple repeats its last entry.
 | `stretch_percentiles` | 1, 99 | Grey range inside the mask mapped to 0..1 before matching |
 | `neighbours`, `best_of` | 6, 3 | Matching neighbours per view; mean of the best N scores is used |
 | `minimum_angle`, `maximum_angle` | 3, 40 | Allowed angle between a view and its neighbours, degrees |
-| `planes` | 128 | Inverse-depth planes of the full sweep at the coarsest level |
+| `planes` | 96 | Inverse-depth planes of the full sweep at the coarsest level |
 | `windows` | 7, 9, 11 | NCC window per level, pixels |
 | `aggregates` | 1, 1.5, 2 | Cost blur sigma per level, pixels; 0 disables |
 | `passes` | 1, 2, 1 | Refinement passes per level |
-| `band_first`, `band_later` | 8/8/8, 5 | Search half-width in depth steps: first pass of each level, later passes |
+| `band_first`, `band_later` | 8/8/5, 5 | Search half-width in depth steps: first pass of each level, later passes |
 | `min_score`, `min_variance`, `window_fill` | 0.55, 1e-4, 0.6 | NCC acceptance, texture gate on normalised grey, minimum valid window fraction |
 | `tolerances`, `min_votes`, `vote_neighbours` | 0.006/0.003/0.002, 2/3/3, 10 | Cross-view depth agreement: relative tolerance, required agreeing views, views asked |
 | `grid` | 400 | Voxels along the longest side of the object |
@@ -216,6 +216,10 @@ What the scored experiments on the Dragon showed (each changes one thing):
 | Rim band 0.3 / 0.9 windows, truncation 2 voxels, 520-voxel grid, less smoothing | within 0.003 | defaults unchanged |
 | One or two re-matching passes around the fused surface | 0.825 / 0.823, +200 s each | available (`fused_passes`), off by default |
 | Flat support cut | "all" F1 @1% 0.913 to 0.926 | on by default |
+| Lower score threshold (0.45) | 0.817 | unchanged |
+| Narrower native band (5 steps) and 96 coarse planes | 0.822, faster | new default |
+| Turntable model with uniform steps | 0.635, depth coverage collapses | rejected: the recovered step angles are real |
+| Turntable model with fitted steps (Armadillo) | 0.890 against 0.936 | not used: the free poses are better than this fit |
 
 Fusion and meshing settings barely move the result; what limits the Dragon is
 upstream of them (see the camera note below).
@@ -232,9 +236,10 @@ Limits, stated plainly:
 - **Camera drift.** The Dragon's recovered orbit has slowly drifting steps
   (about +/-2 degrees around uniform) and camera centres that wander 4% of the
   radius along the axis; an affine correction of the mesh explains part of its
-  remaining error (about 3% anisotropy). `turntable_rig.py` fits the
-  single-axis turntable model to recovered cameras; whether using it improves
-  the scores is being measured and it is not part of the default run.
+  remaining error (about 3% anisotropy). Replacing the cameras by a fitted
+  single-axis turntable model (`turntable_rig.py`) made the scores worse on
+  both objects tried, so the cause is not simply free-pose noise and remains
+  open; the tool stays available but is not part of the default run.
 - **Thin parts and the unseen top.** Horn tips are still short, and surfaces
   no photo sees (the top of the head from a low camera ring, the underside)
   are silhouette bounds.
@@ -278,7 +283,8 @@ python -m scripts.turntable_mesh.turntable_rig --inputs run/inputs --output run/
 ```
 
 writes a new inputs directory in which every camera is the same camera rotated
-about one fitted axis. `--steps uniform` also makes the steps between capture
+about one fitted axis. On the 3DLF sets this made results worse (see the
+experiment table), so treat it as a diagnostic, not an improvement. `--steps uniform` also makes the steps between capture
 indices equal (median recovered step, or `--step-degrees`); that is right for a
 stepper-driven turntable and wrong for a hand-turned one.
 

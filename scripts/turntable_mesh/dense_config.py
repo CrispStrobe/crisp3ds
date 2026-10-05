@@ -23,11 +23,11 @@ class DenseConfig:
     minimum_angle: float = 3.0
     maximum_angle: float = 40.0
     # --- matching
-    planes: int = 128  # full inverse-depth sweep at the coarsest level
+    planes: int = 96  # full inverse-depth sweep at the coarsest level
     windows: tuple = (7, 9, 11)
     aggregates: tuple = (1.0, 1.5, 2.0)  # cost blur sigma in level pixels; 0 disables
     passes: tuple = (1, 2, 1)  # a second native-size pass did not change scanner scores
-    band_first: tuple = (8, 8, 8)  # search half-width in depth steps, first pass of each level
+    band_first: tuple = (8, 8, 5)  # search half-width in depth steps, first pass of each level
     band_later: int = 5  # the same for later passes
     min_score: float = 0.55
     min_variance: float = 1e-4
