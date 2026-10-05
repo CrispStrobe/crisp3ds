@@ -51,12 +51,15 @@ jobs:
         if: runner.os != 'macOS'
         run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Install pipeline requirements
-        run: python -m pip install -r scripts/turntable_mesh/requirements-dense.txt ruff
+        run: python -m pip install -r scripts/turntable_mesh/requirements-dense.txt ruff==0.15.7
       - name: Versions
         run: |
           python -c "import numpy, scipy, skimage, cv2, PIL, torch; print('numpy', numpy.__version__, 'scipy', scipy.__version__, 'skimage', skimage.__version__, 'cv2', cv2.__version__, 'pillow', PIL.__version__, 'torch', torch.__version__, 'cuda', torch.cuda.is_available(), 'mps', torch.backends.mps.is_available())"
+      # The repository has no Ruff configuration. Ruff 0.16 widened its default
+      # rule set (import sorting, RUF and others), so the version is pinned and
+      # the rules the code was written against are named explicitly.
       - name: Lint
-        run: ruff check scripts/turntable_mesh
+        run: ruff check --select E4,E7,E9,F scripts/turntable_mesh
       - name: Unit tests
         run: >
           python -m unittest -v

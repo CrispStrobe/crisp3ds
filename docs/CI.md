@@ -43,7 +43,9 @@ Does not prove: the OpenCV backend on Linux or Windows.
 Python 3.11 with `scripts/turntable_mesh/requirements-dense.txt`. On Linux and
 Windows Torch comes from the CPU wheel index, so no CUDA runtime is downloaded.
 
-1. `ruff check scripts/turntable_mesh`
+1. `ruff check --select E4,E7,E9,F scripts/turntable_mesh` with Ruff pinned to 0.15.7.
+   The repository has no Ruff configuration and Ruff 0.16 widened its defaults,
+   so both the version and the rule set are explicit
 2. unit tests: `test_multiscale_stereo`, `test_tsdf_hull_mesh`,
    `test_turntable_rig`, `test_scan_evaluate`, `test_dense_pipeline`
 3. the README "Quick start": `synthetic_scene`, then `dense_pipeline --device cpu`
@@ -65,8 +67,8 @@ Locally, in one environment that has all requirements:
 
 ```sh
 export PYTHONPATH=$PWD
-python -m pip install -r scripts/turntable_mesh/requirements-dense.txt ruff
-ruff check scripts/turntable_mesh
+python -m pip install -r scripts/turntable_mesh/requirements-dense.txt ruff==0.15.7
+ruff check --select E4,E7,E9,F scripts/turntable_mesh
 python -m unittest scripts.turntable_mesh.test_multiscale_stereo scripts.turntable_mesh.test_tsdf_hull_mesh \
   scripts.turntable_mesh.test_turntable_rig scripts.turntable_mesh.test_scan_evaluate \
   scripts.turntable_mesh.test_dense_pipeline
