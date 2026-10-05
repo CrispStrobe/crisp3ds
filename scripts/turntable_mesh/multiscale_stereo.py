@@ -29,6 +29,7 @@ import numpy as np
 from PIL import Image
 
 from .dense_config import DenseConfig, add_arguments, build
+from .dense_events import EventLog
 
 
 def _gauss(x, sigma, torch, F):
@@ -245,6 +246,22 @@ class Stereo:
             down = -down
         return middle, down
 
+    def cover(self, points, n):
+        """Pixels of view n that the given world points project onto (2x2 splat)."""
+        torch = self.torch
+        R, t, k = self.cams[n]
+        h, w = self.native_mask[n].shape
+        p = points @ R.T + t
+        u = p[:, 0] / p[:, 2] * k[0] + k[2] - 0.5
+        v = p[:, 1] / p[:, 2] * k[1] + k[3] - 0.5
+        inside = (u >= 0) & (u < w - 1) & (v >= 0) & (v < h - 1) & (p[:, 2] > 0)
+        u, v = u[inside].floor().long(), v[inside].floor().long()
+        cover = torch.zeros((h, w), dtype=torch.bool, device=self.dev)
+        for du in (0, 1):
+            for dv in (0, 1):
+                cover[v + dv, u + du] = True
+        return cover
+
     def repair_masks(self, ring=(5, 15)):
         """Add object pixels that single-view segmentation dropped.
 
@@ -266,19 +283,10 @@ class Stereo:
         base = float(heights[int(0.995 * (len(heights) - 1))])
         points = points[((points - middle) @ down) < base - c.repair_base_margin * self.voxel]
         added = []
-        for n, ((R, t, k), mask, gray) in enumerate(zip(self.cams, self.native_mask, self.native_gray)):
+        for n, (mask, gray) in enumerate(zip(self.native_mask, self.native_gray)):
             m = torch.tensor(mask, device=dev)
             g = torch.tensor(gray, device=dev)
-            h, w = m.shape
-            p = points @ R.T + t
-            u = p[:, 0] / p[:, 2] * k[0] + k[2] - 0.5
-            v = p[:, 1] / p[:, 2] * k[1] + k[3] - 0.5
-            inside = (u >= 0) & (u < w - 1) & (v >= 0) & (v < h - 1) & (p[:, 2] > 0)
-            u, v = u[inside].floor().long(), v[inside].floor().long()
-            cover = torch.zeros((h, w), dtype=torch.bool, device=dev)
-            for du in (0, 1):
-                for dv in (0, 1):
-                    cover[v + dv, u + du] = True
+            cover = self.cover(points, n)
             mf = m[None, None].float()
             near = F.max_pool2d(mf, 2 * ring[0] + 1, 1, ring[0])[0, 0] > 0
             far = F.max_pool2d(mf, 2 * ring[1] + 1, 1, ring[1])[0, 0] > 0
@@ -561,6 +569,25 @@ def render_field(stereo, field, view, bounds, stride=2):
     return depth
 
 
+def colour_sheet(path, stereo, picks, layers):
+    """Photo crops with coloured overlays; ``layers(i)`` yields (boolean image, rgb) pairs."""
+    tiles = []
+    for i in picks:
+        grey = np.clip(stereo.native_gray[i], 0, 1.4) / 1.4
+        rgb = np.stack((grey,) * 3, -1)
+        for mask, colour in layers(i):
+            rgb[mask] = 0.3 * rgb[mask] + 0.7 * np.array(colour)
+        x0, y0, x1, y1 = stereo.boxes[i]
+        h, w = grey.shape
+        crop = rgb[max(y0, 0) : min(y1, h), max(x0, 0) : min(x1, w)]
+        tile = Image.fromarray((255 * crop).astype(np.uint8))
+        tiles.append(tile.resize((600, round(600 * tile.height / tile.width))))
+    sheet = Image.new("RGB", (600 * len(tiles), max(t.height for t in tiles)), (30, 30, 30))
+    for n, tile in enumerate(tiles):
+        sheet.paste(tile, (600 * n, 0))
+    sheet.save(path)
+
+
 def preview(path, level, depths, picks):
     tiles = []
     for i in picks:
@@ -588,7 +615,7 @@ def coverage(level, depths):
     return {"median": float(np.median(values)), "minimum": float(min(values)), "maximum": float(max(values))}
 
 
-def run(inputs, output, *, device="mps", config=None, reuse_depths=None, log=print):
+def run(inputs, output, *, device="mps", config=None, reuse_depths=None, log=print, events=None, previews=False):
     config = (config or DenseConfig()).validate()
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
@@ -602,6 +629,28 @@ def run(inputs, output, *, device="mps", config=None, reuse_depths=None, log=pri
     report["views"] = count
     picks = [count // 7, count // 2 - 3, (4 * count) // 5]
 
+    events = events or EventLog(None)
+    if previews:
+        (output / "preview").mkdir()
+
+    def write_preview(name, label, index, total, weight, extra=None, **meta):
+        """A volume the driver meshes coarsely while matching continues. Renamed into place when complete."""
+        if not previews:
+            return
+        target = output / "preview" / f"{name}.npz"
+        with open(output / "preview" / f"{name}.partial", "wb") as stream:
+            np.savez(stream, index=index, total=total.astype(np.float32), weight=weight.astype(np.float32),
+                     shape=np.array(stereo.hull.shape), origin=stereo.hull.origin.cpu().numpy(),
+                     voxel=np.float32(stereo.voxel), truncation=np.float32(config.truncation_voxels * stereo.voxel),
+                     **(extra or {}))
+        (output / "preview" / f"{name}.partial").rename(target)
+        events.artifact("preview_volume", target, label, **meta)
+
+    def hull_preview(name, label):
+        if previews:
+            index = stereo.hull.flat.reshape(stereo.hull.shape).nonzero().cpu().numpy().astype(np.int32)
+            write_preview(name, label, index, np.zeros(len(index)), np.zeros(len(index)))
+
     def sync():
         if device == "mps":
             torch.mps.synchronize()
@@ -613,14 +662,31 @@ def run(inputs, output, *, device="mps", config=None, reuse_depths=None, log=pri
         t = time.monotonic()
         report["hull"] = {**stereo.build_hull(), "seconds": time.monotonic() - t}
         log("hull", report["hull"])
+        events.progress(0.03, "Silhouette hull built")
+        hull_preview("00-hull", "Silhouette hull")
         if config.repair_masks:
             t = time.monotonic()
+            before = {i: stereo.native_mask[i].copy() for i in picks}
             report["mask_repair"] = stereo.repair_masks()
             report["hull_repaired"] = {**stereo.build_hull(), "seconds": time.monotonic() - t}
             log("repair", report["mask_repair"], report["hull_repaired"])
             (output / "masks-repaired").mkdir()
             for row, mask in zip(stereo.rows, stereo.native_mask):
                 Image.fromarray((mask * 255).astype(np.uint8)).save(output / "masks-repaired" / (row["name"] + ".png"))
+            colour_sheet(output / "mask-repair.png", stereo, picks,
+                         lambda i: [(stereo.native_mask[i] & ~before[i], (0.1, 0.9, 0.2))])
+            events.artifact("mask_repair_sheet", output / "mask-repair.png", "Mask repair (added pixels in green)")
+            events.metric("mask_added_fraction_median", report["mask_repair"]["added_fraction_median"])
+            hull_preview("01-hull-repaired", "Silhouette hull after mask repair")
+        points = stereo.hull.centres()
+        covers = {i: stereo.cover(points, i).cpu().numpy() for i in picks}
+        del points
+        colour_sheet(output / "hull-vs-mask.png", stereo, picks,
+                     lambda i: [(stereo.native_mask[i] & ~covers[i], (1.0, 0.1, 0.1)),
+                                (~stereo.native_mask[i] & covers[i], (0.1, 0.5, 1.0))])
+        events.artifact("hull_mask_sheet", output / "hull-vs-mask.png",
+                        "Hull against masks (red: mask not covered, blue: hull outside mask)")
+        events.progress(0.08, "Masks and hull ready")
         sizes = [min(s, stereo.longest) for s in config.sizes]
         sizes = [s for n, s in enumerate(sizes) if s not in sizes[:n]]  # native cap may merge levels
         depths, step, coarser = None, None, None
@@ -662,6 +728,8 @@ def run(inputs, output, *, device="mps", config=None, reuse_depths=None, log=pri
                     raw.append(d)
                     if i % 10 == 9:
                         sync()
+                        done = (li + (p + (i + 1) / count) / (1 if li == 0 else config.level("passes", li))) / len(run_sizes)
+                        events.progress(0.08 + 0.84 * done, f"Matching level {li + 1} of {len(run_sizes)}, view {i + 1} of {count}")
                 t_c = time.monotonic()
                 depths = stereo.consistent(level, raw, config.level("tolerances", li), config.level("min_votes", li))
                 sync()
@@ -672,6 +740,15 @@ def run(inputs, output, *, device="mps", config=None, reuse_depths=None, log=pri
                 report["levels"].append(row)
                 log(f"level {li} pass {p}: size {size}, coverage {row['consistent_coverage']['median']:.3f}, {row['seconds']:.1f}s")
             preview(output / f"depth-level-{li}.png", level, depths, picks)
+            events.artifact("depth_sheet", output / f"depth-level-{li}.png",
+                            f"Depth at level {li + 1} (photo, depth, shading)", level=li)
+            events.metric(f"coverage_level_{li}", report["levels"][-1]["consistent_coverage"]["median"])
+            if previews and li < len(run_sizes) - 1:
+                index, total, weight, _ = stereo.tsdf(level, depths, rim_pixels=round(config.rim_fraction * window))
+                write_preview(f"1{li}-level-{li}", f"Surface after level {li + 1}", index, total, weight,
+                              extra={"support_point": stereo.support["point"], "support_down": stereo.support["down"],
+                                     "support_height": np.float32(np.nan if stereo.support["height"] is None else stereo.support["height"])},
+                              level=li)
             if config.fallback_level and li == len(run_sizes) - 1 and coarser is not None:
                 # Keep the finest depth; where it failed its checks, fall back to
                 # the previous level's consistent depth instead of leaving a hole.
@@ -682,6 +759,7 @@ def run(inputs, output, *, device="mps", config=None, reuse_depths=None, log=pri
                 report["fallback_coverage"] = coverage(level, merged)
                 depths = merged
                 preview(output / "depth-merged.png", level, depths, picks)
+                events.artifact("depth_sheet", output / "depth-merged.png", "Final depth with level fallback", level=li)
             coarser = depths
         t = time.monotonic()
         rim = round(config.rim_fraction * config.level("windows", len(sizes) - 1))
@@ -714,6 +792,7 @@ def run(inputs, output, *, device="mps", config=None, reuse_depths=None, log=pri
             log(f"fused pass {n}: new {row['new_coverage']['median']:.3f}, merged {row['merged_coverage']['median']:.3f}, {row['seconds']:.1f}s")
         report["tsdf"] = {"hull_voxels": len(index), "observed_fraction": float((weight > 0).mean()), "seconds": time.monotonic() - t}
         log("tsdf", report["tsdf"])
+        events.progress(0.97, "Depth fused")
     np.savez_compressed(output / "volume.npz", index=index, total=total.astype(np.float32),
                         weight=weight.astype(np.float32), shape=np.array(stereo.hull.shape),
                         origin=stereo.hull.origin.cpu().numpy(), voxel=np.float32(stereo.voxel), truncation=np.float32(trunc),
@@ -732,6 +811,8 @@ def main():
     parser.add_argument("--output", type=Path, required=True, help="fresh output directory")
     parser.add_argument("--device", choices=("cpu", "mps", "cuda"), default="mps")
     parser.add_argument("--reuse-depths", type=Path, help="fuse saved final-level depths; skip stereo")
+    parser.add_argument("--events", type=Path, help="events.jsonl of the run to append progress and artifacts to")
+    parser.add_argument("--previews", action="store_true", help="write intermediate volumes for preview meshes")
     add_arguments(parser)
     args = parser.parse_args()
 
@@ -739,7 +820,7 @@ def main():
         print(*parts, flush=True)
 
     run(args.inputs, args.output, device=args.device, config=build(args.config, args.set),
-        reuse_depths=args.reuse_depths, log=log)
+        reuse_depths=args.reuse_depths, log=log, events=EventLog(args.events, "stereo"), previews=args.previews)
 
 
 if __name__ == "__main__":

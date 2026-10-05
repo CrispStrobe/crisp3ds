@@ -1,0 +1,77 @@
+{
+  "sizes": [
+    64,
+    128
+  ],
+  "crop_padding": 6,
+  "stretch_percentiles": [
+    1.0,
+    99.0
+  ],
+  "neighbours": 4,
+  "best_of": 2,
+  "minimum_angle": 3.0,
+  "maximum_angle": 40.0,
+  "planes": 48,
+  "windows": [
+    5,
+    7
+  ],
+  "aggregates": [
+    1.0,
+    1.0
+  ],
+  "passes": [
+    1,
+    2,
+    1
+  ],
+  "band_first": [
+    8,
+    8,
+    8
+  ],
+  "band_later": 5,
+  "min_score": 0.55,
+  "min_variance": 0.0001,
+  "window_fill": 0.6,
+  "tolerances": [
+    0.006,
+    0.003,
+    0.002
+  ],
+  "min_votes": [
+    2,
+    2
+  ],
+  "vote_neighbours": 4,
+  "grid": 96,
+  "hull_dilate": 1,
+  "hull_allowed": 2,
+  "repair_masks": true,
+  "repair_loose": 8,
+  "repair_base_margin": 8.0,
+  "hull_front": true,
+  "hull_front_level": 1,
+  "hull_front_min_score": 0.6,
+  "hull_front_margin": 0.004,
+  "hull_front_stride": 2,
+  "fused_passes": 0,
+  "fused_band": 4,
+  "fallback_level": true,
+  "rim_fraction": 0.55,
+  "truncation_voxels": 3.0,
+  "behind_voxels": 12.0,
+  "behind_weight": 0.25,
+  "mesh_smooth": 1.0,
+  "mesh_fill_sigmas": [
+    2.0,
+    4.0
+  ],
+  "mesh_final_smooth": 0.6,
+  "mesh_minimum_weight": 0.5,
+  "mesh_confidence_cap": 4.0,
+  "mesh_taubin_cycles": 5,
+  "mesh_flat_base": true,
+  "mesh_base_margin": 1.0
+}

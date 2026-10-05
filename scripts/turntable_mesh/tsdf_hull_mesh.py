@@ -18,6 +18,7 @@ from scipy.sparse.csgraph import connected_components
 from skimage import measure
 
 from .dense_config import DenseConfig, add_arguments, build
+from .dense_events import EventLog
 
 
 def field(volume, config):
@@ -123,20 +124,22 @@ def write_stl(path, vertices, faces):
         stream.write(record.tobytes())
 
 
-def run(volume_path, output, config=None):
+def run(volume_path, output, config=None, *, step=1, events=None, label=None):
+    """``step`` > 1 extracts a coarse preview: fewer triangles, no mesh smoothing."""
     config = (config or DenseConfig()).validate()
+    events = events or EventLog(None)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
     started = time.monotonic()
     volume = np.load(volume_path)
     value, pad, report = field(volume, config)
     voxel = float(volume["voxel"])
-    vertices, faces, _, _ = measure.marching_cubes(value, 0.0)
+    vertices, faces, _, _ = measure.marching_cubes(value, 0.0, step_size=step)
     del value
     vertices = (vertices - pad + 0.5) * voxel + volume["origin"]
     faces = faces.astype(np.int64)
     vertices, faces, parts = largest_component(vertices, faces)
-    if config.mesh_taubin_cycles:
+    if config.mesh_taubin_cycles and step == 1:
         vertices = taubin(vertices, faces, config.mesh_taubin_cycles)
     info = topology(vertices, faces)
     if info["signed_volume"] < 0:
@@ -147,6 +150,8 @@ def run(volume_path, output, config=None):
                   configuration={k: v for k, v in config.to_json().items() if k.startswith("mesh_")},
                   reference_used=False, physical_scale_established=False, seconds=time.monotonic() - started)
     (output / "result.json").write_text(json.dumps(report, indent=2) + "\n")
+    events.artifact("final_mesh" if step == 1 else "preview_mesh", output / "mesh.stl",
+                    label or ("Final surface" if step == 1 else "Preview surface"), triangles=info["triangles"])
     return report
 
 
@@ -154,9 +159,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--volume", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--step", type=int, default=1, help="marching-cubes step; above 1 gives a coarse preview")
+    parser.add_argument("--events", type=Path)
+    parser.add_argument("--label")
     add_arguments(parser)
     args = parser.parse_args()
-    print(json.dumps(run(args.volume, args.output, build(args.config, args.set)), indent=2))
+    print(json.dumps(run(args.volume, args.output, build(args.config, args.set), step=args.step,
+                         events=EventLog(args.events, "mesh" if args.step == 1 else "stereo"), label=args.label), indent=2))
 
 
 if __name__ == "__main__":

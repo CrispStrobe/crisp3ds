@@ -1,0 +1,35 @@
+{"type":"run_started","time":1791207796.23277,"stage":null,"schema":"crisp3ds_dense_events_v1","configuration":{"sizes":[64,128],"crop_padding":6,"stretch_percentiles":[1.0,99.0],"neighbours":4,"best_of":2,"minimum_angle":3.0,"maximum_angle":40.0,"planes":48,"windows":[5,7],"aggregates":[1.0,1.0],"passes":[1,2,1],"band_first":[8,8,8],"band_later":5,"min_score":0.55,"min_variance":0.0001,"window_fill":0.6,"tolerances":[0.006,0.003,0.002],"min_votes":[2,2],"vote_neighbours":4,"grid":96,"hull_dilate":1,"hull_allowed":2,"repair_masks":true,"repair_loose":8,"repair_base_margin":8.0,"hull_front":true,"hull_front_level":1,"hull_front_min_score":0.6,"hull_front_margin":0.004,"hull_front_stride":2,"fused_passes":0,"fused_band":4,"fallback_level":true,"rim_fraction":0.55,"truncation_voxels":3.0,"behind_voxels":12.0,"behind_weight":0.25,"mesh_smooth":1.0,"mesh_fill_sigmas":[2.0,4.0],"mesh_final_smooth":0.6,"mesh_minimum_weight":0.5,"mesh_confidence_cap":4.0,"mesh_taubin_cycles":5,"mesh_flat_base":true,"mesh_base_margin":1.0},"device":"cpu","inputs":"/private/tmp/claude-501/-Users-christianstrobele-code/eba42534-f5d5-4398-aac0-de9f957cc530/scratchpad/synthetic"}
+{"type":"artifact","time":1791207796.98193,"stage":"inputs","kind":"input_sheet","path":"input-sheet.png","label":"Photos with mask outlines"}
+{"type":"stage_started","time":1791207796.9823449,"stage":"stereo"}
+{"type":"progress","time":1791207803.474824,"stage":"stereo","fraction":0.03,"message":"Silhouette hull built"}
+{"type":"artifact","time":1791207805.0553489,"stage":"stereo","kind":"preview_mesh","path":"stereo/preview/00-hull/mesh.stl","label":"Silhouette hull","triangles":9568}
+{"type":"artifact","time":1791207812.202373,"stage":"stereo","kind":"mask_repair_sheet","path":"stereo/mask-repair.png","label":"Mask repair (added pixels in green)"}
+{"type":"metric","time":1791207812.2032619,"stage":"stereo","name":"mask_added_fraction_median","value":0.0}
+{"type":"artifact","time":1791207812.594573,"stage":"stereo","kind":"hull_mask_sheet","path":"stereo/hull-vs-mask.png","label":"Hull against masks (red: mask not covered, blue: hull outside mask)"}
+{"type":"progress","time":1791207812.594965,"stage":"stereo","fraction":0.08,"message":"Masks and hull ready"}
+{"type":"artifact","time":1791207815.309887,"stage":"stereo","kind":"preview_mesh","path":"stereo/preview/01-hull-repaired/mesh.stl","label":"Silhouette hull after mask repair","triangles":9568}
+{"type":"progress","time":1791207817.78724,"stage":"stereo","fraction":0.255,"message":"Matching level 1 of 2, view 10 of 24"}
+{"type":"progress","time":1791207822.1640608,"stage":"stereo","fraction":0.43,"message":"Matching level 1 of 2, view 20 of 24"}
+{"type":"artifact","time":1791207823.9821818,"stage":"stereo","kind":"depth_sheet","path":"stereo/depth-level-0.png","label":"Depth at level 1 (photo, depth, shading)","level":0}
+{"type":"metric","time":1791207823.98268,"stage":"stereo","name":"coverage_level_0","value":0.7062852680683136}
+{"type":"artifact","time":1791207827.812862,"stage":"stereo","kind":"preview_mesh","path":"stereo/preview/10-level-0/mesh.stl","label":"Surface after level 1","triangles":8388}
+{"type":"progress","time":1791207834.201626,"stage":"stereo","fraction":0.5875,"message":"Matching level 2 of 2, view 10 of 24"}
+{"type":"progress","time":1791207841.427796,"stage":"stereo","fraction":0.675,"message":"Matching level 2 of 2, view 20 of 24"}
+{"type":"progress","time":1791207846.205195,"stage":"stereo","fraction":0.7975,"message":"Matching level 2 of 2, view 10 of 24"}
+{"type":"progress","time":1791207848.2021508,"stage":"stereo","fraction":0.885,"message":"Matching level 2 of 2, view 20 of 24"}
+{"type":"artifact","time":1791207849.2146392,"stage":"stereo","kind":"depth_sheet","path":"stereo/depth-level-1.png","label":"Depth at level 2 (photo, depth, shading)","level":1}
+{"type":"metric","time":1791207849.21491,"stage":"stereo","name":"coverage_level_1","value":0.7250432074069977}
+{"type":"artifact","time":1791207849.3105989,"stage":"stereo","kind":"depth_sheet","path":"stereo/depth-merged.png","label":"Final depth with level fallback","level":1}
+{"type":"progress","time":1791207849.793996,"stage":"stereo","fraction":0.97,"message":"Depth fused"}
+{"type":"stage_finished","time":1791207850.510834,"stage":"stereo","seconds":53.52601708297152}
+{"type":"stage_started","time":1791207850.511727,"stage":"mesh"}
+{"type":"artifact","time":1791207852.17264,"stage":"mesh","kind":"final_mesh","path":"mesh/mesh.stl","label":"Final surface","triangles":33800}
+{"type":"stage_finished","time":1791207852.5340319,"stage":"mesh","seconds":2.0214955410920084}
+{"type":"stage_started","time":1791207852.537211,"stage":"check"}
+{"type":"progress","time":1791207854.3304691,"stage":"check","fraction":0.6,"message":"Silhouettes compared"}
+{"type":"metric","time":1791207854.331413,"stage":"check","name":"silhouette_iou_median","value":0.9264583641452899}
+{"type":"artifact","time":1791207854.331968,"stage":"check","kind":"photo_overlay","path":"check/photo-overlay.png","label":"Mesh outline against masks (green: both, red: mask only, blue: mesh only)"}
+{"type":"artifact","time":1791207859.7974222,"stage":"check","kind":"preview_render","path":"check/preview.png","label":"Photos and shaded reconstruction"}
+{"type":"stage_finished","time":1791207860.1206558,"stage":"check","seconds":7.575608666986227}
+{"type":"artifact","time":1791207860.125001,"stage":"mesh","kind":"report","path":"mesh/result.json","label":"Mesh report"}
+{"type":"run_finished","time":1791207860.1267881,"stage":null,"status":"complete","seconds":63.891594458022155}

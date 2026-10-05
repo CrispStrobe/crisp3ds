@@ -142,6 +142,70 @@ def add_arguments(parser):
                         help="override one setting, e.g. --set grid=320 --set sizes=256,512")
 
 
+# Group and one-line meaning per setting, for generated settings forms.
+SETTINGS = {
+    "sizes": ("Pyramid", "Longest canvas side per level, pixels; capped at the photo's own size"),
+    "crop_padding": ("Pyramid", "Pixels kept around each mask box"),
+    "stretch_percentiles": ("Pyramid", "Grey range inside the mask mapped to 0..1 before matching"),
+    "neighbours": ("Matching", "Neighbouring views matched against each view"),
+    "best_of": ("Matching", "Number of best neighbour scores averaged"),
+    "minimum_angle": ("Matching", "Smallest angle to a neighbour, degrees"),
+    "maximum_angle": ("Matching", "Largest angle to a neighbour, degrees"),
+    "planes": ("Matching", "Depth planes of the full sweep at the coarsest level"),
+    "windows": ("Matching", "Matching window per level, pixels (odd)"),
+    "aggregates": ("Matching", "Cost blur per level, pixels; 0 disables"),
+    "passes": ("Matching", "Refinement passes per level"),
+    "band_first": ("Matching", "Search half-width in depth steps, first pass of each level"),
+    "band_later": ("Matching", "Search half-width in depth steps, later passes"),
+    "min_score": ("Matching", "Lowest accepted matching score (0..1)"),
+    "min_variance": ("Matching", "Texture gate on normalised grey"),
+    "window_fill": ("Matching", "Minimum valid fraction of a window"),
+    "tolerances": ("Agreement", "Relative depth tolerance between views, per level"),
+    "min_votes": ("Agreement", "Views that must agree, per level"),
+    "vote_neighbours": ("Agreement", "Views asked for agreement"),
+    "grid": ("Hull", "Voxels along the longest side of the object"),
+    "hull_dilate": ("Hull", "Mask tolerance, pixels"),
+    "hull_allowed": ("Hull", "Views allowed to disagree with the hull"),
+    "repair_masks": ("Hull", "Add object pixels that single-view segmentation dropped"),
+    "repair_loose": ("Hull", "Views allowed to disagree when repairing masks"),
+    "repair_base_margin": ("Hull", "Voxels above the support kept out of mask repair"),
+    "hull_front": ("Thin parts", "Try the hull's front surface as a depth candidate"),
+    "hull_front_level": ("Thin parts", "Pyramid level at which that candidate is tried"),
+    "hull_front_min_score": ("Thin parts", "Score the candidate must reach"),
+    "hull_front_margin": ("Thin parts", "Relative depth by which it must be nearer"),
+    "hull_front_stride": ("Thin parts", "Coarseness of the hull ray-march grid"),
+    "fused_passes": ("Fusion", "Extra matching passes around the fused surface (slow, small gain)"),
+    "fused_band": ("Fusion", "Search half-width of such a pass"),
+    "fallback_level": ("Fusion", "Use the previous level's depth where the finest level failed"),
+    "rim_fraction": ("Fusion", "Silhouette band left to the hull, in matching windows"),
+    "truncation_voxels": ("Fusion", "Signed-distance truncation, voxels"),
+    "behind_voxels": ("Fusion", "Depth of the weak inside vote behind a surface, voxels"),
+    "behind_weight": ("Fusion", "Weight of that inside vote"),
+    "mesh_smooth": ("Surface", "Smoothing of the fused field, voxels"),
+    "mesh_fill_sigmas": ("Surface", "Reach of extrapolation into unobserved volume, voxels"),
+    "mesh_final_smooth": ("Surface", "Final blur before extraction, voxels"),
+    "mesh_minimum_weight": ("Surface", "Evidence needed to count as observed"),
+    "mesh_confidence_cap": ("Surface", "Views at which confidence saturates"),
+    "mesh_taubin_cycles": ("Surface", "Smoothing cycles on the mesh"),
+    "mesh_flat_base": ("Surface", "Cut the solid flat at the lowest measured level"),
+    "mesh_base_margin": ("Surface", "Voxels kept below that level"),
+}
+
+
+def settings_schema():
+    """Name, group, meaning, kind and default of every setting, in declaration order."""
+    rows = []
+    for f in fields(DenseConfig):
+        default = f.default
+        kind = ("boolean" if isinstance(default, bool) else "integer" if isinstance(default, int)
+                else "number" if isinstance(default, float)
+                else ("integer_list" if isinstance(default[0], int) else "number_list"))
+        group, meaning = SETTINGS[f.name]
+        rows.append({"name": f.name, "group": group, "meaning": meaning, "kind": kind,
+                     "default": list(default) if isinstance(default, tuple) else default})
+    return rows
+
+
 def describe():
     """One line per setting with its default; used by --list-settings."""
     return "\n".join(f"{f.name} = {list(f.default) if isinstance(f.default, tuple) else f.default}" for f in fields(DenseConfig))
