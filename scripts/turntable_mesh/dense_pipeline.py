@@ -32,6 +32,14 @@ from .dense_config import add_arguments, build, describe
 REPOSITORY = Path(__file__).resolve().parents[2]
 
 
+def stop_group(process, force):
+    """End a stage and everything it started."""
+    if os.name == "nt":  # no process groups to signal: end the process tree
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(process.pid)], capture_output=True)
+    else:
+        os.killpg(process.pid, signal.SIGKILL if force else signal.SIGTERM)
+
+
 def bounded(command, log_path, timeout, environment):
     """Run in its own process group; kill the whole group at the deadline."""
     started = time.monotonic()
@@ -42,11 +50,11 @@ def bounded(command, log_path, timeout, environment):
             code = process.wait(timeout=timeout)
             timed_out = False
         except subprocess.TimeoutExpired:
-            os.killpg(process.pid, signal.SIGTERM)
+            stop_group(process, force=False)
             try:
                 process.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL)
+                stop_group(process, force=True)
                 process.wait()
             code, timed_out = None, True
     return {"command": [str(c) for c in command], "exit_code": code, "timed_out": timed_out,

@@ -1,0 +1,210 @@
+name: desktop app
+
+# Builds the Tauri 2 workspace in apps/desktop from the committed sources.
+#
+#   web      typecheck, contract tests and the static Vite bundle (artifact)
+#   native   release build of the Tauri shell on macOS, Windows and Linux,
+#            WITHOUT installer bundling: tauri.conf.json has bundle.active=false
+#            and this workflow passes --no-bundle as well. The artifact is the
+#            bare, unsigned executable. No signing, notarisation or store upload.
+#   mobile   manual only (workflow_dispatch with mobile=true), non-blocking,
+#            unsigned debug builds. See the TODO block above that job.
+#
+# See docs/CI.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mobile:
+        description: 'Also try the experimental unsigned Android and iOS builds'
+        type: boolean
+        default: false
+  push:
+    paths:
+      - '.github/workflows/desktop.yml'
+      - 'apps/desktop/**'
+  pull_request:
+    paths:
+      - '.github/workflows/desktop.yml'
+      - 'apps/desktop/**'
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: '0'
+
+jobs:
+  web:
+    name: web bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - name: Typecheck and static bundle
+        run: npm run build
+      # The bundle uses Vite's default base "/", so it is served correctly from
+      # a site root. Publishing it to GitHub Pages under /crisp3ds/ needs
+      # `vite build --base=./` (or /crisp3ds/) and Pages enabled in the
+      # repository settings; neither is done here.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: crisp3ds-web
+          if-no-files-found: error
+          path: apps/desktop/dist
+
+  native:
+    name: native (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      # Tauri 2 on Linux links WebKitGTK 4.1 (not 4.0) and friends.
+      - name: Linux system libraries for Tauri 2
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev \
+            libxdo-dev libssl-dev build-essential pkg-config curl wget file
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            apps/desktop/src-tauri/target
+          key: tauri-${{ matrix.os }}-${{ hashFiles('apps/desktop/src-tauri/Cargo.lock') }}
+      - run: npm ci
+      - run: npm test
+      # beforeBuildCommand runs `npm run build` (typecheck + Vite bundle) first.
+      - name: Tauri release build, no installer bundle
+        run: npx tauri build --no-bundle --ci -- --locked
+      - name: List build output
+        run: ls -la src-tauri/target/release | head -40
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: crisp3ds-desktop-${{ matrix.os }}-unsigned
+          if-no-files-found: error
+          path: |
+            apps/desktop/src-tauri/target/release/crisp3ds-desktop
+            apps/desktop/src-tauri/target/release/crisp3ds-desktop.exe
+            apps/desktop/src-tauri/target/release/Crisp3DS
+            apps/desktop/src-tauri/target/release/Crisp3DS.exe
+
+  # TODO(mobile): Tauri 2 mobile builds. Not part of push/PR CI.
+  #
+  # State of the tree: src-tauri already has the mobile entry point
+  # (#[cfg_attr(mobile, tauri::mobile_entry_point)]), the staticlib/cdylib crate
+  # types and icons/android + icons/ios. The generated projects
+  # (src-tauri/gen/) are git-ignored, so every run has to `tauri android init`
+  # / `tauri ios init` first.
+  #
+  # Android: a debug APK is signed with the throwaway debug key Gradle creates,
+  #   so it needs no secret. A release APK/AAB needs a keystore (base64 secret +
+  #   passwords, wired through gen/android/app/build.gradle.kts or
+  #   keystore.properties) and, for Play, a service-account upload step.
+  # iOS: `tauri ios build` archives and exports an IPA, which needs an Apple
+  #   Developer team, a signing certificate and a provisioning profile
+  #   (APPLE_DEVELOPMENT_TEAM plus App Store Connect API key secrets). Without
+  #   them only a simulator build is possible, and that is not installable on
+  #   a device or uploadable to TestFlight.
+  #
+  # The two jobs below are an unsigned probe only: manual, non-blocking, and
+  # they upload whatever they produce. Promote them to push CI only after they
+  # are green and the owner has decided on identifiers and signing.
+  android:
+    name: android debug apk (experimental)
+    if: github.event_name == 'workflow_dispatch' && inputs.mobile
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          targets: aarch64-linux-android
+      # The hosted image ships the Android SDK and NDK; Tauri reads NDK_HOME.
+      - name: Point Tauri at the preinstalled NDK
+        run: echo "NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npx tauri android init --ci
+      - run: npx tauri android build --debug --apk --target aarch64 --ci
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: crisp3ds-android-debug-apk
+          if-no-files-found: error
+          path: apps/desktop/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+
+  ios:
+    name: ios simulator build (experimental)
+    if: github.event_name == 'workflow_dispatch' && inputs.mobile
+    runs-on: macos-latest
+    continue-on-error: true
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          targets: aarch64-apple-ios-sim
+      - run: brew install xcodegen
+      - run: npm ci
+      - run: npx tauri ios init --ci
+      - name: Unsigned simulator build
+        run: npx tauri ios build --debug --target aarch64-sim --ci
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: crisp3ds-ios-simulator
+          if-no-files-found: warn
+          path: |
+            apps/desktop/src-tauri/gen/apple/build/**/*.app
+            apps/desktop/src-tauri/gen/apple/build/**/*.ipa

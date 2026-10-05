@@ -1,16 +1,20 @@
 import unittest
 
 import numpy as np
-from scipy.spatial.transform import Rotation
 
-from .scan_evaluate import (
-    closest_on_triangles,
-    evaluate,
-    remove_platform,
-    rotation_angle,
-    surface_distance,
-    umeyama,
-)
+try:
+    from scipy.spatial.transform import Rotation
+
+    from .scan_evaluate import (
+        closest_on_triangles,
+        evaluate,
+        remove_platform,
+        rotation_angle,
+        surface_distance,
+        umeyama,
+    )
+except ImportError:  # an interpreter without SciPy / OpenCV skips this module
+    Rotation = None
 
 
 def lumpy_shape(rings=48, segments=96):
@@ -74,6 +78,7 @@ def scene():
             to_reference)
 
 
+@unittest.skipIf(Rotation is None, "SciPy / OpenCV not installed in this interpreter")
 class ScanEvaluateTests(unittest.TestCase):
     def test_umeyama_recovers_similarity(self):
         rng = np.random.default_rng(1)
