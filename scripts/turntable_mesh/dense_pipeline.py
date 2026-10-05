@@ -119,7 +119,7 @@ def main():
     source.add_argument("--scene", type=Path, help="AliceVision .sfm with poses and one radialk3 intrinsic")
     source.add_argument("--prepared", type=Path, help="native undistorted images named <viewId>.png")
     source.add_argument("--raw-masks", type=Path, help="0/255 masks named like the source photos")
-    parser.add_argument("--device", choices=("mps", "cpu"), default="mps")
+    parser.add_argument("--device", choices=("mps", "cuda", "cpu"), default="mps")
     parser.add_argument("--python", help="interpreter with NumPy, SciPy, scikit-image, OpenCV, Pillow")
     parser.add_argument("--torch-python", help="interpreter with Torch, NumPy, Pillow")
     parser.add_argument("--threads", type=int, default=2)

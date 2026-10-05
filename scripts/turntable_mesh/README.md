@@ -81,7 +81,8 @@ export CRISP3DS_TORCH_PYTHON=$PWD/.local-tools/sam21-m1-local-cache-001/venv/bin
 ```
 
 `--device mps` uses the Apple GPU and refuses to run if MPS is unavailable
-(`PYTORCH_ENABLE_MPS_FALLBACK=0`); `--device cpu` runs the same code on CPU.
+(`PYTORCH_ENABLE_MPS_FALLBACK=0`); `--device cuda` uses an NVIDIA GPU and
+likewise refuses if none is available; `--device cpu` runs the same code on CPU.
 
 ### Running stages separately
 

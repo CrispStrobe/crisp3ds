@@ -1,0 +1,8 @@
+# All-view dense pipeline (dense_pipeline.py). Versions are the ones tested;
+# newer releases of these libraries are expected to work.
+numpy>=1.26
+pillow>=11
+scipy>=1.11
+scikit-image>=0.22
+opencv-python-headless>=4.8
+torch>=2.2

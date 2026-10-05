@@ -139,10 +139,12 @@ class Stereo:
 
         self.torch, self.F = torch, F
         self.config = config = (config or DenseConfig()).validate()
-        if device not in ("cpu", "mps"):
-            raise ValueError("device must be explicit cpu or mps")
+        if device not in ("cpu", "mps", "cuda"):
+            raise ValueError("device must be explicit cpu, mps or cuda")
         if device == "mps" and not torch.backends.mps.is_available():
             raise ValueError("MPS is unavailable; no implicit CPU fallback")
+        if device == "cuda" and not torch.cuda.is_available():
+            raise ValueError("CUDA is unavailable; no implicit CPU fallback")
         self.dev = torch.device(device)
         self.rows = load_views(inputs)
         if len(self.rows) < config.neighbours + 1:
@@ -604,6 +606,8 @@ def run(inputs, output, *, device="mps", config=None, reuse_depths=None, log=pri
         if device == "mps":
             torch.mps.synchronize()
             torch.mps.empty_cache()
+        elif device == "cuda":
+            torch.cuda.synchronize()
 
     with torch.inference_mode():
         t = time.monotonic()
@@ -726,7 +730,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--inputs", type=Path, required=True, help="directory with cameras.json and sparse_points.npy")
     parser.add_argument("--output", type=Path, required=True, help="fresh output directory")
-    parser.add_argument("--device", choices=("cpu", "mps"), default="mps")
+    parser.add_argument("--device", choices=("cpu", "mps", "cuda"), default="mps")
     parser.add_argument("--reuse-depths", type=Path, help="fuse saved final-level depths; skip stereo")
     add_arguments(parser)
     args = parser.parse_args()
