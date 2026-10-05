@@ -27,6 +27,7 @@ inputs  ->  mask repair  ->  silhouette hull  ->  multiscale stereo  ->  TSDF  -
 | surface | `tsdf_hull_mesh.py` | Unobserved hull voxels fall back to the hull's own signed distance; marching cubes on the float field; largest component; light Taubin smoothing; binary STL |
 | check | `mesh_photo_check.py` | Silhouette IoU of the mesh against every mask and a preview sheet |
 
+`scan_evaluate.py` scores a finished STL against an independent scan.
 `dense_pipeline.py` runs all of this as one command. `dense_config.py` holds
 every tunable. `stl_compare_render.py` renders several STLs through the same
 cameras. `synthetic_scene.py` writes a small analytic test scene.
@@ -195,6 +196,36 @@ global SfM with a fixed lens, experimental SAM masks, Apple M1 16 GB.
 | Topology | closed, genus 78 | closed, genus 23 |
 | Dense time | about 2 min | about 12.5 min stereo + 1 min surface (MPS) |
 
+Independent scanner check (`scan_evaluate.py`, evaluation only, never fed back
+into reconstruction). The platform is removed from the scan, the mesh is fitted
+by a similarity transform, and distances are reported on held-out surface
+samples as a percentage of the scan's bounding-box diagonal. "Above support"
+excludes the invented underside and the contact band.
+
+| Mesh | Region | Accuracy median / p90 | Completeness median / p90 | F1 @0.5% | F1 @1% | F1 @2% |
+| --- | --- | --- | --- | --- | --- | --- |
+| This pipeline (`mesh-009`) | all | 0.30 / 1.33 | 0.24 / 0.64 | 0.755 | 0.911 | 0.973 |
+| This pipeline (`mesh-009`) | above support | 0.25 / 0.76 | 0.22 / 0.59 | 0.819 | 0.961 | 0.994 |
+| Earlier route (control 204) | all | 0.47 / 2.00 | 0.36 / 1.29 | 0.567 | 0.780 | 0.934 |
+| Earlier route (control 204) | above support | 0.39 / 1.40 | 0.34 / 1.11 | 0.624 | 0.845 | 0.972 |
+
+The largest remaining errors are at the top of the head, the horn tips and the
+concavities between the tail loops and legs. The fit is shape-only, so absolute
+scale is not evaluated.
+
+**Handedness is unresolved.** Both meshes fit the scan only as mirror images
+(trimmed residual 0.65 mirrored against 2.05 unmirrored for `mesh-009`), and the
+photo-derived camera orbit turns in the opposite sense to the dataset's
+depth-derived poses. A perspective SfM solution with a fixed lens and
+sub-pixel residuals cannot itself be mirrored, so either the dataset's photos
+are flipped relative to its depth and scan data, or those use a left-handed
+frame. Until that is settled, treat the STL's chirality as unverified; the
+evaluator reports which handedness it scored.
+
+```sh
+python -m scripts.turntable_mesh.scan_evaluate --mesh run/mesh/mesh.stl --reference scan.ply --output run/scan-evaluation
+```
+
 Status and limits, stated plainly:
 
 - The Dragon result above was produced by the code before it was reorganised
@@ -202,7 +233,6 @@ Status and limits, stated plainly:
   synthetic unit tests and the synthetic end-to-end CLI run on CPU; the full
   Dragon run has **not yet been repeated** with it.
 - Settings were chosen on one object. A second object has not been run.
-- No independent scanner score exists yet for these meshes.
 - Horn tips are still shorter and thinner than in the photos, and the body has
   residual dimples. Mask repair can add contact shadow near the base.
 - The cameras come from all 73 photos. This is not a dozen-photo result.
@@ -213,6 +243,7 @@ Status and limits, stated plainly:
 export PYTHONPATH=$PWD
 $CRISP3DS_TORCH_PYTHON -m unittest scripts.turntable_mesh.test_multiscale_stereo   # config + stereo on an analytic sphere
 $CRISP3DS_PYTHON       -m unittest scripts.turntable_mesh.test_tsdf_hull_mesh      # surface extraction on analytic volumes
+$CRISP3DS_PYTHON       -m unittest scripts.turntable_mesh.test_scan_evaluate       # similarity fit, platform removal, mirror detection
 ```
 
 Each test file skips the cases whose libraries are missing in that interpreter.
