@@ -66,6 +66,10 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      # Fails on a license outside the policy (GPL, AGPL, LGPL, unknown from third parties)
+      # and when docs/licenses.json or docs/THIRD-PARTY-LICENSES.md are out of date.
+      - name: License audit of what the app ships
+        run: npm run licenses -- --check
       - name: The bundle carries the demo recording and only relative URLs
         run: |
           test -s dist/demo/events.jsonl

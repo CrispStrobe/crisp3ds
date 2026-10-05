@@ -44,6 +44,22 @@ const THEME_ICON = { system: "auto", light: "sun", dark: "moon" } as const;
 /** The demo recording ships next to index.html. */
 const DEMO_BUNDLE = "demo/";
 
+/** License line; the notices link appears in builds that carry the collected notices (release builds). */
+function Footer() {
+  // `npm run build:release` builds in mode "release" and writes the file next to index.html.
+  const notices = import.meta.env.MODE === "release";
+  return (
+    <footer class="footer">
+      <span>Crisp3DS Studio is free software under AGPL-3.0-only.</span>
+      {notices && (
+        <a href="THIRD-PARTY-NOTICES.txt" target="_blank" rel="noopener">
+          Third-party notices
+        </a>
+      )}
+    </footer>
+  );
+}
+
 export function App() {
   const [route, setRoute] = useState<Route>(() => parseRoute(location.hash));
   const [prefs, setPrefs] = useState(loadPrefs);
@@ -189,6 +205,7 @@ export function App() {
           />
         )}
       </main>
+      <Footer />
     </div>
   );
 }
