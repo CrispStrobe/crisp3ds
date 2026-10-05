@@ -54,8 +54,10 @@ def run(scene, prepared, raw_masks, output):
             {
                 "name": name,
                 "source": Path(view["path"]).name,
-                "image": str(image),
-                "mask": str(output / "masks" / f"{name}.png"),
+                # Absolute: the prepared images stay where they are. The mask is
+                # written here, so it is stored relative to this directory.
+                "image": str(image.resolve()),
+                "mask": f"masks/{name}.png",
                 "width": width,
                 "height": height,
                 "k": [fx, fy, cx0 + 0.5, cy0 + 0.5],

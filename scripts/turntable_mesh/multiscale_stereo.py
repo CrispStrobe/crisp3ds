@@ -293,14 +293,20 @@ class Stereo:
             m = np.asarray(Image.fromarray(mask.astype(np.float32)).crop(box).resize((w, h), Image.Resampling.BOX)) >= 0.5
             sx, sy = w / bw, h / bh
             kk = torch.stack((k[0] * sx, k[1] * sy, (k[2] - box[0]) * sx, (k[3] - box[1]) * sy))
-            yy, xx = torch.meshgrid(torch.arange(h, device=dev, dtype=torch.float32),
-                                    torch.arange(w, device=dev, dtype=torch.float32), indexing="ij")
-            rays = torch.stack(((xx + 0.5 - kk[2]) / kk[0], (yy + 0.5 - kk[3]) / kk[1], torch.ones_like(xx)), -1)
-            gt = torch.tensor(g, device=dev)
             mt = torch.tensor(m, device=dev)
-            level.append({"R": R, "t": t, "k": kk, "w": w, "h": h, "rays": rays, "gray": gt[None, None],
-                          "mask": mt, "gm": torch.stack((gt, mt.float()))[None]})
+            level.append({"R": R, "t": t, "k": kk, "w": w, "h": h, "mask": mt,
+                          "gm": torch.stack((torch.tensor(g, device=dev), mt.float()))[None]})
+        self._rays = (None, None)
         return level
+
+    def rays(self, view):
+        """Pixel rays of one view; only the most recent grid is kept on the device."""
+        if self._rays[0] is not view:
+            torch, k = self.torch, view["k"]
+            yy, xx = torch.meshgrid(torch.arange(view["h"], device=self.dev, dtype=torch.float32),
+                                    torch.arange(view["w"], device=self.dev, dtype=torch.float32), indexing="ij")
+            self._rays = (view, torch.stack(((xx + 0.5 - k[2]) / k[0], (yy + 0.5 - k[3]) / k[1], torch.ones_like(xx)), -1))
+        return self._rays[1]
 
     def project(self, world, view):
         p = world @ view["R"].T + view["t"]
@@ -312,7 +318,7 @@ class Stereo:
         """Aggregate NCC of hypotheses depth[B,H,W] for reference i."""
         torch, F, c = self.torch, self.F, self.config
         v = level[i]
-        world = (v["rays"][None] * depth[..., None] - v["t"]) @ v["R"]
+        world = (self.rays(v)[None] * depth[..., None] - v["t"]) @ v["R"]
         base = v["mask"][None] & self.search_hull.contains(world)
         # Best-N by elementwise min/max insertion: indexed max and scatter are
         # both very slow on MPS.
@@ -323,7 +329,7 @@ class Stereo:
             grid = xy * xy.new_tensor([2 / (u["w"] - 1), 2 / (u["h"] - 1)]) - 1
             sample = F.grid_sample(u["gm"].expand(len(depth), -1, -1, -1), grid, align_corners=True)
             valid = base & (sample[:, 1] >= 0.999) & (z > 0)
-            s = ncc(v["gray"], sample[:, :1], valid[:, None].float(), window, c.min_variance, c.window_fill, torch, F)
+            s = ncc(v["gm"][:, :1], sample[:, :1], valid[:, None].float(), window, c.min_variance, c.window_fill, torch, F)
             for rank in range(c.best_of):
                 lower = torch.minimum(best[rank], s)
                 best[rank] = torch.maximum(best[rank], s)
@@ -397,7 +403,7 @@ class Stereo:
         front = torch.zeros((v["h"], v["w"]), device=self.dev)
         for s in range(0, len(samples), 16):
             d = samples[s : s + 16]
-            world = (v["rays"][None] * d[:, None, None, None] - v["t"]) @ v["R"]
+            world = (self.rays(v)[None] * d[:, None, None, None] - v["t"]) @ v["R"]
             inside = self.hull.contains(world)
             first = torch.where(inside, d[:, None, None].expand_as(inside), torch.full_like(inside, 1e9, dtype=torch.float32)).min(0).values
             front = torch.where((front == 0) & (first < 1e8), first, front)
@@ -415,7 +421,7 @@ class Stereo:
         out = []
         for i, v in enumerate(level):
             d = depths[i]
-            world = (v["rays"] * d[..., None] - v["t"]) @ v["R"]
+            world = (self.rays(v) * d[..., None] - v["t"]) @ v["R"]
             votes = torch.zeros_like(d)
             for j in self.neighbours(i, self.config.vote_neighbours):
                 xy, z = self.project(world, level[j])
@@ -489,7 +495,7 @@ def preview(path, level, depths, picks):
     tiles = []
     for i in picks:
         d = depths[i].cpu().numpy()
-        g = level[i]["gray"][0, 0].cpu().numpy()
+        g = level[i]["gm"][0, 0].cpu().numpy()
         m = level[i]["mask"].cpu().numpy()
         v = d > 0
         lo, hi = (np.percentile(d[v], [1, 99]) if v.any() else (0, 1))
