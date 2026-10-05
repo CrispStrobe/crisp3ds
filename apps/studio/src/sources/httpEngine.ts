@@ -34,6 +34,8 @@ const systemTimer: Timer = {
 
 export interface HttpOptions {
   token?: string;
+  /** Shown instead of the address (the desktop app's own engine is "This computer"). */
+  label?: string;
   fetcher?: FetchLike;
   timer?: Timer;
   /** Wall clock in Unix seconds. */
@@ -70,7 +72,7 @@ export class HttpEngine implements Engine {
 
   constructor(baseUrl: string, options: HttpOptions = {}) {
     this.base = normaliseEngineUrl(baseUrl);
-    this.label = this.base;
+    this.label = options.label ?? this.base;
     this.options = options;
     this.fetcher = options.fetcher ?? browserFetch;
   }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { getShell } from "../shell/shell";
 import { HttpEngine } from "../sources/httpEngine";
 import { ReplaySource } from "../sources/replaySource";
 import type { Engine, RunSource } from "../sources/types";
@@ -8,6 +9,7 @@ import { NewRun } from "./newRun";
 import { applyTheme, loadPrefs, savePrefs, speedFromPref, type ThemeChoice } from "./prefs";
 import { Runs } from "./runs";
 import { RunView } from "./runView";
+import { LocalEngineGate, ShellSettingsScreen, useLocalEngine } from "./shellScreens";
 
 /** Hash routes, so the app works from any base path and on static hosts without rewrites. */
 export type Route =
@@ -15,12 +17,14 @@ export type Route =
   | { screen: "replay"; bundle: string | null }
   | { screen: "runs" }
   | { screen: "new" }
-  | { screen: "run"; id: string };
+  | { screen: "run"; id: string }
+  | { screen: "shell" };
 
 export function parseRoute(hash: string): Route {
   const [path = "", query = ""] = hash.replace(/^#\/?/, "").split("?");
   const parts = path.split("/").filter((part) => part !== "");
   if (parts[0] === "replay") return { screen: "replay", bundle: new URLSearchParams(query).get("bundle") };
+  if (parts[0] === "shell") return { screen: "shell" };
   if (parts[0] === "engine") {
     if (parts[1] === "new") return { screen: "new" };
     if (parts[1] === "run" && parts[2] !== undefined) return { screen: "run", id: decodeURIComponent(parts[2]) };
@@ -44,12 +48,22 @@ export function App() {
   const [route, setRoute] = useState<Route>(() => parseRoute(location.hash));
   const [prefs, setPrefs] = useState(loadPrefs);
   const [themeTick, setThemeTick] = useState(0);
+  // Inside the desktop app the shell runs an engine of its own. In a browser `shell` is null.
+  const shell = useMemo(getShell, []);
+  const local = useLocalEngine(shell);
+  const hasLocal = shell !== null && local.info?.can_run_engine === true;
+  const useLocal = hasLocal && prefs.engineChoice !== "remote";
 
   useEffect(() => {
     const onHash = () => setRoute(parseRoute(location.hash));
     addEventListener("hashchange", onHash);
     return () => removeEventListener("hashchange", onHash);
   }, []);
+
+  // The desktop app opens on its own engine's runs instead of the connection form.
+  useEffect(() => {
+    if (useLocal && (location.hash === "" || location.hash === "#/" || location.hash === "#")) navigate("#/engine");
+  }, [hasLocal]);
 
   useEffect(() => {
     applyTheme(prefs.theme);
@@ -60,14 +74,18 @@ export function App() {
     return () => media.removeEventListener("change", onChange);
   }, [prefs.theme]);
 
+  const localUrl = local.status?.state === "running" ? local.status.url : null;
+  const localToken = local.status?.state === "running" ? local.status.token : null;
   const engine = useMemo<Engine | null>(() => {
-    if (prefs.engineUrl === "") return null;
     try {
-      return new HttpEngine(prefs.engineUrl, { token: prefs.engineToken || undefined });
+      if (useLocal) {
+        return localUrl !== null ? new HttpEngine(localUrl, { token: localToken ?? undefined, label: "this computer" }) : null;
+      }
+      return prefs.engineUrl !== "" ? new HttpEngine(prefs.engineUrl, { token: prefs.engineToken || undefined }) : null;
     } catch {
       return null;
     }
-  }, [prefs.engineUrl, prefs.engineToken]);
+  }, [useLocal, localUrl, localToken, prefs.engineUrl, prefs.engineToken]);
 
   const runSource = useMemo<RunSource | null>(() => {
     if (route.screen === "replay") {
@@ -81,12 +99,14 @@ export function App() {
 
   const update = (change: Partial<typeof prefs>) => setPrefs(savePrefs(change));
   const needsEngine = route.screen === "runs" || route.screen === "new" || route.screen === "run";
+  const showRuns = useLocal || prefs.engineUrl !== "";
 
   let title = "Studio";
   if (route.screen === "replay") title = route.bundle === null ? "Demo recording" : "Recording";
   else if (route.screen === "runs") title = "Runs";
   else if (route.screen === "new") title = "New run";
   else if (route.screen === "run") title = route.id;
+  else if (route.screen === "shell") title = "Engine settings";
   useEffect(() => {
     document.title = title === "Studio" ? "Crisp3DS Studio" : `${title} - Crisp3DS Studio`;
   }, [title]);
@@ -110,7 +130,7 @@ export function App() {
           <a href="#/replay" aria-current={route.screen === "replay" && route.bundle === null ? "page" : undefined}>
             Demo
           </a>
-          {engine !== null && (
+          {showRuns && (
             <a href="#/engine" aria-current={needsEngine ? "page" : undefined}>
               Runs
             </a>
@@ -128,8 +148,26 @@ export function App() {
         </button>
       </header>
       <main id="main" tabIndex={-1}>
-        {route.screen === "connection" && <Connection prefs={prefs} onChange={update} />}
-        {needsEngine && engine === null && (
+        {route.screen === "connection" && (
+          <Connection prefs={prefs} onChange={update} localEngine={hasLocal ? { status: local.status, inUse: useLocal } : null} />
+        )}
+        {route.screen === "shell" &&
+          (shell !== null && hasLocal ? (
+            <ShellSettingsScreen shell={shell} info={local.info} status={local.status} onChange={local.refresh} />
+          ) : (
+            <section class="page narrow">
+              <div class="notice" role="note">
+                <p>These settings exist only in the desktop app, which runs an engine itself.</p>
+                <a class="button" href="#/">
+                  Connection
+                </a>
+              </div>
+            </section>
+          ))}
+        {needsEngine && engine === null && useLocal && shell !== null && (
+          <LocalEngineGate status={local.status} shell={shell} onChange={local.refresh} />
+        )}
+        {needsEngine && engine === null && !useLocal && (
           <section class="page narrow">
             <div class="notice bad" role="alert">
               <p>No engine is connected.</p>
@@ -139,7 +177,7 @@ export function App() {
             </div>
           </section>
         )}
-        {route.screen === "runs" && engine !== null && <Runs engine={engine} />}
+        {route.screen === "runs" && engine !== null && <Runs engine={engine} settingsHref={useLocal ? "#/shell" : undefined} />}
         {route.screen === "new" && engine !== null && <NewRun engine={engine} prefs={prefs} onChange={update} />}
         {runSource !== null && (route.screen === "replay" || route.screen === "run") && (
           <RunView

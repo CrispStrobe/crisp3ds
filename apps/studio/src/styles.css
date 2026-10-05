@@ -580,6 +580,10 @@ fieldset.panel > legend {
   .card.tall {
     grid-row: span 2;
   }
+
+  .card.wide {
+    grid-column: 1 / -1;
+  }
 }
 
 .notice {

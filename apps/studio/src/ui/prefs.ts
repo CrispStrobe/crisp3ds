@@ -16,6 +16,8 @@ export interface Prefs {
   flat: boolean;
   inputs: string;
   device: string;
+  /** Inside the desktop app: use the engine the app runs ("local") or one at `engineUrl` ("remote"). */
+  engineChoice: string;
 }
 
 const KEY = "crisp3ds.studio.v1";
@@ -30,6 +32,7 @@ const DEFAULTS: Prefs = {
   flat: false,
   inputs: "",
   device: "",
+  engineChoice: "local",
 };
 
 let cache: Prefs | null = null;

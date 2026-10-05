@@ -28,7 +28,7 @@ export function ProgressBar({ fraction, label, active }: { fraction: number; lab
   );
 }
 
-export function Runs({ engine }: { engine: Engine }) {
+export function Runs({ engine, settingsHref }: { engine: Engine; settingsHref?: string }) {
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
   const [health, setHealth] = useState<EngineHealth | null>(null);
   const [error, setError] = useState("");
@@ -65,8 +65,14 @@ export function Runs({ engine }: { engine: Engine }) {
         <div>
           <h1>Runs</h1>
           <p class="sub">
-            Engine at <span class="mono">{engine.label}</span>
+            Engine: <span class="mono">{engine.label}</span>
             {health?.device !== undefined && <> · default device {health.device}</>}
+            {settingsHref !== undefined && (
+              <>
+                {" · "}
+                <a href={settingsHref}>Engine settings</a>
+              </>
+            )}
           </p>
         </div>
         {canStart ? (

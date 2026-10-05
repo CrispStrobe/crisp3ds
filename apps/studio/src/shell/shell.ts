@@ -1,0 +1,96 @@
+/**
+ * The native shell (Tauri), when Studio runs inside one. In a browser `getShell()` is
+ * null and nothing here is used. The shell's only job on desktop is to run the engine as
+ * a child process and say where it is; the UI then talks to it over HTTP like to any
+ * other engine.
+ */
+
+import { invoke, isTauri } from "@tauri-apps/api/core";
+
+export interface ShellInfo {
+  /** False on phones and tablets: no engine can be started there. */
+  can_run_engine: boolean;
+  os: string;
+  version: string;
+  auto_device: string;
+}
+
+export type EngineState = "stopped" | "starting" | "running" | "failed";
+
+export interface EngineStatus {
+  state: EngineState;
+  url: string | null;
+  /** Per-start random token of the local engine. Kept in memory only. */
+  token: string | null;
+  message: string | null;
+  /** The command line that was started, token blanked. */
+  command: string | null;
+  log: string[];
+  device: string | null;
+}
+
+export interface ShellConfig {
+  repo: string;
+  python: string;
+  torch_python: string;
+  runs_dir: string;
+  data_dir: string;
+  device: string;
+}
+
+export const CONFIG_FIELDS = ["repo", "python", "torch_python", "runs_dir", "data_dir", "device"] as const;
+export type ConfigField = (typeof CONFIG_FIELDS)[number];
+
+export type ValueSource = "setting" | "environment" | "found" | "default";
+
+export interface ShellSettings {
+  saved: ShellConfig;
+  resolved: Record<ConfigField, { value: string; source: ValueSource }>;
+  problem: string | null;
+  file: string;
+}
+
+export interface Shell {
+  info(): Promise<ShellInfo>;
+  settings(): Promise<ShellSettings>;
+  saveSettings(config: ShellConfig): Promise<ShellSettings>;
+  engineStatus(): Promise<EngineStatus>;
+  restartEngine(): Promise<void>;
+  /** Native picker; resolves to null when cancelled. */
+  pickPath(kind: "folder" | "file", title: string, start?: string): Promise<string | null>;
+}
+
+const tauriShell: Shell = {
+  info: () => invoke<ShellInfo>("shell_info"),
+  settings: () => invoke<ShellSettings>("get_settings"),
+  saveSettings: (config) => invoke<ShellSettings>("save_settings", { config }),
+  engineStatus: () => invoke<EngineStatus>("engine_status"),
+  restartEngine: () => invoke<void>("restart_engine"),
+  pickPath: (kind, title, start) => invoke<string | null>("pick_path", { kind, title, start: start ?? null }),
+};
+
+export function getShell(): Shell | null {
+  return isTauri() ? tauriShell : null;
+}
+
+/** How a setting's origin is worded next to its field. */
+export function sourceText(source: ValueSource, field: ConfigField): string {
+  if (source === "environment") {
+    const variable = {
+      repo: "CRISP3DS_REPO",
+      python: "CRISP3DS_PYTHON",
+      torch_python: "CRISP3DS_TORCH_PYTHON",
+      runs_dir: "CRISP3DS_RUNS_DIR",
+      data_dir: "CRISP3DS_DATA_DIR",
+    }[field as string];
+    return variable !== undefined ? `from ${variable}` : "from the environment";
+  }
+  if (source === "found") return "found automatically";
+  if (source === "default") return field === "torch_python" ? "same as the interpreter above" : "default";
+  return "set here";
+}
+
+/** Only fields that differ from what is saved need saving. */
+export function sameConfig(a: ShellConfig, b: ShellConfig): boolean {
+  return CONFIG_FIELDS.every((field) => a[field].trim() === b[field].trim());
+}

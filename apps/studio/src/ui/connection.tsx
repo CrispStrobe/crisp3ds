@@ -4,13 +4,23 @@ import { describe } from "../sources/transport";
 import { navigate } from "./app";
 import { Icon } from "./icons";
 import type { Prefs } from "./prefs";
+import type { EngineStatus } from "../shell/shell";
 
 interface Props {
   prefs: Prefs;
   onChange(change: Partial<Prefs>): void;
+  /** Present inside the desktop app, which runs an engine itself. */
+  localEngine: { status: EngineStatus | null; inUse: boolean } | null;
 }
 
-export function Connection({ prefs, onChange }: Props) {
+const LOCAL_STATE: Record<EngineStatus["state"], string> = {
+  stopped: "is stopped",
+  starting: "is starting",
+  running: "is running",
+  failed: "could not be started",
+};
+
+export function Connection({ prefs, onChange, localEngine }: Props) {
   const [bundle, setBundle] = useState(prefs.bundleUrl);
   const [url, setUrl] = useState(prefs.engineUrl);
   const [token, setToken] = useState(prefs.engineToken);
@@ -21,7 +31,7 @@ export function Connection({ prefs, onChange }: Props) {
 
   // If this page is being served by an engine (`engine_server.py --static`), offer it.
   useEffect(() => {
-    if (!location.protocol.startsWith("http")) return;
+    if (!location.protocol.startsWith("http") || localEngine !== null) return;
     const abort = new AbortController();
     new HttpEngine(location.origin)
       .health(abort.signal)
@@ -48,7 +58,7 @@ export function Connection({ prefs, onChange }: Props) {
     setBusy(true);
     try {
       await engine.health();
-      onChange({ engineUrl: address, engineToken: token });
+      onChange({ engineUrl: address, engineToken: token, engineChoice: "remote" });
       navigate("#/engine");
     } catch (problem) {
       setError(describe(problem));
@@ -84,6 +94,23 @@ export function Connection({ prefs, onChange }: Props) {
       </p>
 
       <div class="cards">
+        {localEngine !== null && (
+          <section class="card wide" aria-labelledby="c-local">
+            <h2 id="c-local">This computer</h2>
+            <p>
+              The app runs an engine on this computer. It {localEngine.status === null ? "is starting" : LOCAL_STATE[localEngine.status.state]}
+              {localEngine.status?.state === "failed" && localEngine.status.message !== null ? `: ${localEngine.status.message}` : "."}
+            </p>
+            <div class="actions">
+              <a class="button primary" href="#/engine" onClick={() => onChange({ engineChoice: "local" })}>
+                {localEngine.inUse ? "Open runs" : "Use this computer"}
+              </a>
+              <a class="button" href="#/shell">
+                Engine settings
+              </a>
+            </div>
+          </section>
+        )}
         <section class="card" aria-labelledby="c-demo">
           <h2 id="c-demo">Demo recording</h2>
           <p>A recorded run on a synthetic sphere, included with this app. Needs no engine.</p>
@@ -93,7 +120,7 @@ export function Connection({ prefs, onChange }: Props) {
         </section>
 
         <section class="card tall" aria-labelledby="c-engine">
-          <h2 id="c-engine">Engine</h2>
+          <h2 id="c-engine">{localEngine !== null ? "Another engine" : "Engine"}</h2>
           <p>
             Connect to a running engine to watch its runs live and start new ones.
             {sameOrigin && " An engine is serving this page."}
@@ -140,7 +167,7 @@ export function Connection({ prefs, onChange }: Props) {
                   type="button"
                   class="button"
                   onClick={() => {
-                    onChange({ engineUrl: "", engineToken: "" });
+                    onChange({ engineUrl: "", engineToken: "", engineChoice: "local" });
                     setUrl("");
                     setToken("");
                   }}

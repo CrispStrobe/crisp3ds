@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The main window may call the shell's own commands and nothing else: no file system, shell, HTTP, dialog or event permissions are granted to the web view. Folder pickers are opened by the Rust side.",
+  "windows": ["main"],
+  "permissions": []
+}
