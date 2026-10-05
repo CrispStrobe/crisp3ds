@@ -91,6 +91,13 @@ class CalibrationTests(unittest.TestCase):
             front.calibrated_scene({**scene, "poses": [{}]}, scaled)
 
 
+try:
+    import scipy  # noqa: F401
+except ImportError:  # the core test job runs without the scientific stack
+    scipy = None
+
+
+@unittest.skipIf(scipy is None, "needs SciPy")
 class MaskTests(unittest.TestCase):
     def test_envelope_forms(self):
         self.assertEqual(front.resolve_envelope("auto", 1749, 1155), (0, 0, 1749, 1155))

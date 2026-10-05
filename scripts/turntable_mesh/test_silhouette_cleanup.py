@@ -8,6 +8,11 @@ import unittest
 import numpy as np
 from PIL import Image
 
+try:
+    import scipy  # noqa: F401
+except ImportError:  # the core test job runs without the scientific stack
+    raise unittest.SkipTest("needs SciPy") from None
+
 from scripts.turntable_mesh import silhouette_cleanup as cleanup
 
 
