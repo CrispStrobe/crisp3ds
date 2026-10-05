@@ -246,6 +246,8 @@ jobs:
         env:
           BUNDLES: ${{ matrix.bundles }}
         run: |
+          # The cached target folder may hold bundles of an earlier version; only this build's count.
+          rm -rf src-tauri/target/release/bundle
           extra=""
           if [ -f src-tauri/tauri.signing.conf.json ]; then extra="--config src-tauri/tauri.signing.conf.json"; fi
           # beforeBuildCommand runs `npm run build` (typecheck + Vite bundle) first.
