@@ -164,6 +164,6 @@ describe("ReplayPlayer", () => {
     time.advance(duration - 50);
     expect(instance.snapshot().ended).toBe(false);
     time.advance(100);
-    expect(instance.snapshot()).toMatchObject({ position: 35, ended: true });
+    expect(instance.snapshot()).toMatchObject({ position: events.length, ended: true });
   });
 });

@@ -122,7 +122,7 @@ describe("HttpRunSource polling", () => {
     await settle();
     expect(seen.events).toHaveLength(20);
 
-    available = 35;
+    available = all.length;
     time.advance(POLL_MS);
     await settle();
     expect(seen.events.map((event) => event.seq)).toEqual(all.map((event) => event.seq));
@@ -269,11 +269,13 @@ describe("ReplaySource", () => {
     expect(store.get().run.status).toBe("running");
     expect(store.get().run.eventCount).toBe(1);
 
-    time.advance(10_000);
+    const recorded = fixtureEvents();
+    const hull = recorded.find((event) => event.kind === "preview_mesh")!;
+    time.advance((hull.time - recorded[0]!.time) * 1000 + 1);
     expect(store.get().run.meshes.map((mesh) => mesh.label)).toEqual(["Silhouette hull"]);
-    time.advance(60_000);
+    time.advance((recorded.at(-1)!.time - hull.time) * 1000);
     expect(store.get().run.status).toBe("complete");
-    expect(store.get().run.eventCount).toBe(35);
+    expect(store.get().run.eventCount).toBe(recorded.length);
     expect(store.get().link.state).toBe("ended");
   });
 
@@ -295,9 +297,9 @@ describe("ReplaySource", () => {
 
     source.replay.seek(0);
     expect(store.get().run.status).toBe("waiting");
-    source.replay.seek(35);
+    source.replay.seek(fixtureEvents().length);
     expect(store.get().run.status).toBe("complete");
-    expect(store.get().run.reports).toHaveLength(1);
+    expect(store.get().run.reports).toHaveLength(2);
   });
 
   it("can start paused and step through", async () => {
@@ -310,7 +312,7 @@ describe("ReplaySource", () => {
     source.replay.step(1);
     source.replay.step(1);
     expect(store.get().run.eventCount).toBe(2);
-    expect(source.replay.snapshot()).toMatchObject({ position: 2, total: 35, playing: false });
+    expect(source.replay.snapshot()).toMatchObject({ position: 2, total: fixtureEvents().length, playing: false });
   });
 
   it("ignores a half-written last line in a bundle", async () => {
@@ -321,7 +323,7 @@ describe("ReplaySource", () => {
     const store = new RunStore(source);
     source.start();
     await settle();
-    expect(store.get().run.eventCount).toBe(34);
+    expect(store.get().run.eventCount).toBe(fixtureEvents().length - 1);
     expect(store.get().run.status).toBe("running");
   });
 
