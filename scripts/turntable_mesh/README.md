@@ -147,20 +147,21 @@ pyramid level; a shorter tuple repeats its last entry.
 | `planes` | 128 | Inverse-depth planes of the full sweep at the coarsest level |
 | `windows` | 7, 9, 11 | NCC window per level, pixels |
 | `aggregates` | 1, 1.5, 2 | Cost blur sigma per level, pixels; 0 disables |
-| `passes` | 1, 2, 2 | Refinement passes per level |
-| `band_steps` | 8, 5 | Search half-width in depth steps for the first and later passes |
+| `passes` | 1, 2, 1 | Refinement passes per level |
+| `band_first`, `band_later` | 8/8/8, 5 | Search half-width in depth steps: first pass of each level, later passes |
 | `min_score`, `min_variance`, `window_fill` | 0.55, 1e-4, 0.6 | NCC acceptance, texture gate on normalised grey, minimum valid window fraction |
 | `tolerances`, `min_votes`, `vote_neighbours` | 0.006/0.003/0.002, 2/3/3, 10 | Cross-view depth agreement: relative tolerance, required agreeing views, views asked |
 | `grid` | 400 | Voxels along the longest side of the object |
 | `hull_dilate`, `hull_allowed` | 2, 2 | Mask tolerance in native pixels; views allowed to disagree |
 | `repair_masks`, `repair_loose`, `repair_base_margin` | true, 8, 8 | Mask repair on/off; consensus tolerance; voxels above the support kept out of repair |
-| `hull_front`, `hull_front_level`, `hull_front_min_score`, `hull_front_margin` | true, 1, 0.6, 0.004 | Hull-front depth candidate for thin parts |
+| `hull_front`, `hull_front_level`, `hull_front_min_score`, `hull_front_margin`, `hull_front_stride` | true, 1, 0.6, 0.004, 2 | Hull-front depth candidate for thin parts; stride of its ray-march grid |
 | `fallback_level` | true | Where the finest level fails its checks, use the previous level's depth |
 | `rim_fraction` | 0.55 | Silhouette band excluded from fusion, in matching windows |
 | `truncation_voxels`, `behind_voxels`, `behind_weight` | 3, 12, 0.25 | TSDF truncation; depth and weight of the weak inside vote behind a surface |
 | `mesh_smooth`, `mesh_fill_sigmas`, `mesh_final_smooth` | 1.0, 2/4, 0.6 | Field smoothing, extrapolation reach into unobserved hull, final blur; voxels |
 | `mesh_minimum_weight`, `mesh_confidence_cap` | 0.5, 4 | Evidence needed to count as observed; views at which confidence saturates |
 | `mesh_taubin_cycles` | 5 | Taubin smoothing cycles on the mesh |
+| `mesh_flat_base`, `mesh_base_margin` | true, 1 | Cut the solid at the lowest level with measured surface (silhouettes cannot tell a flat base from a cone under it); voxels kept below that level |
 
 Faster, coarser runs: `--set sizes=256,512 --set grid=256`.
 

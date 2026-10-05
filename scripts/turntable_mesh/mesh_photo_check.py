@@ -17,23 +17,25 @@ from .multiscale_stereo import load_views
 from .stl_compare_render import read_stl, run as render
 
 
-def silhouette_iou(triangles, rows, mask_directory=None):
-    values = {}
+def silhouette_iou(triangles, rows, mask_directories=(None,)):
+    """IoU per view against each mask set (None = the masks named in the camera table)."""
+    values = [{} for _ in mask_directories]
     for row in rows:
-        path = Path(mask_directory) / (row["name"] + ".png") if mask_directory else Path(row["mask"])
-        mask = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
-        if mask is None:
-            raise ValueError("missing mask " + str(path))
         R, t = np.array(row["rotation"]), np.array(row["translation"])
         fx, fy, cx, cy = row["k"]
         cam = triangles @ R.T + t
         if (cam[:, :, 2] <= 0).any():
             raise ValueError("mesh reaches behind camera " + row["name"])
         xy = cam[:, :, :2] / cam[:, :, 2:] * [fx, fy] + [cx - 0.5, cy - 0.5]
-        drawn = np.zeros(mask.shape, np.uint8)
+        drawn = np.zeros((row["height"], row["width"]), np.uint8)
         cv2.fillPoly(drawn, np.rint(xy * 16).astype(np.int32), 255, shift=4)
-        a, b = mask > 127, drawn > 0
-        values[row["name"]] = float((a & b).sum() / max((a | b).sum(), 1))
+        for store, directory in zip(values, mask_directories):
+            path = Path(directory) / (row["name"] + ".png") if directory else Path(row["mask"])
+            mask = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+            if mask is None or mask.shape != drawn.shape:
+                raise ValueError("missing or mismatched mask " + str(path))
+            a, b = mask > 127, drawn > 0
+            store[row["name"]] = float((a & b).sum() / max((a | b).sum(), 1))
     return values
 
 
@@ -43,16 +45,21 @@ def summary(values):
             "worst_view": min(values, key=values.get)}
 
 
-def run(inputs, mesh, output, *, repaired_masks=None, preview_views=3):
+def run(inputs, mesh, output, *, repaired_masks=None, preview_views=3, check_views=24):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
     rows = load_views(inputs)
     triangles = read_stl(mesh)
-    report = {"mesh": str(mesh), "triangles": len(triangles), "views": len(rows),
-              "silhouette_iou_input_masks": summary(silhouette_iou(triangles, rows)),
-              "note": "photo agreement only; not scanner accuracy or physical scale"}
+    checked = [rows[i] for i in np.unique(np.linspace(0, len(rows) - 1, min(check_views, len(rows))).round().astype(int))]
+    sets = [None]
     if repaired_masks is not None and Path(repaired_masks).is_dir():
-        report["silhouette_iou_repaired_masks"] = summary(silhouette_iou(triangles, rows, repaired_masks))
+        sets.append(repaired_masks)
+    scores = silhouette_iou(triangles, checked, sets)
+    report = {"mesh": str(mesh), "triangles": len(triangles), "views": len(rows), "views_checked": len(checked),
+              "silhouette_iou_input_masks": summary(scores[0]),
+              "note": "photo agreement only; not scanner accuracy or physical scale"}
+    if len(sets) > 1:
+        report["silhouette_iou_repaired_masks"] = summary(scores[1])
     if preview_views:
         names = [rows[i]["name"] for i in np.linspace(0, len(rows), preview_views, endpoint=False, dtype=int)]
         render(Path(inputs) / "cameras.json", names, [("Reconstruction", mesh)], output / "preview.png")
@@ -68,9 +75,10 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--repaired-masks", type=Path)
     parser.add_argument("--preview-views", type=int, default=3)
+    parser.add_argument("--check-views", type=int, default=24, help="evenly spaced views scored for silhouette IoU")
     args = parser.parse_args()
     print(json.dumps(run(args.inputs, args.mesh, args.output, repaired_masks=args.repaired_masks,
-                         preview_views=args.preview_views), indent=2))
+                         preview_views=args.preview_views, check_views=args.check_views), indent=2))
 
 
 if __name__ == "__main__":

@@ -26,8 +26,9 @@ class DenseConfig:
     planes: int = 128  # full inverse-depth sweep at the coarsest level
     windows: tuple = (7, 9, 11)
     aggregates: tuple = (1.0, 1.5, 2.0)  # cost blur sigma in level pixels; 0 disables
-    passes: tuple = (1, 2, 2)
-    band_steps: tuple = (8, 5)  # search half-width in steps, first and later passes
+    passes: tuple = (1, 2, 1)  # a second native-size pass did not change scanner scores
+    band_first: tuple = (8, 8, 8)  # search half-width in depth steps, first pass of each level
+    band_later: int = 5  # the same for later passes
     min_score: float = 0.55
     min_variance: float = 1e-4
     window_fill: float = 0.6  # minimum jointly valid fraction of a window
@@ -47,7 +48,10 @@ class DenseConfig:
     hull_front_level: int = 1
     hull_front_min_score: float = 0.6
     hull_front_margin: float = 0.004  # relative depth by which it must be nearer
+    hull_front_stride: int = 2  # ray-march the hull on a canvas this much coarser
     # --- fusion
+    fused_passes: int = 0  # re-match around the fused surface and fuse again
+    fused_band: int = 4  # search half-width of such a pass, in finest-level steps
     fallback_level: bool = True
     rim_fraction: float = 0.55  # silhouette band left to the hull, in windows
     truncation_voxels: float = 3.0
@@ -60,6 +64,8 @@ class DenseConfig:
     mesh_minimum_weight: float = 0.5
     mesh_confidence_cap: float = 4.0
     mesh_taubin_cycles: int = 5
+    mesh_flat_base: bool = True  # cut everything below the lowest measured surface
+    mesh_base_margin: float = 1.0  # voxels kept below that level
 
     def level(self, name, index):
         values = getattr(self, name)
@@ -77,7 +83,7 @@ class DenseConfig:
         need(16 <= self.planes <= 512, "planes must be 16..512")
         need(all(w % 2 == 1 and 3 <= w <= 31 for w in self.windows), "windows must be odd, 3..31")
         need(all(1 <= p <= 4 for p in self.passes), "passes must be 1..4")
-        need(len(self.band_steps) == 2 and all(2 <= b <= 32 for b in self.band_steps), "band_steps must be two values in 2..32")
+        need(all(2 <= b <= 32 for b in (*self.band_first, self.band_later)), "band values must be in 2..32")
         need(0 < self.min_score < 1 and 0 < self.hull_front_min_score < 1, "scores must be in (0,1)")
         need(self.min_variance > 0 and 0 < self.window_fill <= 1, "invalid texture gates")
         need(all(0 < t < 0.1 for t in self.tolerances), "tolerances must be in (0,0.1)")
@@ -85,6 +91,7 @@ class DenseConfig:
         need(64 <= self.grid <= 1024, "grid must be 64..1024")
         need(0 <= self.hull_dilate <= 16 and 0 <= self.hull_allowed <= self.repair_loose <= 64, "invalid hull tolerances")
         need(0 <= self.hull_front_level < len(self.sizes) or not self.hull_front, "hull_front_level outside pyramid")
+        need(0 <= self.fused_passes <= 3 and 2 <= self.fused_band <= 32, "invalid fused pass values")
         need(0 <= self.rim_fraction <= 3 and self.truncation_voxels >= 1, "invalid fusion values")
         need(self.behind_voxels >= self.truncation_voxels and 0 <= self.behind_weight <= 1, "invalid inside vote")
         need(self.mesh_smooth > 0 and self.mesh_confidence_cap > 0 and 0 <= self.mesh_taubin_cycles <= 100, "invalid mesh values")

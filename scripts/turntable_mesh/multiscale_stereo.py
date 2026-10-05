@@ -233,6 +233,16 @@ class Stereo:
             self.bounds.append((float(z.min()) - 3 * self.voxel, float(z.max()) + 3 * self.voxel))
         return {"shape": list(shape), "voxel": self.voxel, "occupied": int(occupied.sum()), "coarse_touches_box": touching}
 
+    def orbit_down(self):
+        """Centre of the camera orbit and its normal, pointing from the cameras to the object side."""
+        torch = self.torch
+        centers = torch.stack([-R.T @ t for R, t, _ in self.cams])
+        middle = centers.mean(0)
+        down = torch.tensor(np.linalg.svd((centers - middle).cpu().numpy())[2][2], device=self.dev)
+        if ((self.hull.centres(5) - middle) @ down).mean() < 0:
+            down = -down
+        return middle, down
+
     def repair_masks(self, ring=(5, 15)):
         """Add object pixels that single-view segmentation dropped.
 
@@ -248,12 +258,8 @@ class Stereo:
         # Contact shadows on the support are dark and view-consistent too. Keep
         # the repair away from the base: the orbit normal gives "down", and the
         # strict hull's lowest extent gives the support height.
-        centers = torch.stack([-R.T @ t for R, t, _ in self.cams])
-        middle = centers.mean(0)
-        down = torch.tensor(np.linalg.svd((centers - middle).cpu().numpy())[2][2], device=dev)
+        middle, down = self.orbit_down()
         strict = self.hull.centres(5)
-        if ((strict - middle) @ down).mean() < 0:
-            down = -down
         heights = ((strict - middle) @ down).sort().values
         base = float(heights[int(0.995 * (len(heights) - 1))])
         points = points[((points - middle) @ down) < base - c.repair_base_margin * self.voxel]
@@ -395,18 +401,29 @@ class Stereo:
         return torch.where(valid, depth, torch.zeros_like(depth))
 
     def hull_front(self, level, i):
-        """Depth at which each masked pixel's ray first enters the strict hull."""
-        torch = self.torch
+        """Depth at which each masked pixel's ray first enters the strict hull.
+
+        Marched on a coarser pixel grid with two-voxel steps; the band search that
+        follows covers far more than that error.
+        """
+        torch, F = self.torch, self.F
         v = level[i]
+        stride = max(1, self.config.hull_front_stride)
+        rays = self.rays(v)[stride // 2 :: stride, stride // 2 :: stride]
         near, far = self.bounds[i]
-        samples = torch.linspace(near, far, int((far - near) / self.voxel) + 1, device=self.dev)
-        front = torch.zeros((v["h"], v["w"]), device=self.dev)
-        for s in range(0, len(samples), 16):
-            d = samples[s : s + 16]
-            world = (self.rays(v)[None] * d[:, None, None, None] - v["t"]) @ v["R"]
+        samples = torch.linspace(near, far, int((far - near) / (2 * self.voxel)) + 1, device=self.dev)
+        front = torch.zeros(rays.shape[:2], device=self.dev)
+        for s in range(0, len(samples), 32):
+            d = samples[s : s + 32]
+            world = (rays[None] * d[:, None, None, None] - v["t"]) @ v["R"]
             inside = self.hull.contains(world)
             first = torch.where(inside, d[:, None, None].expand_as(inside), torch.full_like(inside, 1e9, dtype=torch.float32)).min(0).values
             front = torch.where((front == 0) & (first < 1e8), first, front)
+        if stride > 1:
+            # Nearest keeps depth edges; pixels whose coarse sample missed the hull get the local minimum.
+            near_front = -F.max_pool2d(-torch.where(front > 0, front, torch.full_like(front, 1e9))[None, None], 3, 1, 1)
+            front = torch.where(front > 0, front, torch.where(near_front[0, 0] < 1e8, near_front[0, 0], torch.zeros_like(front)))
+            front = F.interpolate(front[None, None], size=(v["h"], v["w"]), mode="nearest")[0, 0]
         return torch.where(v["mask"], front, torch.zeros_like(front))
 
     def lookup(self, depth_map, xy):
@@ -488,7 +505,58 @@ class Stereo:
                 behind = seen & ~use & (sdf > -c.behind_voxels * self.voxel)
                 total[s : s + 2_000_000] += torch.where(use, (sdf / trunc).clamp(max=1), torch.zeros_like(sdf)) - c.behind_weight * behind.float()
                 weight[s : s + 2_000_000] += use.float() + c.behind_weight * behind.float()
+        # Support height: silhouettes cannot tell a flat base from a cone under it,
+        # but no photo measures surface below the support. Take the lowest level
+        # that still has well-supported measured surface.
+        middle, down = self.orbit_down()
+        surface = (weight >= 3) & ((total / weight.clamp_min(1e-6)).abs() < 0.5)
+        support = None
+        if int(surface.sum()) > 1000:
+            heights = ((points[surface] - middle) @ down).sort().values
+            support = float(heights[int(0.998 * (len(heights) - 1))])
+        self.support = {"point": middle.cpu().numpy(), "down": down.cpu().numpy(), "height": support}
         return index.cpu().numpy().astype(np.int32), total.cpu().numpy(), weight.cpu().numpy(), trunc
+
+
+def fused_field(stereo, index, total, weight):
+    """Dense signed field on the device: fused evidence, hull interior where unobserved, outside elsewhere."""
+    torch = stereo.torch
+    field = torch.ones(stereo.hull.shape, device=stereo.dev)
+    idx = torch.tensor(index.astype(np.int64), device=stereo.dev)
+    t = torch.tensor(total, device=stereo.dev)
+    w = torch.tensor(weight, device=stereo.dev)
+    value = torch.where(w > 0, (t / w.clamp_min(1e-6)).clamp(-1, 1), torch.full_like(t, -1.0))
+    field[idx[:, 0], idx[:, 1], idx[:, 2]] = value
+    return field
+
+
+def render_field(stereo, field, view, bounds, stride=2):
+    """First outside-to-inside crossing of the field along each ray, on a coarser pixel grid."""
+    torch = stereo.torch
+    rays = stereo.rays(view)[stride // 2 :: stride, stride // 2 :: stride]
+    near, far = bounds
+    samples = torch.linspace(near, far, int((far - near) / stereo.voxel) + 1, device=stereo.dev)
+    flat = field.reshape(-1)
+    nx, ny, nz = field.shape
+    limit = torch.tensor(field.shape, device=stereo.dev)
+    depth = torch.zeros(rays.shape[:2], device=stereo.dev)
+    previous = torch.ones(rays.shape[:2], device=stereo.dev)
+    previous_d = torch.full(rays.shape[:2], near, device=stereo.dev)
+    for s in range(0, len(samples), 32):
+        d = samples[s : s + 32]
+        world = (rays[None] * d[:, None, None, None] - view["t"]) @ view["R"]
+        cell = ((world - stereo.hull.origin) / stereo.voxel).floor().long()
+        inside = ((cell >= 0) & (cell < limit)).all(-1)
+        linear = ((cell[..., 0] * ny + cell[..., 1]) * nz + cell[..., 2]).clamp(0, flat.numel() - 1)
+        value = torch.where(inside, flat[linear], torch.ones_like(d)[:, None, None].expand_as(inside))
+        before = torch.cat((previous[None], value[:-1]))
+        before_d = torch.cat((previous_d[None], d[:-1, None, None].expand_as(value[:-1])))
+        cross = (before > 0) & (value <= 0)
+        here = before_d + (d[:, None, None] - before_d) * before / (before - value).clamp_min(1e-6)
+        first = torch.where(cross, here, torch.full_like(here, 1e9)).min(0).values
+        depth = torch.where((depth == 0) & (first < 1e8), first, depth)
+        previous, previous_d = value[-1], d[-1].expand_as(previous_d)
+    return depth
 
 
 def preview(path, level, depths, picks):
@@ -574,7 +642,7 @@ def run(inputs, output, *, device="mps", config=None, reuse_depths=None, log=pri
                         shape = (level[i]["h"], level[i]["w"])
                         init = stereo.initial(depths[i], level[i]["mask"], shape, 1.5 if p == 0 else 1.0)
                         fine = step / (2 ** li) / (1 if p == 0 else 2)
-                        half = config.band_steps[0 if p == 0 else 1]
+                        half = config.level("band_first", li) if p == 0 else config.band_later
                         d = stereo.refine(level, i, init, fine, half, nbrs, window, aggregate, config.min_score)
                     if config.hull_front and li == min(config.hull_front_level, len(run_sizes) - 1) and p == 0:
                         # Thin parts are narrower than the coarse window, so they
@@ -582,7 +650,7 @@ def run(inputs, output, *, device="mps", config=None, reuse_depths=None, log=pri
                         # hull's front surface too: a photo-consistent nearer
                         # surface occludes anything matched behind it.
                         fine = step / (2 ** li)
-                        d2 = stereo.refine(level, i, stereo.hull_front(level, i), fine, config.band_steps[0], nbrs,
+                        d2 = stereo.refine(level, i, stereo.hull_front(level, i), fine, config.level("band_first", li), nbrs,
                                            window, aggregate, max(config.min_score, config.hull_front_min_score))
                         nearer = (d2 > 0) & ((d == 0) | (d2 < d * (1 - config.hull_front_margin)))
                         front_wins += int(nearer.sum())
@@ -615,11 +683,38 @@ def run(inputs, output, *, device="mps", config=None, reuse_depths=None, log=pri
         rim = round(config.rim_fraction * config.level("windows", len(sizes) - 1))
         index, total, weight, trunc = stereo.tsdf(level, depths, rim_pixels=rim)
         report["rim_pixels"] = rim
+        report["fused_passes"] = []
+        for n in range(config.fused_passes if step is not None else 0):
+            # The fused surface is complete and averaged over many views. Matching
+            # again in a narrow band around it fills holes with verified depth and
+            # cannot drift far from the consensus.
+            t_f = time.monotonic()
+            field = fused_field(stereo, index, total, weight)
+            li = len(sizes) - 1
+            window, aggregate = config.level("windows", li), config.level("aggregates", li)
+            raw = []
+            for i in range(count):
+                coarse = render_field(stereo, field, level[i], stereo.bounds[i])
+                init = stereo.initial(coarse, level[i]["mask"], (level[i]["h"], level[i]["w"]), 1.0)
+                raw.append(stereo.refine(level, i, init, step / (2 ** li) / 2, config.fused_band,
+                                         stereo.neighbours(i, config.neighbours), window, aggregate, config.min_score))
+                if i % 10 == 9:
+                    sync()
+            del field
+            again = stereo.consistent(level, raw, config.level("tolerances", li), config.level("min_votes", li))
+            depths = [torch.where(a > 0, a, d) for a, d in zip(again, depths)]
+            index, total, weight, trunc = stereo.tsdf(level, depths, rim_pixels=rim)
+            row = {"pass": n, "new_coverage": coverage(level, again), "merged_coverage": coverage(level, depths),
+                   "seconds": time.monotonic() - t_f}
+            report["fused_passes"].append(row)
+            log(f"fused pass {n}: new {row['new_coverage']['median']:.3f}, merged {row['merged_coverage']['median']:.3f}, {row['seconds']:.1f}s")
         report["tsdf"] = {"hull_voxels": len(index), "observed_fraction": float((weight > 0).mean()), "seconds": time.monotonic() - t}
         log("tsdf", report["tsdf"])
     np.savez_compressed(output / "volume.npz", index=index, total=total.astype(np.float32),
                         weight=weight.astype(np.float32), shape=np.array(stereo.hull.shape),
-                        origin=stereo.hull.origin.cpu().numpy(), voxel=np.float32(stereo.voxel), truncation=np.float32(trunc))
+                        origin=stereo.hull.origin.cpu().numpy(), voxel=np.float32(stereo.voxel), truncation=np.float32(trunc),
+                        support_point=stereo.support["point"], support_down=stereo.support["down"],
+                        support_height=np.float32(np.nan if stereo.support["height"] is None else stereo.support["height"]))
     np.savez_compressed(output / "depths.npz", **{f"depth_{i:03d}": d.cpu().numpy().astype(np.float32) for i, d in enumerate(depths)})
     report["seconds"] = time.monotonic() - started
     report["reference_used"] = False

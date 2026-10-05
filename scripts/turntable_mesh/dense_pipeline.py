@@ -90,7 +90,8 @@ def run(args):
         stage("inputs", [python, "-m", "scripts.turntable_mesh.dense_all_views_inputs", "--scene", args.scene,
                          "--prepared", args.prepared, "--raw-masks", args.raw_masks, "--output", inputs], 600)
     stage("stereo", [torch_python, "-m", "scripts.turntable_mesh.multiscale_stereo", "--inputs", inputs,
-                     "--output", output / "stereo", "--device", args.device, "--config", output / "config.json"],
+                     "--output", output / "stereo", "--device", args.device, "--config", output / "config.json",
+                     *(["--reuse-depths", Path(args.reuse_depths).absolute()] if args.reuse_depths else [])],
           args.stereo_timeout)
     stage("mesh", [python, "-m", "scripts.turntable_mesh.tsdf_hull_mesh", "--volume", output / "stereo/volume.npz",
                    "--output", output / "mesh", "--config", output / "config.json"], 900)
@@ -124,6 +125,7 @@ def main():
     parser.add_argument("--threads", type=int, default=2)
     parser.add_argument("--stereo-timeout", type=int, default=3600, help="seconds")
     parser.add_argument("--minimum-free-gib", type=float, default=2.0)
+    parser.add_argument("--reuse-depths", type=Path, help="depths.npz of an earlier run on the same inputs: skip matching, re-fuse only")
     parser.add_argument("--skip-check", action="store_true")
     parser.add_argument("--no-preview", action="store_true")
     parser.add_argument("--keep-volume", action="store_true", help="keep stereo/volume.npz for re-meshing")

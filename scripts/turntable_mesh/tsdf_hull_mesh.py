@@ -55,10 +55,22 @@ def field(volume, config):
         filled |= take
     del numerator, denominator
     value = np.maximum(value, prior).astype(np.float32)
+    base = {"flat_base_applied": False}
+    if config.mesh_flat_base and "support_height" in volume and np.isfinite(volume["support_height"]):
+        # Signed distance to the support plane, in truncation units, outside below it.
+        voxel = float(volume["voxel"])
+        down = volume["support_down"].astype(np.float64)
+        offset = (volume["origin"] - volume["support_point"]) @ down - float(volume["support_height"])
+        axes = [((np.arange(n) - pad + 0.5) * voxel * d).astype(np.float32) for n, d in zip(padded, down)]
+        depth_below = axes[0][:, None, None] + axes[1][None, :, None] + axes[2][None, None, :] + np.float32(offset)
+        plane = np.clip((depth_below / voxel - config.mesh_base_margin) / truncation, -1, 1)
+        base = {"flat_base_applied": True, "hull_fraction_below_support": float((plane[where] > 0).mean())}
+        value = np.maximum(value, plane)
+        del depth_below, plane
     # The maximum leaves creases that give marching cubes ambiguous cells.
     if config.mesh_final_smooth:
         value = ndimage.gaussian_filter(value, config.mesh_final_smooth)
-    return value, pad, {"observed_hull_fraction": float(observed[where].mean()),
+    return value, pad, {**base, "observed_hull_fraction": float(observed[where].mean()),
                         "extrapolated_hull_fraction": float((filled & ~observed)[where].mean())}
 
 
