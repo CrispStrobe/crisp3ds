@@ -1,12 +1,28 @@
 name: studio
 
-# Crisp3DS Studio, the web front end in apps/studio: typecheck, unit tests and
-# the static bundle. The bundle (with the sphere replay fixture inside as its
-# demo) is uploaded as an artifact; it is built with relative asset URLs, so it
-# can be served from any path. Nothing is deployed from here.
+# Crisp3DS Studio (apps/studio): the web front end and its Tauri 2 shell.
+#
+#   web      typecheck, unit tests and the static bundle (artifact). Built with
+#            relative asset URLs, so it can be served from any path.
+#   native   the desktop shell on macOS, Windows and Linux: Rust unit tests, then
+#            a release build WITHOUT installer bundling (tauri.conf.json has
+#            bundle.active=false and --no-bundle is passed as well). The artifact
+#            is the bare, unsigned executable. It does not contain Python: the
+#            app starts the engine with an interpreter installed separately.
+#   android, ios
+#            manual only (workflow_dispatch with mobile=true), non-blocking,
+#            unsigned: a debug APK and a simulator .app. On phones the app is a
+#            client only; no engine is started. Nothing is installed or launched.
+#
+# Nothing is deployed or released from here; see release.yml for that.
 
 on:
   workflow_dispatch:
+    inputs:
+      mobile:
+        description: 'Also try the unsigned Android and iOS builds'
+        type: boolean
+        default: false
   push:
     paths:
       - '.github/workflows/studio.yml'
@@ -26,6 +42,10 @@ permissions:
 concurrency:
   group: studio-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: '0'
 
 jobs:
   web:
@@ -56,3 +76,132 @@ jobs:
           name: crisp3ds-studio
           if-no-files-found: error
           path: apps/studio/dist
+
+  native:
+    name: native (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/studio
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      # Tauri 2 on Linux links WebKitGTK 4.1 (not 4.0) and friends.
+      - name: Linux system libraries for Tauri 2
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev \
+            libxdo-dev libssl-dev build-essential pkg-config curl wget file
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/studio/package-lock.json
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            apps/studio/src-tauri/target
+          key: studio-tauri-${{ matrix.os }}-${{ hashFiles('apps/studio/src-tauri/Cargo.lock') }}
+      - run: npm ci
+      # The shell embeds dist/ at compile time, so the web bundle comes first.
+      - run: npm run build
+      - name: Shell unit tests (settings resolution, engine command line, process group)
+        working-directory: apps/studio/src-tauri
+        run: cargo test --locked
+      - name: Tauri release build, no installer bundle
+        run: npx tauri build --no-bundle --ci -- --locked
+      - name: List build output
+        run: ls -la src-tauri/target/release | head -40
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: crisp3ds-studio-${{ matrix.os }}-unsigned
+          if-no-files-found: error
+          path: |
+            apps/studio/src-tauri/target/release/crisp3ds-studio
+            apps/studio/src-tauri/target/release/crisp3ds-studio.exe
+
+  # Mobile: manual, non-blocking, unsigned. The generated projects
+  # (src-tauri/gen/) are git-ignored, so each run starts with `tauri <os> init`.
+  # A release needs signing material that is not in this repository: see the
+  # comments in release.yml and apps/studio/README.md.
+  android:
+    name: android debug apk (manual)
+    if: github.event_name == 'workflow_dispatch' && inputs.mobile
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/studio
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/studio/package-lock.json
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          targets: aarch64-linux-android
+      # The hosted image ships the Android SDK and NDK; Tauri reads NDK_HOME.
+      - name: Point Tauri at the preinstalled NDK
+        run: echo "NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npx tauri android init --ci
+      - run: npx tauri android build --debug --apk --target aarch64 --ci
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: crisp3ds-studio-android-debug-apk
+          if-no-files-found: error
+          path: apps/studio/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+
+  ios:
+    name: ios simulator build (manual)
+    if: github.event_name == 'workflow_dispatch' && inputs.mobile
+    runs-on: macos-latest
+    continue-on-error: true
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/studio
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/studio/package-lock.json
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          targets: aarch64-apple-ios-sim
+      - run: brew install xcodegen
+      - run: npm ci
+      - run: npx tauri ios init --ci
+      - name: Unsigned simulator build
+        run: npx tauri ios build --debug --target aarch64-sim --ci
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: crisp3ds-studio-ios-simulator
+          if-no-files-found: warn
+          path: |
+            apps/studio/src-tauri/gen/apple/build/**/*.app
+            apps/studio/src-tauri/gen/apple/build/**/*.ipa
