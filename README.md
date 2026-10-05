@@ -17,6 +17,21 @@ not an app-integrated or approved commercial/App Store backend. A separate
 [AliceVision-Mac audit](docs/ALICEVISION-MAC-ORACLE.md) ran an isolated Metal
 depth test, not a complete AliceVision reconstruction.
 
+## Photos to a closed STL from the command line
+
+The current best route for a calibrated turntable photo set is the all-view
+dense pipeline: multi-view mask repair, a silhouette hull, coarse-to-fine masked
+stereo on the Apple GPU (PyTorch MPS) or CPU, signed-distance fusion and a
+closed STL, as one command:
+
+```sh
+python -m scripts.turntable_mesh.dense_pipeline --scene final.sfm --prepared undistorted/ --raw-masks masks/ --output runs/my-object
+```
+
+Inputs, every setting, measured results, limits and the full list of
+dependencies with their licenses are in
+[scripts/turntable_mesh/README.md](scripts/turntable_mesh/README.md).
+
 ## Run the workspace
 
 Requires Node 22.18+ (Node 24 recommended) and npm.
