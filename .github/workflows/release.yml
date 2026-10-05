@@ -491,7 +491,7 @@ jobs:
 
           - **Unsigned builds.** Nothing here is signed with a developer certificate or notarised. macOS (ad-hoc signature only) will refuse to open the app until you allow it under System Settings > Privacy & Security, or remove the quarantine flag (\`xattr -dr com.apple.quarantine "Crisp3DS Studio.app"\`). Windows SmartScreen will warn about the installer. The Android file is a debug build signed with a throwaway debug key; the iOS file runs in the simulator only.
           - **The desktop app needs a separately installed Python.** No Python and no PyTorch are bundled. Unpack \`$python_archive\`, install \`scripts/turntable_mesh/requirements-dense.txt\` (numpy, pillow, scipy, scikit-image, opencv-python-headless, torch) into a Python 3.11 environment, and point the app's "Engine settings" at the unpacked folder and that interpreter.
-          - **No GPU-tested CUDA path.** The pipeline is tested on CPU in CI and used with Apple MPS; \`--device cuda\` exists and has not been run on a GPU by the project.
+          - **CUDA is lightly tested.** The pipeline is tested on CPU in CI and used with Apple MPS. \`--device cuda\` was checked once on a Tesla T4 with the synthetic scene (same depths as CPU); no real photo set has been run on an NVIDIA GPU.
           - **Phones are clients.** The mobile builds connect to an engine on another machine or play the demo; they do not reconstruct.
           - **License: AGPL-3.0-only.**
 
