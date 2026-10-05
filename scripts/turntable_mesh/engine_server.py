@@ -90,14 +90,17 @@ class Engine:
         for child in sorted(folder.iterdir()):
             if child.name.startswith("."):
                 continue
+            photos = child.is_dir() and sum(1 for f in child.iterdir() if f.suffix.lower() in (".png", ".jpg", ".jpeg")) >= 3
             entries.append({"name": child.name, "directory": child.is_dir(),
-                            "inputs": child.is_dir() and (child / "cameras.json").is_file()})
+                            "inputs": child.is_dir() and (child / "cameras.json").is_file(), "photos": photos,
+                            "calibration": child.is_file() and child.suffix == ".json"
+                            and '"crisp3ds_lens_calibration_v1"' in child.read_text(errors="ignore")[:400]})
         return {"path": str(folder.relative_to(self.data)).replace(os.sep, "/").strip("."), "entries": entries[:500]}
 
     def start_run(self, body):
         if not isinstance(body, dict):
             raise ValueError("JSON object required")
-        """Body: {"inputs": path} or {"scene", "prepared", "raw_masks"}; optional "name",
+        """Body: {"photos", "calibration"}, or {"inputs": path}, or {"scene", "prepared", "raw_masks"}; optional "name",
         "device", "settings" {key: value}, "reference" path. Paths are relative to --data."""
         name = re.sub(r"[^A-Za-z0-9._-]+", "-", str(body.get("name") or "run")).strip("-.")[:40] or "run"
         run_id = f"{time.strftime('%Y%m%d-%H%M%S')}-{name}"
@@ -106,7 +109,8 @@ class Engine:
         command = [self.python, "-m", "scripts.turntable_mesh.dense_pipeline", "--output", str(self.runs / run_id),
                    "--device", str(body.get("device") or self.device), "--python", self.python,
                    "--torch-python", self.torch_python]
-        keys = ("inputs",) if body.get("inputs") else ("scene", "prepared", "raw_masks")
+        keys = (("photos", "calibration") if body.get("photos") else ("inputs",) if body.get("inputs")
+                else ("scene", "prepared", "raw_masks"))
         for key in (*keys, *(("reference",) if body.get("reference") else ())):
             path = inside(self.data, self.data / str(body.get(key) or ""))
             if path is None or not path.exists():

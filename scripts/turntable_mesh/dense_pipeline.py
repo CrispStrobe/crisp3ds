@@ -1,16 +1,18 @@
-"""One command from a calibrated photo set to a closed STL.
+"""One command from photos to a closed STL.
 
 Stages, each a separate bounded process so two interpreters can be used:
 
+  masks    object masks from the photos                           (optional; needs SAM 2.1)
+  cameras  camera recovery with a fixed lens, quality gates       (optional; needs AliceVision)
   inputs   camera table + undistorted masks for every registered view
   stereo   mask repair, silhouette hull, multiscale stereo, TSDF   (needs Torch)
   mesh     hull-bounded surface extraction to a binary STL       (needs SciPy, scikit-image)
   check    silhouette agreement with the photos and a preview     (needs OpenCV)
 
-Starting point is an AliceVision SfM scene with one shared radialk3 lens, its
-native undistorted images and one object mask per source photo; or an existing
-``--inputs`` directory, which skips the first stage. Camera recovery and
-segmentation are separate earlier steps.
+Three starting points: ``--photos`` with ``--calibration`` runs everything;
+``--scene``/``--prepared``/``--raw-masks`` starts from an AliceVision scene with
+its undistorted images and one mask per source photo; ``--inputs`` starts from
+an existing inputs directory.
 
 Interpreters: ``--python`` runs inputs/mesh/check, ``--torch-python`` runs
 stereo. Both default to the environment variables CRISP3DS_PYTHON and
@@ -102,8 +104,10 @@ def run(args):
     output = Path(args.output).absolute()
     if output.exists():
         raise FileExistsError(output)
-    if args.inputs is None and not (args.scene and args.prepared and args.raw_masks):
-        raise ValueError("give --inputs, or all of --scene, --prepared and --raw-masks")
+    if args.photos and not args.calibration:
+        raise ValueError("--photos needs --calibration")
+    if not args.photos and args.inputs is None and not (args.scene and args.prepared and args.raw_masks):
+        raise ValueError("give --photos with --calibration, or --inputs, or all of --scene, --prepared and --raw-masks")
     free = shutil.disk_usage(output.parent if output.parent.exists() else REPOSITORY).free
     if free < args.minimum_free_gib * 2**30:
         raise RuntimeError(f"only {free / 2**30:.1f} GiB free; need {args.minimum_free_gib} (see --minimum-free-gib)")
@@ -119,7 +123,7 @@ def run(args):
     report = {"output": str(output), "device": args.device, "stages": {}, "status": "running"}
     started = time.monotonic()
     events.emit("run_started", schema=SCHEMA, configuration=config.to_json(), device=args.device,
-                inputs=Path(args.inputs or args.scene).name)
+                inputs=Path(args.photos or args.inputs or args.scene).name)
 
     def cancelled():
         return (output / "cancel").exists()
@@ -131,19 +135,24 @@ def run(args):
         events.emit("run_finished", status="complete" if status == "complete" else ("cancelled" if cancelled() else "failed"),
                     seconds=report["seconds"])
 
-    def stage(name, command, timeout, tick=None):
+    def stage(name, command, timeout, tick=None, announce=True):
+        """``announce=False`` for a step that writes its own stage events."""
         print(f"[{name}] ...", flush=True)
-        events.emit("stage_started", stage=name)
+        if announce:
+            events.emit("stage_started", stage=name)
         result = bounded(command, output / f"{name}.log", timeout, environment, tick, cancelled)
         report["stages"][name] = result
         (output / "pipeline.json").write_text(json.dumps(report, indent=2) + "\n")
         if result["timed_out"] or result["cancelled"] or result["exit_code"]:
             reason = "cancelled" if result["cancelled"] else "deadline" if result["timed_out"] else f"exit code {result['exit_code']}"
             tail = Path(result["log"]).read_text()[-2000:]
-            events.emit("error", stage=name, message="cancelled on request" if result["cancelled"] else f"{reason}: {tail[-400:]}")
+            if announce or result["cancelled"] or result["timed_out"]:
+                events.emit("error", stage=name if announce else "cameras",
+                            message="cancelled on request" if result["cancelled"] else f"{reason}: {tail[-400:]}")
             finish(f"failed in {name}")
             raise StageFailed(f"stage {name} failed ({reason}):\n{tail}")
-        events.emit("stage_finished", stage=name, seconds=result["seconds"])
+        if announce:
+            events.emit("stage_finished", stage=name, seconds=result["seconds"])
         print(f"[{name}] {result['seconds']:.1f}s", flush=True)
 
     try:
@@ -161,6 +170,14 @@ class StageFailed(RuntimeError):
 
 
 def stages(args, config, output, python, torch_python, environment, events, events_path, report, stage, finish):
+    if args.photos:
+        # Masks and cameras from plain photos; that step writes its own "masks" and "cameras" stage events.
+        stage("photos", [python, "-m", "scripts.turntable_mesh.photos_to_inputs", "--photos", Path(args.photos).absolute(),
+                         "--calibration", Path(args.calibration).absolute(), "--output", output / "frontend",
+                         "--events", events_path, "--threads", args.threads,
+                         "--device", "cpu" if args.device == "cuda" else args.device, *args.photos_option],
+              args.photos_timeout, announce=False)
+        args.inputs = output / "frontend/inputs"
     inputs = Path(args.inputs).absolute() if args.inputs else output / "inputs"
     if args.inputs is not None and not (inputs / "cameras.json").is_file():
         raise ValueError(f"{inputs} has no cameras.json; it is not an inputs directory")
@@ -234,7 +251,13 @@ def stages(args, config, output, python, torch_python, environment, events, even
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--output", type=Path, help="fresh output directory")
-    source = parser.add_argument_group("photo set (either --inputs or the other three)")
+    photos = parser.add_argument_group("from plain photos (needs AliceVision and SAM 2.1; see docs/PHOTOS-TO-INPUTS.md)")
+    photos.add_argument("--photos", type=Path, help="folder of turntable photos")
+    photos.add_argument("--calibration", type=Path, help="lens calibration JSON")
+    photos.add_argument("--photos-option", action="append", default=[], metavar="ARG",
+                        help="extra argument passed to photos_to_inputs, repeatable (e.g. --photos-option=--envelope=auto)")
+    photos.add_argument("--photos-timeout", type=int, default=7200, help="seconds")
+    source = parser.add_argument_group("from recovered cameras (either --inputs or the other three)")
     source.add_argument("--inputs", type=Path, help="existing inputs directory (cameras.json, sparse_points.npy)")
     source.add_argument("--scene", type=Path, help="AliceVision .sfm with poses and one radialk3 intrinsic")
     source.add_argument("--prepared", type=Path, help="native undistorted images named <viewId>.png")

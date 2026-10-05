@@ -16,7 +16,7 @@ and marker geometry.
 | --- | --- | --- |
 | **Dense pipeline**: calibrated turntable photos to a closed STL | [`scripts/turntable_mesh/`](scripts/turntable_mesh/README.md) | Works from the command line; scored against independent scans on two objects |
 | **Engine**: progress events, live preview meshes, HTTP API, replay bundles | [`docs/ENGINE-CONTRACT.md`](docs/ENGINE-CONTRACT.md) | Works; development-grade server (no TLS, no accounts) |
-| **Studio**: the front end, one code base for desktop, phone and web | [`apps/studio/`](apps/studio/README.md) | Web app works against an engine and in replay; desktop and mobile shells are in progress |
+| **Studio**: the front end, one code base for desktop, phone and web | [`apps/studio/`](apps/studio/README.md) | Web app and desktop app work against an engine and in replay; unsigned builds for macOS, Windows, Linux, Android and the iOS simulator come from CI ([releasing](docs/RELEASING.md)) |
 | **Core**: C++20 library and CLI for projects, calibration, marker boards | [`core/`](core/README.md) | Builds and tests on macOS, Linux, Windows |
 | **Project workspace**: the earlier Tauri desktop app around the core | [`apps/desktop/`](apps/desktop/README.md) | Project and calibration tools; not yet connected to the dense pipeline |
 
@@ -47,8 +47,10 @@ inside the hull and extracts a closed surface. Inputs, every setting, the
 design reasons and all measurements are in the
 [pipeline README](scripts/turntable_mesh/README.md).
 
-What it needs today, and does not yet do itself: camera poses and one object
-mask per photo. Those come from AliceVision and SAM 2.1 as separate steps.
+With AliceVision and SAM 2.1 installed, the same command starts from a plain
+folder of turntable photos and a lens calibration (`--photos`, `--calibration`)
+and recovers masks and cameras first; see
+[`docs/PHOTOS-TO-INPUTS.md`](docs/PHOTOS-TO-INPUTS.md).
 
 ## Watching a run, and the front end
 
@@ -79,18 +81,20 @@ MPS. Scores are held-out F1 against independent structured-light scans at
 | Object | Matching time | F1, whole surface | F1, above the support |
 | --- | --- | --- | --- |
 | Dragon, earlier 24-view route | about 2 min | 0.567 / 0.780 / 0.934 | 0.624 / 0.845 / 0.972 |
-| Dragon, this pipeline | about 7 min | 0.768 / 0.924 / 0.981 | 0.820 / 0.961 / 0.995 |
-| Armadillo, this pipeline, no retuning | about 7 min | 0.914 / 0.967 / 0.989 | 0.936 / 0.985 / 0.997 |
+| Dragon, this pipeline | about 7 min | 0.756 / 0.910 / 0.975 | 0.822 / 0.960 / 0.994 |
+| Armadillo, no retuning | about 7 min | 0.922 / 0.971 / 0.987 | 0.952 / 0.997 / 1.000 |
+| Bunny, no retuning | about 7 min | 0.898 / 0.933 / 0.953 | 0.964 / 0.995 / 1.000 |
+| Lucy, from plain photos in one command | about 15 min in all | 0.798 / 0.908 / 0.940 | 0.836 / 0.951 / 0.973 |
 
 Known limits, in short (details in the pipeline README):
 
 - The handedness of the results against the dataset's scans is unresolved:
   they match only as mirror images, on both objects.
-- Thin parts such as horn tips come out short, and surfaces no photo sees are
-  silhouette bounds.
+- Thin parts such as horn tips and wings come out short or are lost, and
+  surfaces no photo sees are silhouette bounds.
 - Results use all 73 photos; reconstruction from a dozen photos with unknown
   poses is not solved.
-- The NVIDIA path is implemented but has not been run on an NVIDIA GPU.
+- The NVIDIA path was checked on a synthetic scene only (Tesla T4).
 - The meshes have no physical scale.
 
 ## Continuous integration

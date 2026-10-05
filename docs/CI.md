@@ -137,3 +137,19 @@ npx tauri build --no-bundle -- --locked        # native shell in src-tauri/targe
   credentials on macOS, a code-signing certificate on Windows.
 - **Mobile**: see the workflow TODO. Release builds need an Android keystore
   and, for iOS, an Apple Developer team, certificate and provisioning profile.
+
+## Studio and releases
+
+`studio.yml` runs on changes to `apps/studio/`, the replay fixture or the engine
+contract: type check, unit tests, the license check of everything the app
+ships, the web build, and unbundled builds of the desktop shell on macOS,
+Windows and Linux. Android and iOS simulator builds are manual jobs.
+
+`release.yml` runs on a `v*` tag or by hand as a dry run. It builds the web
+bundle, bundled desktop apps for the three systems, an Android debug APK, an
+iOS simulator build and a self-contained archive of the Python pipeline (tested
+from the unpacked archive), and writes checksums. A tag creates a draft
+prerelease; a dry run only uploads workflow artifacts. Everything is unsigned
+unless signing secrets are configured. The procedure is in
+[`RELEASING.md`](RELEASING.md).
+

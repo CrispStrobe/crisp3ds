@@ -45,9 +45,8 @@ the number of lines consumed; over HTTP each event carries that line number as
 
 Every event has `type`, `time` (Unix seconds) and `stage` (`masks`, `cameras`,
 `inputs`, `stereo`, `mesh`, `check`, `evaluate`, or null for run-level events).
-`masks` and `cameras` come from the separate photos-to-inputs step
-(`docs/PHOTOS-TO-INPUTS.md`), which writes the same kind of log but is not yet
-chained into a run by the driver.
+`masks` and `cameras` appear only in runs started from plain photos
+(`docs/PHOTOS-TO-INPUTS.md`).
 
 | `type` | Other fields | Meaning |
 | --- | --- | --- |
@@ -101,7 +100,7 @@ Rules a front end can rely on:
 | --- | --- |
 | `GET /api/health` | `{"schema", "device", "can_start_runs"}` |
 | `GET /api/settings` | `{"settings": [{"name", "group", "meaning", "kind", "default"}]}`; `kind` is `boolean`, `integer`, `number`, `integer_list` or `number_list`. Enough to generate a settings form |
-| `GET /api/data?path=<relative>` | `{"path", "entries": [{"name", "directory", "inputs"}]}`: folders under the data directory; `inputs` is true where a run can start |
+| `GET /api/data?path=<relative>` | `{"path", "entries": [{"name", "directory", "inputs", "photos", "calibration"}]}`: the data directory. `inputs` marks a folder a run can start from, `photos` a folder with at least three images, `calibration` a lens calibration file |
 | `GET /api/runs` | `{"runs": [{"id", "status", "started", "stage", "stage_fraction", "events"}]}`, newest first |
 | `POST /api/runs` | Body below. `201 {"id"}` or `400 {"error"}` |
 | `GET /api/runs/<id>/events?since=N` | `{"events": [...], "next": M}`; poll with `since=M`, about once a second |
@@ -120,7 +119,10 @@ Start body:
 }
 ```
 
-`inputs` may be replaced by `scene`, `prepared` and `raw_masks`. All paths are
+`inputs` may be replaced by `scene`, `prepared` and `raw_masks`, or by `photos`
+(a folder of turntable photos) with `calibration` (a lens calibration JSON);
+the run then starts with the `masks` and `cameras` stages, which need
+AliceVision and SAM 2.1 on the engine's machine. All paths are
 relative to the engine's `--data` directory and are refused if they leave it.
 `settings` keys are those of `GET /api/settings`; invalid values give a 400
 before anything starts. `reference` is optional and is used only after the
@@ -136,9 +138,6 @@ end on another port can reach it.
 
 - **Photo upload and capture.** A phone cannot yet send photos; runs start from
   data already on the engine's machine. Planned as `POST /api/uploads`.
-- **Camera recovery and segmentation.** Runs start from recovered cameras and
-  masks. Those two steps exist as separate local drivers and are not yet stages
-  of this pipeline, so "photos in, STL out" in one click is not available.
 - **Push transport.** Clients poll. Server-sent events may be added; polling
   will keep working.
 - **Mesh formats.** Only binary STL. A compact preview format (for example GLB

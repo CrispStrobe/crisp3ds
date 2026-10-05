@@ -152,6 +152,9 @@ class Stereo:
             raise ValueError("fewer views than neighbours + 1")
         self.sparse = np.load(Path(inputs) / "sparse_points.npy")
         self.voxel = None
+        # Segmentation drops thin parts in runs of consecutive views, so the
+        # consensus used for repair must tolerate more than a handful of them.
+        self.repair_loose = config.repair_loose or max(config.hull_allowed + 1, round(0.2 * len(self.rows)))
 
         def ten(a):
             return torch.tensor(np.asarray(a), dtype=torch.float32, device=self.dev)
@@ -209,7 +212,7 @@ class Stereo:
         coarse = float((hi - lo).max() / 96)
         shape = tuple(int(math.ceil(s / coarse)) for s in (hi - lo))
         origin = torch.tensor(lo, dtype=torch.float32, device=dev)
-        loose = max(c.hull_allowed, c.repair_loose, 16)
+        loose = max(c.hull_allowed, self.repair_loose, 16)
         occupied = carve(self.cams, masks, origin, shape, coarse, torch, dev) <= loose
         index = occupied.nonzero()
         if not len(index):
@@ -275,7 +278,7 @@ class Stereo:
         Assumes an object darker than its backdrop; a brighter object adds nothing.
         """
         torch, F, dev, c = self.torch, self.F, self.dev, self.config
-        index = (self.violations <= c.repair_loose).nonzero()
+        index = (self.violations <= self.repair_loose).nonzero()
         points = (index.float() + 0.5) * self.voxel + self.hull.origin
         # Contact shadows on the support are dark and view-consistent too. Keep
         # the repair away from the base: the orbit normal gives "down", and the
@@ -516,8 +519,11 @@ class Stereo:
                 seen = (measured > 0) & (z > 0)
                 use = seen & (sdf > -trunc)
                 behind = seen & ~use & (sdf > -c.behind_voxels * self.voxel)
-                total[s : s + 2_000_000] += torch.where(use, (sdf / trunc).clamp(max=1), torch.zeros_like(sdf)) - c.behind_weight * behind.float()
-                weight[s : s + 2_000_000] += use.float() + c.behind_weight * behind.float()
+                # Votes well in front of the measured surface say "empty". One view that
+                # matched through a thin part says so wrongly, so they can count for less.
+                vote = torch.where(sdf >= trunc, torch.full_like(sdf, c.free_weight), torch.ones_like(sdf)) * use.float()
+                total[s : s + 2_000_000] += vote * (sdf / trunc).clamp(max=1) - c.behind_weight * behind.float()
+                weight[s : s + 2_000_000] += vote + c.behind_weight * behind.float()
         # Support height: silhouettes cannot tell a flat base from a cone under it,
         # but no photo measures surface below the support. Take the lowest level
         # that still has well-supported measured surface.
@@ -670,8 +676,11 @@ def run(inputs, output, *, device="mps", config=None, reuse_depths=None, log=pri
         if config.repair_masks:
             t = time.monotonic()
             before = {i: stereo.native_mask[i].copy() for i in picks}
-            report["mask_repair"] = stereo.repair_masks()
-            report["hull_repaired"] = {**stereo.build_hull(), "seconds": time.monotonic() - t}
+            report["mask_repair"] = {"loose_views": stereo.repair_loose, "rounds": []}
+            for _ in range(config.repair_rounds):
+                report["mask_repair"]["rounds"].append(stereo.repair_masks())
+                report["hull_repaired"] = {**stereo.build_hull(), "seconds": time.monotonic() - t}
+            report["mask_repair"]["added_fraction_median"] = sum(r["added_fraction_median"] for r in report["mask_repair"]["rounds"])
             log("repair", report["mask_repair"], report["hull_repaired"])
             (output / "masks-repaired").mkdir()
             for row, mask in zip(stereo.rows, stereo.native_mask):

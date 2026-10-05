@@ -41,7 +41,8 @@ class DenseConfig:
     hull_dilate: int = 2  # native pixels of mask tolerance
     hull_allowed: int = 2  # views that may disagree
     repair_masks: bool = True
-    repair_loose: int = 8
+    repair_loose: int = 0  # views allowed to disagree during repair; 0 = a fifth of the views
+    repair_rounds: int = 2
     repair_base_margin: float = 8.0  # voxels above the support kept out of repair
     # --- thin parts
     hull_front: bool = True
@@ -57,6 +58,7 @@ class DenseConfig:
     truncation_voxels: float = 3.0
     behind_voxels: float = 12.0
     behind_weight: float = 0.25
+    free_weight: float = 1.0  # weight of a free-space vote relative to a surface vote
     # --- surface extraction
     mesh_smooth: float = 1.0  # voxels
     mesh_fill_sigmas: tuple = (2.0, 4.0)
@@ -89,11 +91,14 @@ class DenseConfig:
         need(all(0 < t < 0.1 for t in self.tolerances), "tolerances must be in (0,0.1)")
         need(all(1 <= v <= self.vote_neighbours for v in self.min_votes) and self.vote_neighbours <= 32, "invalid votes")
         need(64 <= self.grid <= 1024, "grid must be 64..1024")
-        need(0 <= self.hull_dilate <= 16 and 0 <= self.hull_allowed <= self.repair_loose <= 64, "invalid hull tolerances")
+        need(0 <= self.hull_dilate <= 16 and 0 <= self.hull_allowed <= 64 and 0 <= self.repair_loose <= 64, "invalid hull tolerances")
+        need(self.repair_loose == 0 or self.repair_loose >= self.hull_allowed, "repair_loose must be 0 or at least hull_allowed")
+        need(1 <= self.repair_rounds <= 4, "repair_rounds must be 1..4")
         need(0 <= self.hull_front_level < len(self.sizes) or not self.hull_front, "hull_front_level outside pyramid")
         need(0 <= self.fused_passes <= 3 and 2 <= self.fused_band <= 32, "invalid fused pass values")
         need(0 <= self.rim_fraction <= 3 and self.truncation_voxels >= 1, "invalid fusion values")
         need(self.behind_voxels >= self.truncation_voxels and 0 <= self.behind_weight <= 1, "invalid inside vote")
+        need(0 < self.free_weight <= 1, "free_weight must be in (0,1]")
         need(self.mesh_smooth > 0 and self.mesh_confidence_cap > 0 and 0 <= self.mesh_taubin_cycles <= 100, "invalid mesh values")
         return self
 
@@ -167,7 +172,8 @@ SETTINGS = {
     "hull_dilate": ("Hull", "Mask tolerance, pixels"),
     "hull_allowed": ("Hull", "Views allowed to disagree with the hull"),
     "repair_masks": ("Hull", "Add object pixels that single-view segmentation dropped"),
-    "repair_loose": ("Hull", "Views allowed to disagree when repairing masks"),
+    "repair_loose": ("Hull", "Views allowed to disagree when repairing masks; 0 means a fifth of the views"),
+    "repair_rounds": ("Hull", "Mask repair rounds; each can restore what the previous one made consistent"),
     "repair_base_margin": ("Hull", "Voxels above the support kept out of mask repair"),
     "hull_front": ("Thin parts", "Try the hull's front surface as a depth candidate"),
     "hull_front_level": ("Thin parts", "Pyramid level at which that candidate is tried"),
@@ -181,6 +187,7 @@ SETTINGS = {
     "truncation_voxels": ("Fusion", "Signed-distance truncation, voxels"),
     "behind_voxels": ("Fusion", "Depth of the weak inside vote behind a surface, voxels"),
     "behind_weight": ("Fusion", "Weight of that inside vote"),
+    "free_weight": ("Fusion", "Weight of a free-space vote relative to a surface vote"),
     "mesh_smooth": ("Surface", "Smoothing of the fused field, voxels"),
     "mesh_fill_sigmas": ("Surface", "Reach of extrapolation into unobserved volume, voxels"),
     "mesh_final_smooth": ("Surface", "Final blur before extraction, voxels"),

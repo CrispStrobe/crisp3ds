@@ -7,9 +7,10 @@ CPU). The development tree holds further experimental workers (the earlier
 plane sweep, the Apple Object Capture and board/SAM session routes). They are
 not all published yet and are not described here.
 
-It starts from photos whose cameras are already recovered and which already have
-one object mask per photo. Camera recovery and segmentation are earlier,
-separate steps (see [Inputs](#inputs)).
+The dense stages start from recovered cameras and one object mask per photo.
+`photos_to_inputs.py` produces both from a plain folder of turntable photos
+(SAM 2.1 for masks, AliceVision for cameras), and the driver can chain it in
+front (see [Inputs](#inputs)).
 
 ## What it does
 
@@ -52,7 +53,18 @@ python -m scripts.turntable_mesh.dense_pipeline --inputs /tmp/sphere --output /t
   --set windows=5,7 --set aggregates=1,1
 ```
 
-A real photo set (defaults are tuned for megapixel photos):
+A real photo set (defaults are tuned for megapixel photos), either straight from
+a folder of turntable photos with a lens calibration, which also runs
+segmentation and camera recovery (needs AliceVision and SAM 2.1; see
+[`docs/PHOTOS-TO-INPUTS.md`](../../docs/PHOTOS-TO-INPUTS.md)):
+
+```sh
+python -m scripts.turntable_mesh.dense_pipeline \
+  --photos photos/ --calibration scripts/turntable_mesh/calibrations/3dlf-pro.json \
+  --output runs/my-object --device mps
+```
+
+or from cameras and masks you already have:
 
 ```sh
 python -m scripts.turntable_mesh.dense_pipeline \
@@ -156,11 +168,11 @@ pyramid level; a shorter tuple repeats its last entry.
 | `tolerances`, `min_votes`, `vote_neighbours` | 0.006/0.003/0.002, 2/3/3, 10 | Cross-view depth agreement: relative tolerance, required agreeing views, views asked |
 | `grid` | 400 | Voxels along the longest side of the object |
 | `hull_dilate`, `hull_allowed` | 2, 2 | Mask tolerance in native pixels; views allowed to disagree |
-| `repair_masks`, `repair_loose`, `repair_base_margin` | true, 8, 8 | Mask repair on/off; consensus tolerance; voxels above the support kept out of repair |
+| `repair_masks`, `repair_loose`, `repair_rounds`, `repair_base_margin` | true, 0, 2, 8 | Mask repair on/off; views allowed to disagree (0 = a fifth of the views); rounds; voxels above the support kept out of repair |
 | `hull_front`, `hull_front_level`, `hull_front_min_score`, `hull_front_margin`, `hull_front_stride` | true, 1, 0.6, 0.004, 2 | Hull-front depth candidate for thin parts; stride of its ray-march grid |
 | `fallback_level` | true | Where the finest level fails its checks, use the previous level's depth |
 | `rim_fraction` | 0.55 | Silhouette band excluded from fusion, in matching windows |
-| `truncation_voxels`, `behind_voxels`, `behind_weight` | 3, 12, 0.25 | TSDF truncation; depth and weight of the weak inside vote behind a surface |
+| `truncation_voxels`, `behind_voxels`, `behind_weight`, `free_weight` | 3, 12, 0.25, 1 | TSDF truncation; depth and weight of the weak inside vote behind a surface; weight of a free-space vote relative to a surface vote |
 | `mesh_smooth`, `mesh_fill_sigmas`, `mesh_final_smooth` | 1.0, 2/4, 0.6 | Field smoothing, extrapolation reach into unobserved hull, final blur; voxels |
 | `mesh_minimum_weight`, `mesh_confidence_cap` | 0.5, 4 | Evidence needed to count as observed; views at which confidence saturates |
 | `mesh_taubin_cycles` | 5 | Taubin smoothing cycles on the mesh |
@@ -200,10 +212,12 @@ The scanner is used for scoring only, never as input.
 | --- | --- | --- | --- |
 | Dragon, earlier 24-view plane sweep + Poisson (control 204) | about 2 min | 0.567 / 0.780 / 0.934 | 0.624 / 0.845 / 0.972 |
 | Dragon, this pipeline, first version (`mesh-009`) | 749 s | 0.755 / 0.911 / 0.973 | 0.819 / 0.961 / 0.994 |
-| Dragon, this pipeline, current defaults | 437 s | 0.768 / 0.924 / 0.981 | 0.820 / 0.961 / 0.995 |
-| Armadillo, current defaults, no retuning | 426 s | 0.914 / 0.967 / 0.989 | 0.936 / 0.985 / 0.997 |
+| Dragon, this pipeline, current defaults | about 7 min | 0.756 / 0.910 / 0.975 | 0.822 / 0.960 / 0.994 |
+| Armadillo, no retuning | 426 s | 0.922 / 0.971 / 0.987 | 0.952 / 0.997 / 1.000 |
+| Bunny, no retuning | about 7 min | 0.898 / 0.933 / 0.953 | 0.964 / 0.995 / 1.000 |
+| Lucy, from plain photos in one command (masks and cameras 7 min, matching 6 min) | 346 s | 0.798 / 0.908 / 0.940 | 0.836 / 0.951 / 0.973 |
 
-Both meshes are closed (Dragon genus 13, Armadillo genus 1). Surface
+All four meshes are closed. Lucy's thin wings and raised arm are partly lost. Surface
 extraction adds about 20 s and the photo check about 20 s.
 
 What the scored experiments on the Dragon showed (each changes one thing):
@@ -220,6 +234,7 @@ What the scored experiments on the Dragon showed (each changes one thing):
 | Narrower native band (5 steps) and 96 coarse planes | 0.822, faster | new default |
 | Turntable model with uniform steps | 0.635, depth coverage collapses | rejected: the recovered step angles are real |
 | Turntable model with fitted steps (Armadillo) | 0.890 against 0.936 | not used: the free poses are better than this fit |
+| Mask repair tolerating a fifth of the views, two rounds (full reruns) | Bunny 0.955 to 0.964, Armadillo 0.936 to 0.952, Dragon 0.820 to 0.822; restores the Bunny's ears. Whole-surface Dragon F1 @1% 0.924 to 0.910 from contact shadow at the base | new default; the base is being worked on |
 
 Fusion and meshing settings barely move the result; what limits the Dragon is
 upstream of them (see the camera note below).
@@ -244,10 +259,15 @@ Limits, stated plainly:
   no photo sees (the top of the head from a low camera ring, the underside)
   are silhouette bounds.
 - Mask repair assumes an object darker than its backdrop.
-- Settings were chosen on the Dragon; the Armadillo is the only other object
-  scored so far.
+- Settings were chosen on the Dragon and the Bunny's ears; four objects of one
+  dataset (same camera, lens, backdrop and material) have been scored.
+- **Camera recovery is not repeatable.** Rerunning AliceVision's global SfM on
+  identical features moves the cameras by about 0.7 degrees and 1% of the orbit
+  radius with unchanged reprojection error, so the gates cannot see it.
 - The cameras come from all 73 photos. This is not a dozen-photo result.
-- CUDA (`--device cuda`) is implemented but has not been run on an NVIDIA GPU.
+- CUDA (`--device cuda`) was checked once, on a Tesla T4: the unit tests pass
+  and the synthetic scene gives the same depths as on CPU (median relative
+  difference 9e-8). No real photo set has been run on an NVIDIA GPU.
 
 ```sh
 python -m scripts.turntable_mesh.scan_evaluate --mesh run/mesh/mesh.stl --reference scan.ply --output run/scan-evaluation
