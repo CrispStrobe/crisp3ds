@@ -1,8 +1,106 @@
 # Crisp3DS
 
-A rigid-object photo scanning application, built around a portable C++20 core and a Tauri 2 / TypeScript desktop workspace. Ordinary overlapping photographs with unknown poses are the target; calibrated turntable capture is an optional mode. The active [quality-first roadmap](docs/SOTA-ROADMAP.md) defines scoped tasks and acceptance gates.
+Photos of an object in, a closed printable mesh out. Crisp3DS is a rigid-object
+photo scanning project: a dense reconstruction pipeline that runs on an Apple
+GPU, an NVIDIA GPU or CPU, an engine that reports its progress live, a
+cross-platform front end, and a portable C++20 core for projects, calibration
+and marker geometry.
 
-The workspace supports project creation, JSON import/export, calibration and marker-board geometry, pose-report inspection, and an interactive sparse point-cloud viewer. An optional pinned OpenCV build detects ArUco markers in PNG/JPEG images, estimates metric board-to-camera poses, and reconstructs masked object feature tracks. A separate [experimental CPU photo-to-mesh runner](docs/MVE-FULL.md) has run on real photographs on M1, but measured object quality is not accepted. **App-integrated photo-to-mesh reconstruction is not implemented.** The `reconstruct` command returns unavailable; imported stage states are unverified metadata.
+[![dense pipeline](https://github.com/CrispStrobe/crisp3ds/actions/workflows/dense-pipeline.yml/badge.svg)](https://github.com/CrispStrobe/crisp3ds/actions/workflows/dense-pipeline.yml)
+[![studio](https://github.com/CrispStrobe/crisp3ds/actions/workflows/studio.yml/badge.svg)](https://github.com/CrispStrobe/crisp3ds/actions/workflows/studio.yml)
+[![foundation](https://github.com/CrispStrobe/crisp3ds/actions/workflows/foundation.yml/badge.svg)](https://github.com/CrispStrobe/crisp3ds/actions/workflows/foundation.yml)
+
+## What is here
+
+| Part | Where | State |
+| --- | --- | --- |
+| **Dense pipeline**: calibrated turntable photos to a closed STL | [`scripts/turntable_mesh/`](scripts/turntable_mesh/README.md) | Works from the command line; scored against independent scans on two objects |
+| **Engine**: progress events, live preview meshes, HTTP API, replay bundles | [`docs/ENGINE-CONTRACT.md`](docs/ENGINE-CONTRACT.md) | Works; development-grade server (no TLS, no accounts) |
+| **Studio**: the front end, one code base for desktop, phone and web | [`apps/studio/`](apps/studio/README.md) | Web app works against an engine and in replay; desktop and mobile shells are in progress |
+| **Core**: C++20 library and CLI for projects, calibration, marker boards | [`core/`](core/README.md) | Builds and tests on macOS, Linux, Windows |
+| **Project workspace**: the earlier Tauri desktop app around the core | [`apps/desktop/`](apps/desktop/README.md) | Project and calibration tools; not yet connected to the dense pipeline |
+
+Only desktop-class machines run the reconstruction. Phones and browsers are
+clients of a machine that does, or play back recorded runs.
+
+## From photos to a mesh
+
+```sh
+export PYTHONPATH=$PWD
+pip install -r scripts/turntable_mesh/requirements-dense.txt
+
+# no dataset needed: an analytic test scene, about a minute on CPU
+python -m scripts.turntable_mesh.synthetic_scene --output /tmp/sphere
+python -m scripts.turntable_mesh.dense_pipeline --inputs /tmp/sphere --output /tmp/sphere-run --device cpu \
+  --set sizes=64,128 --set grid=96 --set planes=48 --set neighbours=4 --set best_of=2 \
+  --set vote_neighbours=4 --set min_votes=2,2 --set crop_padding=6 --set hull_dilate=1 \
+  --set windows=5,7 --set aggregates=1,1
+
+# a real photo set with recovered cameras and masks
+python -m scripts.turntable_mesh.dense_pipeline --scene final.sfm --prepared undistorted/ --raw-masks masks/ \
+  --output runs/my-object --device mps        # or cuda, or cpu
+```
+
+The pipeline repairs masks from multi-view consensus, builds a silhouette hull,
+matches all views coarse to fine, fuses depth into a signed distance volume
+inside the hull and extracts a closed surface. Inputs, every setting, the
+design reasons and all measurements are in the
+[pipeline README](scripts/turntable_mesh/README.md).
+
+What it needs today, and does not yet do itself: camera poses and one object
+mask per photo. Those come from AliceVision and SAM 2.1 as separate steps.
+
+## Watching a run, and the front end
+
+Every run writes an event log and, while it is still matching, coarse preview
+meshes and diagnostic sheets (mask repair, hull against masks, depth per
+level, mesh outline against the photos). A front end can follow that locally,
+over HTTP, or from a recorded bundle:
+
+```sh
+python -m scripts.turntable_mesh.engine_server --runs runs/ --data data/ --static apps/studio/dist
+```
+
+```sh
+cd apps/studio && npm ci && npm run dev     # opens with a recorded demo run, no engine needed
+```
+
+Studio shows the stage timeline, the surface improving step by step in a 3D
+viewer, the diagnostics gallery, numbers and reports, and can start and cancel
+runs on an engine. See [`apps/studio/README.md`](apps/studio/README.md) and the
+[engine contract](docs/ENGINE-CONTRACT.md).
+
+## Results
+
+3DLF turntable sets: 73 photos at one elevation, Apple M1 with 16 GB, PyTorch
+MPS. Scores are held-out F1 against independent structured-light scans at
+0.5%, 1% and 2% of the scan's diagonal; the scans are used for scoring only.
+
+| Object | Matching time | F1, whole surface | F1, above the support |
+| --- | --- | --- | --- |
+| Dragon, earlier 24-view route | about 2 min | 0.567 / 0.780 / 0.934 | 0.624 / 0.845 / 0.972 |
+| Dragon, this pipeline | about 7 min | 0.768 / 0.924 / 0.981 | 0.820 / 0.961 / 0.995 |
+| Armadillo, this pipeline, no retuning | about 7 min | 0.914 / 0.967 / 0.989 | 0.936 / 0.985 / 0.997 |
+
+Known limits, in short (details in the pipeline README):
+
+- The handedness of the results against the dataset's scans is unresolved:
+  they match only as mirror images, on both objects.
+- Thin parts such as horn tips come out short, and surfaces no photo sees are
+  silhouette bounds.
+- Results use all 73 photos; reconstruction from a dozen photos with unknown
+  poses is not solved.
+- The NVIDIA path is implemented but has not been run on an NVIDIA GPU.
+- The meshes have no physical scale.
+
+## Continuous integration
+
+GitHub Actions build and test on macOS, Linux and Windows: the Python pipeline
+(lint, unit tests, an end-to-end run through the CLI and through the HTTP
+engine), the C++ core, Studio (type check, tests, build) and the Tauri
+project workspace. There is no GPU in CI. See [`docs/CI.md`](docs/CI.md).
+
+## Earlier engine comparisons
 
 The [comparative benchmark](docs/BENCHMARK-RESULTS.md) now evaluates MVE and
 [COLMAP/OpenMVS](docs/CLASSICAL-BACKEND.md) on real object photographs and a
@@ -17,22 +115,7 @@ not an app-integrated or approved commercial/App Store backend. A separate
 [AliceVision-Mac audit](docs/ALICEVISION-MAC-ORACLE.md) ran an isolated Metal
 depth test, not a complete AliceVision reconstruction.
 
-## Photos to a closed STL from the command line
-
-The current best route for a calibrated turntable photo set is the all-view
-dense pipeline: multi-view mask repair, a silhouette hull, coarse-to-fine masked
-stereo on the Apple GPU (PyTorch MPS) or CPU, signed-distance fusion and a
-closed STL, as one command:
-
-```sh
-python -m scripts.turntable_mesh.dense_pipeline --scene final.sfm --prepared undistorted/ --raw-masks masks/ --output runs/my-object
-```
-
-Inputs, every setting, measured results, limits and the full list of
-dependencies with their licenses are in
-[scripts/turntable_mesh/README.md](scripts/turntable_mesh/README.md).
-
-## Run the workspace
+## Project workspace (`apps/desktop`)
 
 Requires Node 22.18+ (Node 24 recommended) and npm.
 
@@ -125,3 +208,8 @@ integration; see the [active roadmap](docs/SOTA-ROADMAP.md) and [actual status](
 ## License
 
 Original Crisp3DS project code is licensed under [GNU AGPL v3 only](LICENSE) (`AGPL-3.0-only`). Third-party code, assets, and datasets retain their own licenses and attribution requirements; the project license does not relicense them. The dependency-selection policy and exact shipped dependency/source-bundle audit remain separate release gates. Distribution through the Apple App Store or another store still requires a separate compatibility and compliance review. `apps/desktop/package.json` remains `private: true` because npm publication is unrelated to GitHub repository visibility.
+
+Every library, engine and dataset the pipeline and the apps depend on is listed
+with its license in the [pipeline README](scripts/turntable_mesh/README.md#dependencies-and-licenses)
+and the [Studio README](apps/studio/README.md). A successful local build is
+not a statement that a combination may be redistributed.
