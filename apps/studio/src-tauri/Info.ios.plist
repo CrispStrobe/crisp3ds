@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Merged into the iOS app's Info.plist by the Tauri CLI (tauri ios init and build). -->
+	<!-- The app uses only the system's HTTP and HTTPS stack; it contains no encryption of its own. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!-- An engine on the same network is reached over plain HTTP by address. This allows exactly
+	     that (local addresses) and nothing on the internet; remote engines must use HTTPS. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Crisp3DS Studio connects to the Crisp3DS engine you name, which may run on a computer on your local network.</string>
+</dict>
+</plist>

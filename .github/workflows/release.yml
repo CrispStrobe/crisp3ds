@@ -355,6 +355,14 @@ jobs:
       - run: npx tauri ios init --ci
       - name: Unsigned simulator build
         run: npx tauri ios build --debug --target aarch64-sim --ci
+      # Informational: shows whether src-tauri/Info.ios.plist reached the app
+      # (export compliance, local networking), which App Store processing looks at.
+      - name: Info.plist of the built app
+        run: |
+          app=$(find src-tauri/gen/apple/build -name '*.app' -maxdepth 6 | head -n 1)
+          /usr/libexec/PlistBuddy -c Print "$app/Info.plist" \
+            | grep -E 'CFBundleIdentifier|CFBundleShortVersionString|CFBundleVersion|ITSAppUsesNonExemptEncryption|NSAllowsLocalNetworking|NSLocalNetworkUsageDescription|arm64|armv7' || true
+          ls "$app" | head -40
       - name: Collect
         run: |
           mkdir -p "$GITHUB_WORKSPACE/release-out"

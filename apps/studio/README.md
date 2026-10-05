@@ -77,8 +77,11 @@ because an `<img>` cannot send the header.
 
 - **Connection**: demo, a bundle address, or an engine (address and token).
 - **Runs** (engine): status, the running stage with its progress, start time;
-  refreshed every three seconds. **New run**: inputs folder, optional reference
-  scan, device, name, and a settings form generated from `GET /api/settings`
+  refreshed every three seconds. **New run**: inputs folder and optional
+  reference scan (typed, with suggestions for the folder being typed, or picked
+  in a browser of the engine's data directory from `GET /api/data`, where
+  folders a run can start from are marked), device, name, and a settings form
+  generated from `GET /api/settings`
   (grouped by `group`, `meaning` as help text, one typed input per `kind`,
   lists as comma-separated values). Only values that differ from the defaults
   are sent. "Reset to defaults" and a per-field "Default: ..." link undo
@@ -158,29 +161,59 @@ Things worth knowing:
   and are disposed on every swap. Parsed meshes are cached up to 192 MB, least
   recently used first out.
 - **The final mesh.** A binary STL is exactly `84 + 50 × triangles` bytes, so
-  its size is known from the event. Above 12 MB (or when `triangles` is
-  missing) the final mesh is not fetched until the "Load final surface (51 MB)"
-  button is pressed; the newest preview stays on screen meanwhile.
+  its size is known from the event; when `triangles` is missing the file is
+  asked for its size with `HEAD`. Above 12 MB (or when neither says) the final
+  mesh is not fetched until the "Load final surface (51 MB)" button is pressed;
+  the newest preview stays on screen meanwhile.
 - **Rendering on demand.** There is no animation loop; a still model costs
   nothing.
 
-### Dependencies
+### Dependencies and licenses
+
+Studio itself is AGPL-3.0-only, like the rest of Crisp3DS.
+
+Shipped in the web bundle (runtime):
 
 | Package | Use | License |
 | --- | --- | --- |
-| `three` 0.186 | 3D viewer | MIT |
-| `preact` 11 | view library (about 5 kB gzipped) | MIT |
-| `vite` 8, `vitest` 5 (dev) | build, tests | MIT |
-| `typescript` 7 (dev) | typecheck; `npm run lint` is `tsc --noEmit` | Apache-2.0 |
-| `@types/three`, `@types/node` (dev) | types | MIT |
-| `playwright` 1.63 (dev) | screenshot and performance scripts only | Apache-2.0 |
+| `three` 0.186.1 | 3D viewer | MIT |
+| `preact` 11.0.0 | view library (about 5 kB gzipped) | MIT |
+| `@tauri-apps/api` 2.11.1 | talking to the native shell; inert in a browser | Apache-2.0 OR MIT |
+
+Linked into the native shell (Rust, direct dependencies):
+
+| Crate | Use | License |
+| --- | --- | --- |
+| `tauri` 2.11.6, `tauri-build` 2.6.3 | the shell | Apache-2.0 OR MIT |
+| `tauri-plugin-dialog` 2 | native folder and file pickers (desktop launcher variant only) | Apache-2.0 OR MIT |
+| `serde` 1, `serde_json` 1 | settings file, messages to the web view | MIT OR Apache-2.0 |
+| `getrandom` 0.3 | the engine's per-start token (desktop launcher variant only) | MIT OR Apache-2.0 |
+| `libc` 0.2 | process groups and signals on Unix | MIT OR Apache-2.0 |
+
+Development only (not shipped):
+
+| Package | Use | License |
+| --- | --- | --- |
+| `vite` 8, `vitest` 5 | build, tests | MIT |
+| `typescript` 7 | typecheck; `npm run lint` is `tsc --noEmit` | Apache-2.0 |
+| `@types/three`, `@types/node` | types | MIT |
+| `@tauri-apps/cli` 2.11.5 | building the shell | Apache-2.0 OR MIT |
+| `playwright` 1.63 | screenshot and performance scripts only | Apache-2.0 |
+
+Transitive dependencies (307 crates are linked across all platforms) are
+audited by `npm run licenses`, which writes
+[`docs/THIRD-PARTY-LICENSES.md`](docs/THIRD-PARTY-LICENSES.md) and
+`docs/licenses.json`; CI fails on a license outside the policy. Current
+result: **clean with obligations** (attribution, and four MPL-2.0 crates whose
+source must stay available). To list them yourself: `npm ls --all --omit=dev`
+and `cargo tree --manifest-path src-tauri/Cargo.toml -e normal`.
 
 No UI kit, CSS framework or state library. `typescript-eslint` is not used
 because it does not support TypeScript 7 yet.
 
 ## Verification
 
-Unit tests (`npm test`, 104 tests): the reducer on the recorded sphere run and
+Unit tests (`npm test`, 116 tests): the reducer on the recorded sphere run and
 on unknown events, kinds, fields, stages and schema; half-written last lines;
 replay timing, speeds, pause, scrub and step with a fake clock; the STL parser
 on all four fixture meshes (triangle counts as announced, closed and
@@ -220,115 +253,241 @@ refused with a clear message; images and meshes load with the right one).
 
 ### Large runs
 
-No real large bundle was available, so the large case was synthesised:
-the fixture's meshes repeated to about 250 000 triangles per preview and
-1 014 000 triangles (50.7 MB) for the final STL, and the sheets scaled up to
-4200 px wide. `scripts/perf-check.mjs` measures it. On an Apple M1 with the
-real GPU (`STUDIO_GL=metal`), served from localhost:
+Measured with `scripts/perf-check.mjs` on a real run: the Bunny bundle
+(65 events; previews of 260 000 to 287 000 triangles, 13 to 14 MB each; final
+STL 1 047 922 triangles, 52.4 MB; ten sheets up to 1800 px wide; a scanner
+evaluation with a handedness warning). Apple M1, real GPU
+(`STUDIO_GL=metal`), served from localhost, headless Chromium:
 
-- only the newest preview is downloaded; the final mesh waits for its button;
-- first surface (252 000 triangles) on screen 0.4 to 1.2 s after opening the
-  page;
-- the 50.7 MB final mesh on screen 0.9 to 1.5 s after the click, longest
-  main-thread pause 20 to 70 ms;
-- swapping between cached surfaces 40 to 80 ms; 30 orbit steps on the final
-  mesh in about 0.5 s;
-- opening a 4200 × 4200 sheet at 1:1 pauses the page for 0.2 to 0.4 s (the
-  browser decoding 17 megapixels).
+- only the newest preview is downloaded; the final mesh waits for its
+  "Load final surface (52 MB)" button, at desktop and phone width;
+- first surface on screen 0.35 to 0.5 s after opening the page (2.5 s on the
+  very first, cold launch);
+- the 52 MB final mesh on screen 1.0 s after the click, longest main-thread
+  pause 54 ms;
+- swapping between cached surfaces 50 to 120 ms; 30 orbit steps on the final
+  mesh in 0.7 s;
+- all three reports are summarised and the handedness warning is shown; no
+  sideways scrolling at 390 px.
 
-These are six runs on a machine that was busy with other work (load average
-15); two earlier runs showed pauses of 0.8 and 3 s while the page started,
-which did not recur and were not traced to Studio's code. Before the download
-loop was made to yield, the same final mesh froze the page for 0.7 s; that is
-fixed and is the kind of thing the script is for.
-
-A **real** megapixel run (Bunny or Dragon) has not been tested: real meshes
-weld differently from repeated spheres, and real sheets may compress and decode
-differently. Phones have not been measured at all. Run the script against one when it exists:
+Nothing had to be changed for the real bundle. Its sheets are not megapixel
+sized, so the thumbnail question stays open: a synthetic test with sheets
+scaled to 4200 × 4200 worked, with a pause of 0.2 to 0.4 s when one is opened
+at 1:1. Not measured: real phones, and memory on a device with little of it.
 
 ```sh
-STUDIO_GL=metal STUDIO_BUNDLE=<address> node scripts/perf-check.mjs
+STUDIO_GL=metal STUDIO_BUNDLE=<address> STUDIO_OUT=<folder> node scripts/perf-check.mjs
 ```
+
+## The desktop app
+
+`src-tauri/` wraps the same web app with Tauri 2. On macOS, Windows and Linux
+the app **starts the engine itself**:
+
+```
+<python> -m scripts.turntable_mesh.engine_server --runs <dir> --data <dir> \
+  --host 127.0.0.1 --port <free port> --token <random> --device <device> \
+  --python <python> --torch-python <torch python>          (PYTHONPATH=<repo>, cwd=<repo>)
+```
+
+It waits for `/api/health`, hands address and token to the web view (which
+opens on **Runs** instead of the connection form), and ends the engine and its
+process group when the app quits. Another engine or the demo remain one click
+away under **Connection**.
+
+> **Python is not part of the app.** No Python, PyTorch or any reconstruction
+> code is bundled. The app runs the interpreters you name, in a crisp3ds
+> checkout on your computer. The settings screen says so as well.
+
+| The app running a reconstruction | Engine settings |
+| --- | --- |
+| ![](docs/native-run.jpg) | ![](docs/native-settings.jpg) |
+
+### Running it from a fresh clone
+
+Needs Node 22.18+, a Rust toolchain (stable), the
+[Tauri 2 system prerequisites](https://tauri.app/start/prerequisites/) for
+your OS (on Linux: `libwebkit2gtk-4.1-dev libgtk-3-dev
+libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev`), and Python
+3.11 with the pipeline's requirements.
+
+```sh
+git clone https://github.com/CrispStrobe/crisp3ds && cd crisp3ds
+
+# 1. Python for the engine (one environment with everything is the simplest)
+python3 -m venv .venv
+.venv/bin/pip install -r scripts/turntable_mesh/requirements-dense.txt
+
+# 2. Something to reconstruct: a synthetic scene in a data folder
+mkdir -p ~/crisp3ds-data
+PYTHONPATH=$PWD .venv/bin/python -m scripts.turntable_mesh.synthetic_scene --output ~/crisp3ds-data/sphere
+
+# 3. The app
+cd apps/studio
+npm ci
+CRISP3DS_DATA_DIR=~/crisp3ds-data npm run tauri dev          # or: npm run tauri build -- --debug --no-bundle
+```
+
+The app finds the checkout it was built in and a `.venv` inside it by itself.
+Then: **New run**, **Browse** to `sphere`, **Start run**. For the small scene
+use the settings printed by `synthetic_scene` (sizes 64, 128; grid 96; ...);
+the defaults are meant for megapixel photos.
+
+Where the settings come from, first match wins:
+
+1. the **Engine settings** screen (saved as `config.json` in the app's config
+   folder: `~/Library/Application Support/dev.crisp3ds.studio/` on macOS,
+   `%APPDATA%\dev.crisp3ds.studio\` on Windows, `~/.config/dev.crisp3ds.studio/`
+   on Linux), with native pickers for folders and interpreters;
+2. the environment: `CRISP3DS_REPO`, `CRISP3DS_PYTHON`,
+   `CRISP3DS_TORCH_PYTHON`, `CRISP3DS_RUNS_DIR`, `CRISP3DS_DATA_DIR`;
+3. discovery: a checkout above the executable or the working directory, and
+   `.venv` in it; otherwise `python3` (`python` on Windows) from `PATH`, the
+   same interpreter for PyTorch, and `runs/` and `data/` in the app's data
+   folder. Device `auto` is `mps` on Apple Silicon and `cpu` elsewhere.
+
+When the engine cannot start, the app shows why, the command it ran (token
+blanked) and the last lines the engine printed, with a button to the settings.
+
+### What the web view is allowed to do
+
+- Content Security Policy: scripts, styles and workers only from the app
+  itself; `object-src 'none'`, no frames, no forms, no remote code.
+  `connect-src` and `img-src` additionally allow `http:` and `https:` (and
+  `blob:`, `data:` for images). That is wider than `http://127.0.0.1:*`
+  only, deliberately: the same app must reach an engine on another machine
+  and replay bundles on any server, on desktop and on phones.
+- Tauri capabilities: **none**. The window may call the shell's own six
+  commands (shell info, read and save settings, engine status, restart engine,
+  pick a path) and nothing else: no file system, shell, HTTP or dialog plugin
+  access from JavaScript. The native pickers are opened by the Rust side.
+- The engine listens on `127.0.0.1` only and requires the per-start token,
+  which lives in memory and is never written to disk or shown.
+
+### How it was verified, and what was not
+
+On an Apple M1 (macOS), with a debug build (`tauri build --debug --no-bundle`,
+i.e. the real `tauri://` origin and the production CSP) and the interpreters
+from two virtual environments given through the environment variables:
+
+- the app started the engine and opened on its runs;
+- a synthetic sphere run was started through the app's own form (inputs found
+  with the folder browser, eleven settings typed, device cpu) and ran to
+  **Complete**: four surfaces appeared in turn in the 3D view, 8 of 8 sheets
+  loaded, photo check and mesh report shown, **no CSP violation**;
+- after quitting through the app, and separately after `kill -TERM` of the
+  app, no engine process was left;
+- the client-only variant (below), ad-hoc signed with the App Sandbox
+  entitlements, starts and shows the connection screen without the local
+  engine.
+
+This was driven by `scripts/autopilot-run.js`, which the **debug** build runs
+inside its own web view when `CRISP3DS_STUDIO_AUTOPILOT=<file>` is set
+(release builds contain neither that hook nor its two helper commands).
+
+Not verified by a person or at all:
+
+- **Clicking.** The native folder pickers and saving on the settings screen
+  were not operated by hand; the settings logic is covered by Rust unit tests.
+- **`tauri dev`** (the development CSP) was not run; only the debug build was.
+- **Windows and Linux** were only compiled and unit-tested in CI. In
+  particular, untested there:
+  - *Windows*: the engine is started with `CREATE_NEW_PROCESS_GROUP |
+    CREATE_NO_WINDOW` and ended with `taskkill /PID <pid> /T /F`, which takes
+    the whole process tree. The engine starts runs as ordinary children on
+    Windows, so **a run in progress is killed with the app**. There is no
+    handler for the app itself being killed; an engine can then be left
+    behind.
+  - *Linux and macOS*: the engine gets its own process group
+    (`setpgid`), ended with `SIGTERM`, then `SIGKILL` after 4 s; `SIGINT`,
+    `SIGTERM` and `SIGHUP` to the app take the group along. The engine starts
+    each run in a new session, so **a run in progress survives the app** and
+    keeps computing with nothing serving it; its result is there at the next
+    start. If the app is killed with `SIGKILL` or crashes, the engine is left
+    running.
+  - *Linux*: needs WebKitGTK 4.1 with working WebGL.
+- **Android and iOS** builds are produced in CI only (debug APK, simulator
+  app). They were not installed or started.
+
+### Two variants of the Mac app, and phones
+
+| Variant | Built with | Engine launcher | For |
+| --- | --- | --- | --- |
+| Desktop (default) | `tauri build` | yes | direct download: `.dmg`, Windows installer, AppImage, `.deb` |
+| Client only | `tauri build -- --no-default-features` | compiled out | Mac App Store and TestFlight |
+| Phones | `tauri android build`, `tauri ios build` | never | Android, iOS |
+
+App Store builds of the Mac app must run in the App Sandbox, and a sandboxed
+app cannot start a Python that the user installed somewhere on the disk. The
+store variant is therefore the same app without the `local-engine` cargo
+feature: it opens on the connection screen (engine address and token, demo,
+recorded runs), exactly like the phone apps. Its files are
+`src-tauri/tauri.appstore.conf.json` (bundle identifier
+`com.crispstrobe.crisp3dsstudio`, entitlements) and
+`src-tauri/entitlements.appstore.plist` (`app-sandbox` and `network.client`,
+nothing else). `src-tauri/Info.plist` and `Info.ios.plist` declare
+`ITSAppUsesNonExemptEncryption = false` (the app uses only the system's HTTP
+and HTTPS), allow plain HTTP to local-network addresses only
+(`NSAllowsLocalNetworking`), and carry the local-network usage text.
+
+Nothing has been uploaded to App Store Connect. See
+[`docs/RELEASING.md`](../../docs/RELEASING.md) for what exists, what is
+missing and what only the account owner can do.
+
+### Shipping without a separately installed Python (not implemented)
+
+| Option | What it is | Rough size added | Notes |
+| --- | --- | --- | --- |
+| Bundled CPython + wheels, CPU only | A relocatable Python (python-build-standalone) with numpy, scipy, scikit-image, opencv-headless, pillow and CPU PyTorch as an app resource or sidecar | about 0.6 to 0.9 GB installed (PyTorch CPU alone is about 200 MB compressed, 500+ MB unpacked) | Simplest. Slow on real photo sets without a GPU. Every binary inside must be signed for macOS notarisation. |
+| The same with GPU PyTorch | MPS comes with the normal macOS arm64 wheel (no extra size); CUDA wheels add the CUDA runtime | macOS: as above; Windows/Linux with CUDA: 2.5 to 5 GB | CUDA has never been run on a GPU by this project. |
+| Frozen engine (PyInstaller or Nuitka) as a Tauri sidecar | One executable per OS and architecture | about the same as the first row; start-up of a one-file build is slow | The pipeline starts its stages with `python -m ...`; that would have to become in-process calls or a multi-call executable. |
+| Download on first run | The app fetches a pinned environment (for example with `uv`) into its data folder | installer stays small (about 10 MB); 0.6 to 5 GB downloaded once | Needs network on first use, and a UI for progress and failure. Probably the best trade for direct downloads. |
+| Rewrite the hot paths natively (Rust or C++ with Metal/wgpu) | No Python at all | tens of MB | The only route to a self-contained **store** build that reconstructs; a large project. |
+
+None of these fit the Mac App Store as they are: bundled interpreters must be
+signed and sandbox-safe, downloaded code is not allowed there, and the
+licenses of everything bundled would have to pass the same audit as the app
+(`docs/THIRD-PARTY-LICENSES.md` covers only what ships today).
+
+## Releases
+
+`.github/workflows/release.yml` builds the web bundle, the bundled desktop
+apps, the mobile probes and the pipeline's source archive, and on a `v*` tag
+creates a **draft prerelease**. `scripts/set-version.mjs` keeps
+`package.json`, `tauri.conf.json` and `Cargo.toml` on one version. Signing is
+off until its secrets exist: `APPLE_CERTIFICATE`,
+`APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`,
+`APPLE_PASSWORD`, `APPLE_TEAM_ID` (macOS), `WINDOWS_CERTIFICATE`,
+`WINDOWS_CERTIFICATE_PASSWORD` (Windows). The procedure is in
+[`docs/RELEASING.md`](../../docs/RELEASING.md).
 
 ## Implemented, and not
 
 Implemented: everything under [What it shows](#what-it-shows); the replay and
-HTTP sources; the demo.
+HTTP sources; the demo; the desktop shell with its engine launcher.
 
 Not implemented:
 
-- **The local source** (`sources/localEngine.ts`) is a stub that rejects with
-  "not implemented". Nothing in the UI offers it yet.
-- **Photo upload and capture, camera recovery, segmentation**: not in the
-  contract yet, so there is no screen for them. A run starts from a path on the
-  engine's machine, typed by hand; there is no file browser because the engine
-  has no endpoint to list its data directory.
-- **Thumbnails.** Gallery cards show the full sheet scaled down. That is fine
-  for megapixel sheets on a desktop and wasteful on a phone; the contract has
-  no thumbnail artifact.
-- **Deleting or renaming runs, downloading the STL through a button**: no
-  endpoint for the first two; the STL is at
-  `<engine>/api/runs/<id>/files/mesh/mesh.stl`.
+- **The local source** (`sources/localEngine.ts`) is still a stub. The desktop
+  app does not need it: it talks to its own engine over HTTP on localhost.
+  Reading run folders directly would only pay off if that hop became a burden.
+- **Photo upload and capture.** Not in the contract yet, so a phone cannot
+  send photos.
+- **Photos to inputs.** The engine has a photos-to-inputs stage now; Studio
+  does not offer it yet. Runs start from a prepared inputs folder.
+- **Thumbnails and compact meshes.** Gallery cards show the full sheet scaled
+  down; the contract has no thumbnail or decimated-mesh artifact yet.
+- **Deleting or renaming runs, a download button for the STL**: no endpoint for
+  the first two; the STL is at `<engine>/api/runs/<id>/files/mesh/mesh.stl`.
+- **Engine discovery on the network** (mDNS or a QR code with address and
+  token), so nobody types an address on a phone.
 - **Push updates.** Studio polls, as the contract says.
 - **Mesh formats other than binary STL.** A text STL is refused with a clear
   message.
 - **Installable PWA / offline shell**: no service worker.
-- **Translations.** English only; all text is in the components.
+- **Translations.** English only.
+- **Asking before quitting while a run is in progress.**
 
-One convention beyond the event log: the photo check writes
-`check/result.json` (contract section 1) but no `report` event announces it, so
-for a live engine Studio asks for that file once the check stage is done and
-shows it if it is there. A replay bundle does not contain the file.
-
-## The Tauri wrap
-
-The intent is that wrapping needs no UI changes: the shell provides an engine
-and Studio talks to it through `Engine` / `RunSource`.
-
-**Desktop (macOS, Windows, Linux), first step.** Let the shell do what a
-person does today: start `engine_server.py` as a sidecar on a free localhost
-port with a random `--token`, and hand address and token to the web view. The
-front end then uses `HttpEngine` unchanged. Concretely:
-
-1. Add `src-tauri/` next to this app (or point `apps/desktop/src-tauri` at
-   `apps/studio/dist` via `build.frontendDist`). `base: "./"` and hash routes
-   already suit the `tauri://localhost` origin.
-2. In Rust: pick a port, generate a token, spawn the Python sidecar
-   (`tauri-plugin-shell`), wait for `GET /api/health`, kill the process tree on
-   exit. Expose one command, e.g. `engine_endpoint() -> { url, token }`.
-3. In `main.tsx`: if `window.__TAURI__` exists, call that command and open
-   `#/engine` with an `HttpEngine` built from it instead of showing the
-   connection form. That is the only front-end change, about ten lines.
-4. CSP: allow `connect-src` and `img-src` for `http://127.0.0.1:*` and `blob:`,
-   and `worker-src 'self' blob:`.
-5. Add a folder picker (`tauri-plugin-dialog`) for the inputs path. The engine
-   only accepts paths under `--data`, so either start it with `--data` set to
-   the chosen folder's parent or extend the contract.
-
-**Desktop, later.** Fill in `LocalEngine` / `LocalRunSource` to drop the HTTP
-hop: the shell tails `events.jsonl` (remembering the line count, ignoring a
-last line without a newline, exactly as `core/events.ts` does) and emits
-complete lines on a Tauri channel; files are read through the asset protocol
-(`convertFileSrc`) for images and as bytes for STL and JSON; cancelling creates
-`<run>/cancel`. The interface is in `sources/types.ts` and the HTTP source is
-the model to follow. This only pays off if the HTTP server becomes a burden.
-
-**Mobile (iOS, Android).** Phones do not compute. The Tauri mobile shell is
-the same web app with the connection screen: demo, recorded bundles and a
-remote engine. What a phone build needs beyond `tauri ios init` /
-`tauri android init`:
-
-- Cleartext HTTP to a LAN engine is blocked by default: an App Transport
-  Security exception on iOS (`NSAllowsLocalNetworking`, plus the local-network
-  usage description) and `usesCleartextTraffic` or a network security config on
-  Android. Better: put the engine behind TLS.
-- Engine discovery (mDNS, or a QR code shown by the desktop app carrying
-  address and token) so nobody types an IP address on a phone. The token would
-  then move from `localStorage` to the platform keychain.
-- Safe-area insets are already handled in the CSS (`env(safe-area-inset-*)`,
-  `viewport-fit=cover`); touch targets are 38 px or more.
-- Photo capture and upload wait for `POST /api/uploads` in the contract.
-- Memory: a 50 MB final STL becomes about 24 MB of buffers, plus the 50 MB
-  download while it is being parsed. That should be tested on a real phone before enabling the
-  "load final surface" button there without a warning; a decimated preview
-  artifact (the contract mentions GLB) would be the better answer.
+Runs recorded before the engine announced the photo check as a `report`
+artifact still show it: for those, a live engine is asked for
+`check/result.json` by its conventional path once the check stage is done.
