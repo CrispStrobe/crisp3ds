@@ -1,5 +1,4 @@
 {
-  "identifier": "com.crispstrobe.crisp3dsstudio",
   "build": {
     "beforeBuildCommand": "npm run build:release"
   },

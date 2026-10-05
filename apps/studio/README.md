@@ -422,8 +422,8 @@ app cannot start a Python that the user installed somewhere on the disk. The
 store variant is therefore the same app without the `local-engine` cargo
 feature: it opens on the connection screen (engine address and token, demo,
 recorded runs), exactly like the phone apps. Its files are
-`src-tauri/tauri.appstore.conf.json` (bundle identifier
-`com.crispstrobe.crisp3dsstudio`, entitlements) and
+`src-tauri/tauri.appstore.conf.json` (bundling and entitlements; the store
+bundle identifier is the owner's to choose and is passed at build time) and
 `src-tauri/entitlements.appstore.plist` (`app-sandbox` and `network.client`,
 nothing else). `src-tauri/Info.plist` and `Info.ios.plist` declare
 `ITSAppUsesNonExemptEncryption = false` (the app uses only the system's HTTP

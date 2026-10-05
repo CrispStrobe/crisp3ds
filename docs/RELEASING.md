@@ -116,11 +116,14 @@ AliceVision, SAM, OpenMVS or other engine. The pipeline's own dependencies are
 installed by the user and are not redistributed by these releases, except as
 names in `requirements-dense.txt`.
 
+
 ## App Store and TestFlight: prepared, nothing uploaded
 
 Status: **no build has been signed for distribution or uploaded, no App Store
 Connect object has been created, no credential has been used and no
-repository secret has been set.**
+repository secret has been set.** How this account signs and uploads is
+described in the owner's App Store notes, which are kept outside this
+repository on purpose; nothing from them belongs in here.
 
 ### What is in the repository
 
@@ -128,76 +131,63 @@ repository secret has been set.**
   (`tauri build -- --no-default-features`): no engine launcher, opens on the
   connection screen. Checked locally: built, ad-hoc signed with the sandbox
   entitlements, started.
-- `apps/studio/src-tauri/tauri.appstore.conf.json`: store bundle settings,
-  bundle identifier `com.crispstrobe.crisp3dsstudio`.
+- `apps/studio/src-tauri/tauri.appstore.conf.json`: store bundle settings.
+  It names no bundle identifier; pass the chosen one at build time
+  (`--config '{"identifier":"..."}'`).
 - `apps/studio/src-tauri/entitlements.appstore.plist`:
   `com.apple.security.app-sandbox`, `com.apple.security.network.client`.
 - `apps/studio/src-tauri/Info.plist` (macOS) and `Info.ios.plist` (iOS):
   `ITSAppUsesNonExemptEncryption = false`, `NSAllowsLocalNetworking`,
-  `NSLocalNetworkUsageDescription`. On macOS the merged result was inspected
-  in the built bundle; on iOS it has not been checked that the Tauri CLI picks
-  the file up.
+  `NSLocalNetworkUsageDescription`. Both were checked in built apps: the
+  macOS bundle locally, the iOS simulator app in the release workflow, which
+  prints these keys.
 - The license audit above.
 
 ### Why it stopped there
 
 1. **App records.** App Store Connect does not allow creating an app through
-   its API. Someone has to create the two app records (iOS and macOS, or one
-   universal record) in the browser. Upload and even validation need the
-   record to exist.
-2. **Bundle identifier.** The other apps of this account use
-   `com.crispstrobe.<name>`; the direct-download desktop app uses
-   `dev.crisp3ds.studio`. The store configuration proposes
-   `com.crispstrobe.crisp3dsstudio`. A bundle identifier cannot be changed
-   once an app record uses it, so this is the owner's decision.
+   its API. Someone has to create the app record(s) in the browser. Upload,
+   and even validation, need the record to exist.
+2. **Bundle identifier.** The direct-download desktop app uses
+   `dev.crisp3ds.studio`. Whether the store apps use the same or another one
+   is the owner's decision; it cannot be changed once an app record uses it.
 3. **License basis.** Crisp3DS is AGPL-3.0-only. Its copyright holder may
-   distribute it through the App Store; nobody else may. The owner's other
-   store apps record that with a `LICENSE-COMMERCIAL` file at the repository
-   root and license fields reading
-   `(AGPL-3.0-only OR LicenseRef-LICENSE-COMMERCIAL)`. This repository has no
-   such file. Adding one is a licensing decision and was left to the owner.
+   distribute it through the App Store; nobody else may. Whether and how to
+   record that in this repository (for example with an additional license
+   grant for store binaries) is a licensing decision for the owner.
 4. **Credentials.** Signing and upload use the owner's App Store Connect API
-   key, distribution certificate and team. They were not touched: the
-   instruction to use them reached the agent doing this work only second
-   hand, and that is not something to act on without the owner saying so
+   key, certificates and team. They were not touched. The request to use them
+   reached the agent doing this work only through another agent, and using an
+   account's credentials is not something to do without the owner saying so
    directly.
 
-### What remains, in order
+### What remains
 
 Owner:
 
-1. Decide the bundle identifier and the app name ("Crisp3DS Studio").
-2. Decide the license basis (item 3 above) and add the file if wanted.
-3. Create the app record(s) in App Store Connect.
-4. Give the go-ahead to use the account's API key and distribution
-   certificate for this app, or run the upload personally.
-5. Later, for anything beyond internal testing: a privacy policy URL, the App
-   Privacy answers and the age rating (browser only).
+1. Decide the bundle identifier, the app name and the license basis.
+2. Create the app record(s) in App Store Connect.
+3. Say directly that the account's key and certificates may be used for this
+   app, or run the signing and upload personally.
+4. Later, for anything beyond internal testing: a privacy policy URL, the App
+   Privacy answers and the age rating.
 
-Then, mechanically, following the account's existing notes for Tauri apps:
+Then, following the owner's App Store notes:
 
-1. Register the bundle identifier (API) if it is not registered.
-2. iOS: `tauri ios init`; check the generated `Info.plist` for the keys above,
-   `arm64` under `UIRequiredDeviceCapabilities`, a 1024 px icon source
-   (`tauri icon`) and a launch screen; add `PrivacyInfo.xcprivacy` (required
-   reason APIs used by Tauri's core: user defaults `CA92.1`, file timestamps
-   `C617.1`, disk space `E174.1`; no tracking, no collected data) to the
-   Xcode project's resources; set automatic signing and the team; archive and
-   export with the API key; validate; upload.
-3. macOS: `tauri build --bundles app --config
-   src-tauri/tauri.appstore.conf.json -- --no-default-features` with the
-   Apple Distribution identity; wrap in a `.pkg` signed with the installer
-   identity; validate and upload with `--type macos`.
-4. Set the export-compliance answer on the processed build if the plist key
-   did not already do it, create an internal TestFlight group, add the build
-   and the tester.
-5. Add a manually dispatched `testflight` job to `release.yml` with the
-   secrets the account's other repositories use (`APPLE_API_KEY_ID`,
-   `APPLE_API_ISSUER_ID`, `APPLE_API_KEY_P8`, `APPLE_TEAM_ID`, plus the
-   certificate secrets for manual signing).
+1. iOS: generate the project (`tauri ios init`), check the generated
+   `Info.plist`, icons (`tauri icon` from a 1024 px source) and launch screen,
+   add a privacy manifest (`PrivacyInfo.xcprivacy`) for the required-reason
+   APIs that Tauri's core uses, sign, archive, validate, upload.
+2. macOS: build the client-only variant with
+   `--config src-tauri/tauri.appstore.conf.json`, sign for distribution,
+   package, validate, upload.
+3. Answer export compliance if the plist key did not, create an internal
+   TestFlight group, add the build and the testers.
+4. If this is to run in CI, add a manually dispatched `testflight` job to
+   `release.yml` with the secrets those notes name.
 
-Known risks to check on the first upload: whether a sandboxed WKWebView may
-load plain HTTP from a LAN address with `NSAllowsLocalNetworking` alone;
-whether App Review accepts an app whose main function needs a separately
-running engine (the demo recording is there so the app shows something
-without one); the size and content of `THIRD-PARTY-NOTICES.txt`.
+To check on the first upload: whether a sandboxed web view may load plain
+HTTP from a local-network address with `NSAllowsLocalNetworking` alone;
+whether review accepts an app whose main function needs a separately running
+engine (the demo recording is there so the app shows something without one);
+the size of `THIRD-PARTY-NOTICES.txt`.
