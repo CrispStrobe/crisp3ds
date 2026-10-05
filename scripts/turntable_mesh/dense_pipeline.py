@@ -119,7 +119,7 @@ def run(args):
     report = {"output": str(output), "device": args.device, "stages": {}, "status": "running"}
     started = time.monotonic()
     events.emit("run_started", schema=SCHEMA, configuration=config.to_json(), device=args.device,
-                inputs=str(args.inputs or args.scene))
+                inputs=Path(args.inputs or args.scene).name)
 
     def cancelled():
         return (output / "cancel").exists()
@@ -140,13 +140,30 @@ def run(args):
         if result["timed_out"] or result["cancelled"] or result["exit_code"]:
             reason = "cancelled" if result["cancelled"] else "deadline" if result["timed_out"] else f"exit code {result['exit_code']}"
             tail = Path(result["log"]).read_text()[-2000:]
-            events.emit("error", stage=name, message=f"{reason}: {tail[-400:]}")
+            events.emit("error", stage=name, message="cancelled on request" if result["cancelled"] else f"{reason}: {tail[-400:]}")
             finish(f"failed in {name}")
-            raise RuntimeError(f"stage {name} failed ({reason}):\n{tail}")
+            raise StageFailed(f"stage {name} failed ({reason}):\n{tail}")
         events.emit("stage_finished", stage=name, seconds=result["seconds"])
         print(f"[{name}] {result['seconds']:.1f}s", flush=True)
 
+    try:
+        return stages(args, config, output, python, torch_python, environment, events, events_path, report, stage, finish)
+    except StageFailed:
+        raise
+    except Exception as problem:  # anything outside a stage must still close the event log
+        events.emit("error", stage=None, message=f"{type(problem).__name__}: {problem}")
+        finish("failed before or between stages")
+        raise
+
+
+class StageFailed(RuntimeError):
+    pass
+
+
+def stages(args, config, output, python, torch_python, environment, events, events_path, report, stage, finish):
     inputs = Path(args.inputs).absolute() if args.inputs else output / "inputs"
+    if args.inputs is not None and not (inputs / "cameras.json").is_file():
+        raise ValueError(f"{inputs} has no cameras.json; it is not an inputs directory")
     if args.inputs is None:
         stage("inputs", [python, "-m", "scripts.turntable_mesh.dense_all_views_inputs", "--scene", args.scene,
                          "--prepared", args.prepared, "--raw-masks", args.raw_masks, "--output", inputs], 600)

@@ -91,6 +91,7 @@ def run(inputs, mesh, output, *, repaired_masks=None, preview_views=3, check_vie
         report["preview"] = str(output / "preview.png")
         events.artifact("preview_render", output / "preview.png", "Photos and shaded reconstruction")
     (output / "result.json").write_text(json.dumps(report, indent=2) + "\n")
+    events.artifact("report", output / "result.json", "Photo check")
     return report
 
 

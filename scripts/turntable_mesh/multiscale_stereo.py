@@ -255,7 +255,10 @@ class Stereo:
         u = p[:, 0] / p[:, 2] * k[0] + k[2] - 0.5
         v = p[:, 1] / p[:, 2] * k[1] + k[3] - 0.5
         inside = (u >= 0) & (u < w - 1) & (v >= 0) & (v < h - 1) & (p[:, 2] > 0)
-        u, v = u[inside].floor().long(), v[inside].floor().long()
+        # One index list for both coordinates: two separate boolean selections
+        # have come back with different lengths on MPS.
+        keep = inside.nonzero()[:, 0]
+        u, v = u[keep].floor().long(), v[keep].floor().long()
         cover = torch.zeros((h, w), dtype=torch.bool, device=self.dev)
         for du in (0, 1):
             for dv in (0, 1):

@@ -71,10 +71,14 @@ Artifact kinds, in the order they normally appear:
 | `photo_overlay` | PNG | Mesh outline against masks: green both, red mask only, blue mesh only |
 | `preview_render` | PNG | Photos above, shaded reconstruction below |
 | `scan_overlay` | PNG | Distance to an independent scan, when one was given |
-| `report` | JSON | `mesh/result.json` (triangles, closedness, genus) and, if evaluated, `scan/result.json` |
+| `report` | JSON | `mesh/result.json` (triangles, closedness, genus), `check/result.json` (silhouette agreement) and, if evaluated, `scan/result.json` |
 
 Rules a front end can rely on:
 
+- Every run that wrote `run_started` also writes `run_finished`, including when
+  it fails before its first stage (an `error` event with the reason precedes it).
+  Only a killed driver process can leave a log without it.
+- `HEAD` works wherever `GET` does, so file sizes can be probed.
 - An artifact event is written only after its file is complete.
 - Preview meshes are produced by a side process and may arrive later than the
   matching events around them; order them by `seq`, show the newest.
@@ -92,6 +96,7 @@ Rules a front end can rely on:
 | --- | --- |
 | `GET /api/health` | `{"schema", "device", "can_start_runs"}` |
 | `GET /api/settings` | `{"settings": [{"name", "group", "meaning", "kind", "default"}]}`; `kind` is `boolean`, `integer`, `number`, `integer_list` or `number_list`. Enough to generate a settings form |
+| `GET /api/data?path=<relative>` | `{"path", "entries": [{"name", "directory", "inputs"}]}`: folders under the data directory; `inputs` is true where a run can start |
 | `GET /api/runs` | `{"runs": [{"id", "status", "started", "stage", "stage_fraction", "events"}]}`, newest first |
 | `POST /api/runs` | Body below. `201 {"id"}` or `400 {"error"}` |
 | `GET /api/runs/<id>/events?since=N` | `{"events": [...], "next": M}`; poll with `since=M`, about once a second |

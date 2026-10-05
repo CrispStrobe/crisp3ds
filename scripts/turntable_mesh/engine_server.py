@@ -6,6 +6,7 @@ and serves their artifacts. Standard library only.
 
   GET  /api/health                       schema and capabilities
   GET  /api/settings                     every setting with group, meaning, kind, default
+  GET  /api/data?path=<relative>         folders under --data; "inputs": true where a run can start
   GET  /api/runs                         known runs with status
   POST /api/runs                         start a run; JSON body, see start_run()
   GET  /api/runs/<id>/events?since=N     events from line N; {"events": [...], "next": M}
@@ -56,6 +57,8 @@ def run_status(folder):
             fraction = event["fraction"]
         elif event["type"] == "run_finished":
             status = event["status"]
+    if status != "running":
+        stage, fraction = None, 0.0
     return {"id": folder.name, "status": status, "started": started, "stage": stage, "stage_fraction": fraction,
             "events": len(events)}
 
@@ -78,7 +81,22 @@ class Engine:
         folder = self.runs / run_id
         return folder if (folder / "events.jsonl").is_file() else None
 
+    def list_data(self, relative):
+        """Folders under the data directory, flagged when they look like dense inputs."""
+        folder = inside(self.data, self.data / relative)
+        if folder is None or not folder.is_dir():
+            raise ValueError("no such folder under the data directory")
+        entries = []
+        for child in sorted(folder.iterdir()):
+            if child.name.startswith("."):
+                continue
+            entries.append({"name": child.name, "directory": child.is_dir(),
+                            "inputs": child.is_dir() and (child / "cameras.json").is_file()})
+        return {"path": str(folder.relative_to(self.data)).replace(os.sep, "/").strip("."), "entries": entries[:500]}
+
     def start_run(self, body):
+        if not isinstance(body, dict):
+            raise ValueError("JSON object required")
         """Body: {"inputs": path} or {"scene", "prepared", "raw_masks"}; optional "name",
         "device", "settings" {key: value}, "reference" path. Paths are relative to --data."""
         name = re.sub(r"[^A-Za-z0-9._-]+", "-", str(body.get("name") or "run")).strip("-.")[:40] or "run"
@@ -96,9 +114,9 @@ class Engine:
             command += ["--" + key.replace("_", "-"), str(path)]
         for item in overrides:
             command += ["--set", item]
-        log = open(self.runs / f"{run_id}.driver.log", "w")
-        subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, cwd=REPOSITORY,
-                         env={**os.environ, "PYTHONPATH": str(REPOSITORY)}, start_new_session=os.name == "posix")
+        with open(self.runs / f"{run_id}.driver.log", "w") as log:  # the child keeps its own handle
+            subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, cwd=REPOSITORY,
+                             env={**os.environ, "PYTHONPATH": str(REPOSITORY)}, start_new_session=os.name == "posix")
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline and not (self.runs / run_id / "events.jsonl").is_file():
             time.sleep(0.1)
@@ -114,6 +132,8 @@ def handler_for(engine, static, token):
         def log_message(self, *args):
             pass
 
+        head = False
+
         def reply(self, payload, status=HTTPStatus.OK):
             data = json.dumps(payload).encode()
             self.send_response(status)
@@ -122,7 +142,8 @@ def handler_for(engine, static, token):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
-            self.wfile.write(data)
+            if not self.head:
+                self.wfile.write(data)
 
         def send_file(self, path):
             data = path.read_bytes()
@@ -131,7 +152,8 @@ def handler_for(engine, static, token):
             self.send_header("Content-Length", str(len(data)))
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
-            self.wfile.write(data)
+            if not self.head:
+                self.wfile.write(data)
 
         def authorised(self):
             return not token or self.headers.get("Authorization") == "Bearer " + token
@@ -140,7 +162,7 @@ def handler_for(engine, static, token):
             self.send_response(HTTPStatus.NO_CONTENT)
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
             self.end_headers()
 
         def route(self, method):
@@ -158,6 +180,11 @@ def handler_for(engine, static, token):
                 return self.reply({"error": "unauthorised"}, HTTPStatus.UNAUTHORIZED)
             if method == "GET" and parts == ["api", "health"]:
                 return self.reply({"schema": SCHEMA, "device": engine.device, "can_start_runs": True})
+            if method == "GET" and parts == ["api", "data"]:
+                try:
+                    return self.reply(engine.list_data(parse_qs(url.query).get("path", [""])[0]))
+                except ValueError as problem:
+                    return self.reply({"error": str(problem)}, HTTPStatus.BAD_REQUEST)
             if method == "GET" and parts == ["api", "settings"]:
                 return self.reply({"settings": settings_schema()})
             if parts == ["api", "runs"]:
@@ -168,14 +195,17 @@ def handler_for(engine, static, token):
                     return self.reply({"error": "JSON body required"}, HTTPStatus.BAD_REQUEST)
                 try:
                     return self.reply(engine.start_run(json.loads(self.rfile.read(length))), HTTPStatus.CREATED)
-                except (ValueError, RuntimeError) as problem:
+                except (ValueError, RuntimeError) as problem:  # includes malformed JSON
                     return self.reply({"error": str(problem)}, HTTPStatus.BAD_REQUEST)
             if len(parts) >= 4 and parts[:2] == ["api", "runs"]:
                 folder = engine.run_folder(parts[2])
                 if folder is None:
                     return self.reply({"error": "unknown run"}, HTTPStatus.NOT_FOUND)
                 if method == "GET" and parts[3] == "events":
-                    since = int(parse_qs(url.query).get("since", ["0"])[0])
+                    try:
+                        since = max(0, int(parse_qs(url.query).get("since", ["0"])[0]))
+                    except ValueError:
+                        return self.reply({"error": "since must be a number"}, HTTPStatus.BAD_REQUEST)
                     events = read(folder / "events.jsonl", since)
                     return self.reply({"events": events, "next": events[-1]["seq"] + 1 if events else since})
                 if method == "POST" and parts[3] == "cancel":
@@ -188,6 +218,10 @@ def handler_for(engine, static, token):
             return self.reply({"error": "not found"}, HTTPStatus.NOT_FOUND)
 
         def do_GET(self):
+            self.route("GET")
+
+        def do_HEAD(self):
+            self.head = True
             self.route("GET")
 
         def do_POST(self):
