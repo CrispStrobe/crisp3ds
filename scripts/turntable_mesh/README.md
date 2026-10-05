@@ -28,7 +28,9 @@ inputs  ->  mask repair  ->  silhouette hull  ->  multiscale stereo  ->  TSDF  -
 | check | `mesh_photo_check.py` | Silhouette IoU of the mesh against every mask and a preview sheet |
 
 `scan_evaluate.py` scores a finished STL against an independent scan.
-`dense_pipeline.py` runs all of this as one command. `dense_config.py` holds
+`turntable_rig.py` optionally regularises the cameras with the turntable model.
+`dense_events.py`, `engine_server.py` and `export_replay.py` are the interface
+for front ends. `dense_pipeline.py` runs all of this as one command. `dense_config.py` holds
 every tunable. `stl_compare_render.py` renders several STLs through the same
 cameras. `synthetic_scene.py` writes a small analytic test scene.
 
@@ -187,57 +189,98 @@ underside on a turntable) is the silhouette bound, not a measurement.
 
 ## Results so far
 
-3DLF Dragon, 73 turntable photos at one elevation, 71 registered by AliceVision
-global SfM with a fixed lens, experimental SAM masks, Apple M1 16 GB.
+3DLF turntable sets (73 photos at one elevation, AliceVision global SfM with a
+fixed lens, experimental SAM masks), Apple M1 16 GB, PyTorch MPS. Scores are
+from `scan_evaluate.py` against the independent structured-light scans:
+held-out surface samples, thresholds as a percentage of the scan's
+bounding-box diagonal. "Above support" excludes the base, which no photo sees.
+The scanner is used for scoring only, never as input.
 
-| | Earlier 24-view plane sweep + Poisson (control 204) | This pipeline (control 214, `mesh-009`) |
+| Object and route | Stereo time | F1 @0.5% / 1% / 2%, all | F1 @0.5% / 1% / 2%, above support |
+| --- | --- | --- | --- |
+| Dragon, earlier 24-view plane sweep + Poisson (control 204) | about 2 min | 0.567 / 0.780 / 0.934 | 0.624 / 0.845 / 0.972 |
+| Dragon, this pipeline, first version (`mesh-009`) | 749 s | 0.755 / 0.911 / 0.973 | 0.819 / 0.961 / 0.994 |
+| Dragon, this pipeline, current defaults | 437 s | 0.768 / 0.924 / 0.981 | 0.820 / 0.961 / 0.995 |
+| Armadillo, current defaults, no retuning | 426 s | 0.914 / 0.967 / 0.989 | 0.936 / 0.985 / 0.997 |
+
+Both meshes are closed (Dragon genus 13, Armadillo genus 1). Surface
+extraction adds about 20 s and the photo check about 20 s.
+
+What the scored experiments on the Dragon showed (each changes one thing):
+
+| Change | Effect on F1 @0.5%, above support | Decision |
 | --- | --- | --- |
-| Views used | 24 | 71 |
-| Median foreground depth coverage | about 38% | 65% native, 82% with level fallback |
-| Silhouette IoU vs original masks, 71 views, median | 0.897 | 0.946 |
-| Topology | closed, genus 78 | closed, genus 23 |
-| Dense time | about 2 min | about 12.5 min stereo + 1 min surface (MPS) |
+| Second native-size pass | none (0.819 vs 0.818), +105 s | off by default |
+| Two pyramid levels instead of three | 0.791 | keep three |
+| Four neighbours instead of six | 0.817 | keep six; four is a reasonable fast setting |
+| Rim band 0.3 / 0.9 windows, truncation 2 voxels, 520-voxel grid, less smoothing | within 0.003 | defaults unchanged |
+| One or two re-matching passes around the fused surface | 0.825 / 0.823, +200 s each | available (`fused_passes`), off by default |
+| Flat support cut | "all" F1 @1% 0.913 to 0.926 | on by default |
 
-Independent scanner check (`scan_evaluate.py`, evaluation only, never fed back
-into reconstruction). The platform is removed from the scan, the mesh is fitted
-by a similarity transform, and distances are reported on held-out surface
-samples as a percentage of the scan's bounding-box diagonal. "Above support"
-excludes the invented underside and the contact band.
+Fusion and meshing settings barely move the result; what limits the Dragon is
+upstream of them (see the camera note below).
 
-| Mesh | Region | Accuracy median / p90 | Completeness median / p90 | F1 @0.5% | F1 @1% | F1 @2% |
-| --- | --- | --- | --- | --- | --- | --- |
-| This pipeline (`mesh-009`) | all | 0.30 / 1.33 | 0.24 / 0.64 | 0.755 | 0.911 | 0.973 |
-| This pipeline (`mesh-009`) | above support | 0.25 / 0.76 | 0.22 / 0.59 | 0.819 | 0.961 | 0.994 |
-| Earlier route (control 204) | all | 0.47 / 2.00 | 0.36 / 1.29 | 0.567 | 0.780 | 0.934 |
-| Earlier route (control 204) | above support | 0.39 / 1.40 | 0.34 / 1.11 | 0.624 | 0.845 | 0.972 |
+Limits, stated plainly:
 
-The largest remaining errors are at the top of the head, the horn tips and the
-concavities between the tail loops and legs. The fit is shape-only, so absolute
-scale is not evaluated.
-
-**Handedness is unresolved.** Both meshes fit the scan only as mirror images
-(trimmed residual 0.65 mirrored against 2.05 unmirrored for `mesh-009`), and the
-photo-derived camera orbit turns in the opposite sense to the dataset's
-depth-derived poses. A perspective SfM solution with a fixed lens and
-sub-pixel residuals cannot itself be mirrored, so either the dataset's photos
-are flipped relative to its depth and scan data, or those use a left-handed
-frame. Until that is settled, treat the STL's chirality as unverified; the
-evaluator reports which handedness it scored.
+- **Handedness is unresolved.** Dragon and Armadillo both fit their scans only
+  as mirror images, and the photo-derived camera orbits turn in the opposite
+  sense to the dataset's depth-derived poses. A fixed-lens perspective SfM
+  solution with sub-pixel residuals cannot itself be mirrored, so either the
+  dataset's photos are flipped relative to its depth and scan data or those use
+  a left-handed frame. Until that is settled, treat an STL's chirality as
+  unverified; the evaluator reports which handedness it scored.
+- **Camera drift.** The Dragon's recovered orbit has slowly drifting steps
+  (about +/-2 degrees around uniform) and camera centres that wander 4% of the
+  radius along the axis; an affine correction of the mesh explains part of its
+  remaining error (about 3% anisotropy). `turntable_rig.py` fits the
+  single-axis turntable model to recovered cameras; whether using it improves
+  the scores is being measured and it is not part of the default run.
+- **Thin parts and the unseen top.** Horn tips are still short, and surfaces
+  no photo sees (the top of the head from a low camera ring, the underside)
+  are silhouette bounds.
+- Mask repair assumes an object darker than its backdrop.
+- Settings were chosen on the Dragon; the Armadillo is the only other object
+  scored so far.
+- The cameras come from all 73 photos. This is not a dozen-photo result.
+- CUDA (`--device cuda`) is implemented but has not been run on an NVIDIA GPU.
 
 ```sh
 python -m scripts.turntable_mesh.scan_evaluate --mesh run/mesh/mesh.stl --reference scan.ply --output run/scan-evaluation
 ```
 
-Status and limits, stated plainly:
+or pass `--reference scan.ply` to `dense_pipeline` to score at the end of a run.
 
-- The Dragon result above was produced by the code before it was reorganised
-  around `DenseConfig` and `dense_pipeline.py`. The reorganised code passes the
-  synthetic unit tests and the synthetic end-to-end CLI run on CPU; the full
-  Dragon run has **not yet been repeated** with it.
-- Settings were chosen on one object. A second object has not been run.
-- Horn tips are still shorter and thinner than in the photos, and the body has
-  residual dimples. Mask repair can add contact shadow near the base.
-- The cameras come from all 73 photos. This is not a dozen-photo result.
+## Progress events, live previews and the HTTP engine
+
+Every run writes `events.jsonl` in its output directory: stage starts and ends,
+progress fractions with a message, metrics, and an `artifact` event whenever a
+file is ready to show. While matching runs, the driver also meshes the
+intermediate surfaces coarsely (silhouette hull, hull after mask repair, the
+surface after each pyramid level), so a front end can show the model improving.
+`--no-live-previews` turns that off; `--preview-step` sets how coarse they are.
+
+```sh
+# serve runs to a browser, a phone or a desktop shell
+python -m scripts.turntable_mesh.engine_server --runs runs/ --data data/ --port 8765
+# make a small bundle a front end can replay without an engine
+python -m scripts.turntable_mesh.export_replay --run runs/my-object --output bundles/my-object
+```
+
+The event types, artifact kinds, HTTP endpoints and their guarantees are
+specified in [`docs/ENGINE-CONTRACT.md`](../../docs/ENGINE-CONTRACT.md).
+A cancel is requested by creating a file named `cancel` in the run directory
+(the HTTP engine does this for `POST /api/runs/<id>/cancel`).
+
+## Turntable constraint (optional)
+
+```sh
+python -m scripts.turntable_mesh.turntable_rig --inputs run/inputs --output run/inputs-rig --steps measured
+```
+
+writes a new inputs directory in which every camera is the same camera rotated
+about one fitted axis. `--steps uniform` also makes the steps between capture
+indices equal (median recovered step, or `--step-degrees`); that is right for a
+stepper-driven turntable and wrong for a hand-turned one.
 
 ## Tests
 
@@ -246,6 +289,7 @@ export PYTHONPATH=$PWD
 $CRISP3DS_TORCH_PYTHON -m unittest scripts.turntable_mesh.test_multiscale_stereo   # config + stereo on an analytic sphere
 $CRISP3DS_PYTHON       -m unittest scripts.turntable_mesh.test_tsdf_hull_mesh      # surface extraction on analytic volumes
 $CRISP3DS_PYTHON       -m unittest scripts.turntable_mesh.test_scan_evaluate       # similarity fit, platform removal, mirror detection
+$CRISP3DS_PYTHON       -m unittest scripts.turntable_mesh.test_turntable_rig scripts.turntable_mesh.test_dense_pipeline
 ```
 
 Each test file skips the cases whose libraries are missing in that interpreter.
