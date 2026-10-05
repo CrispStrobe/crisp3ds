@@ -16,8 +16,8 @@ const file = (name) => resolve(root, name);
 const read = (name) => readFileSync(file(name), "utf8");
 const SEMVER = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/;
 
-const CARGO_TOML = /(\[package\][^[]*?\nversion = ")([^"]+)(")/;
-const CARGO_LOCK = /(name = "crisp3ds-studio"\nversion = ")([^"]+)(")/;
+const CARGO_TOML = /(\[package\][^[]*?\r?\nversion = ")([^"]+)(")/;
+const CARGO_LOCK = /(name = "crisp3ds-studio"\r?\nversion = ")([^"]+)(")/;
 
 function current() {
   return {

@@ -105,6 +105,30 @@ if (out !== "") await page.screenshot({ path: resolve(out, "perf-lightbox.jpg"),
 await page.keyboard.press("Escape");
 await page.evaluate(() => scrollTo(0, 0));
 if (out !== "") await page.screenshot({ path: resolve(out, "perf-final.jpg"), type: "jpeg", quality: 70 });
+if (out !== "") {
+  await page.locator(".reports-panel").scrollIntoViewIfNeeded();
+  await page.locator(".reports-panel").screenshot({ path: resolve(out, "perf-reports.jpg"), type: "jpeg", quality: 70 });
+}
+console.log("reports:", (await page.locator(".report h3").allInnerTexts()).join(", "), "| warnings shown:", await page.locator(".report .notice.warn").count());
+
+// The same bundle at phone width: layout, the final-mesh button, the gallery.
+const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+await phone.addInitScript(() => localStorage.setItem("crisp3ds.studio.v1", JSON.stringify({ replaySpeed: 0 })));
+const small = await phone.newPage();
+small.on("pageerror", (error) => failures.push("phone: " + error.message));
+await small.goto(`${base}#/replay?bundle=${encodeURIComponent(bundle)}`);
+await small.locator("#mesh-heading + .sub", { hasText: "triangles" }).waitFor({ timeout: 180_000 });
+await small.waitForTimeout(500);
+const sideways = await small.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+console.log(`phone: ${await small.locator("#mesh-heading + .sub").innerText()}; sideways scroll ${sideways}px`);
+if (out !== "") {
+  await small.screenshot({ path: resolve(out, "perf-phone.jpg"), type: "jpeg", quality: 70 });
+  await small.locator(".mesh-panel").scrollIntoViewIfNeeded();
+  await small.screenshot({ path: resolve(out, "perf-phone-surface.jpg"), type: "jpeg", quality: 70 });
+  await small.locator(".gallery").scrollIntoViewIfNeeded();
+  await small.waitForLoadState("networkidle");
+  await small.screenshot({ path: resolve(out, "perf-phone-gallery.jpg"), type: "jpeg", quality: 70 });
+}
 
 await browser.close();
 if (failures.length > 0) {

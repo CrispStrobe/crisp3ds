@@ -72,6 +72,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       file_version: ${{ steps.version.outputs.file_version }}
+      mobile_version: ${{ steps.version.outputs.mobile_version }}
       tag: ${{ steps.version.outputs.tag }}
     steps:
       - id: version
@@ -93,6 +94,10 @@ jobs:
           fi
           # '+' is awkward in file names and URLs; files use '-' instead.
           file_version="${version//+/-}"
+          # Apple and Android accept plain numbers only, and Android refuses 0.0.0.
+          mobile_version="${version%%[-+]*}"
+          if [ "$mobile_version" = "0.0.0" ]; then mobile_version="0.0.1"; fi
+          echo "mobile_version=$mobile_version" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "file_version=$file_version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
@@ -120,10 +125,12 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
-      - run: npm run build
+      # Build with the third-party notices inside (needs cargo, which the runner image has).
+      - run: npm run build:release
       - name: Zip (one top-level folder, demo recording inside)
         run: |
           test -s dist/demo/events.jsonl
+          test -s dist/THIRD-PARTY-NOTICES.txt
           ! grep -E '(src|href)="/' dist/index.html
           name="crisp3ds-studio-web-$FILE_VERSION"
           mkdir -p ../../release-out && mv dist "$name"
@@ -283,7 +290,7 @@ jobs:
       run:
         working-directory: apps/studio
     env:
-      VERSION: ${{ needs.meta.outputs.version }}
+      VERSION: ${{ needs.meta.outputs.mobile_version }}
       FILE_VERSION: ${{ needs.meta.outputs.file_version }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -329,7 +336,7 @@ jobs:
       run:
         working-directory: apps/studio
     env:
-      VERSION: ${{ needs.meta.outputs.version }}
+      VERSION: ${{ needs.meta.outputs.mobile_version }}
       FILE_VERSION: ${{ needs.meta.outputs.file_version }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -381,18 +388,12 @@ jobs:
         run: |
           name="crisp3ds-dense-pipeline-$FILE_VERSION"
           mkdir -p release-out
-          # scripts/object_dataset: only what the pipeline imports (scan_evaluate uses evaluate.inspect_ply).
-          git ls-files -z -- \
-            scripts/__init__.py \
-            scripts/turntable_mesh \
-            scripts/object_dataset/__init__.py \
-            scripts/object_dataset/evaluate.py \
-            docs/ENGINE-CONTRACT.md \
-            tests/fixtures/dense-run-sphere \
-            LICENSE \
-            > "$RUNNER_TEMP/files"
+          # scripts/turntable_mesh, the modules elsewhere under scripts/ that it imports (followed
+          # through the sources, e.g. object_dataset/evaluate.py), the contract, the fixture, LICENSE.
+          python apps/studio/scripts/pipeline-files.py > "$RUNNER_TEMP/files"
           test -s "$RUNNER_TEMP/files"
-          tar --null --files-from="$RUNNER_TEMP/files" --transform "s,^,$name/," --owner=0 --group=0 --numeric-owner \
+          grep -v -e '^scripts/turntable_mesh/' -e '^tests/fixtures/' "$RUNNER_TEMP/files"
+          tar --files-from="$RUNNER_TEMP/files" --transform "s,^,$name/," --owner=0 --group=0 --numeric-owner \
             -czf "release-out/$name.tar.gz"
           tar -tzf "release-out/$name.tar.gz" | sed -n '1,12p'
           echo "files: $(tar -tzf "release-out/$name.tar.gz" | wc -l)"
@@ -447,7 +448,7 @@ jobs:
           path: release-out/*
 
   publish:
-    name: checksums${{ needs.meta.outputs.tag != '' && ' and draft prerelease' || '' }}
+    name: checksums and draft prerelease
     needs: [meta, web, desktop, python, android, ios]
     # Mobile is non-blocking: go ahead when the required jobs are green.
     if: always() && needs.web.result == 'success' && needs.desktop.result == 'success' && needs.python.result == 'success'

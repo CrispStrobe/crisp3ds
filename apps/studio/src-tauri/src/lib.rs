@@ -10,11 +10,13 @@
 //!
 //! The web view gets no Tauri permissions beyond calling the commands below.
 
+#[cfg_attr(not(local_engine), allow(dead_code))]
 mod config;
-#[cfg(desktop)]
+#[cfg(local_engine)]
 mod engine;
 
 use serde::Serialize;
+#[cfg(local_engine)]
 use tauri::Manager;
 
 #[derive(Serialize)]
@@ -30,14 +32,14 @@ struct ShellInfo {
 #[tauri::command]
 fn shell_info() -> ShellInfo {
     ShellInfo {
-        can_run_engine: cfg!(desktop),
+        can_run_engine: cfg!(local_engine),
         os: std::env::consts::OS,
         version: env!("CARGO_PKG_VERSION"),
         auto_device: config::auto_device(),
     }
 }
 
-#[cfg(desktop)]
+#[cfg(local_engine)]
 mod desktop {
     use std::path::PathBuf;
 
@@ -132,7 +134,7 @@ fn autopilot_quit(app: tauri::AppHandle) {
 pub fn run() {
     let builder = tauri::Builder::default();
 
-    #[cfg(desktop)]
+    #[cfg(local_engine)]
     let builder = builder.plugin(tauri_plugin_dialog::init()).manage(engine::Engine::default()).setup(|app| {
         engine::install_signal_handlers();
         desktop::start(app.handle());
@@ -151,7 +153,7 @@ pub fn run() {
         }
     });
 
-    #[cfg(all(desktop, debug_assertions))]
+    #[cfg(all(local_engine, debug_assertions))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         shell_info,
         desktop::get_settings,
@@ -162,7 +164,7 @@ pub fn run() {
         autopilot_log,
         autopilot_quit
     ]);
-    #[cfg(all(desktop, not(debug_assertions)))]
+    #[cfg(all(local_engine, not(debug_assertions)))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         shell_info,
         desktop::get_settings,
@@ -171,14 +173,14 @@ pub fn run() {
         desktop::restart_engine,
         desktop::pick_path
     ]);
-    #[cfg(all(mobile, debug_assertions))]
+    #[cfg(all(not(local_engine), debug_assertions))]
     let builder = builder.invoke_handler(tauri::generate_handler![shell_info, autopilot_log, autopilot_quit]);
-    #[cfg(all(mobile, not(debug_assertions)))]
+    #[cfg(all(not(local_engine), not(debug_assertions)))]
     let builder = builder.invoke_handler(tauri::generate_handler![shell_info]);
 
     let app = builder.build(tauri::generate_context!()).expect("error while building Crisp3DS Studio");
     app.run(|_handle, _event| {
-        #[cfg(desktop)]
+        #[cfg(local_engine)]
         if let tauri::RunEvent::Exit = _event {
             // Blocks until the engine and its process group are gone.
             _handle.state::<engine::Engine>().stop();
