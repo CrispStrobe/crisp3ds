@@ -1,7 +1,7 @@
 name: dense pipeline
 
 # CPU checks of the all-view dense turntable pipeline (scripts/turntable_mesh):
-# lint, analytic unit tests and the README "Quick start" on the synthetic sphere.
+# lint, analytic unit tests, the HTTP engine and the README "Quick start" on the synthetic sphere.
 # Hosted runners have no usable GPU, so --device mps and --device cuda are not
 # exercised here. See docs/CI.md.
 
@@ -68,6 +68,10 @@ jobs:
           scripts.turntable_mesh.test_turntable_rig
           scripts.turntable_mesh.test_scan_evaluate
           scripts.turntable_mesh.test_dense_pipeline
+          scripts.turntable_mesh.test_engine_server
+        env:
+          # also start one real run through POST /api/runs of the HTTP engine
+          CRISP3DS_TEST_ENGINE_RUN: '1'
       # Same commands as the "Quick start" of scripts/turntable_mesh/README.md,
       # with the output under the workspace instead of /tmp.
       - name: End-to-end smoke on the synthetic sphere
@@ -90,11 +94,18 @@ jobs:
           assert mesh["closed"] is True, mesh
           assert (run / "mesh/mesh.stl").stat().st_size > 84
           assert (run / "check/preview.png").stat().st_size > 0
+          events = [json.loads(line) for line in (run / "events.jsonl").read_text(encoding="utf-8").splitlines()]
+          assert events[0]["type"] == "run_started" and events[-1]["type"] == "run_finished", events[-1]
+          assert events[-1]["status"] == "complete", events[-1]
+          previews = [e["path"] for e in events if e["type"] == "artifact" and e["kind"] == "preview_mesh"]
+          print("live preview meshes:", previews)
+          assert previews, "the live-preview side processes produced no mesh"
+          assert all((run / path).is_file() for path in previews), previews
           EOF
       - name: Stage logs
         if: always()
         run: |
-          for log in ci-out/sphere-run/*.log; do
+          for log in ci-out/sphere-run/*.log ci-out/sphere-run/stereo/preview/*.log; do
             [ -f "$log" ] || continue
             echo "::group::$log"; tail -n 60 "$log"; echo "::endgroup::"
           done
@@ -109,4 +120,6 @@ jobs:
             ci-out/sphere-run/pipeline.json
             ci-out/sphere-run/mesh/result.json
             ci-out/sphere-run/config.json
+            ci-out/sphere-run/events.jsonl
             ci-out/sphere-run/*.log
+            ci-out/sphere-run/stereo/preview/*.log

@@ -47,15 +47,23 @@ Windows Torch comes from the CPU wheel index, so no CUDA runtime is downloaded.
    The repository has no Ruff configuration and Ruff 0.16 widened its defaults,
    so both the version and the rule set are explicit
 2. unit tests: `test_multiscale_stereo`, `test_tsdf_hull_mesh`,
-   `test_turntable_rig`, `test_scan_evaluate`, `test_dense_pipeline`
+   `test_turntable_rig`, `test_scan_evaluate`, `test_dense_pipeline` and
+   `test_engine_server`. The engine test replays the recorded run in
+   `tests/fixtures/dense-run-sphere` (health, settings, run list, event paging,
+   file serving, path traversal, token, refusal of a non-local bind without
+   `--token`). With `CRISP3DS_TEST_ENGINE_RUN=1`, as set in CI, it also starts
+   one real run on the synthetic sphere through `POST /api/runs` and follows its
+   event log to `run_finished`
 3. the README "Quick start": `synthetic_scene`, then `dense_pipeline --device cpu`
    on the analytic sphere, followed by a check that `pipeline.json` says
-   `complete` and the mesh is closed
+   `complete`, the mesh is closed, `events.jsonl` ends in `run_finished`
+   `complete` and the live-preview side processes produced their meshes
 4. artifact `dense-smoke-<os>`: `check/preview.png`, `check/result.json`,
-   `pipeline.json`, `mesh/result.json`, `config.json` and the stage logs
+   `pipeline.json`, `mesh/result.json`, `config.json`, `events.jsonl` and the stage logs
 
 Proves: the whole driver (four stage processes, one interpreter) works on the
-three systems on CPU, including the deadline handling of a stage and its child
+three systems on CPU, including the live-preview side processes, starting a
+run from the HTTP engine, and the deadline handling of a stage and its child
 processes (process group on POSIX, `taskkill /T` on Windows).
 
 Does not prove: MPS or CUDA execution, speed, memory use at real photo sizes,
@@ -71,7 +79,7 @@ python -m pip install -r scripts/turntable_mesh/requirements-dense.txt ruff==0.1
 ruff check --select E4,E7,E9,F scripts/turntable_mesh
 python -m unittest scripts.turntable_mesh.test_multiscale_stereo scripts.turntable_mesh.test_tsdf_hull_mesh \
   scripts.turntable_mesh.test_turntable_rig scripts.turntable_mesh.test_scan_evaluate \
-  scripts.turntable_mesh.test_dense_pipeline
+  scripts.turntable_mesh.test_dense_pipeline scripts.turntable_mesh.test_engine_server
 python -m scripts.turntable_mesh.synthetic_scene --output /tmp/sphere
 python -m scripts.turntable_mesh.dense_pipeline --inputs /tmp/sphere --output /tmp/sphere-run \
   --device cpu --set sizes=64,128 --set grid=96 --set planes=48 --set neighbours=4 --set best_of=2 \
@@ -92,8 +100,12 @@ interpreter (tests whose libraries are missing skip) and give the driver
   `npx tauri build --no-bundle --ci -- --locked`; uploads the bare executable as
   `crisp3ds-desktop-<os>-unsigned`. Linux installs WebKitGTK 4.1, GTK 3,
   libayatana-appindicator, librsvg, libxdo and OpenSSL headers first.
-- **android / ios** (manual, `mobile=true`, non-blocking): unsigned debug
-  probes only; see the TODO block in the workflow file.
+- **android / ios** (manual: `gh workflow run desktop.yml -f mobile=true`,
+  non-blocking): `tauri android init` + `tauri android build --debug --apk
+  --target aarch64` gives a debug-key APK; `tauri ios init` + `tauri ios build
+  --debug --target aarch64-sim` gives a simulator build. Both built on their
+  first run. Neither is distributable, and neither was installed or launched.
+  See the TODO block in the workflow file.
 
 Proves: the committed frontend and Rust shell compile and link in release mode
 on the three desktop systems with the locked dependencies.

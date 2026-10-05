@@ -138,8 +138,12 @@ jobs:
   #   a device or uploadable to TestFlight.
   #
   # The two jobs below are an unsigned probe only: manual, non-blocking, and
-  # they upload whatever they produce. Promote them to push CI only after they
-  # are green and the owner has decided on identifiers and signing.
+  # they upload whatever they produce. Both were green on their first manual
+  # run (debug APK for arm64; simulator .app for arm64). They stay manual
+  # because the outputs are not distributable: what is still to do is choosing
+  # the final bundle identifier, release signing as described above, and only
+  # then a release job. Nothing here was installed or launched on a device or
+  # simulator.
   android:
     name: android debug apk (experimental)
     if: github.event_name == 'workflow_dispatch' && inputs.mobile
