@@ -33,7 +33,8 @@ ported in this order: surface extraction, hull and fusion, matching, inputs.
 | `src/npz.rs`, `src/stl.rs` | Array and mesh file formats |
 | `src/mesh/` | Surface extraction (port of `tsdf_hull_mesh.py`) |
 | `src/gpu/`, `src/shaders/` | `wgpu` device handling and WGSL kernels |
-| `src/hull.rs`, `src/fusion.rs`, `src/stereo/` | Ports of `multiscale_stereo.py` |
+| `src/inputs.rs`, `src/arrays.rs` | Inputs directory as `Stereo.__init__` prepares it; standalone `.npy` |
+| `src/hull.rs`, `src/repair.rs`, `src/fusion.rs`, `src/stereo/` | Ports of `multiscale_stereo.py` |
 | `src/main.rs` | `crisp3ds-dense <stage>` command line |
 
 ## Build and test
@@ -51,3 +52,7 @@ licenses are listed here as they are added.
 | --- | --- | --- |
 | anyhow | MIT OR Apache-2.0 | errors |
 | serde, serde_json | MIT OR Apache-2.0 | configuration and events |
+| wgpu | MIT OR Apache-2.0 | WebGPU compute (Metal, Vulkan, DirectX 12, browsers) |
+| bytemuck | Zlib OR Apache-2.0 OR MIT | plain-data casts for GPU buffers |
+| pollster | Apache-2.0 OR MIT | blocking on `wgpu` futures |
+| image (png, jpeg only) | MIT OR Apache-2.0 | photo and mask decoding, PNG writing |

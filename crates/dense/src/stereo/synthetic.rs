@@ -1,0 +1,167 @@
+//! A small analytic turntable scene in the stage's input format: port of
+//! `scripts/turntable_mesh/synthetic_scene.py`. A unit sphere with a texture
+//! fixed to its surface, darker than a plain backdrop, seen by a ring of
+//! pinhole cameras. Used by tests and smoke runs; exact depth is known.
+//!
+//! Images, masks, cameras and depths follow the Python formulas; only the
+//! sparse points differ (a Fibonacci lattice instead of NumPy's generator).
+
+use std::path::Path;
+
+use anyhow::Context;
+use serde_json::json;
+
+use crate::npz::{self, Array, Data};
+
+/// Settings sized for the scene (`synthetic_scene.SMALL`).
+pub const SMALL: [&str; 11] = [
+    "sizes=64,128",
+    "grid=96",
+    "planes=48",
+    "neighbours=4",
+    "best_of=2",
+    "vote_neighbours=4",
+    "min_votes=2,2",
+    "crop_padding=6",
+    "hull_dilate=1",
+    "windows=5,7",
+    "aggregates=1,1",
+];
+
+type Mat3 = [[f64; 3]; 3];
+
+fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
+    [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+}
+
+fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+fn normalised(a: [f64; 3]) -> [f64; 3] {
+    let n = dot(a, a).sqrt();
+    a.map(|v| v / n)
+}
+
+/// World-to-camera rotation and translation looking at the origin, y down.
+pub fn camera(angle: f64, elevation: f64, distance: f64) -> (Mat3, [f64; 3]) {
+    let (a, e) = (angle.to_radians(), elevation.to_radians());
+    let centre = [distance * e.cos() * a.cos(), distance * e.cos() * a.sin(), distance * e.sin()];
+    let forward = normalised(centre.map(|v| -v));
+    let right = normalised(cross(forward, [0.0, 0.0, 1.0]));
+    let down = cross(forward, right);
+    let rotation = [right, down, forward];
+    let translation = [-dot(right, centre), -dot(down, centre), -dot(forward, centre)];
+    (rotation, translation)
+}
+
+fn texture(p: [f64; 3]) -> f64 {
+    let [x, y, z] = p;
+    let value = ((9.0 * x + 2.0 * y).sin()
+        + (11.0 * y - 3.0 * z).sin()
+        + (13.0 * z + 5.0 * x).sin()
+        + 0.7 * (31.0 * x - 17.0 * y + 23.0 * z).sin())
+        / 3.7;
+    0.38 + 0.22 * value
+}
+
+/// Grey image, mask and exact z-depth of the sphere for one camera, row-major.
+pub fn render(rotation: &Mat3, translation: &[f64; 3], k: &[f64; 4], width: usize, height: usize) -> (Vec<f64>, Vec<bool>, Vec<f64>) {
+    let centre = [0, 1, 2].map(|a| -(rotation[0][a] * translation[0] + rotation[1][a] * translation[1] + rotation[2][a] * translation[2]));
+    let (mut gray, mut mask, mut depth) = (Vec::new(), Vec::new(), Vec::new());
+    for y in 0..height {
+        for x in 0..width {
+            let ray = [(x as f64 + 0.5 - k[2]) / k[0], (y as f64 + 0.5 - k[3]) / k[1], 1.0];
+            let direction = [0, 1, 2].map(|a| ray[0] * rotation[0][a] + ray[1] * rotation[1][a] + ray[2] * rotation[2][a]);
+            let b = dot(direction, centre);
+            let a = dot(direction, direction);
+            let discriminant = b * b - a * (dot(centre, centre) - 1.0);
+            let hit = discriminant > 0.0;
+            let d = if hit { (-b - discriminant.max(0.0).sqrt()) / a } else { 0.0 };
+            let point = [0, 1, 2].map(|n| centre[n] + direction[n] * d);
+            gray.push(if hit { texture(point) } else { 0.82 });
+            mask.push(hit);
+            depth.push(d);
+        }
+    }
+    (gray, mask, depth)
+}
+
+/// Writes the scene (`views` cameras, square images of `size` pixels) into a fresh directory.
+pub fn write(output: &Path, views: usize, size: usize) -> anyhow::Result<()> {
+    let (distance, elevation, focal) = (6.0, 10.0, 227.0 * size as f64 / 128.0);
+    std::fs::create_dir_all(output.join("images")).with_context(|| output.display().to_string())?;
+    std::fs::create_dir_all(output.join("masks"))?;
+    let k = [focal, focal, size as f64 / 2.0, size as f64 / 2.0];
+    let mut rows = Vec::new();
+    let mut depths: Vec<(String, Array)> = Vec::new();
+    for n in 0..views {
+        let (rotation, translation) = camera(360.0 * n as f64 / views as f64, elevation, distance);
+        let (gray, mask, depth) = render(&rotation, &translation, &k, size, size);
+        let name = format!("view_{n:03}");
+        let rgb: Vec<u8> = gray.iter().flat_map(|&g| [(255.0 * g.clamp(0.0, 1.0)) as u8; 3]).collect();
+        image::RgbImage::from_raw(size as u32, size as u32, rgb).expect("image size").save(output.join(format!("images/{name}.png")))?;
+        let luma: Vec<u8> = mask.iter().map(|&m| if m { 255 } else { 0 }).collect();
+        image::GrayImage::from_raw(size as u32, size as u32, luma).expect("mask size").save(output.join(format!("masks/{name}.png")))?;
+        rows.push(json!({
+            "name": name, "source": format!("{name}.png"), "image": format!("images/{name}.png"),
+            "mask": format!("masks/{name}.png"), "width": size, "height": size, "k": k,
+            "rotation": rotation, "translation": translation,
+        }));
+        depths.push((name, Array::new(&[size, size], Data::F32(depth.iter().map(|&d| d as f32).collect()))));
+    }
+    // Points on the sphere for the scene box and the viewing directions.
+    let count = 400;
+    let golden = std::f64::consts::PI * (3.0 - 5.0f64.sqrt());
+    let mut sparse = Vec::with_capacity(count * 3);
+    for n in 0..count {
+        let z = 1.0 - 2.0 * (n as f64 + 0.5) / count as f64;
+        let r = (1.0 - z * z).sqrt();
+        sparse.extend_from_slice(&[r * (golden * n as f64).cos(), r * (golden * n as f64).sin(), z]);
+    }
+    std::fs::write(output.join("sparse_points.npy"), crate::arrays::npy_f64(&[count, 3], &sparse))?;
+    let members: Vec<(&str, &Array)> = depths.iter().map(|(name, array)| (name.as_str(), array)).collect();
+    npz::write(&output.join("exact_depths.npz"), &members, true)?;
+    std::fs::write(output.join("cameras.json"), serde_json::to_string_pretty(&json!({ "views": rows }))? + "\n")?;
+    Ok(())
+}
+
+/// A fresh scene in a temporary directory; the caller removes it.
+pub fn temporary(tag: &str, views: usize, size: usize) -> anyhow::Result<std::path::PathBuf> {
+    let root = std::env::temp_dir().join(format!("crisp3ds-synthetic-{tag}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    write(&root.join("inputs"), views, size)?;
+    Ok(root)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::inputs::Inputs;
+    use crate::stereo::options;
+
+    #[test]
+    fn scene_loads_with_one_common_canvas() {
+        let root = temporary("load", 12, 64).unwrap();
+        let overrides: Vec<String> = SMALL.iter().map(|s| s.to_string()).collect();
+        let config = options::build(None, &overrides).unwrap();
+        let inputs = Inputs::load(&root.join("inputs"), &config).unwrap();
+        assert_eq!(inputs.count(), 12);
+        let (w, h) = (inputs.boxes[0][2] - inputs.boxes[0][0], inputs.boxes[0][3] - inputs.boxes[0][1]);
+        assert!(inputs.boxes.iter().all(|b| b[2] - b[0] == w && b[3] - b[1] == h) && w % 2 == 0 && h % 2 == 0);
+        assert_eq!(inputs.longest, w.max(h));
+        // The stretch maps the object's 1st..99th grey percentile to 0..1; the backdrop is brighter.
+        let (gray, mask) = (&inputs.gray[0], &inputs.masks[0]);
+        let inside: Vec<f32> = gray.data.iter().zip(&mask.data).filter(|(_, &m)| m != 0).map(|(&g, _)| g).collect();
+        let below = inside.iter().filter(|&&g| g < 0.0).count() as f64 / inside.len() as f64;
+        let above = inside.iter().filter(|&&g| g > 1.0).count() as f64 / inside.len() as f64;
+        assert!(below <= 0.011 && above <= 0.011, "{below} {above}");
+        assert!(gray.data[0] > 1.0);
+        // A ring of 12 views: neighbours are the adjacent cameras, 30 degrees apart.
+        let neighbours = inputs.neighbours(0, 4, &config).unwrap();
+        assert_eq!(neighbours.len(), 2);
+        assert!(neighbours.contains(&1) && neighbours.contains(&11));
+        assert!((inputs.angles[0][1] - 30.0).abs() < 1.0);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+}
