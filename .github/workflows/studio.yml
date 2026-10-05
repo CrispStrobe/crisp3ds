@@ -1,0 +1,58 @@
+name: studio
+
+# Crisp3DS Studio, the web front end in apps/studio: typecheck, unit tests and
+# the static bundle. The bundle (with the sphere replay fixture inside as its
+# demo) is uploaded as an artifact; it is built with relative asset URLs, so it
+# can be served from any path. Nothing is deployed from here.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/studio.yml'
+      - 'apps/studio/**'
+      - 'tests/fixtures/dense-run-sphere/**'
+      - 'docs/ENGINE-CONTRACT.md'
+  pull_request:
+    paths:
+      - '.github/workflows/studio.yml'
+      - 'apps/studio/**'
+      - 'tests/fixtures/dense-run-sphere/**'
+      - 'docs/ENGINE-CONTRACT.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: studio-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: lint, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/studio
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/studio/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: The bundle carries the demo recording and only relative URLs
+        run: |
+          test -s dist/demo/events.jsonl
+          test -s dist/demo/mesh/mesh.stl
+          ! grep -E '(src|href)="/' dist/index.html
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: crisp3ds-studio
+          if-no-files-found: error
+          path: apps/studio/dist
