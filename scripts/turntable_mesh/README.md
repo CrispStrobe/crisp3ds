@@ -168,7 +168,7 @@ pyramid level; a shorter tuple repeats its last entry.
 | `tolerances`, `min_votes`, `vote_neighbours` | 0.006/0.003/0.002, 2/3/3, 10 | Cross-view depth agreement: relative tolerance, required agreeing views, views asked |
 | `grid` | 400 | Voxels along the longest side of the object |
 | `hull_dilate`, `hull_allowed` | 2, 2 | Mask tolerance in native pixels; views allowed to disagree |
-| `repair_masks`, `repair_loose`, `repair_rounds`, `repair_base_margin` | true, 0, 2, 8 | Mask repair on/off; views allowed to disagree (0 = a fifth of the views); rounds; voxels above the support kept out of repair |
+| `repair_masks`, `repair_loose`, `repair_rounds`, `repair_base_margin` | true, 0, 2, 20 | Mask repair on/off; views allowed to disagree (0 = a fifth of the views); rounds; voxels above the support kept out of repair |
 | `hull_front`, `hull_front_level`, `hull_front_min_score`, `hull_front_margin`, `hull_front_stride` | true, 1, 0.6, 0.004, 2 | Hull-front depth candidate for thin parts; stride of its ray-march grid |
 | `fallback_level` | true | Where the finest level fails its checks, use the previous level's depth |
 | `rim_fraction` | 0.55 | Silhouette band excluded from fusion, in matching windows |
@@ -234,7 +234,9 @@ What the scored experiments on the Dragon showed (each changes one thing):
 | Narrower native band (5 steps) and 96 coarse planes | 0.822, faster | new default |
 | Turntable model with uniform steps | 0.635, depth coverage collapses | rejected: the recovered step angles are real |
 | Turntable model with fitted steps (Armadillo) | 0.890 against 0.936 | not used: the free poses are better than this fit |
-| Mask repair tolerating a fifth of the views, two rounds (full reruns) | Bunny 0.955 to 0.964, Armadillo 0.936 to 0.952, Dragon 0.820 to 0.822; restores the Bunny's ears. Whole-surface Dragon F1 @1% 0.924 to 0.910 from contact shadow at the base | new default; the base is being worked on |
+| Mask repair tolerating a fifth of the views, two rounds (full reruns) | Bunny 0.955 to 0.964, Armadillo 0.936 to 0.952, Dragon 0.820 to 0.822; restores the Bunny's ears. Whole-surface Dragon F1 @1% 0.924 to 0.910 from contact shadow at the base | new default |
+| Repair kept 20 instead of 8 voxels above the support (re-fused, with free-space votes at 0.3) | Dragon whole-surface F1 @1% back to 0.921; above the support unchanged within 0.006 | new default |
+| Free-space votes weighted 0.3 or 0.15 (`free_weight`) | Bunny up to 0.970, Dragon down to 0.802, Lucy down to 0.821 | available, off by default |
 
 Fusion and meshing settings barely move the result; what limits the Dragon is
 upstream of them (see the camera note below).

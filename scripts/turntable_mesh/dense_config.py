@@ -43,7 +43,7 @@ class DenseConfig:
     repair_masks: bool = True
     repair_loose: int = 0  # views allowed to disagree during repair; 0 = a fifth of the views
     repair_rounds: int = 2
-    repair_base_margin: float = 8.0  # voxels above the support kept out of repair
+    repair_base_margin: float = 20.0  # voxels above the support kept out of repair
     # --- thin parts
     hull_front: bool = True
     hull_front_level: int = 1
