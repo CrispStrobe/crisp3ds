@@ -37,6 +37,8 @@ export function MeshPanel({ source, meshes, runStatus, themeTick }: Props) {
   const [loading, setLoading] = useState<Loading>(null);
   const [error, setError] = useState<{ path: string; message: string } | null>(null);
   const [retry, setRetry] = useState(0);
+  /** Sizes learnt by asking the server, by path; null when it could not say. */
+  const [probed, setProbed] = useState<Record<string, number | null>>({});
   const [flat, setFlat] = useState(() => loadPrefs().flat);
   const [up, setUp] = useState<UpAxis>(() => {
     const stored = loadPrefs().up as UpAxis;
@@ -90,9 +92,26 @@ export function MeshPanel({ source, meshes, runStatus, themeTick }: Props) {
   const selected = (chosen !== null ? meshes.find((step) => step.path === chosen) : undefined) ?? newest;
   const following = chosen === null || selected === undefined || selected.path !== chosen;
 
+  // The size of a binary STL follows from its triangle count. When an event does not carry
+  // one, the file is asked for its size (HEAD) instead of being downloaded to find out.
+  const sizeOf = (step: MeshStep): number | undefined => stlBytes(step.triangles) ?? probed[step.path] ?? undefined;
+  const unsized = meshes.filter((step) => step.kind === "final_mesh" && step.triangles === undefined).map((step) => step.path);
+  useEffect(() => {
+    if (source.fileSize === undefined) return;
+    const abort = new AbortController();
+    for (const path of unsized) {
+      if (path in probed) continue;
+      source.fileSize(path, abort.signal).then(
+        (size) => setProbed((known) => ({ ...known, [path]: size ?? null })),
+        () => undefined,
+      );
+    }
+    return () => abort.abort();
+  }, [source, unsized.join("\n")]);
+
   const needsConsent = (step: MeshStep): boolean => {
     if (step.kind !== "final_mesh" || approved.has(step.path) || loader.current?.has(step.path)) return false;
-    const bytes = stlBytes(step.triangles);
+    const bytes = sizeOf(step);
     return bytes === undefined || bytes > AUTO_LOAD_BYTES;
   };
 
@@ -155,7 +174,7 @@ export function MeshPanel({ source, meshes, runStatus, themeTick }: Props) {
     if (step !== undefined) setChosen(step.path);
   };
   const shownStep = shown === null ? undefined : meshes.find((step) => step.path === shown.path);
-  const consentBytes = selected !== undefined ? stlBytes(selected.triangles) : undefined;
+  const consentBytes = selected !== undefined ? sizeOf(selected) : undefined;
   const loadingStep = loading === null ? undefined : meshes.find((step) => step.path === loading.path);
 
   return (

@@ -90,8 +90,9 @@ function ReportCard({ source, report, optional }: { source: RunSource; report: R
 }
 
 export function ReportsPanel({ source, run }: Props) {
-  // The photo check writes check/result.json (contract section 1) but no `report` event
-  // announces it, so a live engine is asked for it once the check stage is done.
+  // The photo check is announced by a `report` event. Runs made before the engine did that
+  // have check/result.json on disk without an event; only for those (check finished, nothing
+  // announced) a live engine is asked for the file by its conventional path.
   const checkDone = run.stages.find((stage) => stage.name === "check")?.status === "done";
   const announced = run.reports.some((report) => report.path === "check/result.json");
   const photoCheck: ReportRef | null =

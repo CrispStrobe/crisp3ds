@@ -67,6 +67,8 @@ export interface RunSource {
   imageUrl(path: string): Promise<string>;
   fetchBytes(path: string, options?: FetchOptions): Promise<ArrayBuffer>;
   fetchJson(path: string, options?: FetchOptions): Promise<unknown>;
+  /** Size of a run file in bytes without downloading it (HTTP HEAD), or undefined when it cannot be told. */
+  fileSize?(path: string, signal?: AbortSignal): Promise<number | undefined>;
   /** Present when the run can be cancelled from here. */
   cancel?(): Promise<void>;
   /** Present for recordings. */
@@ -100,6 +102,19 @@ export class EngineError extends Error {
   }
 }
 
+export interface DataEntry {
+  name: string;
+  directory: boolean;
+  /** A run can start from this folder. */
+  inputs: boolean;
+}
+
+export interface DataListing {
+  /** The listed folder, relative to the data directory, "" for the top. */
+  path: string;
+  entries: DataEntry[];
+}
+
 export interface Engine {
   readonly kind: SourceKind;
   /** Where it is, without credentials. */
@@ -110,4 +125,6 @@ export interface Engine {
   /** Returns the id of the new run. Throws `EngineError` with status 400 and the engine's sentence on invalid input. */
   startRun(body: Record<string, unknown>): Promise<string>;
   openRun(id: string): RunSource;
+  /** Folders and files under the engine's data directory; `path` is relative to it ("" is the top). */
+  listData?(path: string, signal?: AbortSignal): Promise<DataListing>;
 }

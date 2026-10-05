@@ -5,7 +5,7 @@
 
 import { parseEventLines, type RunEvent } from "../core/events";
 import { ReplayPlayer, systemClock, type ReplayClock, type ReplaySnapshot, type ReplaySpeed } from "../core/replay";
-import { browserFetch, describe, encodePath, isAbort, readBytes, request, withTrailingSlash, type FetchLike } from "./transport";
+import { browserFetch, describe, encodePath, headSize, isAbort, readBytes, request, withTrailingSlash, type FetchLike } from "./transport";
 import type { FetchOptions, LinkStatus, ReplayControls, RunSource, SourceUpdate } from "./types";
 
 export interface ReplayOptions {
@@ -93,6 +93,10 @@ export class ReplaySource implements RunSource {
 
   async fetchJson(path: string, options: FetchOptions = {}): Promise<unknown> {
     return (await request(this.fetcher, this.url(path), { signal: options.signal })).json();
+  }
+
+  fileSize(path: string, signal?: AbortSignal): Promise<number | undefined> {
+    return headSize(this.fetcher, this.url(path), { signal });
   }
 
   private url(path: string): string {

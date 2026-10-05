@@ -8,9 +8,11 @@
 
 import { normaliseEvent, type RunEvent } from "../core/events";
 import { parseSettingsSchema, type SettingSpec } from "../core/settings";
-import { browserFetch, describe, encodePath, isAbort, readBytes, request, type FetchLike } from "./transport";
+import { browserFetch, describe, encodePath, headSize, isAbort, readBytes, request, type FetchLike } from "./transport";
 import {
   EngineError,
+  type DataEntry,
+  type DataListing,
   type Engine,
   type EngineHealth,
   type FetchOptions,
@@ -131,6 +133,21 @@ export class HttpEngine implements Engine {
     return answer.id;
   }
 
+  async listData(path: string, signal?: AbortSignal): Promise<DataListing> {
+    const body = (await this.json(`data?path=${encodeURIComponent(path)}`, { signal })) as {
+      path?: unknown;
+      entries?: unknown;
+    } | null;
+    const entries: DataEntry[] = [];
+    for (const row of Array.isArray(body?.entries) ? body.entries : []) {
+      if (typeof row !== "object" || row === null) continue;
+      const record = row as Record<string, unknown>;
+      if (typeof record.name !== "string" || record.name === "") continue;
+      entries.push({ name: record.name, directory: record.directory === true, inputs: record.inputs === true });
+    }
+    return { path: typeof body?.path === "string" ? body.path : path, entries };
+  }
+
   openRun(id: string): RunSource {
     return new HttpRunSource(this.base, id, this.options);
   }
@@ -230,6 +247,10 @@ export class HttpRunSource implements RunSource {
 
   async fetchJson(path: string, options: FetchOptions = {}): Promise<unknown> {
     return (await request(this.fetcher, this.fileUrl(path), { headers: this.headers(), signal: options.signal })).json();
+  }
+
+  fileSize(path: string, signal?: AbortSignal): Promise<number | undefined> {
+    return headSize(this.fetcher, this.fileUrl(path), { headers: this.headers(), signal });
   }
 
   async cancel(): Promise<void> {

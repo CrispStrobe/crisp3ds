@@ -85,6 +85,20 @@ function capitalise(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+/** Asks for a file's size with HEAD. Undefined when the server does not say or does not answer HEAD. */
+export async function headSize(fetcher: FetchLike, url: string, init: RequestInit = {}): Promise<number | undefined> {
+  try {
+    const response = await fetcher(url, { ...init, method: "HEAD" });
+    if (!response.ok || response.headers.get("Content-Encoding")) return undefined;
+    const header = response.headers.get("Content-Length");
+    const size = header === null ? NaN : Number(header);
+    return Number.isFinite(size) && size > 0 ? size : undefined;
+  } catch (problem) {
+    if (isAbort(problem)) throw problem;
+    return undefined;
+  }
+}
+
 export function isAbort(problem: unknown): boolean {
   return problem instanceof DOMException && problem.name === "AbortError";
 }

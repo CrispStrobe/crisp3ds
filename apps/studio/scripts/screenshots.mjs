@@ -224,6 +224,23 @@ async function engine(browser) {
   await tab.getByRole("button", { name: "Start run" }).click();
   await tab.locator("#f-inputs-error", { hasText: "existing path" }).waitFor();
 
+  // Find the inputs with the folder browser instead of typing them.
+  await tab.locator("#f-inputs").fill("");
+  await tab.locator("#f-inputs + button", { hasText: "Browse" }).click();
+  const parts = engineInputs.split("/");
+  for (const part of parts.slice(0, -1)) await tab.locator("#f-inputs-browser .browser-entry", { hasText: part }).click();
+  await tab.locator("#f-inputs-browser li.pickable", { hasText: parts.at(-1) }).waitFor();
+  await tab.locator("#f-inputs").scrollIntoViewIfNeeded();
+  await shot(tab, "new-run-browser.jpg");
+  await tab.locator("#f-inputs-browser li.pickable", { hasText: parts.at(-1) }).getByRole("button", { name: /^Use/ }).click();
+  const browsed = await tab.locator("#f-inputs").inputValue();
+  if (browsed !== engineInputs) problems.push(`folder browser chose "${browsed}", expected "${engineInputs}"`);
+  // Type-ahead: the datalist offers what is in the folder being typed.
+  await tab.locator("#f-reference").fill(parts.slice(0, -1).join("/") + (parts.length > 1 ? "/" : ""));
+  await tab.locator("#f-reference-list option").first().waitFor({ state: "attached" });
+  console.log("reference suggestions:", await tab.locator("#f-reference-list option").evaluateAll((all) => all.map((o) => o.value)));
+  await tab.locator("#f-reference").fill("");
+
   console.log("start body:", await startRun(tab, engineInputs, "studio check"));
   await tab.evaluate(() => scrollTo(0, 0));
 
@@ -273,16 +290,10 @@ async function engine(browser) {
     await shot(tab, "engine-cancelled-desktop.jpg");
 
     // A run that fails: inputs that are a folder, but not an inputs folder.
-    // Reported, not counted as a Studio problem: whether the run ends as "failed" is up to
-    // the engine. (As of engine commit 147b127 the driver dies before the first stage and
-    // writes no run_finished, so the run stays "running"; Studio can only show that.)
+    // The engine starts it, fails before the first stage and says why.
     await startRun(tab, "empty", "to fail");
-    const failed = await tab
-      .locator(".badge.status-failed")
-      .waitFor({ timeout: 45_000 })
-      .then(() => true)
-      .catch(() => false);
-    console.log(failed ? "failing run: reported as failed" : "failing run: the engine never reported an end (still running)");
+    await tab.locator(".badge.status-failed").waitFor({ timeout: 45_000 });
+    await tab.locator(".notice.bad .error-text").waitFor();
     await shot(tab, "engine-failed-desktop.jpg");
   }
 

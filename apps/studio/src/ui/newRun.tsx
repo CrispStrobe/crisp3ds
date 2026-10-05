@@ -15,6 +15,7 @@ import { describe, isAbort } from "../sources/transport";
 import { EngineError, type Engine, type EngineHealth } from "../sources/types";
 import { navigate } from "./app";
 import { Icon } from "./icons";
+import { PathField } from "./pathField";
 import type { Prefs } from "./prefs";
 
 interface Props {
@@ -138,7 +139,9 @@ export function NewRun({ engine, prefs, onChange }: Props) {
       <form onSubmit={submit} novalidate>
         <fieldset class="panel">
           <legend>Data</legend>
-          <TextField
+          <PathField
+            engine={engine}
+            want="inputs"
             id="f-inputs"
             label="Inputs folder"
             value={inputs}
@@ -151,7 +154,9 @@ export function NewRun({ engine, prefs, onChange }: Props) {
             error={inputsError}
             required
           />
-          <TextField
+          <PathField
+            engine={engine}
+            want="file"
             id="f-reference"
             label="Reference scan"
             optional="optional"
