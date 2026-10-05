@@ -7,3 +7,6 @@
 
 pub mod config;
 pub mod events;
+pub mod mesh;
+pub mod npz;
+pub mod stl;

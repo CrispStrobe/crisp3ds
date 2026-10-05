@@ -9,6 +9,7 @@ fn main() -> ExitCode {
             println!("{}", serde_json::to_string_pretty(&crisp3ds_dense::config::DenseConfig::default()).unwrap());
             ExitCode::SUCCESS
         }
+        Some("mesh") => crisp3ds_dense::mesh::command(&arguments[1..]),
         Some("--version") => {
             println!("crisp3ds-dense {}", env!("CARGO_PKG_VERSION"));
             ExitCode::SUCCESS
