@@ -43,8 +43,11 @@ A replay bundle is made with
 the number of lines consumed; over HTTP each event carries that line number as
 `seq`. A last line without a newline is still being written and must be ignored.
 
-Every event has `type`, `time` (Unix seconds) and `stage` (`inputs`, `stereo`,
-`mesh`, `check`, `evaluate`, or null for run-level events).
+Every event has `type`, `time` (Unix seconds) and `stage` (`masks`, `cameras`,
+`inputs`, `stereo`, `mesh`, `check`, `evaluate`, or null for run-level events).
+`masks` and `cameras` come from the separate photos-to-inputs step
+(`docs/PHOTOS-TO-INPUTS.md`), which writes the same kind of log but is not yet
+chained into a run by the driver.
 
 | `type` | Other fields | Meaning |
 | --- | --- | --- |
@@ -61,6 +64,8 @@ Artifact kinds, in the order they normally appear:
 
 | `kind` | File | What it shows |
 | --- | --- | --- |
+| `mask_sheet` | PNG | Photos-to-inputs step: segmentation masks over the photos |
+| `sparse_overlay` | PNG | Photos-to-inputs step: recovered sparse points drawn on photos |
 | `input_sheet` | PNG | Evenly spaced photos with their mask outlines |
 | `preview_volume` | NPZ | Internal. Ignore it; a `preview_mesh` follows |
 | `preview_mesh` | binary STL | Coarse surface so far: the silhouette hull, the hull after mask repair, then the surface after each pyramid level except the last |

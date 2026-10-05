@@ -1,0 +1,22 @@
+{
+  "schema": "crisp3ds_lens_calibration_v1",
+  "model": "radialk3",
+  "calibration_width": 583,
+  "calibration_height": 385,
+  "fx": 776.0949096679688,
+  "fy": 776.6241455078125,
+  "cx": 291.0530700683594,
+  "cy": 184.91366577148438,
+  "k1": -0.17180718751091592,
+  "k2": 0.41234681155235325,
+  "k3": -3.7169739384093505,
+  "principal_point_convention": "pixel_centre",
+  "sensor_width_mm": 36.0,
+  "provenance": {
+    "source": "3DLF scan dataset, calib_pro/intrinsics/rgb_optic.json (identical bytes in the dragon, armadillo and bunny sets)",
+    "dataset": "https://data.mendeley.com/datasets/ngvgpsvd8b/1 (CC BY 4.0)",
+    "source_model": "brown5 with p1 = p2 = 0, which is exactly radialk3",
+    "source_fields": {"rms_reproj_px": 0.2046473339702553, "calib_date": "2025-11-13", "serial": "ap1_233f200c"},
+    "note": "Factory calibration stated for 583x385. The 3DLF photos are 1749x1155, exactly 3x; scaling the model to them is an assumption that has not been independently verified. sensor_width_mm is nominal and only fixes the unit of the focal length written into the AliceVision scene."
+  }
+}
