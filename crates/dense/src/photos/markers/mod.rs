@@ -41,7 +41,7 @@ usage: crisp3ds-dense mat --size a4|letter|a3 --output DIR
            prints the markers found in one photo as JSON
        crisp3ds-dense mat --capture DIR [--size a4 | --mat MAT.json] [--views 36] [--width 1200] [--height 900]
            [--elevation 25] [--distance 420] [--blur 0.8] [--noise 2] [--exposure 1] [--object-radius 32]
-           [--object-height 90] [--turn 1] [--seed 7] [--threads 2]
+           [--object-height 90] [--turn 1] [--seed 7] [--table 0.66] [--threads 2]
            renders a synthetic turntable capture of the mat with known poses (photos/, masks/, lens.json, truth.json)
        crisp3ds-dense mat --compare CAMERAS.json --truth TRUTH.json
            rotation and position differences between a scene's cameras and a capture's true poses
@@ -145,6 +145,7 @@ pub fn command(arguments: &[String]) -> anyhow::Result<()> {
             object_height: number("object-height", d.object_height)?,
             turn: number("turn", d.turn)?,
             seed: number("seed", d.seed as f64)? as u64,
+            table: number("table", d.table)?,
             ..d
         };
         if PathBuf::from(&folder).exists() {

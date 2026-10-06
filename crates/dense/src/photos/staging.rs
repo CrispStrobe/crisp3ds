@@ -162,8 +162,9 @@ pub fn step_coarse(
     step_coarse_with(out, photos, envelope, threshold, threads, None, watch)
 }
 
-/// What may be done to a photo's grey values before its dark region is taken (the photo itself is not changed).
-pub type Preparation = dyn Fn(&mut Plane<u8>) + Send + Sync;
+/// What may be done to a photo's grey values before its dark region is taken (the photo itself is not
+/// changed). It may return the grey level to use where the threshold was left to Otsu's method.
+pub type Preparation = dyn Fn(&mut Plane<u8>) -> anyhow::Result<Option<u32>> + Send + Sync;
 
 /// [`step_coarse`] with a preparation of the grey image, e.g. hiding the dark markers of a mat.
 pub fn step_coarse_with(
@@ -194,8 +195,12 @@ pub fn step_coarse_with(
             let (width, height) = (photo.width(), photo.height());
             let window = resolve_envelope(envelope, width, height)?;
             let mut gray = photo.gray();
+            let mut threshold = threshold;
             if let Some(prepare) = prepare {
-                prepare(&mut gray);
+                let level = prepare(&mut gray).map_err(|e| anyhow!("{}: {e}", file_name(source)))?;
+                if let (Threshold::Otsu, Some(level)) = (threshold, level) {
+                    threshold = Threshold::Level(level);
+                }
             }
             let (mask, info) = coarse_mask(&gray, threshold, window).map_err(|e| anyhow!("{}: {e}", file_name(source)))?;
             save_mask(&masks.join(format!("{name}.png")), &mask)?;

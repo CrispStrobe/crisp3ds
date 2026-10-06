@@ -42,6 +42,8 @@ pub struct Capture {
     /// Fraction of a full turn covered; the mat turns anticlockwise seen from above.
     pub turn: f64,
     pub seed: u64,
+    /// Brightness of the surface around the mat, 0 (black) to 1; the paper is 0.9.
+    pub table: f64,
 }
 
 impl Default for Capture {
@@ -61,6 +63,7 @@ impl Default for Capture {
             exposure: 1.0,
             turn: 1.0,
             seed: 7,
+            table: 0.66,
         }
     }
 }
@@ -143,7 +146,7 @@ impl Capture {
         let paper = match mat.colour(x, y) {
             Some(white) => 0.07 + 0.83 * white,
             // A light table with a faint grain beyond the page.
-            None => 0.66 + 0.04 * (0.05 * x).sin() * (0.043 * y).cos(),
+            None => self.table * (1.0 + 0.06 * (0.05 * x).sin() * (0.043 * y).cos()),
         };
         // Soft contact shadow around the foot of the object.
         let distance = x.hypot(y) / self.object_radius.max(1e-9);

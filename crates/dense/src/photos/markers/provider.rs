@@ -131,14 +131,24 @@ pub fn mask_preparation(options: &Options) -> anyhow::Result<Option<Box<crate::p
     let (Some(mat), Some(calibration)) = (&options.markers.mat, &options.calibration) else { return Ok(None) };
     let mat = Mat::load(mat)?;
     let calibration = crate::photos::calibration::load_calibration(calibration)?;
-    Ok(Some(Box::new(move |gray: &mut crate::inputs::Plane<u8>| {
+    Ok(Some(Box::new(move |gray: &mut crate::inputs::Plane<u8>| -> anyhow::Result<Option<u32>> {
         let (width, height) = (gray.width as u32, gray.height as u32);
-        let Ok(scaled) = crate::photos::calibration::scale_calibration(&calibration, width, height) else { return };
+        let scaled = crate::photos::calibration::scale_calibration(&calibration, width, height)?;
         let camera = Camera::from_lens(&scaled.lens(width, height));
         let found = detect::detect(gray, &mat, Some(&camera), &detect::Settings::default());
-        let solved = pose::solve_view(&camera, &mat, &found, &pose::Settings::default());
-        if let Some(pose) = solved.pose {
-            pose::hide_markers(gray, &mat, &camera, &pose);
+        let Some(pose) = pose::solve_view(&camera, &mat, &found, &pose::Settings::default()).pose else { return Ok(None) };
+        // The level comes from the object zone of the mat, where there is only paper and object;
+        // Otsu's level of the whole photo would follow whatever the mat lies on.
+        let level = pose::object_level(gray, &mat, &camera, &pose);
+        pose::hide_markers(gray, &mat, &camera, &pose);
+        let Some((level, surface)) = level else { return Ok(None) };
+        if surface.is_some_and(|grey| grey < level as f64) {
+            bail!(
+                "the surface around the mat is as dark as the object (grey {:.0}, the object is below {level}): a threshold cannot tell them apart. \
+                 Put the mat on a light surface, or use --masks external-sam or --masks import:DIR",
+                surface.unwrap_or(0.0)
+            );
         }
+        Ok(Some(level))
     })))
 }

@@ -567,3 +567,61 @@ pub fn hide_markers(gray: &mut crate::inputs::Plane<u8>, mat: &Mat, camera: &Cam
     }
     painted
 }
+
+/// The grey level that separates the object from the paper in one photo, for a dark-object
+/// threshold: Otsu's level of the pixels that look at the mat's object zone (the paper there, and
+/// the object standing on it), so that whatever lies around the mat has no say. Also the median
+/// grey of the surface just beyond the page, where the photo shows it. `None` when the zone covers
+/// too few pixels.
+pub fn object_level(gray: &crate::inputs::Plane<u8>, mat: &Mat, camera: &Camera, pose: &Pose) -> Option<(u32, Option<f64>)> {
+    let to_mat = transpose(&pose.rotation);
+    let origin = pose.centre();
+    let radius = mat.object_radius.max(mat.marker_size);
+    let project = |x: f64, y: f64| camera.project(add(apply(&pose.rotation, [x, y, 0.0]), pose.translation));
+    // Bounding box of the zone in the photo, then every pixel's ray against the plane.
+    let rim: Vec<[f64; 2]> =
+        (0..32).filter_map(|k| project(radius * (k as f64 * 0.19635).cos(), radius * (k as f64 * 0.19635).sin())).collect();
+    if rim.len() < 8 {
+        return None;
+    }
+    let bound = |axis: usize, limit: usize| -> (usize, usize) {
+        let low = rim.iter().map(|p| p[axis]).fold(f64::MAX, f64::min).floor().clamp(0.0, limit as f64 - 1.0);
+        let high = rim.iter().map(|p| p[axis]).fold(f64::MIN, f64::max).ceil().clamp(0.0, limit as f64 - 1.0);
+        (low as usize, high as usize)
+    };
+    let ((x0, x1), (y0, y1)) = (bound(0, gray.width), bound(1, gray.height));
+    let mut inside = Vec::new();
+    for y in y0..=y1 {
+        for x in x0..=x1 {
+            let n = camera.undistort([x as f64, y as f64]);
+            let direction = apply(&to_mat, [n[0], n[1], 1.0]);
+            if direction[2].abs() < 1e-12 {
+                continue;
+            }
+            let t = -origin[2] / direction[2];
+            let (mx, my) = (origin[0] + t * direction[0], origin[1] + t * direction[1]);
+            if t > 0.0 && mx * mx + my * my <= radius * radius {
+                inside.push(gray.data[y * gray.width + x]);
+            }
+        }
+    }
+    if inside.len() < 400 {
+        return None;
+    }
+    let level = crate::photos::coarse::otsu_threshold(inside.into_iter());
+    // The surface beyond the page: a band 8 to 30 mm outside its edges.
+    let (half_w, half_h) = (mat.page[0] / 2.0, mat.page[1] / 2.0);
+    let mut around = Vec::new();
+    for k in 0..200 {
+        let (u, d) = ((k as f64 + 0.5) / 200.0 * 2.0 - 1.0, 8.0 + (k % 5) as f64 * 5.5);
+        for (x, y) in [(u * half_w, half_h + d), (u * half_w, -half_h - d), (half_w + d, u * half_h), (-half_w - d, u * half_h)] {
+            if let Some(p) =
+                project(x, y).filter(|p| p[0] >= 0.0 && p[1] >= 0.0 && p[0] <= gray.width as f64 - 1.0 && p[1] <= gray.height as f64 - 1.0)
+            {
+                around.push(gray.data[p[1].round() as usize * gray.width + p[0].round() as usize] as f64);
+            }
+        }
+    }
+    let surface = (around.len() >= 20).then(|| median_f64(&mut around));
+    Some((level, surface))
+}
