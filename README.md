@@ -15,13 +15,18 @@ and marker geometry.
 | Part | Where | State |
 | --- | --- | --- |
 | **Dense pipeline**: calibrated turntable photos to a closed STL | [`scripts/turntable_mesh/`](scripts/turntable_mesh/README.md) | Works from the command line; scored against independent scans on two objects |
+| **Native dense pipeline**: the same stages in Rust and WebGPU, without Python | [`crates/dense/`](crates/dense/README.md) | Stereo, surface, check and a single `run` command; scanner scores within 0.002 of the Python reference on four objects, about seven times faster |
 | **Engine**: progress events, live preview meshes, HTTP API, replay bundles | [`docs/ENGINE-CONTRACT.md`](docs/ENGINE-CONTRACT.md) | Works; development-grade server (no TLS, no accounts) |
 | **Studio**: the front end, one code base for desktop, phone and web | [`apps/studio/`](apps/studio/README.md) | Web app and desktop app work against an engine and in replay; unsigned builds for macOS, Windows, Linux, Android and the iOS simulator come from CI ([releasing](docs/RELEASING.md)) |
 | **Core**: C++20 library and CLI for projects, calibration, marker boards | [`core/`](core/README.md) | Builds and tests on macOS, Linux, Windows |
 | **Project workspace**: the earlier Tauri desktop app around the core | [`apps/desktop/`](apps/desktop/README.md) | Project and calibration tools; not yet connected to the dense pipeline |
 
-Only desktop-class machines run the reconstruction. Phones and browsers are
-clients of a machine that does, or play back recorded runs.
+The pipeline is modular: masks, cameras and undistortion are provider-based
+stages in front of one native dense reconstruction, so that each platform uses
+the providers it can run. The plan and its current state are in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Today only desktop-class
+machines run the reconstruction; phones and browsers are clients of a machine
+that does, or play back recorded runs.
 
 ## From photos to a mesh
 

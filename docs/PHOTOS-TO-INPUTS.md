@@ -1,5 +1,9 @@
 # Photos to dense inputs
 
+> This step is being restructured into interchangeable mask and camera
+> providers; see [`ARCHITECTURE.md`](ARCHITECTURE.md). What follows describes the
+> current Python implementation with AliceVision and SAM 2.1.
+
 `python -m scripts.turntable_mesh.photos_to_inputs` takes a folder of turntable
 photos and a lens file and produces everything the dense stage
 (`dense_pipeline.py --inputs`) starts from: object masks, recovered cameras,

@@ -12,6 +12,10 @@ and writes the files of its Python counterpart; measured parity is listed per
 stage below. Not ported: masks and cameras from plain photos (SAM 2.1,
 AliceVision) and the scan evaluator, which stay in Python.
 
+Where this crate sits among the provider-based stages (masks, cameras,
+undistortion) and which platforms run what is described in
+[`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md).
+
 ## Rules of the port
 
 - **Same files.** Every stage reads and writes what its Python counterpart
