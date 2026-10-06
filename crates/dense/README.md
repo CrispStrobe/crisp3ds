@@ -9,8 +9,10 @@ Status: the whole pipeline from recovered cameras to a checked STL runs
 natively, as one command (`run`), as a library call, or through a C interface.
 Each stage is also a subcommand (`inputs`, `stereo`, `mesh`, `check`) that reads
 and writes the files of its Python counterpart; measured parity is listed per
-stage below. Not ported: masks and cameras from plain photos (SAM 2.1,
-AliceVision) and the scan evaluator, which stay in Python.
+stage below. The step before it, from plain photos to the scene, is native too
+(`photos`): its providers start AliceVision or COLMAP as external programs,
+and SAM 2.1 remains an external PyTorch program. Not ported: the scan
+evaluator, a development tool that stays in Python.
 
 Where this crate sits among the provider-based stages (masks, cameras,
 undistortion) and which platforms run what is described in
@@ -47,6 +49,8 @@ undistortion) and which platforms run what is described in
 | `src/check.rs`, `src/render.rs` | Photo check and its sheets (ports of `mesh_photo_check.py`, `stl_compare_render.py`) |
 | `src/inputs.rs` | Inputs directory as `Stereo.__init__` prepares it |
 | `src/hull.rs`, `src/repair.rs`, `src/fusion.rs`, `src/stereo/` | Ports of `multiscale_stereo.py` |
+| `src/photos/` | From photos to the scene: mask and camera providers, gates, undistortion (port of `photos_to_inputs.py`) |
+| `tools/colmap_pycolmap.py` | Stand-in for the `colmap` executable through the PyCOLMAP wheel (development aid) |
 | `src/main.rs` | `crisp3ds-dense <stage>` command line |
 
 ## Build and test
@@ -149,6 +153,191 @@ crisp3ds_run_free(run);                      /* cancels if still running, waits,
 The run executes on a thread the library starts; `poll` never blocks. This is
 the only module with `unsafe` code beyond byte casts (it dereferences the
 caller's pointers).
+
+## From photos to the scene: `crisp3ds-dense photos`
+
+Native form of `python -m scripts.turntable_mesh.photos_to_inputs`, built
+around providers (`docs/ARCHITECTURE.md`, `docs/PHOTOS-TO-INPUTS.md`): one for
+the masks, one for the cameras; staging, hole cleanup, contrast images, gates,
+undistortion, the scene, sheets and events are done in this crate for all of
+them. No Python is needed with `--masks threshold` or `import:DIR` and
+`--cameras alicevision` (install prefix), `colmap` (executable) or
+`import:PATH`.
+
+```sh
+crisp3ds-dense photos --photos DIR --calibration lens.json --output DIR [--events events.jsonl] \
+    --masks threshold|import:DIR|external-sam --cameras alicevision|colmap|import:PATH [options]
+crisp3ds-dense photos --list-providers
+```
+
+`--list-providers` prints each provider's platforms (desktop, mobile, wasm),
+the external programs it starts and its license as JSON. Same gates, exit
+codes (0 complete, 2 cameras rejected, 1 a step failed), events (`masks`,
+`cameras`; `mask_sheet`, `sparse_overlay`, `report`) and layout as the
+reference, except that the scene's undistorted photos are in `inputs/images/`
+(there is no `native-prepared/`) and that `prepareDenseScene` is not called.
+
+| Step | Where (`src/photos/`) | Reference |
+| --- | --- | --- |
+| Capture order, `capture_NNNN.png` copies, coarse dark-object masks | `staging.rs`, `coarse.rs` | `step_coarse`, `coarse_mask`, `otsu_threshold`; components labelled like `scipy.ndimage.label` |
+| Mask providers `threshold`, `import`, `external-sam` | `masks.rs` | `segment.py` is started as a child process for `external-sam` |
+| Dark-hole cleanup, published masks, contact sheet | `cleanup.rs`, `sheets.rs` | `silhouette_cleanup.py`, `step_publish_masks` |
+| Contrast images | `contrast.rs` | `contrast_image`: OpenCV's 8-bit RGB/Lab conversions and CLAHE, reimplemented |
+| Lens file, scaling, locked AliceVision intrinsic | `calibration.rs` | `load_calibration`, `scale_calibration`, `calibrated_scene` |
+| Camera providers `alicevision`, `colmap`, `import` | `cameras.rs`, `process.rs` | `build_commands`, `bounded`; COLMAP is new |
+| Neutral solution; readers for `.sfm` and COLMAP models | `solution.rs` | |
+| Audit, ring statistics, gates | `audit.rs`, `ring.rs` | `alicevision_cameras.py`, `ring_statistics`, `decide_gates` |
+| Undistortion and scene | `scene_writer.rs` (map and mask remap from `src/scene.rs`) | `prepareDenseScene` and `dense_all_views_inputs.py` |
+| Sparse overlay, stages, `frontend.json` | `sheets.rs`, `run.rs` | `step_overlay`, `run` |
+
+Parity with the reference, measured on the 3DLF photos (73 per object,
+1749 x 1155; OpenCV 4.10, SciPy, Pillow on the reference side):
+
+- **Masks.** Coarse masks plus cleanup: identical to the Python functions in
+  all 73 masks of the Bunny and of the Armadillo (0 of 147 M pixels).
+  `masks-report.json` is identical on the Dragon and Lucy.
+- **Contrast images.** Identical to `contrast_image` (gamma 0.5, CLAHE 2.0 on
+  an 8 x 8 grid) in all 292 photos of the four objects: 0 of 442 M channel
+  values per object. The two colour conversions are identical to
+  `cv2.cvtColor` for all 2^24 input triples in both directions
+  (`tests/fixtures/dense-native/make_photos_fixtures.py --exhaustive`). They are
+  OpenCV's integer algorithms (`RGB2Lab_b`, `Lab2RGBinteger`) with tables
+  computed here; one entry of the cube-root table (324) lands on a rounding tie
+  in single precision that OpenCV resolves the other way and is set explicitly.
+- **Audit and gates.** `camera-audit.json`, `ring-sanity.json` and `gates.json`
+  of the Dragon and Lucy scenes agree with the files the Python stage wrote to
+  2.6e-13 relative in every number; the sparse-overlay fractions are equal.
+- **Scene.** Importing the existing `final.sfm` of the four objects reproduces
+  the existing inputs exactly: cameras (`k`, rotation, translation), sparse
+  points and all remapped masks.
+- **Undistorted photos** against AliceVision's `prepareDenseScene` (13 photos
+  per object): mean absolute difference 0.007 to 0.010 grey levels, 99 % of the
+  values identical, at most 0.06 % differ by more than one level, largest
+  difference 13 to 17 at dark-to-light edges. Both are bilinear; AliceVision
+  converts to linear light first, interpolates in floating point and converts
+  back, this crate interpolates the 8-bit values. Bunny with the same cameras
+  and masks, native dense stages: F1 `all` 0.9049 / 0.9404 / 0.9554 against
+  0.9049 / 0.9412 / 0.9560 with AliceVision's images, `above_margin` 0.9641 /
+  0.9948 / 0.9998 against 0.9629 / 0.9946 / 0.9998 (largest difference 0.0012).
+- **Sheets** are pictures for people: tiles are reduced with the crate's
+  bicubic resampler (Pillow Lanczos, OpenCV bilinear in the reference) and
+  labelled with the built-in font, which has no `_` or `.`.
+
+Time for everything that is not a provider, Bunny, Python / native: 70 s / 7 s
+(coarse masks 7.1 / 0.7, cleanup 14.2 / 1.4, masks and sheet 4.6 / 1.0,
+contrast images 12.6 / 1.7, audit 2.0 / 0.02, undistortion and scene 27.3
+(`prepareDenseScene`, check, inputs) / 1.3, overlay 2.0 / 0.4; 4 threads).
+
+### Masks without a network
+
+Scanner F1 (`scan_evaluate.py`, evaluation only) of the native dense stages on
+three mask sets with the same cameras: SAM 2.1 masks (the existing ones), the
+`threshold` provider at the fixed level 70 and at Otsu's level per photo
+(104 to 125 on these photos). `all` / `above_margin` at 0.5 % of the diagonal;
+in brackets at 1 % and 2 %.
+
+| | SAM 2.1 | threshold 70 | threshold Otsu |
+| --- | --- | --- | --- |
+| Bunny `all` | 0.905 (0.941, 0.956) | 0.892 (0.934, 0.952) | 0.891 (0.925, 0.947) |
+| Bunny `above_margin` | 0.963 (0.995, 1.000) | 0.957 (0.995, 1.000) | 0.962 (0.994, 1.000) |
+| Armadillo `all` | 0.923 (0.971, 0.987) | 0.901 (0.962, 0.984) | 0.907 (0.957, 0.972) |
+| Armadillo `above_margin` | 0.952 (0.996, 1.000) | 0.930 (0.989, 0.999) | 0.950 (0.997, 1.000) |
+| Dragon `all` | 0.785 (0.928, 0.981) | 0.786 (0.914, 0.972) | 0.766 (0.895, 0.956) |
+| Dragon `above_margin` | 0.834 (0.963, 0.994) | 0.851 (0.969, 0.995) | 0.848 (0.967, 0.994) |
+| Lucy `all` | 0.790 (0.904, 0.938) | 0.807 (0.923, 0.956) | 0.818 (0.936, 0.962) |
+| Lucy `above_margin` | 0.826 (0.945, 0.970) | 0.845 (0.967, 0.991) | 0.862 (0.985, 1.000) |
+| Silhouette IoU against own masks (median), B / A / D / L | 0.967 / 0.935 / 0.949 / 0.881 | 0.951 / 0.935 / 0.947 / 0.909 | 0.967 / 0.942 / 0.951 / 0.928 |
+| Genus, B / A / D / L | 11 / 2 / 22 / 14 | 4 / 19 / 12 / 3 | 16 / 4 / 24 / 3 |
+
+Reading, with the preview sheets: at level 70 lit upward faces are brighter
+than the threshold and are cut away by the silhouette hull (the top of the
+Armadillo's shell is sliced off; genus 19). Otsu's level includes them and
+brings the Bunny and the Armadillo to SAM's score above the support (within
+0.002), and the Dragon and Lucy above it (SAM drops horns, hands and wing
+tips in runs of photos; the threshold keeps them). The price is at the base:
+the contact shadow is dark, belongs to the largest dark region and becomes a
+ragged skirt around the feet, which costs 0.014 to 0.019 in `all` on three
+objects. Thin parts are no worse than with SAM on any sheet. Because of the
+base, `external-sam` remains the default mask provider and `threshold` (Otsu)
+is the provider without a network.
+
+### Camera providers through the dense stages
+
+A provider is judged by the reconstruction it leads to. `colmap` against
+`alicevision`, same SAM masks (imported), native dense stages, scanner F1 at
+0.5 % (1 %, 2 %). COLMAP ran through the PyCOLMAP 3.11 stand-in
+(`tools/colmap_pycolmap.py`): default SIFT, exhaustive matching, masks on, one
+shared `FULL_OPENCV` camera fixed to the declared lens.
+
+| | Bunny | Armadillo | Dragon | Lucy |
+| --- | --- | --- | --- | --- |
+| Registered, `colmap` | 73 of 73 | 73 of 73 | 73 of 73 | 73 of 73 |
+| Sparse points, `alicevision` / `colmap` | 9 087 / 2 813 | 6 677 / 5 240 | 5 619 / 3 360 | 3 266 / 2 143 |
+| Reprojection median, p95 (px), `alicevision` | 0.42, 1.45 | not recorded | 0.52, 1.88 | 0.63, 2.31 |
+| Reprojection median, p95 (px), `colmap` | 0.44, 1.92 | 0.42, 1.82 | 0.54, 2.16 | 0.61, 2.33 |
+| Ring radius spread, `colmap` | 0.75 % | 0.44 % | 0.38 % | 0.79 % |
+| Camera recovery (features, matching, SfM), `alicevision` | 1 021 s | not recorded | 494 s | 297 s |
+| Camera recovery, `colmap` | 64 s | 105 s | 182 s | 133 s |
+| F1 `all`, `alicevision` | 0.905 (0.941, 0.956) | 0.923 (0.971, 0.987) | 0.785 (0.928, 0.981) | 0.790 (0.904, 0.938) |
+| F1 `all`, `colmap` | 0.905 (0.941, 0.956) | 0.924 (0.971, 0.987) | 0.795 (0.927, 0.982) | 0.828 (0.945, 0.968) |
+| F1 `above_margin`, `alicevision` | 0.963 (0.995, 1.000) | 0.952 (0.996, 1.000) | 0.834 (0.963, 0.994) | 0.826 (0.945, 0.970) |
+| F1 `above_margin`, `colmap` | 0.965 (0.996, 1.000) | 0.952 (0.996, 1.000) | 0.844 (0.961, 0.994) | 0.865 (0.986, 0.999) |
+
+The AliceVision rows are the existing camera solutions with the native dense
+stages on the existing inputs; their times are those of the Python stage's
+runs (the Bunny's on a busier machine). COLMAP times were measured while
+another job used the machine, with 4 threads against AliceVision's 2. One run
+per object: neither program is repeatable, and the second Bunny run with
+COLMAP that was planned was not made (the disk reached its floor). Not tried:
+`--colmap-masks off`, sequential or ring matching, the COLMAP executable.
+
+### The Bunny from its photos
+
+`crisp3ds-dense photos` on the 73 Bunny photos, then the native dense stages
+and the scanner evaluator. AliceVision 3.4 local build, 2 threads.
+
+| | Python stage (run 220) | native, prefix called directly, `--masks threshold` | native, `av.py` wrapper, `--masks external-sam` |
+| --- | --- | --- | --- |
+| Masks | SAM 2.1 | Otsu threshold, median area 321 051 px | SAM 2.1 through the reference script: identical to the existing masks (0 of 147 M pixels) |
+| Registered | 73 of 73 | 73 of 73 | 73 of 73 |
+| Sparse points, observations | 8 638, 43 205 | 8 581, 42 690 | 8 788, 44 483 |
+| Reprojection median, p95, max (px) | 0.416, 1.444, 18.6 | 0.414, 1.436, 17.7 | 0.423, 1.482, 28.6 |
+| Ring radius spread, out of plane, largest gap | 0.48 %, 0.41 %, 6.08 deg | 0.48 %, 0.61 %, 6.12 deg | 0.41 %, 0.53 %, 6.07 deg |
+| Duplicate pose pair reported | 13, 14 | 13, 14 | 13, 14 |
+| Seconds: masks (coarse, SAM, cleanup, sheet) | 7.1, 81.8, 14.2, 4.6 | 2.2, none, 3.4, 1.8 | 1.9, 74.5, 3.4, 1.5 |
+| Seconds: contrast images | 12.6 | 9.0 | 4.4 |
+| Seconds: features, matching, global SfM | 152.8, 549.6, 318.4 | 262.5, 595.9, 318.4 | 104.6, 348.8, 266.5 |
+| Seconds: audit; undistortion and scene; overlay | 2.0; 27.3; 2.0 | 0.02; 2.5; 0.5 | stopped before the audit |
+| Gates | passed | passed | not reached: the run stopped at the free-space floor (7.4 GiB free, floor 8); the numbers above are from the reference audit of its `final.sfm` |
+| F1 `all` at 0.5 / 1 / 2 % | 0.905 / 0.941 / 0.956 (cameras of run 218) | 0.896 / 0.929 / 0.947 | not run |
+| F1 `above_margin` | 0.963 / 0.995 / 1.000 | 0.965 / 0.995 / 1.000 | not run |
+
+The machine was shared with other jobs during both native runs, so the times
+of the external steps say little; the steps done in this crate are 5 to 10
+times faster than their Python counterparts. Command line of the middle
+column:
+
+```sh
+crisp3ds-dense photos --photos <bunny>/rgb --calibration scripts/turntable_mesh/calibrations/3dlf-pro.json \
+    --output <run>/frontend --events <run>/events.jsonl --threads 2 \
+    --masks threshold --cameras alicevision \
+    --alicevision .local-tools/alicevision-local/prefix --alicevision-library-path /opt/homebrew/lib
+```
+
+### Tests
+
+`cargo test` covers calibration scaling, envelope and threshold logic,
+component labelling, cleanup rules, CLAHE and the colour conversions against
+values written by OpenCV (`tests/fixtures/dense-native/opencv-contrast.json`,
+produced by `make_photos_fixtures.py` next to it), the audit, ring statistics
+and gate decisions (the cases of `test_photos_to_inputs.py`,
+`test_silhouette_cleanup.py` and `test_alicevision_cameras.py`), the readers
+for `.sfm` and COLMAP text and binary models, command lines of the three
+external programs, bounded processes (deadline, cancel, process group), and the
+whole stage on a synthetic capture with threshold masks and imported cameras.
+`CRISP3DS_ALICEVISION_TESTS=1` with `CRISP3DS_ALICEVISION` (and, for a build
+against Homebrew, `CRISP3DS_ALICEVISION_LIBRARY_PATH=/opt/homebrew/lib`) adds a
+test that starts the real `cameraInit`.
 
 ## Inputs from a scene: `crisp3ds-dense inputs`
 
@@ -448,3 +637,4 @@ licenses are listed here as they are added.
 | pollster | Apache-2.0 OR MIT | blocking on `wgpu` futures |
 | image (png, jpeg only) | MIT OR Apache-2.0 | photo and mask decoding, PNG writing |
 | fs4 | MIT OR Apache-2.0 | free disk space before a run |
+| libc (Unix only) | MIT OR Apache-2.0 | signalling the process group of an external tool (`src/photos/process.rs`) |

@@ -1,8 +1,143 @@
 # Photos to dense inputs
 
-> This step is being restructured into interchangeable mask and camera
-> providers; see [`ARCHITECTURE.md`](ARCHITECTURE.md). What follows describes the
-> current Python implementation with AliceVision and SAM 2.1.
+This step exists twice. `crisp3ds-dense photos` (Rust, `crates/dense/src/photos/`)
+is built around interchangeable providers, as planned in
+[`ARCHITECTURE.md`](ARCHITECTURE.md), and needs no Python. The Python module
+`scripts/turntable_mesh/photos_to_inputs.py` is its reference for everything
+that is not a provider's own business (staging, coarse masks, hole cleanup,
+contrast images, gates, sheets, events) and is described in the second half.
+
+## The native step: `crisp3ds-dense photos`
+
+```sh
+crisp3ds-dense photos --photos data/bunny/rgb \
+  --calibration scripts/turntable_mesh/calibrations/3dlf-pro.json \
+  --output runs/bunny-front \
+  --masks threshold --cameras alicevision --alicevision /opt/alicevision
+crisp3ds-dense run --inputs runs/bunny-front/inputs --output runs/bunny-dense
+crisp3ds-dense photos --list-providers      # the table below, as JSON
+```
+
+```
+masks    stage photos, coarse masks -> MASK PROVIDER -> dark-hole cleanup -> masks/, contact sheet
+cameras  contrast images -> CAMERA PROVIDER -> audit and ring gates
+         -> undistortion of photos and masks, scene (inputs/) -> sparse overlay
+```
+
+Exit codes, gates, events (`masks` and `cameras` stages; `stage_started` now
+also names the `provider`), the cancel file, the free-space floor and the
+deadlines are those of the reference. Assumptions about the capture and the
+calibration file are the same (sections below).
+
+### Mask providers
+
+A mask provider turns the staged photos into one 0/255 mask per photo in the
+photo's own frame. The dark-hole cleanup, the statistics and the contact sheet
+follow for every provider.
+
+| `--masks` | What it does | Needs | License | Desktop / phone / browser |
+| --- | --- | --- | --- | --- |
+| `threshold` | grey threshold (`--threshold-level`: Otsu per photo by default, or a level), largest dark region inside `--threshold-envelope` | nothing | this crate | yes / yes / yes |
+| `import:DIR` | masks made elsewhere: 8-bit PNG, object above 127, named `capture_NNNN.png` in capture order or like the photo (`name.png`, `name.ext.png`) | nothing | this crate | yes / yes / yes |
+| `external-sam` (default) | SAM 2.1 prompted by the threshold masks (level 70), through `scripts/turntable_mesh/segment.py` | an interpreter with PyTorch (`--sam-python`), a SAM 2 checkout (`--sam-source`), a checkpoint (`--sam-checkpoint`), this repository (`--sam-repository`) | SAM 2 Apache-2.0, PyTorch BSD-3-Clause | yes / no / no |
+
+Which one to use was measured on the four test objects with the native dense
+stages, the same cameras for both mask sets, and the scanner evaluator
+(`crates/dense/README.md` has the table). Above the support the Otsu threshold
+masks give the same scanner F1 as SAM on the Bunny and the Armadillo (within
+0.002) and a higher one on the Dragon and Lucy. Over the whole surface they are
+0.015 to 0.02 lower on three of the four objects, because the contact shadow
+under the object is dark and becomes a ragged skirt around the base. A fixed
+level of 70 keeps most of the shadow out but cuts lit upward faces off (the top
+of the Armadillo's shell). Because of the base, `external-sam` stays the
+default; `--masks threshold` is the choice when no network can run, and it is
+no worse above the support.
+
+### Camera providers
+
+A camera provider gets the contrast images (`work/contrast/capture_NNNN.png`:
+gamma and CLAHE, `--contrast-gamma`, `--clahe-clip`, `--clahe-grid`), the masks
+and the declared lens scaled to the photo size, and returns a solution: poses
+of the registered photos, sparse points with their observations, and the lens
+it used. It does not undistort anything.
+
+| `--cameras` | What it does | Needs | License | Desktop / phone / browser |
+| --- | --- | --- | --- | --- |
+| `alicevision` (default) | `cameraInit`, `featureExtraction` inside the masks, `imageMatching`, `featureMatching`, `globalSfM --lockAllIntrinsics true`: the commands of the reference | AliceVision executables (`--alicevision`) | MPL-2.0 (parts derived from libmv MIT); dependencies carry their own | yes / no / no |
+| `colmap` | `feature_extractor` with one shared `FULL_OPENCV` camera fixed to the declared lens and the masks as COLMAP masks, `exhaustive_matcher` (or `sequential_matcher`, or `matches_importer` on a closed ring of pairs), `mapper` with focal length, principal point and distortion not refined | a COLMAP executable (`--colmap`, or `colmap` on the `PATH`) | BSD-3-Clause; dependencies carry their own | yes / no / no |
+| `import:PATH` | reads an existing solution: an AliceVision `.sfm` file, or a COLMAP model directory (`cameras`, `images`, `points3D` as `.bin` or `.txt`, also below `sparse/0`). Its photos may be named like the originals or `capture_NNNN.png` | nothing | this crate | yes / yes / yes |
+
+AliceVision is given as an install prefix or as a wrapper:
+
+- **Prefix** (`--alicevision /opt/alicevision`): `bin/aliceVision_TOOL` is
+  started directly with `ALICEVISION_ROOT` set and `<prefix>/lib` in front of
+  the library path (`DYLD_LIBRARY_PATH`, `LD_LIBRARY_PATH`; `PATH` on Windows).
+  Further library directories go in `--alicevision-library-path` and further
+  variables in `--alicevision-env NAME=VALUE`; a build against Homebrew
+  libraries needs `--alicevision-library-path /opt/homebrew/lib`, for example.
+  No interpreter is involved.
+- **Wrapper** (`--alicevision /path/av`): called as `wrapper TOOL args`; a `.py`
+  wrapper is run with `--python`.
+
+COLMAP conventions that the provider converts: the principal point counts from
+the image corner (ours from the centre of the top-left pixel, half a pixel
+less; keypoints likewise); a pose is a world-to-camera quaternion `(w, x, y, z)`
+and translation; the mapper refuses cameras with a distortion coefficient above
+`Mapper.max_extra_param` (1 by default), so the provider raises that bound to
+twice the largest declared coefficient (the 3DLF lens has k3 = -3.7; without
+this only the initial pair registers). `--colmap-cli 4` switches to the option
+names of COLMAP 4 (`FeatureExtraction.use_gpu` for `SiftExtraction.use_gpu`).
+`--random-seed` is not passed to COLMAP.
+
+**The COLMAP executable path has not been run.** This machine has no `colmap`;
+Homebrew's bottle (4.2.1) would upgrade Boost, which the local AliceVision
+build links against, and was not installed. The provider was validated with
+`crates/dense/tools/colmap_pycolmap.py`, a stand-in that accepts the provider's
+command lines and runs the same COLMAP 3.11 library steps through the PyCOLMAP
+wheel (`--colmap crates/dense/tools/colmap_pycolmap.py --python <python with pycolmap>`).
+It has no `matches_importer`, so `--colmap-matching ring` is untested, as are
+the COLMAP 4 option names.
+
+### After the provider
+
+- **Gates.** The audit works on the solution, whoever produced it: lens equal
+  to the declared one (and reported as locked, where the program says), share
+  of registered photos, observations in front of their cameras, reprojection
+  per view, and the ring statistics. Limits and options are in the Gates
+  section below.
+- **Undistortion and scene.** Photos (the contrast images, as before) and masks
+  are undistorted here with the map of OpenCV's `initUndistortRectifyMap`:
+  photos by bilinear sampling of the 8-bit values, masks by nearest sampling.
+  `prepareDenseScene` is no longer called. The scene is `inputs/` with
+  `cameras.json`, `images/view_ID.png`, `masks/view_ID.png` and
+  `sparse_points.npy`; image and mask paths are relative.
+
+### Output of the native step
+
+As the reference, except: `inputs/images/` holds the undistorted photos and
+there is no `native-prepared/`; `sfm/` holds `camera-audit.json`,
+`ring-sanity.json`, `gates.json`, `expected-calibration.json` for every
+provider, the AliceVision scenes for `alicevision` and `colmap/` (database,
+`sparse/N`) for `colmap`; `frontend.json` has `providers` and
+`provider_notes`; steps done in this process appear in `steps` with a
+`(in process)` command and a one-line log.
+
+### Options of the native step
+
+`crisp3ds-dense photos --help` lists them. Provider options are namespaced
+(`--threshold-…`, `--sam-…`, `--alicevision-…`, `--colmap-…`); the names of the
+reference command line remain as aliases (`--dark-threshold`, `--envelope`,
+`--device`, `--describer-types`, `--describer-preset`, `--matching-method`,
+`--sfm-option`, `--initial-field-of-view`, `--sensor-database`). Environment
+variables: `CRISP3DS_MASKS`, `CRISP3DS_CAMERAS`, `CRISP3DS_ALICEVISION`,
+`CRISP3DS_ALICEVISION_LIBRARY_PATH`, `CRISP3DS_ALICEVISION_ENV`,
+`CRISP3DS_ALICEVISION_SENSOR_DB`, `CRISP3DS_COLMAP`, `CRISP3DS_PYTHON`,
+`CRISP3DS_SAM_PYTHON`, `CRISP3DS_SAM_SOURCE`, `CRISP3DS_SAM_CHECKPOINT`,
+`CRISP3DS_SAM_CONFIG`, `CRISP3DS_SAM_PYTHONPATH`, `CRISP3DS_REPOSITORY`.
+Additions: `--stop-after masks`, `--list-providers`. Not offered: TIFF photos
+(PNG and JPEG are read), `--alicevision-dense` and `--prepare-timeout`.
+
+## The reference implementation (Python)
 
 `python -m scripts.turntable_mesh.photos_to_inputs` takes a folder of turntable
 photos and a lens file and produces everything the dense stage

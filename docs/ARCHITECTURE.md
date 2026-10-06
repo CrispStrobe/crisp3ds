@@ -58,9 +58,9 @@ application offers only those. All providers write the same event log
 
 | Provider | How | Desktop | Phone | Browser | Status |
 | --- | --- | --- | --- | --- | --- |
-| `alicevision` | external executables: features, matching, global SfM with a fixed lens | yes | no | no | Works (Python orchestration; native orchestration being ported) |
-| `colmap` | external executable: feature extraction, sequential matching, mapper with fixed intrinsics; model converted to the scene | yes | no | no | Planned next |
-| `import` | read an existing solution (AliceVision `.sfm`, COLMAP text or binary model) | yes | yes | yes | Planned; `.sfm` reading exists |
+| `alicevision` | external executables: features, matching, global SfM with a fixed lens | yes | no | no | Works. Native orchestration (`crisp3ds-dense photos --cameras alicevision`), executables started directly from an install prefix or through a wrapper; verified on the Bunny (see `crates/dense/README.md`). The Python orchestration remains as reference |
+| `colmap` | external executable: feature extraction, sequential matching, mapper with fixed intrinsics; model converted to the scene | yes | no | no | Implemented (`--cameras colmap`). Verified on four objects through the PyCOLMAP 3.11 library with the provider's own command lines: 73 of 73 photos registered each time, scanner F1 equal to or above `alicevision`. The `colmap` executable itself has not been run (none on the development machine); COLMAP 4 option names and ring matching are untested |
+| `import` | read an existing solution (AliceVision `.sfm`, COLMAP text or binary model) | yes | yes | yes | Works on desktop (`--cameras import:PATH`): `.sfm`, COLMAP text and binary. Reproduces the existing inputs of four objects exactly. The readers build for every target; the `photos` command is not yet built for browsers |
 | `markers` | printed mat with fiducials on the turntable; pose from marker corners | yes | yes | yes | Planned. Also gives physical scale and settles handedness |
 | `turntable` | our own solver for ordered turntable photos with a known lens: features, tracks, bundle adjustment from a turntable initial guess | yes | yes | yes | Planned; prototype first, then Rust |
 | `device` | poses recorded by ARKit or ARCore during capture | no | yes | no | Later, with capture |
@@ -74,15 +74,18 @@ leads to: dense stages on its cameras, scanner scores on the test objects.
 
 | Provider | How | Desktop | Phone | Browser | Status |
 | --- | --- | --- | --- | --- | --- |
-| `threshold` | dark object on a light backdrop: threshold, largest component, hole cleanup; the stereo stage's multi-view repair does the rest | yes | yes | yes | Exists in Python; being ported; whether it suffices without a network is being measured |
-| `sam` | SAM 2.1 with automatic prompts | yes | later | later | Works through PyTorch (external). Native route: ggml (candidate home: CrispEmbed, which already has SAM ViT-B encoders and WASM builds) or ONNX Runtime |
-| `import` | masks the user already has | yes | yes | yes | Works |
+| `threshold` | dark object on a light backdrop: threshold, largest component, hole cleanup; the stereo stage's multi-view repair does the rest | yes | yes | yes | Works natively (`--masks threshold`, Otsu level by default). Measured against SAM on four objects: same scanner F1 above the support (within 0.002) or higher; 0.014 to 0.019 lower over the whole surface on three of them, because the contact shadow joins the mask at the base |
+| `sam` | SAM 2.1 with automatic prompts | yes | later | later | Works through PyTorch (external): `--masks external-sam` starts the reference script; the default while the base matters. Native route: ggml (candidate home: CrispEmbed, which already has SAM ViT-B encoders and WASM builds) or ONNX Runtime; not started |
+| `import` | masks the user already has | yes | yes | yes | Works (`--masks import:DIR`) |
 
 ### Undistortion
 
-One native implementation (radial `radialk3` today; the mask path already
-exists and is pixel-identical to OpenCV's remap). Photos are being moved to the
-same code, so no camera provider has to produce undistorted images.
+One native implementation (radial `radialk3`), used after every camera provider
+(`crates/dense/src/photos/scene_writer.rs`): masks by nearest sampling,
+pixel-identical to OpenCV's remap; photos by bilinear sampling, on average
+0.007 to 0.010 grey levels from AliceVision's `prepareDenseScene` (which
+interpolates in linear light), with the Bunny's scanner F1 unchanged within
+0.0012. No camera provider produces undistorted images any more.
 
 ## Dense stages
 
