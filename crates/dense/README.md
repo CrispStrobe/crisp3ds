@@ -410,6 +410,27 @@ by other jobs. Storing without compression was not chosen: `depths.npz` and
 `volume.npz` would grow from about 150 MB to about 480 MB on the Bunny, and the
 depth file is kept with every run.
 
+## Portability
+
+Measured parity is from Metal on an Apple M1. Beyond that, the CI workflow runs
+the six GPU tests (every kernel against its scalar implementation, the stereo
+stage and the whole `run` on the analytic sphere, including cancellation) on
+two software WebGPU adapters, with the same default limits: Mesa llvmpipe
+through Vulkan on Linux (12 s) and the Microsoft Basic Render Driver (WARP)
+through DirectX 12 on Windows (62 s). Both pass. The jobs are marked
+non-blocking because software rasterisers on shared runners can be missing or
+slow. No real Vulkan or DirectX GPU and no browser has run the kernels yet, and
+no real object has been reconstructed on anything but Metal.
+
+`cargo check --lib --target wasm32-unknown-unknown` passes in CI (the free-space
+query is excluded on that target). That is a compile check only. A browser build
+still needs: device creation, buffer readback and the stage loops made
+asynchronous (they block on `pollster` and `device.poll`, which a browser's main
+thread cannot do); inputs and outputs through memory or the origin-private file
+system instead of `std::fs`; no `std::thread` (the CPU passes, the preview
+mesher and the run thread use it) or a worker-based thread pool; and a
+replacement for `std::time::Instant`, which is not available there.
+
 ## Dependencies
 
 License: AGPL-3.0-only, like the rest of the repository. Dependencies and their
