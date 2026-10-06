@@ -144,7 +144,7 @@ describe("the meshes of the recorded sphere run", () => {
   );
 
   it("agrees with the mesh report on the vertex count of the final surface", () => {
-    expect(parseBinaryStl(fixtureBytes("mesh/mesh.stl")).positions.length / 3).toBe(16902);
+    expect(parseBinaryStl(fixtureBytes("mesh/mesh.stl")).positions.length / 3).toBe(18086);
   });
 
   it("shares one coordinate frame: every surface overlaps the final one", () => {
@@ -174,7 +174,7 @@ describe("the meshes of the recorded sphere run", () => {
       (fraction) => fractions.push(fraction),
       5000,
     );
-    expect(pauses).toBe(6);
+    expect(pauses).toBe(7);
     expect(fractions.at(-1)).toBeLessThan(1);
     expect(sliced.positions).toEqual(whole.positions);
     expect(sliced.indices).toEqual(whole.indices);

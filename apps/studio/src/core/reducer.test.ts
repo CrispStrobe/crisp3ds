@@ -65,8 +65,8 @@ describe("reduce on the recorded sphere run", () => {
   it("ends complete with the reported duration", () => {
     expect(final.status).toBe("complete");
     expect(final.seconds).toBe(events.at(-1)!.seconds);
-    expect(final.seconds).toBeGreaterThan(10);
-    expect(final.device).toBe("cpu");
+    expect(final.seconds).toBeGreaterThan(0.5);
+    expect(final.device).toMatch(/^wgpu/);
     expect(final.schemaUnknown).toBe(false);
     expect(final.eventCount).toBe(events.length);
     expect(final.lastSeq).toBe(events.length - 1);
@@ -92,7 +92,7 @@ describe("reduce on the recorded sphere run", () => {
       "Final surface",
     ]);
     expect(final.meshes.map((mesh) => mesh.kind)).toEqual(["preview_mesh", "preview_mesh", "preview_mesh", "final_mesh"]);
-    expect(final.meshes[3]).toMatchObject({ path: "mesh/mesh.stl", triangles: 33800 });
+    expect(final.meshes[3]).toMatchObject({ path: "mesh/mesh.stl", triangles: 36168 });
   });
 
   it("groups sheets by stage and keeps depth sheets in level order", () => {

@@ -11,7 +11,7 @@ describe("summariseReport", () => {
     const summary = summariseReport(JSON.parse(fixtureText("mesh/result.json")));
     expect(summary.kind).toBe("mesh");
     expect(rows(summary)).toMatchObject({
-      "|Triangles": "33 800",
+      "|Triangles": "36 168",
       "|Closed": "yes",
       "|Genus": "0",
       "|Boundary edges": "0",

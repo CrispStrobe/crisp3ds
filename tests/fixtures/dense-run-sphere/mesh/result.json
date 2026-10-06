@@ -1,16 +1,16 @@
 {
-  "flat_base_applied": true,
-  "hull_fraction_below_support": 0.0876454567962367,
-  "observed_hull_fraction": 0.6358227866536562,
-  "extrapolated_hull_fraction": 0.23869478467296798,
+  "flat_base_applied": false,
+  "observed_hull_fraction": 0.6330182632590966,
+  "extrapolated_hull_fraction": 0.24238785298039592,
+  "hull_overshoot_voxels": 0.7416247725486755,
   "components": 1,
   "discarded_faces": 0,
-  "vertices": 16902,
-  "triangles": 33800,
+  "vertices": 18086,
+  "triangles": 36168,
   "boundary_edges": 0,
   "nonmanifold_edges": 0,
   "genus": 0,
-  "signed_volume": 4.0058832257860795,
+  "signed_volume": 4.311766215743304,
   "closed": true,
   "configuration": {
     "mesh_smooth": 1.0,
@@ -27,5 +27,5 @@
   },
   "reference_used": false,
   "physical_scale_established": false,
-  "seconds": 1.358697541989386
+  "seconds": 0.052097083
 }

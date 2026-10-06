@@ -1,20 +1,20 @@
 {
-  "mesh": "/private/tmp/claude-501/-Users-christianstrobele-code/eba42534-f5d5-4398-aac0-de9f957cc530/scratchpad/sphere-run/mesh/mesh.stl",
-  "triangles": 33800,
-  "views": 24,
-  "views_checked": 24,
-  "silhouette_iou_input_masks": {
-    "median": 0.9264583641452899,
-    "minimum": 0.9208042675420599,
-    "maximum": 0.9291029350971476,
-    "worst_view": "view_017"
-  },
+  "mesh": "/Users/christianstrobele/code/crisp3ds/.claude/worktrees/agent-aabd0c42b8c9008f4/.local-tools/turntable-mesh/native-stereo-parity-226/sph/fixture-run/mesh/mesh.stl",
   "note": "photo agreement only; not scanner accuracy or physical scale",
-  "silhouette_iou_repaired_masks": {
-    "median": 0.9264583641452899,
-    "minimum": 0.9208042675420599,
-    "maximum": 0.9291029350971476,
-    "worst_view": "view_017"
+  "preview": "/Users/christianstrobele/code/crisp3ds/.claude/worktrees/agent-aabd0c42b8c9008f4/.local-tools/turntable-mesh/native-stereo-parity-226/sph/fixture-run/check/preview.png",
+  "silhouette_iou_input_masks": {
+    "maximum": 0.9536369256130228,
+    "median": 0.9508937743990138,
+    "minimum": 0.9471960704052395,
+    "worst_view": "view_016"
   },
-  "preview": "/private/tmp/claude-501/-Users-christianstrobele-code/eba42534-f5d5-4398-aac0-de9f957cc530/scratchpad/sphere-run/check/preview.png"
+  "silhouette_iou_repaired_masks": {
+    "maximum": 0.9536369256130228,
+    "median": 0.9508937743990138,
+    "minimum": 0.9471960704052395,
+    "worst_view": "view_016"
+  },
+  "triangles": 36168,
+  "views": 24,
+  "views_checked": 24
 }
