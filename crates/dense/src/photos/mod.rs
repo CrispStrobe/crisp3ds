@@ -38,7 +38,10 @@ pub mod solution;
 pub mod staging;
 pub mod util;
 
-// Providers may start external programs and the free-space floor needs a file system: not in a browser.
+// Everything above is plain image processing and bookkeeping and builds for every target, the browser
+// included: threshold masks, hole cleanup, contrast images, solution readers, gates, undistortion and the
+// scene writer. The modules below start external programs (and ask the file system for free space),
+// which a browser build cannot do.
 #[cfg(not(target_arch = "wasm32"))]
 pub mod cameras;
 #[cfg(not(target_arch = "wasm32"))]

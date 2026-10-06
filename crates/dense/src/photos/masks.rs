@@ -4,16 +4,16 @@
 //! same for every provider: dark-hole cleanup, statistics, contact sheet
 //! (`run.rs`).
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use anyhow::{anyhow, bail, Context};
+use anyhow::{anyhow, bail};
 use serde_json::Value;
 
 use super::options::{MaskChoice, Options};
 use super::process::ExternalCommand;
 use super::providers::{Provider, MASKS_EXTERNAL_SAM, MASKS_IMPORT, MASKS_THRESHOLD};
 use super::run::{count_files, Run};
-use super::staging::{capture_name, save_mask};
+use super::staging::import_masks;
 
 /// Contract of the masks module.
 pub trait MaskProvider {
@@ -60,34 +60,6 @@ impl MaskProvider for ThresholdMasks {
 
 pub struct ImportMasks {
     pub folder: PathBuf,
-}
-
-/// Masks made elsewhere, brought to the names and form the cleanup reads.
-pub fn import_masks(source: &Path, target: &Path, map: &Value, watch: &mut dyn FnMut(usize) -> anyhow::Result<()>) -> anyhow::Result<()> {
-    std::fs::create_dir_all(target)?;
-    let (width, height) = (map["width"].as_u64().unwrap_or(0) as u32, map["height"].as_u64().unwrap_or(0) as u32);
-    for (index, row) in map["photos"].as_array().ok_or_else(|| anyhow!("photo-map.json has no photos"))?.iter().enumerate() {
-        let (capture, original) = (capture_name(index), row["source"].as_str().unwrap_or_default());
-        let stem = Path::new(original).file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
-        let candidates =
-            [capture.clone(), format!("{capture}.png"), original.to_string(), format!("{original}.png"), format!("{stem}.png")];
-        let found =
-            candidates.iter().map(|name| source.join(name)).find(|path| path.extension().is_some_and(|e| e == "png") && path.is_file());
-        let Some(path) = found else {
-            bail!("--masks import:{}: no mask for photo {original} (looked for {})", source.display(), candidates.join(", "));
-        };
-        let gray = image::open(&path).with_context(|| path.display().to_string())?.to_luma8();
-        if (gray.width(), gray.height()) != (width, height) {
-            bail!("{}: mask is {}x{}, the photos are {width}x{height}", path.display(), gray.width(), gray.height());
-        }
-        let data: Vec<u8> = gray.into_raw().into_iter().map(|v| (v > 127) as u8).collect();
-        if !data.contains(&1) {
-            bail!("{}: mask is empty", path.display());
-        }
-        save_mask(&target.join(format!("{capture}.png")), &crate::inputs::Plane { width: width as usize, height: height as usize, data })?;
-        watch(index + 1)?;
-    }
-    Ok(())
 }
 
 impl MaskProvider for ImportMasks {
@@ -206,6 +178,7 @@ mod tests {
     use super::*;
     use crate::photos::options::resolve;
     use crate::photos::options::tests::{arguments, scratch};
+    use crate::photos::staging::capture_name;
 
     #[test]
     fn sam_command_is_the_reference_command() {

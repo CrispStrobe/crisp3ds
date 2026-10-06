@@ -21,7 +21,7 @@ use super::options::{CameraChoice, Options, Tools};
 use super::process::ExternalCommand;
 use super::providers::{Provider, CAMERAS_ALICEVISION, CAMERAS_COLMAP, CAMERAS_IMPORT};
 use super::run::Run;
-use super::solution::{colmap_parameters, read_any, read_colmap, read_sfm, Lens, Solution};
+use super::solution::{adopt_capture_names, colmap_parameters, read_any, read_colmap, read_sfm, Lens, Solution};
 use super::staging::capture_name;
 use super::util;
 
@@ -510,33 +510,6 @@ impl CameraProvider for Colmap {
 
 pub struct Import {
     pub path: PathBuf,
-}
-
-/// Renames the views of an imported solution to the staged capture names. A
-/// solution may name its photos like the originals or already `capture_NNNN.png`.
-pub fn adopt_capture_names(solution: &mut Solution, photo_map: &Value) -> anyhow::Result<()> {
-    let rows = photo_map["photos"].as_array().ok_or_else(|| anyhow!("photo-map.json has no photos"))?;
-    let capture_of = |source: &str| -> Option<String> {
-        rows.iter()
-            .find(|row| row["source"] == source || row["capture"] == source)
-            .and_then(|row| row["capture"].as_str())
-            .map(String::from)
-    };
-    for view in &mut solution.views {
-        view.source = capture_of(&view.source)
-            .ok_or_else(|| anyhow!("the imported solution has a view {} that is not among the photos", view.source))?;
-    }
-    let listed: std::collections::HashSet<&String> = solution.views.iter().map(|v| &v.source).collect();
-    if listed.len() != solution.views.len() {
-        bail!("the imported solution lists a photo twice");
-    }
-    solution.unregistered = rows
-        .iter()
-        .filter_map(|row| row["capture"].as_str())
-        .filter(|name| !listed.contains(&name.to_string()))
-        .map(String::from)
-        .collect();
-    Ok(())
 }
 
 impl CameraProvider for Import {

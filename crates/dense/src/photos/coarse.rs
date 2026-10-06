@@ -64,7 +64,7 @@ pub fn resolve_envelope(spec: &str, width: usize, height: usize) -> anyhow::Resu
 
 /// Checks the form of an envelope before any photo is read.
 pub fn validate_envelope(spec: &str) -> anyhow::Result<()> {
-    resolve_envelope(spec, 1 << 40, 1 << 40).map(|_| ())
+    resolve_envelope(spec, 1 << 30, 1 << 30).map(|_| ())
 }
 
 /// Otsu's threshold of 8-bit values: pixels strictly below the result are the dark class.

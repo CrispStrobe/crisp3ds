@@ -120,6 +120,34 @@ pub fn save_mask(path: &Path, mask: &Plane<u8>) -> anyhow::Result<()> {
     util::save_gray(path, mask.width, mask.height, mask.data.iter().map(|&m| if m != 0 { 255 } else { 0 }).collect())
 }
 
+/// Masks made elsewhere, brought to the names and form the cleanup reads.
+pub fn import_masks(source: &Path, target: &Path, map: &Value, watch: &mut dyn FnMut(usize) -> anyhow::Result<()>) -> anyhow::Result<()> {
+    std::fs::create_dir_all(target)?;
+    let (width, height) = (map["width"].as_u64().unwrap_or(0) as u32, map["height"].as_u64().unwrap_or(0) as u32);
+    for (index, row) in map["photos"].as_array().ok_or_else(|| anyhow!("photo-map.json has no photos"))?.iter().enumerate() {
+        let (capture, original) = (capture_name(index), row["source"].as_str().unwrap_or_default());
+        let stem = Path::new(original).file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+        let candidates =
+            [capture.clone(), format!("{capture}.png"), original.to_string(), format!("{original}.png"), format!("{stem}.png")];
+        let found =
+            candidates.iter().map(|name| source.join(name)).find(|path| path.extension().is_some_and(|e| e == "png") && path.is_file());
+        let Some(path) = found else {
+            bail!("masks import:{}: no mask for photo {original} (looked for {})", source.display(), candidates.join(", "));
+        };
+        let gray = image::open(&path).with_context(|| path.display().to_string())?.to_luma8();
+        if (gray.width(), gray.height()) != (width, height) {
+            bail!("{}: mask is {}x{}, the photos are {width}x{height}", path.display(), gray.width(), gray.height());
+        }
+        let data: Vec<u8> = gray.into_raw().into_iter().map(|v| (v > 127) as u8).collect();
+        if !data.contains(&1) {
+            bail!("{}: mask is empty", path.display());
+        }
+        save_mask(&target.join(format!("{capture}.png")), &Plane { width: width as usize, height: height as usize, data })?;
+        watch(index + 1)?;
+    }
+    Ok(())
+}
+
 /// Stages the photos as `work/photos/capture_NNNN.png` (PNG files byte for
 /// byte, others decoded once) and writes `work/coarse-masks/<name>.png` and
 /// `photo-map.json`. Returns the photo map.
