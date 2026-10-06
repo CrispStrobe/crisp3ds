@@ -6,6 +6,7 @@ import { Icon } from "./icons";
 import type { Prefs } from "./prefs";
 import type { EngineStatus } from "../shell/shell";
 import type { BrowserMode, EngineMode } from "./app";
+import { servedByEngine } from "./served";
 
 interface Props {
   prefs: Prefs;
@@ -34,7 +35,7 @@ export function Connection({ prefs, onChange, localEngine, browser }: Props) {
 
   // If this page is being served by an engine (`engine_server.py --static`), offer it.
   useEffect(() => {
-    if (!location.protocol.startsWith("http") || localEngine !== null) return;
+    if (localEngine !== null || !servedByEngine(location)) return;
     const abort = new AbortController();
     new HttpEngine(location.origin)
       .health(abort.signal)

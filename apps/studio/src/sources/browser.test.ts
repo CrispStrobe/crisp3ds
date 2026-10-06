@@ -5,6 +5,7 @@ import { initialState, reduce } from "../core/reducer";
 import { activeOptions, chosenProviders, importFields, missingFields, parseStartPoints, startBody, startOptionErrors } from "../core/startPoints";
 import { event, fixtureEvents, settle } from "../testing/fixture";
 import { downloadName } from "../ui/download";
+import { servedByEngine } from "../ui/served";
 import { BrowserEngine, describeInputs, PREVIEW_LIMIT_MEGAPIXELS, previewAdvice, relativeFiles } from "./browserEngine";
 import { RunStore } from "./runStore";
 
@@ -331,5 +332,20 @@ describe("a run that started from photos, in the reducer", () => {
     expect(state.metrics).toEqual([{ name: "mask_area_median_fraction", value: 0.15893, stage: "masks", seq: 2 }]);
     expect(state.stages.slice(0, 2).map((stage) => [stage.name, stage.status])).toEqual([["masks", "done"], ["cameras", "running"]]);
     expect(state.ignored).toBe(0);
+  });
+});
+
+describe("asking the page's own origin for an engine", () => {
+  it("only where an engine could be serving the page", () => {
+    const at = (url: string) => {
+      const parsed = new URL(url);
+      return servedByEngine({ protocol: parsed.protocol, hostname: parsed.hostname, pathname: parsed.pathname });
+    };
+    expect(at("http://127.0.0.1:8765/")).toBe(true);
+    expect(at("http://192.168.1.20:8765/index.html")).toBe(true);
+    expect(at("https://crispstrobe.github.io/crisp3ds/")).toBe(false);
+    expect(at("https://someone.github.io/")).toBe(false);
+    expect(at("https://example.org/studio/")).toBe(false);
+    expect(at("tauri://localhost/")).toBe(false);
   });
 });
