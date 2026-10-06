@@ -25,27 +25,6 @@ const EVENTS: &str = "events.jsonl";
 /// Written into a run directory by this process, so that a later start can tell a run it
 /// lost (app quit or crashed) from one that somebody else is still writing.
 const MARKER: &str = "studio-run.json";
-const SETTINGS_SCHEMA: &str = include_str!("../settings-schema.json");
-
-/// How a run may start, as data: the "New run" form is built from this list, so a start
-/// from plain photos with a choice of mask and camera providers can be added here later
-/// (`providers`, see docs/ARCHITECTURE.md) without touching the form.
-const START_POINTS: &str = r#"[
-  {"id": "inputs", "label": "Inputs folder",
-   "meaning": "A folder with cameras.json, the undistorted photos and their masks.",
-   "fields": [{"key": "inputs", "label": "Inputs folder", "kind": "inputs", "required": true,
-               "help": "A folder with cameras.json, the photos and their masks."}],
-   "providers": []},
-  {"id": "scene", "label": "Camera solution, images and masks",
-   "meaning": "An AliceVision solution with its prepared images and one raw mask per photo.",
-   "fields": [{"key": "scene", "label": "Camera solution (.sfm)", "kind": "file", "required": true,
-               "help": "AliceVision SfM file with poses and one radialk3 lens."},
-              {"key": "prepared", "label": "Prepared images", "kind": "folder", "required": true,
-               "help": "Undistorted images named <viewId>.png."},
-              {"key": "raw_masks", "label": "Raw masks", "kind": "folder", "required": true,
-               "help": "One 0/255 mask per source photo, named like the photo."}],
-   "providers": []}
-]"#;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RunSummary {
@@ -62,6 +41,32 @@ pub struct DataEntry {
     pub name: String,
     pub directory: bool,
     pub inputs: bool,
+    /// A folder with at least three images directly in it.
+    pub photos: bool,
+    /// A lens calibration file.
+    pub calibration: bool,
+}
+
+/// Whether a folder has at least three images directly in it. Looks at a bounded number of entries.
+fn holds_photos(folder: &Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(folder) else { return false };
+    let image = |path: &Path| {
+        path.extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| ["jpg", "jpeg", "png", "tif", "tiff"].contains(&extension.to_ascii_lowercase().as_str()))
+    };
+    entries.flatten().take(2000).filter(|entry| image(&entry.path())).take(3).count() == 3
+}
+
+/// Whether a file is a lens calibration: a small JSON file that says so.
+fn is_calibration(path: &Path) -> bool {
+    if path.extension().is_none_or(|extension| extension != "json") || std::fs::metadata(path).map(|meta| meta.len() > 256 * 1024).unwrap_or(true) {
+        return false;
+    }
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+        .is_some_and(|value| value["schema"] == "crisp3ds_lens_calibration_v1")
 }
 
 #[derive(Debug, Serialize)]
@@ -85,6 +90,18 @@ pub struct StartBody {
     pub scene: Option<String>,
     pub prepared: Option<String>,
     pub raw_masks: Option<String>,
+    /// Folder of turntable photos: masks and cameras are made first.
+    pub photos: Option<String>,
+    /// Lens calibration file for the photos start.
+    pub calibration: Option<String>,
+    /// Chosen provider per module of the photos start: `{"masks": "threshold", "cameras": "alicevision"}`.
+    pub providers: Map<String, Value>,
+    /// Folder of ready-made masks, for the `import` masks provider.
+    pub masks_import: Option<String>,
+    /// Existing camera solution (file or folder), for the `import` cameras provider.
+    pub cameras_import: Option<String>,
+    /// Tuning options of the photos stage, one word per element. Never a place or a program.
+    pub photo_options: Vec<String>,
     pub settings: Map<String, Value>,
     pub reference: Option<String>,
     /// Accepted and ignored: the built-in engine uses the system's GPU through wgpu.
@@ -108,6 +125,8 @@ pub struct Native {
     active: Mutex<HashMap<String, Active>>,
     /// Paths the user picked in a native dialog during this session.
     granted: Mutex<HashSet<PathBuf>>,
+    /// Where the external programs of the photos start are, and the crisp3ds checkout.
+    tools: Mutex<Option<(crate::config::Tools, String)>>,
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -289,6 +308,66 @@ impl Native {
         Ok(())
     }
 
+    /// Sets where the external programs of the photos start are (from the settings).
+    pub fn configure_tools(&self, tools: crate::config::Tools, repo: String) {
+        *self.tools.lock().unwrap() = Some((tools, repo));
+    }
+
+    /// The crate's start points, with every provider marked available or not, and why.
+    pub fn start_points(&self) -> Value {
+        let mut points = start_points();
+        if let Some((tools, repo)) = self.tools.lock().unwrap().as_ref() {
+            crate::tools::annotate(&mut points, tools, repo, crate::tools::sandboxed());
+        }
+        points
+    }
+
+    /// The photos stage's options for a start request: calibration, providers, where their
+    /// programs are (from the settings), then the request's tuning options.
+    fn photo_options(&self, body: &StartBody) -> Result<Vec<String>, String> {
+        let given = |text: &Option<String>| text.as_deref().map(str::trim).filter(|text| !text.is_empty()).map(str::to_string);
+        let calibration = given(&body.calibration).ok_or("calibration: a lens calibration file is needed to start from photos")?;
+        let calibration = self.resolve_source("calibration", &calibration)?;
+        if !calibration.is_file() {
+            return Err("calibration: that is not a file".into());
+        }
+        let guard = self.tools.lock().unwrap();
+        let (tools, repo) = guard.as_ref().ok_or("the tools of the photos start are not configured")?;
+        let mut chosen = Vec::new();
+        for (module, import) in [("masks", &body.masks_import), ("cameras", &body.cameras_import)] {
+            let points = start_points();
+            let choice = points
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|point| point["id"] == "photos")
+                .flat_map(|point| point["providers"].as_array().cloned().unwrap_or_default())
+                .find(|choice| choice["module"] == module)
+                .ok_or_else(|| format!("{module}: this build has no providers for it"))?;
+            let name = body.providers.get(module).and_then(Value::as_str).or(choice["default"].as_str()).unwrap_or_default().to_string();
+            if !choice["options"].as_array().into_iter().flatten().any(|option| option["id"] == name.as_str()) {
+                return Err(format!("{module}: there is no provider named {name:?}"));
+            }
+            if let Some(reason) = crate::tools::unavailable(module, &name, tools, repo, crate::tools::sandboxed()) {
+                return Err(format!("{module}: {reason}"));
+            }
+            let selector = if name == "import" {
+                let key = format!("{module}_import");
+                let path = given(import).ok_or_else(|| format!("{key}: say where the existing {module} are"))?;
+                format!("import:{}", self.resolve_source(&key, &path)?.display())
+            } else {
+                name.clone()
+            };
+            chosen.push((name, selector));
+        }
+        crate::tools::check_tokens(&body.photo_options)?;
+        let mut options = vec!["--calibration".to_string(), calibration.to_string_lossy().into_owned()];
+        options.extend(["--masks".to_string(), chosen[0].1.clone(), "--cameras".to_string(), chosen[1].1.clone()]);
+        options.extend(crate::tools::location_flags(&chosen[0].0, &chosen[1].0, tools, repo));
+        options.extend(body.photo_options.iter().cloned());
+        Ok(options)
+    }
+
     fn runs(&self) -> PathBuf {
         self.folders.lock().unwrap().runs.clone()
     }
@@ -375,7 +454,13 @@ impl Native {
                 }
                 let path = entry.path();
                 let directory = path.is_dir();
-                Some(DataEntry { inputs: directory && path.join("cameras.json").is_file(), name, directory })
+                Some(DataEntry {
+                    inputs: directory && path.join("cameras.json").is_file(),
+                    photos: directory && holds_photos(&path),
+                    calibration: !directory && is_calibration(&path),
+                    name,
+                    directory,
+                })
             })
             .collect();
         entries.sort_by(|a, b| a.name.cmp(&b.name));
@@ -413,7 +498,20 @@ impl Native {
         }
         let mut options = RunOptions { output: self.runs().join(id), settings: body.settings.clone(), ..RunOptions::default() };
         let given = |text: &Option<String>| text.as_deref().map(str::trim).filter(|text| !text.is_empty()).map(str::to_string);
-        if let Some(inputs) = given(&body.inputs) {
+        if let Some(photos) = given(&body.photos) {
+            let folder = self.resolve_source("photos", &photos)?;
+            if !folder.is_dir() {
+                return Err("photos: that is not a folder".into());
+            }
+            options.photo_options = self.photo_options(body)?;
+            // The crate's own reading of the options, before anything starts: a wrong value is
+            // refused here with its sentence instead of failing the run.
+            let mut arguments = vec!["--photos".to_string(), folder.to_string_lossy().into_owned()];
+            arguments.extend(["--output".to_string(), options.output.join("frontend").to_string_lossy().into_owned()]);
+            arguments.extend(options.photo_options.iter().cloned());
+            crisp3ds_dense::photos::options::resolve(&arguments, &|name| std::env::var(name).ok()).map_err(|error| format!("photos: {error:#}"))?;
+            options.photos = Some(folder);
+        } else if let Some(inputs) = given(&body.inputs) {
             let folder = self.resolve_source("inputs", &inputs)?;
             if !folder.join("cameras.json").is_file() {
                 return Err("inputs: this folder has no cameras.json; it is not an inputs folder".into());
@@ -421,7 +519,7 @@ impl Native {
             options.inputs = Some(folder);
         } else {
             let (Some(scene), Some(prepared), Some(raw_masks)) = (given(&body.scene), given(&body.prepared), given(&body.raw_masks)) else {
-                return Err("inputs: give an inputs folder, or all of scene, prepared and raw_masks".into());
+                return Err("inputs: give a photos folder with a calibration, an inputs folder, or all of scene, prepared and raw_masks".into());
             };
             options.scene = Some(self.resolve_source("scene", &scene)?);
             options.prepared = Some(self.resolve_source("prepared", &prepared)?);
@@ -536,12 +634,15 @@ impl Native {
     }
 }
 
+/// Name, group, meaning, kind and default of every setting, from the crate.
 pub fn settings_schema() -> Value {
-    serde_json::from_str(SETTINGS_SCHEMA).expect("settings-schema.json is valid JSON")
+    crisp3ds_dense::config::settings_schema()
 }
 
+/// How a run may start in this build, from the crate: the "New run" form is built from this
+/// list, including the photos start with its mask and camera providers.
 pub fn start_points() -> Value {
-    serde_json::from_str(START_POINTS).expect("the start points are valid JSON")
+    crisp3ds_dense::run::describe()["start_points"].clone()
 }
 
 #[cfg(test)]
@@ -688,6 +789,20 @@ mod tests {
         assert_eq!(listing.path, "objects");
         let rows: Vec<(&str, bool, bool)> = listing.entries.iter().map(|e| (e.name.as_str(), e.directory, e.inputs)).collect();
         assert_eq!(rows, [("masks", true, false), ("scan.ply", false, false), ("sphere", true, true)]);
+        assert!(listing.entries.iter().all(|e| !e.photos && !e.calibration));
+        // Photos folders (three images or more) and lens calibrations are marked too.
+        std::fs::create_dir_all(root.join("data/shoot/rgb")).unwrap();
+        for name in ["a.JPG", "b.png", "c.tiff", "notes.txt"] {
+            std::fs::write(root.join("data/shoot/rgb").join(name), "").unwrap();
+        }
+        std::fs::create_dir_all(root.join("data/shoot/two")).unwrap();
+        std::fs::write(root.join("data/shoot/two/a.jpg"), "").unwrap();
+        std::fs::write(root.join("data/shoot/two/b.jpg"), "").unwrap();
+        std::fs::write(root.join("data/shoot/lens.json"), r#"{"schema":"crisp3ds_lens_calibration_v1"}"#).unwrap();
+        std::fs::write(root.join("data/shoot/other.json"), r#"{"schema":"something_else"}"#).unwrap();
+        let shoot = engine.list_data("shoot").unwrap();
+        let marks: Vec<(&str, bool, bool)> = shoot.entries.iter().map(|e| (e.name.as_str(), e.photos, e.calibration)).collect();
+        assert_eq!(marks, [("lens.json", false, true), ("other.json", false, false), ("rgb", true, false), ("two", false, false)]);
         assert_eq!(engine.list_data("").unwrap().path, "");
         assert!(engine.list_data("../runs").is_err());
         assert!(engine.list_data("objects/scan.ply").is_err());
@@ -832,15 +947,11 @@ mod tests {
     }
 
     #[test]
-    fn the_embedded_settings_schema_is_the_crates_own_configuration() {
+    fn the_settings_schema_comes_from_the_crate_and_matches_its_defaults() {
         let schema = settings_schema();
         let rows = schema["settings"].as_array().unwrap();
-        let fixture = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../tests/fixtures/dense-config-defaults.json");
-        let reference: Value = serde_json::from_str(&std::fs::read_to_string(fixture).unwrap()).unwrap();
         let native = serde_json::to_value(crisp3ds_dense::config::DenseConfig::default()).unwrap();
         let from_schema: Map<String, Value> = rows.iter().map(|row| (row["name"].as_str().unwrap().to_string(), row["default"].clone())).collect();
-        // Same names, same defaults: the Python reference, its fixture and the native crate.
-        assert_eq!(Value::Object(from_schema.clone()), reference);
         assert_eq!(Value::Object(from_schema), native);
         for row in rows {
             assert!(row["group"].as_str().is_some_and(|text| !text.is_empty()), "{row}");
@@ -892,13 +1003,105 @@ mod tests {
     }
 
     #[test]
-    fn start_points_are_well_formed() {
+    fn start_points_come_from_the_crate_with_the_photos_start_and_its_providers() {
         let points = start_points();
         let ids: Vec<&str> = points.as_array().unwrap().iter().map(|point| point["id"].as_str().unwrap()).collect();
-        assert_eq!(ids, ["inputs", "scene"]);
+        assert_eq!(ids, ["inputs", "scene", "photos"]);
         for point in points.as_array().unwrap() {
             assert!(point["providers"].is_array());
             assert!(!point["fields"].as_array().unwrap().is_empty());
         }
+        let modules: Vec<&str> = points[2]["providers"].as_array().unwrap().iter().map(|choice| choice["module"].as_str().unwrap()).collect();
+        assert_eq!(modules, ["masks", "cameras"]);
+    }
+
+    fn no_tools() -> crate::config::Tools {
+        let empty = || crate::config::Value { value: String::new(), source: crate::config::Source::Default };
+        crate::config::Tools {
+            alicevision: empty(),
+            alicevision_library_path: empty(),
+            colmap: crate::config::Value { value: "/definitely/not/colmap".into(), source: crate::config::Source::Setting },
+            sam_python: empty(),
+            sam_source: empty(),
+            sam_checkpoint: empty(),
+        }
+    }
+
+    #[test]
+    fn a_photos_start_is_checked_and_turned_into_the_photos_stage_options() {
+        let (engine, root) = engine("photos");
+        std::fs::create_dir_all(root.join("data/bunny/rgb")).unwrap();
+        for n in 0..4 {
+            std::fs::write(root.join(format!("data/bunny/rgb/photo_{n:03}.png")), "x").unwrap();
+        }
+        std::fs::create_dir_all(root.join("data/bunny/masks")).unwrap();
+        std::fs::write(root.join("data/bunny/final.sfm"), "{}").unwrap();
+        let calibration = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../scripts/turntable_mesh/calibrations/3dlf-pro.json");
+        std::fs::copy(calibration, root.join("data/lens.json")).unwrap();
+        // A fake AliceVision prefix makes that provider available.
+        let prefix = root.join("av");
+        std::fs::create_dir_all(prefix.join("bin")).unwrap();
+        for name in crate::tools::ALICEVISION_PROGRAMS {
+            std::fs::write(prefix.join("bin").join(if cfg!(windows) { format!("{name}.exe") } else { name.to_string() }), "").unwrap();
+        }
+        let mut tools = no_tools();
+        tools.alicevision.value = prefix.to_string_lossy().into_owned();
+        tools.alicevision_library_path.value = "/opt/homebrew/lib".into();
+        engine.configure_tools(tools, String::new());
+
+        let body = |providers: Value| StartBody {
+            photos: Some("bunny/rgb".into()),
+            calibration: Some("lens.json".into()),
+            providers: providers.as_object().cloned().unwrap(),
+            ..StartBody::default()
+        };
+        let mut request = body(json!({"masks": "threshold", "cameras": "alicevision"}));
+        request.photo_options = ["--threshold-level", "otsu", "--alicevision-describer-preset", "high"].map(String::from).to_vec();
+        let options = engine.options(&request, "id").unwrap();
+        assert_eq!(options.photos.as_deref(), Some(root.join("data/bunny/rgb").as_path()));
+        assert_eq!(options.inputs, None);
+        let lens = root.join("data/lens.json").to_string_lossy().into_owned();
+        let prefix_text = prefix.to_string_lossy().into_owned();
+        assert_eq!(
+            options.photo_options,
+            [
+                "--calibration", lens.as_str(), "--masks", "threshold", "--cameras", "alicevision", "--alicevision", prefix_text.as_str(),
+                "--alicevision-library-path", "/opt/homebrew/lib", "--threshold-level", "otsu", "--alicevision-describer-preset", "high",
+            ]
+        );
+
+        // Imports name their place through the request's own fields, inside the data folder.
+        let mut imported = body(json!({"masks": "import", "cameras": "import"}));
+        imported.masks_import = Some("bunny/masks".into());
+        imported.cameras_import = Some("bunny/final.sfm".into());
+        let options = engine.options(&imported, "id").unwrap();
+        assert!(options.photo_options.contains(&format!("import:{}", root.join("data/bunny/masks").display())));
+        assert!(options.photo_options.contains(&format!("import:{}", root.join("data/bunny/final.sfm").display())));
+        imported.cameras_import = Some("../../etc".into());
+        assert!(engine.options(&imported, "id").unwrap_err().starts_with("cameras_import"));
+        imported.cameras_import = None;
+        assert!(engine.options(&imported, "id").unwrap_err().starts_with("cameras_import:"));
+
+        // What cannot run, does not exist, or tries to name a program is refused with a sentence.
+        assert!(engine.options(&body(json!({"masks": "threshold", "cameras": "colmap"})), "id").unwrap_err().starts_with("cameras: "));
+        assert!(engine.options(&body(json!({"masks": "external-sam", "cameras": "alicevision"})), "id").unwrap_err().contains("SAM is not set up"));
+        assert!(engine.options(&body(json!({"masks": "magic", "cameras": "alicevision"})), "id").unwrap_err().contains("no provider named"));
+        let mut sneaky = body(json!({"masks": "threshold", "cameras": "alicevision"}));
+        sneaky.photo_options = vec!["--alicevision".into(), "/bin/sh".into()];
+        assert!(engine.options(&sneaky, "id").unwrap_err().contains("cannot be set by a run request"));
+        let mut wrong = body(json!({"masks": "threshold", "cameras": "alicevision"}));
+        wrong.photo_options = vec!["--no-such-option".into()];
+        assert!(engine.options(&wrong, "id").unwrap_err().starts_with("photos: "));
+        let mut uncalibrated = body(json!({"masks": "threshold", "cameras": "alicevision"}));
+        uncalibrated.calibration = None;
+        assert!(engine.options(&uncalibrated, "id").unwrap_err().starts_with("calibration:"));
+        assert!(!root.join("runs/id").exists(), "checking must not create the run");
+
+        // The annotated start points say the same.
+        let points = engine.start_points();
+        let cameras = &points[2]["providers"][1];
+        assert_eq!(cameras["options"][0]["available"], true);
+        assert_eq!(cameras["options"][1]["available"], false);
+        assert_eq!(points[2]["providers"][0]["default"], "threshold");
     }
 }

@@ -66,26 +66,52 @@
 
     location.hash = "#/engine/new";
     await until("the settings form", () => document.querySelector("#s-sizes"));
-    one(".path-row button", "Browse").click();
-    // Walk down until a folder marked as inputs shows up.
-    for (let depth = 0; depth < 4; depth++) {
-      await until("a folder listing", () => document.querySelector("#f-inputs-browser .browser-list"));
-      const use = document.querySelector("#f-inputs-browser li.pickable .button");
-      if (use) {
-        use.click();
-        await sleep(300);
-        break;
+    // What the form sends is recorded, to compare with what was meant.
+    const invoke = internals.invoke;
+    internals.invoke = (command, args, ...rest) => {
+      if (command === "native_start") log(`start request: ${JSON.stringify(args.body)}`);
+      return invoke(command, args, ...rest);
+    };
+    if (options.photos) {
+      // The photos start: a photos folder inside the data folder, a calibration from the list
+      // the app found, and a provider for the masks and for the cameras.
+      one(".segmented button", "Turntable photos").click();
+      await until("the photos field", () => document.querySelector("#f-photos"));
+      type("#f-photos", options.photos);
+      await until("the calibrations the app found", () => document.querySelector(".calibrations button"), 15000);
+      (one(".calibrations button", options.calibration ?? "") ?? document.querySelector(".calibrations button")).click();
+      for (const [module, provider] of Object.entries(options.providers ?? {})) {
+        const radio = document.querySelector(`input[name="provider-${module}"][value="${provider}"]`);
+        if (!radio) throw new Error(`no provider ${provider} for ${module}`);
+        if (radio.disabled) throw new Error(`provider ${provider} is not available: ${radio.closest("label").querySelector(".field-error")?.textContent}`);
+        radio.click();
       }
-      const folder = document.querySelector("#f-inputs-browser .browser-entry");
-      if (!folder) throw new Error("the data folder has no inputs folder in it");
-      folder.click();
       await sleep(400);
+      const offered = [...document.querySelectorAll(".provider-option")].map((label) => `${label.querySelector("input").name.replace("provider-", "")}:${label.querySelector("input").value}${label.classList.contains("unavailable") ? " (not available)" : ""}${label.classList.contains("chosen") ? " [chosen]" : ""}`);
+      await log(`providers: ${offered.join(", ")}`);
+      await log(`photos ${document.querySelector("#f-photos").value}; calibration ${document.querySelector("#f-calibration").value.split("/").pop()}`);
+    } else {
+      one(".path-row button", "Browse").click();
+      // Walk down until a folder marked as inputs shows up.
+      for (let depth = 0; depth < 4; depth++) {
+        await until("a folder listing", () => document.querySelector("#f-inputs-browser .browser-list"));
+        const use = document.querySelector("#f-inputs-browser li.pickable .button");
+        if (use) {
+          use.click();
+          await sleep(300);
+          break;
+        }
+        const folder = document.querySelector("#f-inputs-browser .browser-entry");
+        if (!folder) throw new Error("the data folder has no inputs folder in it");
+        folder.click();
+        await sleep(400);
+      }
+      const inputs = document.querySelector("#f-inputs").value;
+      await log(`inputs chosen with the folder browser: ${inputs}`);
+      if (!inputs) throw new Error("no inputs were chosen");
     }
-    const inputs = document.querySelector("#f-inputs").value;
-    await log(`inputs chosen with the folder browser: ${inputs}`);
-    if (!inputs) throw new Error("no inputs were chosen");
     for (const [name, value] of Object.entries(SETTINGS)) type(`#s-${name}`, value);
-    type("#f-name", "native app check");
+    type("#f-name", options.name ?? "native app check");
     const device = document.querySelector("#f-device");
     if (device) {
       device.value = "cpu";
@@ -155,6 +181,8 @@
     const loaded = images.filter((image) => image.naturalWidth > 0).length;
     const reports = [...document.querySelectorAll(".report h3")].map((heading) => heading.textContent);
     const canvas = document.querySelector(".viewer canvas");
+    await log(`metrics: ${[...document.querySelectorAll(".metrics > div")].map((row) => row.querySelector("dt").childNodes[0].textContent + "=" + row.querySelector("dd").textContent).join(", ")}`);
+    await log(`sheet labels: ${[...document.querySelectorAll(".sheet-label")].map((label) => label.textContent).join(" | ")}`);
     await log(`run ${status}; stages: ${[...document.querySelectorAll(".stage")].map((s) => s.querySelector(".stage-name").textContent + "=" + s.querySelector(".stage-state").textContent.trim()).join(", ")}`);
     await log(`surface: ${document.querySelector("#mesh-heading + .sub").textContent}; canvas ${canvas.width}x${canvas.height}`);
     await log(`sheets loaded: ${loaded} of ${document.querySelectorAll(".sheet").length}; reports: ${reports.join(", ")}`);

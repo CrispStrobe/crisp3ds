@@ -20,6 +20,19 @@ pub struct Config {
     pub data_dir: String,
     /// `auto`, `mps`, `cuda` or `cpu`.
     pub device: String,
+    // External programs of the photos start (providers of masks and cameras).
+    /// AliceVision install prefix (with `bin/aliceVision_*`) or a wrapper script.
+    pub alicevision: String,
+    /// Extra library directories for an AliceVision prefix, separated like PATH.
+    pub alicevision_library_path: String,
+    /// The `colmap` executable or a wrapper.
+    pub colmap: String,
+    /// Interpreter with PyTorch for the `external-sam` masks provider.
+    pub sam_python: String,
+    /// SAM 2 source checkout.
+    pub sam_source: String,
+    /// SAM 2.1 checkpoint file.
+    pub sam_checkpoint: String,
 }
 
 /// Where a resolved value came from, shown next to it on the settings screen.
@@ -50,6 +63,38 @@ pub struct Resolved {
     pub runs_dir: Value,
     pub data_dir: Value,
     pub device: Value,
+}
+
+/// The external programs of the photos start, resolved like the rest: setting, then the
+/// environment variable the crate itself reads, else empty (not configured).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Tools {
+    pub alicevision: Value,
+    pub alicevision_library_path: Value,
+    pub colmap: Value,
+    pub sam_python: Value,
+    pub sam_source: Value,
+    pub sam_checkpoint: Value,
+}
+
+pub fn resolve_tools(config: &Config, around: &Surroundings) -> Tools {
+    let pick = |saved: &str, variable: &str| -> Value {
+        if let Some(value) = set(saved) {
+            return Value { value, source: Source::Setting };
+        }
+        match around.env.get(variable).and_then(|value| set(value)) {
+            Some(value) => Value { value, source: Source::Environment },
+            None => Value { value: String::new(), source: Source::Default },
+        }
+    };
+    Tools {
+        alicevision: pick(&config.alicevision, "CRISP3DS_ALICEVISION"),
+        alicevision_library_path: pick(&config.alicevision_library_path, "CRISP3DS_ALICEVISION_LIBRARY_PATH"),
+        colmap: pick(&config.colmap, "CRISP3DS_COLMAP"),
+        sam_python: pick(&config.sam_python, "CRISP3DS_SAM_PYTHON"),
+        sam_source: pick(&config.sam_source, "CRISP3DS_SAM_SOURCE"),
+        sam_checkpoint: pick(&config.sam_checkpoint, "CRISP3DS_SAM_CHECKPOINT"),
+    }
 }
 
 pub const ENGINE_MODULE: &str = "scripts/turntable_mesh/engine_server.py";

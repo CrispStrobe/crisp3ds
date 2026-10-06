@@ -11,6 +11,5 @@ fn main() {
     if std::env::var_os("CARGO_FEATURE_LOCAL_ENGINE").is_some() && os != "android" && os != "ios" {
         println!("cargo::rustc-cfg=local_engine");
     }
-    println!("cargo::rerun-if-changed=settings-schema.json");
     tauri_build::build()
 }

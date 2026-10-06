@@ -19,6 +19,8 @@ mod config;
 mod engine;
 #[cfg(native_engine)]
 mod native;
+#[cfg(native_engine)]
+mod tools;
 
 use serde::Serialize;
 use serde_json::Value;
@@ -37,6 +39,8 @@ struct ShellInfo {
     can_run_engine: bool,
     /// Native folder and file pickers exist.
     can_pick_paths: bool,
+    /// The app runs in the macOS App Sandbox: no other programs, only folders the user picked.
+    sandboxed: bool,
     os: &'static str,
     version: &'static str,
     /// The device `auto` stands for when the Python engine is used on this computer.
@@ -49,6 +53,7 @@ fn shell_info() -> ShellInfo {
         native_engine: cfg!(native_engine),
         can_run_engine: cfg!(local_engine),
         can_pick_paths: cfg!(desktop),
+        sandboxed: std::env::var_os("APP_SANDBOX_CONTAINER_ID").is_some(),
         os: std::env::consts::OS,
         version: env!("CARGO_PKG_VERSION"),
         auto_device: config::auto_device(),
@@ -63,6 +68,8 @@ struct Settings {
     saved: Config,
     /// What will actually be used, and where each value comes from.
     resolved: Resolved,
+    /// Where the external programs of the photos start are (AliceVision, COLMAP, SAM).
+    tools: config::Tools,
     /// A sentence when the external Python engine cannot be started with these values.
     problem: Option<String>,
     file: String,
@@ -78,7 +85,8 @@ fn settings(app: &AppHandle) -> Result<Settings, String> {
     let around = app.path().app_data_dir().map(Surroundings::real).map_err(|error| error.to_string())?;
     let resolved = config::resolve(&saved, &around);
     let problem = config::problems(&resolved);
-    Ok(Settings { saved, resolved, problem, file: file.to_string_lossy().into_owned() })
+    let tools = config::resolve_tools(&saved, &around);
+    Ok(Settings { saved, resolved, tools, problem, file: file.to_string_lossy().into_owned() })
 }
 
 /// Points the built-in engine at the configured folders.
@@ -87,6 +95,7 @@ fn configure_native(app: &AppHandle) -> Result<(), String> {
     {
         let settings = settings(app)?;
         let engine = app.state::<std::sync::Arc<native::Native>>();
+        engine.configure_tools(settings.tools.clone(), settings.resolved.repo.value.clone());
         engine.configure(std::path::Path::new(&settings.resolved.runs_dir.value), std::path::Path::new(&settings.resolved.data_dir.value))?;
     }
     #[cfg(not(native_engine))]
@@ -196,7 +205,8 @@ async fn native_health(app: AppHandle) -> Result<Value, String> {
             "can_start_runs": true,
             "runs_dir": runs.to_string_lossy(),
             "data_dir": data.to_string_lossy(),
-            "start_points": native::start_points(),
+            "start_points": built_in(&app).start_points(),
+            "sandboxed": tools::sandboxed(),
         }))
     }
     #[cfg(not(native_engine))]
@@ -316,6 +326,48 @@ async fn native_data(app: AppHandle, path: String) -> Result<Value, String> {
     #[cfg(not(native_engine))]
     {
         let _ = (app, path);
+        Err(UNAVAILABLE.into())
+    }
+}
+
+/// Asks an external program of the photos start about itself: `alicevision`, `colmap` or `sam`.
+/// Uses the saved settings; returns `{ok, summary, detail}`.
+#[tauri::command]
+async fn check_tool(app: AppHandle, tool: String) -> Result<Value, String> {
+    #[cfg(native_engine)]
+    {
+        let settings = settings(&app)?;
+        serde_json::to_value(tools::check(&tool, &settings.tools, &settings.resolved.repo.value)).map_err(|error| error.to_string())
+    }
+    #[cfg(not(native_engine))]
+    {
+        let _ = (app, tool);
+        Err(UNAVAILABLE.into())
+    }
+}
+
+/// Lens calibration files found next to the app: in the crisp3ds checkout and in the data
+/// folder. What is listed may be used as a run's calibration.
+#[tauri::command]
+async fn native_calibrations(app: AppHandle) -> Result<Value, String> {
+    #[cfg(native_engine)]
+    {
+        let settings = settings(&app)?;
+        let data = std::path::PathBuf::from(&settings.resolved.data_dir.value);
+        let mut folders = vec![data.clone(), data.join("calibrations")];
+        if !settings.resolved.repo.value.is_empty() {
+            folders.push(std::path::Path::new(&settings.resolved.repo.value).join("scripts/turntable_mesh/calibrations"));
+        }
+        let found = tools::calibrations(&folders);
+        let engine = built_in(&app);
+        for calibration in &found {
+            engine.grant(std::path::Path::new(&calibration.path));
+        }
+        serde_json::to_value(found).map_err(|error| error.to_string())
+    }
+    #[cfg(not(native_engine))]
+    {
+        let _ = app;
         Err(UNAVAILABLE.into())
     }
 }
@@ -449,6 +501,8 @@ pub fn run() {
         native_file,
         native_file_size,
         native_data,
+        native_calibrations,
+        check_tool,
         autopilot_log,
         autopilot_quit,
         autopilot_sleep,
@@ -471,7 +525,9 @@ pub fn run() {
         native_cancel,
         native_file,
         native_file_size,
-        native_data
+        native_data,
+        native_calibrations,
+        check_tool
     ]);
 
     let app = builder.build(tauri::generate_context!()).expect("error while building Crisp3DS Studio");
