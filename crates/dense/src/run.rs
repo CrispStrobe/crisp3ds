@@ -164,6 +164,7 @@ struct PreviewQueue {
 #[derive(Default)]
 struct PreviewState {
     waiting: std::collections::VecDeque<(PathBuf, String)>,
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     meshing: bool,
     closed: bool,
     /// Set when the run failed or was cancelled: waiting volumes are dropped.

@@ -32,6 +32,8 @@ pub struct Gpu {
     pub info: wgpu::AdapterInfo,
     pub limits: wgpu::Limits,
     peak: std::sync::atomic::AtomicU64,
+    /// First error the device reported outside an error scope.
+    uncaptured: std::sync::Arc<std::sync::Mutex<Option<String>>>,
 }
 
 impl Gpu {
@@ -65,7 +67,12 @@ impl Gpu {
             })
             .await
             .context("GPU device with default WebGPU limits")?;
-        Ok(Gpu { device, queue, info: adapter.get_info(), limits, peak: std::sync::atomic::AtomicU64::new(0) })
+        let uncaptured = std::sync::Arc::new(std::sync::Mutex::new(None::<String>));
+        let sink = uncaptured.clone();
+        device.on_uncaptured_error(std::sync::Arc::new(move |error| {
+            sink.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get_or_insert_with(|| error.to_string());
+        }));
+        Ok(Gpu { device, queue, info: adapter.get_info(), limits, peak: std::sync::atomic::AtomicU64::new(0), uncaptured })
     }
 
     pub fn describe(&self) -> String {
@@ -148,6 +155,9 @@ impl Gpu {
         #[cfg(not(target_arch = "wasm32"))]
         self.device.poll(wgpu::PollType::wait_indefinitely()).map_err(|e| anyhow!("GPU poll: {e}"))?;
         mapped.await.map_err(|e| anyhow!("GPU readback: {e}"))?;
+        if let Some(error) = self.uncaptured.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take() {
+            return Err(anyhow!("GPU: {error}"));
+        }
         let view = staging.slice(..).get_mapped_range().map_err(|e| anyhow!("GPU readback: {e}"))?;
         let mut out = vec![T::zeroed(); count];
         bytemuck::cast_slice_mut::<T, u8>(&mut out).copy_from_slice(&view[..bytes as usize]);
@@ -191,6 +201,9 @@ impl Gpu {
             .enumerate()
             .map(|(n, buffer)| wgpu::BindGroupEntry { binding: n as u32, resource: buffer.as_entire_binding() })
             .collect();
+        // A browser answers an error scope through its event loop; awaiting one per dispatch
+        // would dominate. There the device's error callback is checked at the next readback.
+        #[cfg(not(target_arch = "wasm32"))]
         let scope = self.device.push_error_scope(wgpu::ErrorFilter::Validation);
         let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some(&kernel.label),
@@ -210,6 +223,7 @@ impl Gpu {
             pass.dispatch_workgroups(x, y, 1);
         }
         self.queue.submit([encoder.finish()]);
+        #[cfg(not(target_arch = "wasm32"))]
         if let Some(error) = scope.pop().await {
             return Err(anyhow!("kernel {}: {error}", kernel.label));
         }

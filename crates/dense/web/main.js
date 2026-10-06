@@ -1,0 +1,55 @@
+// Minimal test page: runs the engine in a worker on files it fetches and shows
+// status text and the final triangle count. `window.crisp3ds` holds the state
+// for automated tests: { status, events, report, files, kept, error, ... }.
+
+const query = new URLSearchParams(location.search);
+const base = query.get("base") ?? "scene";
+const options = JSON.parse(query.get("options") ?? "{}");
+const keep = (query.get("keep") ?? "").split(",").filter(Boolean);
+const upload = query.get("upload");
+const element = (id) => document.getElementById(id);
+element("base").textContent = base;
+
+const state = { status: "starting", events: [], kept: {}, uploading: 0, report: null, error: null };
+window.crisp3ds = state;
+
+const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
+element("cancel").onclick = () => worker.postMessage({ type: "cancel" });
+worker.onerror = (event) => fail(event.message ?? "worker failed to load");
+worker.onmessage = ({ data }) => {
+  if (data.type === "status") {
+    element("status").textContent = data.text;
+  } else if (data.type === "event") {
+    state.events.push(data.event);
+    const event = data.event;
+    if (event.type === "progress") {
+      element("status").textContent = `${event.stage}: ${event.message} (${Math.round(100 * event.fraction)} %)`;
+    } else if (event.type !== "metric") {
+      element("log").textContent += `${event.type} ${event.stage ?? ""} ${event.kind ?? event.status ?? event.message ?? ""}\n`;
+    }
+  } else if (data.type === "file") {
+    if (upload) {
+      // Hand the file to the test server instead of keeping it in the page.
+      state.uploading += 1;
+      fetch(`${upload}/${data.path}`, { method: "POST", body: data.bytes })
+        .catch((error) => fail(`upload of ${data.path}: ${error}`))
+        .finally(() => (state.uploading -= 1));
+    } else {
+      state.kept[data.path] = data.bytes;
+    }
+  } else if (data.type === "done") {
+    Object.assign(state, data, { status: "done" });
+    element("status").textContent = `Finished in ${data.seconds.toFixed(1)} s`;
+    element("result").textContent =
+      `${data.report.triangles.toLocaleString("en")} triangles, ${data.report.closed ? "closed" : "open"}, genus ${data.report.genus}; ` +
+      `peak WebAssembly memory ${(data.peakWasmBytes / 2 ** 20).toFixed(0)} MiB; GPU: ${data.adapter?.description || data.adapter?.device || data.adapter?.vendor || "unknown"}`;
+  } else if (data.type === "error") {
+    fail(data.message, data);
+  }
+};
+worker.postMessage({ type: "run", base: new URL(base, location.href).href.replace(/\/$/, ""), options, keep });
+
+function fail(message, data = {}) {
+  Object.assign(state, data, { status: "error", error: message });
+  element("status").textContent = `Failed: ${message}`;
+}

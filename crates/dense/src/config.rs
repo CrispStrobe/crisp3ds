@@ -129,9 +129,27 @@ impl DenseConfig {
     }
 }
 
+/// Name, group, meaning, kind and default of every setting, as JSON
+/// (`{"settings": [...]}`), for generated settings forms. Written from the
+/// reference's `dense_config.settings_schema()`; a test fails when it drifts.
+pub const SETTINGS_SCHEMA: &str = include_str!("../settings-schema.json");
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_settings_schema_lists_every_setting_with_its_default() {
+        let schema: serde_json::Value = serde_json::from_str(SETTINGS_SCHEMA).unwrap();
+        let defaults = serde_json::to_value(DenseConfig::default()).unwrap();
+        let rows = schema["settings"].as_array().unwrap();
+        assert_eq!(rows.len(), defaults.as_object().unwrap().len());
+        for row in rows {
+            let name = row["name"].as_str().unwrap();
+            assert_eq!(row["default"], defaults[name], "{name}");
+            assert!(row["group"].is_string() && row["meaning"].is_string() && row["kind"].is_string(), "{name}");
+        }
+    }
 
     #[test]
     fn defaults_match_the_python_reference() {

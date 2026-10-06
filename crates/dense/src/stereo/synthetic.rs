@@ -148,6 +148,27 @@ pub fn sphere_depth(view: &LevelView) -> Plane<f32> {
     depth
 }
 
+/// Command `synthetic --output DIR [--views N] [--size PIXELS]`: writes the scene
+/// and prints the settings sized for it.
+pub fn main(arguments: &[String]) -> anyhow::Result<()> {
+    let (mut output, mut views, mut size) = (None, 24usize, 128usize);
+    let mut rest = arguments.iter();
+    while let Some(flag) = rest.next() {
+        let mut value = || rest.next().ok_or_else(|| anyhow::anyhow!("{flag} needs a value"));
+        match flag.as_str() {
+            "--output" => output = Some(std::path::PathBuf::from(value()?)),
+            "--views" => views = value()?.parse()?,
+            "--size" => size = value()?.parse()?,
+            other => anyhow::bail!("unknown argument {other}\nusage: crisp3ds-dense synthetic --output DIR [--views N] [--size PIXELS]"),
+        }
+    }
+    let output = output.ok_or_else(|| anyhow::anyhow!("--output is required"))?;
+    anyhow::ensure!(!crate::storage::exists(&output), "output directory exists: {}", output.display());
+    write(&output, views, size)?;
+    println!("suggested overrides: {}", SMALL.iter().map(|item| format!("--set {item}")).collect::<Vec<_>>().join(" "));
+    Ok(())
+}
+
 /// A fresh scene in a temporary directory; the caller removes it.
 pub fn temporary(tag: &str, views: usize, size: usize) -> anyhow::Result<std::path::PathBuf> {
     let root = std::env::temp_dir().join(format!("crisp3ds-synthetic-{tag}-{}", std::process::id()));

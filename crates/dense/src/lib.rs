@@ -17,6 +17,8 @@ pub mod hull;
 pub mod inputs;
 pub mod mesh;
 pub mod npz;
+// The photo front end drives external programs; it has no place in a browser build.
+#[cfg(not(target_arch = "wasm32"))]
 pub mod photos;
 pub mod render;
 pub mod repair;

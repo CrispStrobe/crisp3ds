@@ -1,0 +1,146 @@
+// Runs the test page in headless Chromium with WebGPU and writes what came out.
+//
+//   node test/run.mjs --scene INPUTS_DIR --output DIR [--options JSON] [--keep a,b] [--timeout SECONDS]
+//                     [--software] [--headed] [--expect-triangles]
+//
+// INPUTS_DIR is an inputs directory (cameras.json, masks, sparse_points.npy; photos may
+// lie elsewhere, as absolute paths in cameras.json). The server hands the page a copy
+// with relative paths. Files named by --keep are uploaded by the page into DIR, next to
+// events.jsonl, pipeline.json and result.json (adapter, limits, memory, timings).
+// --software asks Chromium for its software WebGPU adapter (SwiftShader), for machines
+// without a GPU. Exit code 0 when the run completed.
+
+import { execFileSync } from "node:child_process";
+import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+import { dirname, extname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { chromium } from "playwright";
+
+const web = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const args = process.argv.slice(2);
+const flag = (name) => args.includes(name);
+const value = (name, fallback) => (args.includes(name) ? args[args.indexOf(name) + 1] : fallback);
+const scene = resolve(value("--scene", "scene"));
+const output = resolve(value("--output", "browser-run"));
+const options = value("--options", "{}");
+const keep = value("--keep", "");
+const timeout = Number(value("--timeout", "600")) * 1000;
+mkdirSync(output, { recursive: true });
+
+// The inputs directory as the page sees it: relative paths only.
+const cameras = JSON.parse(readFileSync(join(scene, "cameras.json"), "utf8"));
+const mapped = new Map([["sparse_points.npy", join(scene, "sparse_points.npy")]]);
+for (const view of cameras.views) {
+  for (const [key, folder] of [["image", "images"], ["mask", "masks"]]) {
+    const source = resolve(scene, view[key]);
+    const name = `${folder}/${view.name}${extname(source)}`;
+    mapped.set(name, source);
+    view[key] = name;
+  }
+}
+const camerasText = JSON.stringify(cameras);
+const types = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".wasm": "application/wasm", ".json": "application/json" };
+
+const server = createServer((request, response) => {
+  const path = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
+  if (request.method === "POST" && path.startsWith("/upload/")) {
+    const target = join(output, path.slice("/upload/".length));
+    if (!target.startsWith(output)) return response.writeHead(400).end();
+    mkdirSync(dirname(target), { recursive: true });
+    request.pipe(createWriteStream(target)).on("finish", () => response.writeHead(204).end());
+    return;
+  }
+  let file;
+  if (path === "/scene/files.json") {
+    return response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(["cameras.json", ...mapped.keys()]));
+  } else if (path === "/scene/cameras.json") {
+    return response.writeHead(200, { "content-type": "application/json" }).end(camerasText);
+  } else if (path.startsWith("/scene/")) {
+    file = mapped.get(path.slice("/scene/".length));
+  } else {
+    file = join(web, path === "/" ? "index.html" : path);
+    if (!file.startsWith(web)) file = undefined;
+  }
+  if (!file || !existsSync(file) || !statSync(file).isFile()) return response.writeHead(404).end();
+  response.writeHead(200, { "content-type": types[extname(file)] ?? "application/octet-stream" });
+  createReadStream(file).pipe(response);
+});
+await new Promise((done) => server.listen(0, "127.0.0.1", done));
+const origin = `http://127.0.0.1:${server.address().port}`;
+
+// Chromium's new headless mode keeps the GPU process; WebGPU needs to be switched on in it.
+const launch = ["--enable-unsafe-webgpu", "--enable-features=WebGPU"];
+if (flag("--software")) launch.push("--use-webgpu-adapter=swiftshader", "--use-angle=swiftshader", "--enable-unsafe-swiftshader");
+else if (process.platform === "darwin") launch.push("--use-angle=metal");
+else launch.push("--enable-features=Vulkan", "--use-angle=vulkan");
+const browser = await chromium.launch({ channel: "chromium", headless: !flag("--headed"), args: launch });
+const page = await browser.newPage();
+const consoleLines = [];
+page.on("console", (message) => consoleLines.push(`${message.type()}: ${message.text()}`));
+page.on("pageerror", (error) => consoleLines.push(`pageerror: ${error.message}`));
+
+// Peak resident memory of Chromium's processes by kind, sampled once a second.
+const executable = dirname(chromium.executablePath());
+const peaks = {};
+function sampleMemory() {
+  if (process.platform === "win32") return;
+  try {
+    const rows = execFileSync("ps", ["-axo", "rss=,command="], { encoding: "utf8", maxBuffer: 1 << 24 }).split("\n");
+    const now = {};
+    for (const row of rows) {
+      const match = row.trim().match(/^(\d+)\s+(.*)$/);
+      // Chromium's processes run from the directory of its executable (helpers lie below it).
+      if (!match || !match[2].includes(dirname(executable))) continue;
+      const kind = match[2].match(/--type=([\w-]+)/)?.[1] ?? "browser";
+      now[kind] = Math.max(now[kind] ?? 0, Number(match[1]) * 1024);
+    }
+    for (const [kind, bytes] of Object.entries(now)) peaks[kind] = Math.max(peaks[kind] ?? 0, bytes);
+  } catch {
+    // ps is a convenience; the run does not depend on it
+  }
+}
+const sampler = setInterval(sampleMemory, 1000);
+
+const query = new URLSearchParams({ base: "scene", options, keep, upload: "upload" });
+const started = Date.now();
+await page.goto(`${origin}/index.html?${query}`);
+let state;
+try {
+  await page.waitForFunction(() => ["done", "error"].includes(window.crisp3ds?.status) && window.crisp3ds.uploading === 0, null, { timeout, polling: 500 });
+  state = await page.evaluate(() => {
+    const { kept, ...rest } = window.crisp3ds;
+    return { ...rest, jsHeapBytes: performance.memory?.usedJSHeapSize ?? null };
+  });
+} catch (error) {
+  state = await page.evaluate(() => ({ status: window.crisp3ds?.status ?? "no page state", events: window.crisp3ds?.events ?? [], error: "timeout" })).catch(() => ({ status: "crashed", events: [], error: String(error) }));
+}
+clearInterval(sampler);
+sampleMemory();
+await browser.close();
+server.close();
+
+const events = state.events ?? [];
+writeFileSync(join(output, "events.jsonl"), events.map((event) => JSON.stringify(event) + "\n").join(""));
+if (state.report) writeFileSync(join(output, "pipeline.json"), JSON.stringify(state.report, null, 2) + "\n");
+const result = {
+  status: state.status,
+  error: state.error ?? null,
+  wall_seconds: (Date.now() - started) / 1000,
+  run_seconds: state.seconds ?? null,
+  adapter: state.adapter ?? null,
+  limits: state.limits ?? null,
+  peak_wasm_bytes: state.peakWasmBytes ?? state.wasmBytes ?? null,
+  page_js_heap_bytes: state.jsHeapBytes ?? null,
+  peak_process_resident_bytes: peaks,
+  events: events.length,
+  triangles: state.report?.triangles ?? null,
+  closed: state.report?.closed ?? null,
+  genus: state.report?.genus ?? null,
+  files: state.files ?? null,
+  console: consoleLines.slice(-40),
+};
+writeFileSync(join(output, "result.json"), JSON.stringify(result, null, 2) + "\n");
+const { files, ...summary } = result;
+console.log(JSON.stringify(summary, null, 2));
+process.exit(state.status === "done" ? 0 : 1);
