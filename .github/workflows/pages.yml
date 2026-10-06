@@ -52,11 +52,13 @@ jobs:
           rustup target add wasm32-unknown-unknown
           wasm-bindgen --version 2>/dev/null | grep -q ' 0\.2\.129$' || cargo install wasm-bindgen-cli --version 0.2.129 --locked
           sh build.sh
-      - run: npm run build
+      # The release build also writes THIRD-PARTY-NOTICES.txt for the Licenses screen.
+      - run: npm run build:release
       - name: The site carries the engine, the demo and only relative URLs
         run: |
           test -s dist/engine/pkg/crisp3ds_dense_web_bg.wasm
           test -s dist/demo/events.jsonl
+          test -s dist/THIRD-PARTY-NOTICES.txt
           ! grep -E '(src|href)="/' dist/index.html
           touch dist/.nojekyll
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
