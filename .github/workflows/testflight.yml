@@ -50,7 +50,7 @@ jobs:
   ios:
     name: iOS (${{ inputs.dry_run && 'dry run' || 'upload' }})
     if: inputs.platforms != 'macos'
-    runs-on: macos-26
+    runs-on: macos-latest
     timeout-minutes: 90
     defaults:
       run:
@@ -65,6 +65,11 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: apps/studio/package-lock.json
+      - name: Newest Xcode (uploads must be built with a current SDK)
+        run: |
+          newest=$(ls -d /Applications/Xcode_*.app | sort -V | tail -n 1)
+          sudo xcode-select -s "$newest"
+          xcodebuild -version
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
           toolchain: stable
@@ -79,7 +84,6 @@ jobs:
       - name: Tools
         run: |
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
-          xcodebuild -version
       - run: npm ci
       - name: Version
         run: |
@@ -193,7 +197,7 @@ jobs:
   macos:
     name: macOS App Store (${{ inputs.dry_run && 'dry run' || 'upload' }})
     if: inputs.platforms != 'ios'
-    runs-on: macos-26
+    runs-on: macos-latest
     timeout-minutes: 90
     defaults:
       run:
@@ -208,6 +212,11 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: apps/studio/package-lock.json
+      - name: Newest Xcode (uploads must be built with a current SDK)
+        run: |
+          newest=$(ls -d /Applications/Xcode_*.app | sort -V | tail -n 1)
+          sudo xcode-select -s "$newest"
+          xcodebuild -version
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
           toolchain: stable

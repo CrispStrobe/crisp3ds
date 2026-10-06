@@ -1,7 +1,7 @@
 # Releasing Crisp3DS
 
 What a release consists of, how to cut one, what to check before publishing
-it, and where the App Store and TestFlight stand.
+it, and how builds reach TestFlight.
 
 ## What a release contains
 
@@ -131,91 +131,69 @@ user and are not redistributed by these releases, except as names in
 `requirements-dense.txt`.
 
 
-## App Store and TestFlight: prepared, nothing uploaded
+## App Store and TestFlight
 
-Status: **no build has been signed for distribution or uploaded, no App Store
-Connect object has been created, no credential has been used and no
-repository secret has been set.** How this account signs and uploads is
-described in the owner's App Store notes, which are kept outside this
-repository on purpose; nothing from them belongs in here.
+Crisp 3D Studio is in App Store Connect as "Crisp 3D Studio",
+bundle identifier `com.crispstrobe.crisp3ds`, for iOS and macOS. Builds go to
+**internal TestFlight testing only**; nothing has been submitted for review
+and there is no store listing beyond the name. How the account signs and
+uploads is described in the owner's App Store notes, which are kept outside
+this repository on purpose; nothing from them belongs in here.
 
-### What is in the repository
+### What a store build is
 
-- A variant of the app for sandboxed store builds
-  (`tauri build -- --no-default-features --features native-engine`): the
-  reconstruction engine is built in and runs inside the sandbox; the launcher
-  for the external Python engine, which a sandboxed app cannot use, is compiled
-  out. Checked locally: built, ad-hoc signed with the sandbox entitlements,
-  and the synthetic sphere reconstructed inside it (8 s, folders in the app's
-  container). That run was started through a debug hook, not through the
-  window: the screen was locked at the time, so the form was not exercised in
-  this variant.
-- `apps/studio/src-tauri/tauri.appstore.conf.json`: store bundle settings.
-  It names no bundle identifier; pass the chosen one at build time
-  (`--config '{"identifier":"..."}'`).
-- `apps/studio/src-tauri/entitlements.appstore.plist`:
-  `com.apple.security.app-sandbox`,
-  `com.apple.security.files.user-selected.read-write` (inputs are folders the
-  user picks; the runs folder may be one too) and
-  `com.apple.security.network.client` (only for the optional engine on another
-  computer; drop it if that mode is removed from the store variant).
-  Folders picked in a dialog are usable until the app quits: security-scoped
-  bookmarks, which would let a chosen data or runs folder survive a restart,
-  are not implemented, so the store variant should keep its default folders
-  inside the container.
-- `apps/studio/src-tauri/Info.plist` (macOS) and `Info.ios.plist` (iOS):
-  `ITSAppUsesNonExemptEncryption = false`, `NSAllowsLocalNetworking`,
-  `NSLocalNetworkUsageDescription`. Both were checked in built apps: the
-  macOS bundle locally, the iOS simulator app in the release workflow, which
-  prints these keys.
-- The license audit above.
+- **macOS**: the sandboxed variant
+  (`tauri build -- --no-default-features --features native-engine` with
+  `src-tauri/tauri.appstore.conf.json`): App Sandbox, user-selected files,
+  outgoing connections only (`src-tauri/entitlements.appstore.plist`). No
+  child processes: AliceVision, COLMAP, external SAM and the Python launcher
+  are absent or listed as unavailable with a sentence saying why.
+- **iOS**: the same engine; nothing that starts a program is offered. Runs and
+  data live in the app's Documents, which the Files app shows (that is how
+  photos get in and the STL gets out).
+- Both run photos → masks (`threshold`) → cameras (`turntable`, `markers` or
+  `import`) → dense stages → STL entirely inside the app.
+- `PrivacyInfo.xcprivacy` (no tracking, no data collected, reasons for file
+  times, disk space, boot time and user defaults), added to the generated
+  Xcode project by `scripts/ios-prepare.mjs`;
+  `ITSAppUsesNonExemptEncryption = false` (no crate in the store builds
+  implements encryption or TLS; `licenses.mjs --store` lists them, and the list
+  is empty); opaque iOS icons (`scripts/ios-icons-opaque.py`).
+- The Licenses screen in the app shows `NOTICE` (AGPL-3.0-only with the
+  section 7 permission for store builds published by the copyright holder),
+  then every third-party license text and where the MPL-2.0 sources are.
 
-### Why it stopped there
+### Licenses of a store build
 
-1. **App records.** App Store Connect does not allow creating an app through
-   its API. Someone has to create the app record(s) in the browser. Upload,
-   and even validation, need the record to exist.
-2. **Bundle identifier.** The direct-download desktop app uses
-   `dev.crisp3ds.studio`. Whether the store apps use the same or another one
-   is the owner's decision; it cannot be changed once an app record uses it.
-3. **License basis.** Crisp3DS is AGPL-3.0-only. Its copyright holder may
-   distribute it through the App Store; nobody else may. Whether and how to
-   record that in this repository (for example with an additional license
-   grant for store binaries) is a licensing decision for the owner.
-4. **Credentials.** Signing and upload use the owner's App Store Connect API
-   key, certificates and team. They were not touched. The request to use them
-   reached the agent doing this work only through another agent, and using an
-   account's credentials is not something to do without the owner saying so
-   directly.
+`npm run licenses -- --store` audits exactly what the two store builds link.
+It fails without the store permission in `NOTICE` and on any third-party GPL,
+LGPL or AGPL code. Result: **clean with obligations** (third-party code is
+permissive apart from four MPL-2.0 crates used unmodified; the project's own
+AGPL code is covered by `NOTICE`).
 
-### What remains
+### Version and build number
 
-Owner:
+The marketing version is the app's version (`scripts/set-version.mjs`), the
+same in the stores. The build number (`CFBundleVersion`) is the run number of
+`testflight.yml`, so each upload has a higher one; a build number cannot be
+reused and an upload cannot be undone.
 
-1. Decide the bundle identifier, the app name and the license basis.
-2. Create the app record(s) in App Store Connect.
-3. Say directly that the account's key and certificates may be used for this
-   app, or run the signing and upload personally.
-4. Later, for anything beyond internal testing: a privacy policy URL, the App
-   Privacy answers and the age rating.
+### `testflight.yml`
 
-Then, following the owner's App Store notes:
+Manual dispatch only; `dry_run` defaults to true.
 
-1. iOS: generate the project (`tauri ios init`), check the generated
-   `Info.plist`, icons (`tauri icon` from a 1024 px source) and launch screen,
-   add a privacy manifest (`PrivacyInfo.xcprivacy`) for the required-reason
-   APIs that Tauri's core uses, sign, archive, validate, upload.
-2. macOS: build the store variant
-   (`--no-default-features --features native-engine`) with
-   `--config src-tauri/tauri.appstore.conf.json`, sign for distribution,
-   package, validate, upload.
-3. Answer export compliance if the plist key did not, create an internal
-   TestFlight group, add the build and the testers.
-4. If this is to run in CI, add a manually dispatched `testflight` job to
-   `release.yml` with the secrets those notes name.
+- **iOS**: `tauri ios init`, `scripts/ios-prepare.mjs`, an unsigned archive
+  (`tauri ios build --no-sign --archive-only`), export with App Store
+  distribution signing and the iOS App Store profile, signature check,
+  `altool --validate-app`.
+- **macOS**: the sandboxed variant built and signed by the Tauri bundler from
+  a keychain that lives for the whole job, with the Mac App Store profile
+  embedded; `productbuild` wraps it in a signed installer package;
+  `altool --validate-app`.
+- With `dry_run=false`, each then uploads. Afterwards the build needs its
+  encryption answer and an internal tester group in App Store Connect before
+  testers see it.
 
-To check on the first upload: whether a sandboxed web view may load plain
-HTTP from a local-network address with `NSAllowsLocalNetworking` alone;
-whether review accepts an app whose main function needs a separately running
-engine (the demo recording is there so the app shows something without one);
-the size of `THIRD-PARTY-NOTICES.txt`.
+Repository secrets: `ASC_API_KEY_P8_BASE64`, `ASC_KEY_ID`, `ASC_ISSUER_ID`,
+`ASC_TEAM_ID`, `ASC_APP_ID`, `DIST_CERT_P12_BASE64`, `DIST_CERT_PASSWORD`,
+`ASC_PROFILE_BASE64`, `MAC_PROFILE_BASE64`.

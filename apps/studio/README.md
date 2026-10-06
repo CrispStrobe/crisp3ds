@@ -507,7 +507,7 @@ above the executable with a `.venv` in it, then `python3` from `PATH`.
 | Desktop (default) | `native-engine`, `local-engine` | built-in, external Python, remote | direct download |
 | Mac App Store | `--no-default-features --features native-engine` | built-in (no AliceVision, COLMAP or SAM), remote | sandboxed builds: a sandboxed app cannot start other programs. A folder chosen with a dialog has to be chosen again after a restart: Tauri does not offer security-scoped bookmarks, and the Folders screen says so |
 | Client only | `--no-default-features` | remote | fallback if the engine cannot be shipped on a platform |
-| Phones | default (the Python launcher is never compiled for phones) | built-in (untested), remote | Android, iOS |
+| Phones | default (the Python launcher is never compiled for phones) | built-in (photos with threshold masks and turntable cameras; iOS simulator verified), remote | Android, iOS |
 
 Store files: `src-tauri/tauri.appstore.conf.json`,
 `src-tauri/entitlements.appstore.plist` (`app-sandbox`,
