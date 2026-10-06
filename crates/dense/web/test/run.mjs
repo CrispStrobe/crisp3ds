@@ -2,16 +2,19 @@
 //
 //   node test/run.mjs --scene INPUTS_DIR --output DIR [--options JSON] [--keep a,b] [--timeout SECONDS]
 //                     [--software] [--headed] [--expect-triangles]
+//   node test/run.mjs --photos PHOTOS_DIR --calibration LENS_JSON --output DIR [...]
+//   [--channel chrome]   an installed Google Chrome instead of Playwright's Chromium
 //
 // INPUTS_DIR is an inputs directory (cameras.json, masks, sparse_points.npy; photos may
 // lie elsewhere, as absolute paths in cameras.json). The server hands the page a copy
 // with relative paths. Files named by --keep are uploaded by the page into DIR, next to
 // events.jsonl, pipeline.json and result.json (adapter, limits, memory, timings).
 // --software asks Chromium for its software WebGPU adapter (SwiftShader), for machines
-// without a GPU. Exit code 0 when the run completed.
+// without a GPU. With --photos the page starts from the photos and the lens calibration
+// (masks and cameras recovered in the browser). Exit code 0 when the run completed.
 
 import { execFileSync } from "node:child_process";
-import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,6 +25,9 @@ const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
 const value = (name, fallback) => (args.includes(name) ? args[args.indexOf(name) + 1] : fallback);
 const scene = resolve(value("--scene", "scene"));
+const photosDir = args.includes("--photos") ? resolve(value("--photos")) : null;
+const calibration = args.includes("--calibration") ? resolve(value("--calibration")) : null;
+if (photosDir && !calibration) throw new Error("--photos needs --calibration");
 const output = resolve(value("--output", "browser-run"));
 const options = value("--options", "{}");
 const keep = value("--keep", "");
@@ -29,17 +35,26 @@ const timeout = Number(value("--timeout", "600")) * 1000;
 mkdirSync(output, { recursive: true });
 
 // The inputs directory as the page sees it: relative paths only.
-const cameras = JSON.parse(readFileSync(join(scene, "cameras.json"), "utf8"));
-const mapped = new Map([["sparse_points.npy", join(scene, "sparse_points.npy")]]);
-for (const view of cameras.views) {
-  for (const [key, folder] of [["image", "images"], ["mask", "masks"]]) {
-    const source = resolve(scene, view[key]);
-    const name = `${folder}/${view.name}${extname(source)}`;
-    mapped.set(name, source);
-    view[key] = name;
+const mapped = new Map();
+let camerasText = null;
+if (photosDir) {
+  mapped.set("calibration.json", calibration);
+  for (const name of readdirSync(photosDir).sort()) {
+    if ([".png", ".jpg", ".jpeg"].includes(extname(name).toLowerCase())) mapped.set(`photos/${name}`, join(photosDir, name));
   }
+} else {
+  const cameras = JSON.parse(readFileSync(join(scene, "cameras.json"), "utf8"));
+  mapped.set("sparse_points.npy", join(scene, "sparse_points.npy"));
+  for (const view of cameras.views) {
+    for (const [key, folder] of [["image", "images"], ["mask", "masks"]]) {
+      const source = resolve(scene, view[key]);
+      const name = `${folder}/${view.name}${extname(source)}`;
+      mapped.set(name, source);
+      view[key] = name;
+    }
+  }
+  camerasText = JSON.stringify(cameras);
 }
-const camerasText = JSON.stringify(cameras);
 const types = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".wasm": "application/wasm", ".json": "application/json" };
 
 const server = createServer((request, response) => {
@@ -53,8 +68,8 @@ const server = createServer((request, response) => {
   }
   let file;
   if (path === "/scene/files.json") {
-    return response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(["cameras.json", ...mapped.keys()]));
-  } else if (path === "/scene/cameras.json") {
+    return response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify([...(camerasText ? ["cameras.json"] : []), ...mapped.keys()]));
+  } else if (path === "/scene/cameras.json" && camerasText) {
     return response.writeHead(200, { "content-type": "application/json" }).end(camerasText);
   } else if (path.startsWith("/scene/")) {
     file = mapped.get(path.slice("/scene/".length));
@@ -74,7 +89,9 @@ const launch = ["--enable-unsafe-webgpu", "--enable-features=WebGPU"];
 if (flag("--software")) launch.push("--use-webgpu-adapter=swiftshader", "--use-angle=swiftshader", "--enable-unsafe-swiftshader");
 else if (process.platform === "darwin") launch.push("--use-angle=metal");
 else launch.push("--enable-features=Vulkan", "--use-angle=vulkan");
-const browser = await chromium.launch({ channel: "chromium", headless: !flag("--headed"), args: launch });
+// --channel chrome uses an installed Google Chrome instead of Playwright's Chromium download.
+const channel = value("--channel", "chromium");
+const browser = await chromium.launch({ channel, headless: !flag("--headed"), args: launch });
 const page = await browser.newPage();
 const consoleLines = [];
 page.on("console", (message) => consoleLines.push(`${message.type()}: ${message.text()}`));
@@ -85,7 +102,8 @@ page.on("worker", (worker) => worker.on?.("console", (message) => consoleLines.p
 const executable = dirname(chromium.executablePath());
 const peaks = {};
 function sampleMemory() {
-  if (process.platform === "win32") return;
+  // An installed Chrome shares its executable with the user's own windows: no per-process figures then.
+  if (process.platform === "win32" || channel !== "chromium") return;
   try {
     const rows = execFileSync("ps", ["-axo", "rss=,command="], { encoding: "utf8", maxBuffer: 1 << 24 }).split("\n");
     const now = {};
@@ -103,7 +121,7 @@ function sampleMemory() {
 }
 const sampler = setInterval(sampleMemory, 1000);
 
-const query = new URLSearchParams({ base: "scene", options, keep, upload: "upload" });
+const query = new URLSearchParams({ base: "scene", options, keep, upload: "upload", mode: photosDir ? "photos" : "inputs" });
 const started = Date.now();
 await page.goto(`${origin}/index.html?${query}`);
 let state;

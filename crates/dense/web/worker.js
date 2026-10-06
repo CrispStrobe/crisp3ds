@@ -1,5 +1,6 @@
 // Runs the engine off the page's thread. Messages in:
-//   { type: "run", base, options, keep }   fetch `${base}/files.json` (a list of paths) and those files, then run
+//   { type: "run", base, options, keep, mode }   fetch `${base}/files.json` (a list of paths) and those files, then run;
+//                                     mode "photos": the files are calibration.json and photos/<name>
 //   { type: "cancel" }
 // Messages out: { type: "status", text }, { type: "event", event }, { type: "memory", ... },
 //   { type: "done", report, files, seconds, adapter, limits }, { type: "error", message },
@@ -41,14 +42,26 @@ self.onmessage = async ({ data }) => {
     self.postMessage({ type: "status", text: `Running on ${files.size} files` });
     const started = performance.now();
     let peak = 0;
+    // From photos: files.json lists calibration.json and photos/<name>.
+    let source = { files };
+    if (data.mode === "photos") {
+      const photos = new Map();
+      for (const [path, bytes] of files) if (path.startsWith("photos/")) photos.set(path.slice("photos/".length), bytes);
+      source = { photos, calibration: files.get("calibration.json") };
+    }
     run = await createRun({
-      files,
+      ...source,
       options: data.options ?? {},
       onEvent: (event) => {
         peak = Math.max(peak, memory().wasm);
         self.postMessage({ type: "event", event, wasmBytes: memory().wasm });
       },
     });
+    // The engine holds its own copy of photos; drop ours.
+    if (data.mode === "photos") {
+      files.clear();
+      source.photos.clear();
+    }
     const report = await run.finished;
     peak = Math.max(peak, memory().wasm);
     for (const path of data.keep ?? []) {

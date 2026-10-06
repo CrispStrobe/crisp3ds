@@ -189,12 +189,14 @@ and their backdrop is dark.
   search assumes an upright axis and a centred object; it does not handle
   captures that are not turntables, which `colmap` does; the Dragon and Lucy
   are a little below COLMAP.
-- **Not run in a browser.** The provider's own modules build for wasm32; the
-  `photos` command around them (staging, files, the stage runner) is not
-  built for the browser yet, so nothing calls them there.
+- **In a browser it is single-threaded.** The Bunny from its 73 photos
+  completes in Chrome with WebGPU (351 s in all; features 57 s and matching
+  55 s single-threaded; cameras equal to the native ones to 5e-11); see
+  `crates/dense/README.md`.
+- **The order check looks at medians.** A turn in name order with a few
+  photos swapped passes the check and goes to the solver.
 - **Memory and time grow with the mask's bounding box** (the doubled image
   and six blurred copies of it per octave): about 8 s for 73 photos of
   1749 x 1155 with four threads here. Matching compares all descriptors of a
   pair: 1 to 11 s for 292 pairs.
-- Not tried: steps larger than 15 degrees, a strongly tilted axis, a few
-  photos swapped (the order check looks at medians and lets that through).
+- Not tried: steps larger than 15 degrees, a strongly tilted axis.

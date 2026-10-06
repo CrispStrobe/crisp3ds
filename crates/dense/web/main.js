@@ -51,7 +51,7 @@ worker.onmessage = ({ data }) => {
     fail(data.message, data);
   }
 };
-worker.postMessage({ type: "run", base: new URL(base, location.href).href.replace(/\/$/, ""), options, keep });
+worker.postMessage({ type: "run", base: new URL(base, location.href).href.replace(/\/$/, ""), options, keep, mode: query.get("mode") ?? "inputs" });
 
 function fail(message, data = {}) {
   Object.assign(state, data, { status: "error", error: message });

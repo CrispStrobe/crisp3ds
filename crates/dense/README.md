@@ -911,16 +911,18 @@ The same code runs in a browser; see the next section.
 
 ## In the browser: `crates/dense/web`
 
-The dense stages (`stereo`, `mesh`, `check`, and `inputs` from a scene) as
-WebAssembly with the kernels on WebGPU. Nothing in the library blocks or needs a
+The whole pipeline from photos (the photos stage with `threshold` masks and
+`turntable` cameras, then `stereo`, `mesh`, `check`), or the dense stages from
+an inputs directory, as WebAssembly with the kernels on WebGPU. Nothing in the library blocks or needs a
 disk there:
 
 - **Storage** (`src/storage.rs`). Every stage reads and writes through one
   module. A path whose first component is `mem:` names a file in an in-memory
   tree on any platform; in a browser every path does. The layout of a run
   directory and the events are the same. A host can also register a source that
-  hands over files it keeps elsewhere (the browser package keeps the photos in
-  JavaScript memory and passes them in one at a time).
+  hands over files it keeps elsewhere (the browser package does that for an
+  inputs directory; photos are copied into the tree when a run is created,
+  because the photos stage lists its folder).
 - **GPU** (`src/gpu/`). Device creation, kernel compilation, dispatch and
   readback are `async`. Native callers drive them with a blocking executor
   (`run`, `stereo::run::run`); a browser awaits `run_async`. In a browser,
@@ -951,7 +953,9 @@ it fetches `files.json` and the files it lists, runs them in a worker and shows
 status text and the final triangle count. `test/run.mjs` serves an inputs
 directory to that page in headless Chromium and writes the events, the kept
 output files, the adapter, the limits and memory figures; `--software` asks
-Chromium for its software adapter (SwiftShader).
+Chromium for its software adapter (SwiftShader). `--photos DIR --calibration
+FILE` starts from photos instead; `--channel chrome` uses an installed Google
+Chrome instead of Playwright's Chromium (no per-process memory figures then).
 
 ```js
 import { createRun, settingsSchema } from "./crisp3ds-dense.js";
@@ -963,7 +967,21 @@ const run = await createRun({
 const report = await run.finished;        // pipeline.json; rejects on failure or cancel
 const stl = run.file("mesh/mesh.stl");    // any file of the run directory, e.g. an artifact's path
 run.cancel(); run.dispose();
+
+// From turntable photos: masks and cameras are recovered in the browser first.
+const fromPhotos = await createRun({
+  photos,                                 // Map or object: file name -> Uint8Array (PNG or JPEG), one turn in name order
+  calibration,                            // crisp3ds_lens_calibration_v1 as an object, JSON text or bytes
+  options: { live_previews: false, photo_options: [] },  // RunOptions; photo_options: words of `crisp3ds-dense photos`
+  onEvent,
+});
 ```
+
+Only providers without external programs run in a browser: `--masks
+threshold` or `import:DIR`, `--cameras turntable`, `markers` or `import:PATH`
+(the defaults are `threshold` and `turntable`). The photos are copied into the
+engine when the run is created, so the caller may drop its own copies; the
+events add the `masks`, `cameras` and `inputs` stages in front of `stereo`.
 
 The bindings underneath (`web/src/lib.rs`): `Run` with `start(options, onEvent)`
 and `cancel()`, `putFile`, `getFile`, `listFiles`, `removeTree`,
@@ -1002,6 +1020,22 @@ are the single-threaded initial surfaces), writing the compressed files 7.3 /
 Chromium's software adapter (vendor `google`, architecture `swiftshader`,
 fallback) in 7.9 s with the same mesh.
 
+From its 73 photos (100 MB of PNG) the Bunny completes in an installed Google
+Chrome on the same M1 (headless, WebGPU on Metal, no live previews): 351 s in
+all, against 93 s natively with four threads. Stages: masks 23 s, cameras
+151 s (features 57 s and matching 55 s, both single-threaded; solve 10 s;
+contrast and scene 25 s), stereo 139 s, mesh 23 s, check 14 s. All 73 photos
+register; the cameras equal the native ones to 5e-11; 1 047 938 triangles,
+closed, genus 7; scanner F1 `above_margin` 0.963 / 0.995 / 1.000 and `all`
+0.902 / 0.938 / 0.955, as natively (0.964 / 0.995 / 1.000). Peak WebAssembly
+memory 2499 MiB: 375 MiB after the masks, 775 MiB after the cameras, the rest
+in stereo, 580 MiB above a run from the inputs directory. At the end the tree
+holds 249 MiB of the run (128 MiB of it the undistorted inputs) plus the
+100 MiB of photos. Lower would be: photos handed over through the source
+instead of copied (needs the tree to list the source), the photos and
+`frontend/work` released once the scene is written; where in the cameras
+stage the 400 MiB between the masks and the scene go has not been measured.
+
 What a production browser build still lacks:
 
 - **Threads.** Everything on the CPU is single-threaded (initial surfaces,
@@ -1016,8 +1050,9 @@ What a production browser build still lacks:
   is refused (see above), as natively.
 - **Persistence.** Outputs live in memory until the host takes them; nothing is
   written to the origin-private file system, and a run cannot be resumed.
-- **Photo front end.** Masks and cameras from plain photos need external
-  programs, which a browser build leaves out (see `src/photos`).
+- **Photo front end.** Runs from photos work with the providers without
+  external programs; SAM, COLMAP and AliceVision are not available, and the
+  photos are copied into WebAssembly memory rather than handed over lazily.
 - **Coverage.** One browser engine (Chromium), one GPU (Apple M1 through
   Metal) and SwiftShader; no Firefox or Safari, no Windows or Linux GPU.
 
