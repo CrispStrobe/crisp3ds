@@ -4,15 +4,22 @@ name: studio
 #
 #   web      typecheck, unit tests and the static bundle (artifact). Built with
 #            relative asset URLs, so it can be served from any path.
-#   native   the desktop shell on macOS, Windows and Linux: Rust unit tests, then
-#            a release build WITHOUT installer bundling (tauri.conf.json has
-#            bundle.active=false and --no-bundle is passed as well). The artifact
-#            is the bare, unsigned executable. It does not contain Python: the
-#            app starts the engine with an interpreter installed separately.
+#   native   the desktop shell on macOS, Windows and Linux with the reconstruction
+#            engine (crates/dense) linked in: Rust unit tests, then a release build
+#            WITHOUT installer bundling (tauri.conf.json has bundle.active=false and
+#            --no-bundle is passed as well). The artifact is the bare, unsigned
+#            executable; it reconstructs by itself and contains no Python.
+#            The tests include one real run started the way the app starts it. The
+#            runners have no GPU that wgpu accepts everywhere, so that run either
+#            completes or must fail cleanly (error + run_finished); both pass.
+#            A change to the dependencies of crates/dense needs
+#            `cargo update -p crisp3ds-dense` in apps/studio/src-tauri (the build
+#            uses --locked), which is why crates/dense is among the paths.
 #   android, ios
 #            manual only (workflow_dispatch with mobile=true), non-blocking,
-#            unsigned: a debug APK and a simulator .app. On phones the app is a
-#            client only; no engine is started. Nothing is installed or launched.
+#            unsigned: a debug APK and a simulator .app, with the engine compiled
+#            in. Whether it runs on a phone is untested: nothing is installed or
+#            launched.
 #
 # Nothing is deployed or released from here; see release.yml for that.
 
@@ -27,13 +34,17 @@ on:
     paths:
       - '.github/workflows/studio.yml'
       - 'apps/studio/**'
+      - 'crates/dense/**'
       - 'tests/fixtures/dense-run-sphere/**'
+      - 'tests/fixtures/dense-config-defaults.json'
       - 'docs/ENGINE-CONTRACT.md'
   pull_request:
     paths:
       - '.github/workflows/studio.yml'
       - 'apps/studio/**'
+      - 'crates/dense/**'
       - 'tests/fixtures/dense-run-sphere/**'
+      - 'tests/fixtures/dense-config-defaults.json'
       - 'docs/ENGINE-CONTRACT.md'
 
 permissions:
@@ -122,9 +133,9 @@ jobs:
       - run: npm ci
       # The shell embeds dist/ at compile time, so the web bundle comes first.
       - run: npm run build
-      - name: Shell unit tests (settings resolution, engine command line, process group)
+      - name: Shell unit tests (paths, run listing, event paging, cancel, one real run, Python launcher)
         working-directory: apps/studio/src-tauri
-        run: cargo test --locked
+        run: cargo test --locked -- --nocapture
       - name: Tauri release build, no installer bundle
         run: npx tauri build --no-bundle --ci -- --locked
       - name: List build output
