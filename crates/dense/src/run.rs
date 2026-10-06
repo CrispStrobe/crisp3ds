@@ -672,6 +672,65 @@ async fn stages(
     driver.finish("complete")
 }
 
+/// How a run may start on this platform, for a front end that builds its form
+/// from data: `{"schema", "platform", "start_points": [...]}`. Each start point
+/// has `id`, `label`, `meaning`, `fields` (`key` is the field of [`RunOptions`];
+/// `kind` is `inputs`, `folder` or `file`) and `providers`: per module of the
+/// photos stage the implementations this build can run, with `id`, `label`,
+/// `meaning`, `platforms`, `external` programs, `license`, and the `option`
+/// that selects it in `photo_options`.
+pub fn describe() -> Value {
+    let field =
+        |key: &str, label: &str, kind: &str, help: &str| json!({"key": key, "label": label, "kind": kind, "required": true, "help": help});
+    let mut points = vec![
+        json!({
+            "id": "inputs", "label": "Inputs folder",
+            "meaning": "A folder with cameras.json, the undistorted photos and their masks.",
+            "fields": [field("inputs", "Inputs folder", "inputs", "A folder with cameras.json, the photos and their masks.")],
+            "providers": [],
+        }),
+        json!({
+            "id": "scene", "label": "Camera solution, images and masks",
+            "meaning": "An AliceVision solution with its prepared images and one raw mask per photo.",
+            "fields": [
+                field("scene", "Camera solution (.sfm)", "file", "AliceVision SfM file with poses and one radialk3 lens."),
+                field("prepared", "Prepared images", "folder", "Undistorted images named <viewId>.png."),
+                field("raw_masks", "Raw masks", "folder", "One 0/255 mask per source photo, named like the photo."),
+            ],
+            "providers": [],
+        }),
+    ];
+    let table = crate::photos::providers::listing();
+    if cfg!(not(target_arch = "wasm32")) {
+        let choice = |module: &str, label: &str| {
+            let options: Vec<Value> = table[module]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|row| row["available"] == true)
+                .map(|row| {
+                    json!({
+                        "id": row["name"], "label": row["name"], "meaning": row["summary"], "option": row["selector"],
+                        "platforms": row["platforms"], "external": row["external"], "license": row["license"],
+                    })
+                })
+                .collect();
+            let default = table[module].as_array().into_iter().flatten().find(|row| row["default"] == true && row["available"] == true);
+            json!({"module": module, "label": label, "options": options, "default": default.map(|row| row["name"].clone())})
+        };
+        points.push(json!({
+            "id": "photos", "label": "Turntable photos",
+            "meaning": "A folder of photos of an object on a turntable and the calibration of the lens; masks and cameras are made first.",
+            "fields": [
+                field("photos", "Photos", "folder", "One photo per turntable position, named in capture order."),
+                field("calibration", "Lens calibration (.json)", "file", "Focal length, principal point and radial distortion of the lens."),
+            ],
+            "providers": [choice("masks", "Masks"), choice("cameras", "Cameras")],
+        }));
+    }
+    json!({"schema": "crisp3ds_start_points_v1", "platform": table["platform"], "start_points": points})
+}
+
 pub const USAGE: &str = "usage: crisp3ds-dense run --output DIR (--photos DIR --calibration JSON [--masks PROVIDER] [--cameras PROVIDER] \
 [options of `crisp3ds-dense photos`] | --inputs DIR | --scene FILE --prepared DIR --raw-masks DIR) \
 [--config FILE] [--set KEY=VALUE]... [--threads N] [--stereo-timeout SECONDS] [--minimum-free-gib G] [--reuse-depths FILE] \
@@ -734,6 +793,10 @@ pub fn parse(arguments: &[String]) -> anyhow::Result<RunOptions> {
 /// `crisp3ds-dense run ...`: prints the summary the Python driver prints.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn main(arguments: &[String]) -> anyhow::Result<()> {
+    if arguments.iter().any(|a| a == "--describe") {
+        println!("{}", serde_json::to_string_pretty(&describe())?);
+        return Ok(());
+    }
     if arguments.iter().any(|a| a == "--list-settings") {
         let defaults = serde_json::to_value(DenseConfig::default())?;
         for (key, value) in defaults.as_object().into_iter().flatten() {
@@ -784,6 +847,33 @@ mod tests {
         assert!(serde_json::from_str::<RunOptions>(r#"{"output": "run", "typo": 1}"#).is_err());
         let invalid: RunOptions = serde_json::from_str(r#"{"output": "run", "inputs": "in", "settings": {"windows": [4]}}"#).unwrap();
         assert!(invalid.configuration().is_err());
+    }
+
+    #[test]
+    fn start_points_are_described_as_the_form_reads_them() {
+        let described = describe();
+        let points = described["start_points"].as_array().unwrap();
+        let ids: Vec<&str> = points.iter().map(|p| p["id"].as_str().unwrap()).collect();
+        assert_eq!(ids, ["inputs", "scene", "photos"]);
+        for point in points {
+            assert!(point["label"].is_string() && !point["fields"].as_array().unwrap().is_empty());
+            for field in point["fields"].as_array().unwrap() {
+                assert!(["inputs", "folder", "file"].contains(&field["kind"].as_str().unwrap()));
+                // Every field is a field of RunOptions or an option of the photos stage.
+                let key = field["key"].as_str().unwrap();
+                assert!(
+                    serde_json::to_value(key).is_ok()
+                        && ["inputs", "scene", "prepared", "raw_masks", "photos", "calibration"].contains(&key)
+                );
+            }
+        }
+        let providers = points[2]["providers"].as_array().unwrap();
+        assert_eq!(providers.iter().map(|c| c["module"].as_str().unwrap()).collect::<Vec<_>>(), ["masks", "cameras"]);
+        for choice in providers {
+            let options = choice["options"].as_array().unwrap();
+            assert!(options.iter().any(|o| o["id"] == choice["default"]));
+            assert!(options.iter().all(|o| o["license"].is_string() && o["option"].as_str().unwrap().starts_with("--")));
+        }
     }
 
     #[test]

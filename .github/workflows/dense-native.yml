@@ -66,6 +66,14 @@ jobs:
         run: |
           cargo run --locked --quiet -- --version
           cargo run --locked --quiet -- mesh --help
+          cargo run --locked --quiet -- run --describe
+          cargo run --locked --quiet -- settings --schema > /dev/null
+      # Studio links this crate and builds with its own lockfile. A dependency change here
+      # that the lockfile does not cover fails this step: update apps/studio/src-tauri/Cargo.lock
+      # (cargo update -p crisp3ds-dense --manifest-path apps/studio/src-tauri/Cargo.toml) in the same change.
+      - name: Studio lockfile still resolves
+        if: runner.os == 'Linux'
+        run: cargo fetch --locked --manifest-path ../../apps/studio/src-tauri/Cargo.toml
 
   # The GPU kernels and the whole pipeline on a software WebGPU adapter: Mesa's
   # lavapipe (Vulkan) on Linux, WARP (DirectX 12) on Windows. Evidence that the

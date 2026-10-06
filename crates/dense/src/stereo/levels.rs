@@ -118,8 +118,9 @@ pub async fn match_levels(
                     let front = hull_front(&level[i], &state.hull, state.bounds[i], config.hull_front_stride as usize);
                     let half = DenseConfig::level(&config.band_first, li);
                     let minimum = config.min_score.max(config.hull_front_min_score);
-                    let d2 =
-                        matcher.refine(&buffers, &level, i, &neighbours[i], &front, steps[i] / scale, half, window, aggregate, minimum).await?;
+                    let d2 = matcher
+                        .refine(&buffers, &level, i, &neighbours[i], &front, steps[i] / scale, half, window, aggregate, minimum)
+                        .await?;
                     let margin = (1.0 - config.hull_front_margin) as f32;
                     for (value, &candidate) in d.data.iter_mut().zip(&d2.data) {
                         if candidate > 0.0 && (*value == 0.0 || candidate < *value * margin) {

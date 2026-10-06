@@ -134,13 +134,18 @@ impl DenseConfig {
 /// reference's `dense_config.settings_schema()`; a test fails when it drifts.
 pub const SETTINGS_SCHEMA: &str = include_str!("../settings-schema.json");
 
+/// [`SETTINGS_SCHEMA`] parsed: `{"settings": [{"name", "group", "meaning", "kind", "default"}, ...]}`.
+pub fn settings_schema() -> serde_json::Value {
+    serde_json::from_str(SETTINGS_SCHEMA).expect("the embedded settings schema is JSON")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn the_settings_schema_lists_every_setting_with_its_default() {
-        let schema: serde_json::Value = serde_json::from_str(SETTINGS_SCHEMA).unwrap();
+        let schema = settings_schema();
         let defaults = serde_json::to_value(DenseConfig::default()).unwrap();
         let rows = schema["settings"].as_array().unwrap();
         assert_eq!(rows.len(), defaults.as_object().unwrap().len());

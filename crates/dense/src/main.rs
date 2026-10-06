@@ -9,6 +9,15 @@ fn main() -> ExitCode {
             println!("{}", serde_json::to_string_pretty(&crisp3ds_dense::config::DenseConfig::default()).unwrap());
             ExitCode::SUCCESS
         }
+        Some("settings") => {
+            // Name, group, meaning, kind and default of every setting, or (without --schema) the defaults by name.
+            if arguments.iter().any(|a| a == "--schema") {
+                println!("{}", serde_json::to_string_pretty(&crisp3ds_dense::config::settings_schema()).unwrap());
+            } else {
+                println!("{}", serde_json::to_string_pretty(&crisp3ds_dense::config::DenseConfig::default()).unwrap());
+            }
+            ExitCode::SUCCESS
+        }
         Some("mesh") => crisp3ds_dense::mesh::command(&arguments[1..]),
         #[cfg(not(target_arch = "wasm32"))]
         Some("photos") => crisp3ds_dense::photos::command(&arguments[1..]),
@@ -33,7 +42,7 @@ fn main() -> ExitCode {
             }
         }
         _ => {
-            eprintln!("usage: crisp3ds-dense <run|photos|inputs|stereo|mesh|check|synthetic|defaults|--version> ...   (see crates/dense/README.md)");
+            eprintln!("usage: crisp3ds-dense <run|photos|inputs|stereo|mesh|check|synthetic|settings|defaults|--version> ...   (see crates/dense/README.md)");
             ExitCode::from(2)
         }
     }
