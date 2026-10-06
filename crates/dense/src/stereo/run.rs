@@ -306,6 +306,11 @@ pub async fn run_with(
             report["support"] = json!({"measured_level": measured, "sparse_level": sparse, "raised_voxels": ((measured - sparse) / state.hull.voxel as f32).max(0.0)});
         }
     }
+    let evidence = crate::fusion::support_evidence(&state.hull, &inputs.cameras, &fused.support);
+    report["support_evidence"] = json!({
+        "support": fused.support.height.is_some(), "hull_depth_below_voxels": evidence.depth, "height_voxels": evidence.height,
+        "cone_voxels": evidence.cone, "elevation_degrees": evidence.elevation,
+    });
     report["rim_pixels"] = json!(rim);
     report["fused_passes"] = json!([]);
     let observed = fused.weight.iter().filter(|&&w| w > 0.0).count() as f64 / fused.weight.len().max(1) as f64;

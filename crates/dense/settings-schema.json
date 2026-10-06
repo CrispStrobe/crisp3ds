@@ -305,6 +305,13 @@
       "default": 1.0
     },
     {
+      "name": "support_evidence",
+      "group": "Fusion",
+      "meaning": "Use a support (and cut the base flat) only when the hull below it is the shallow cone a support plane leaves",
+      "kind": "boolean",
+      "default": true
+    },
+    {
       "name": "support_from_sparse",
       "group": "Fusion",
       "meaning": "Do not place the support below the lowest matched features (contact shadow in the masks)",
@@ -360,6 +367,13 @@
       "name": "mesh_flat_base",
       "group": "Surface",
       "meaning": "Cut the solid flat at the lowest measured level",
+      "kind": "boolean",
+      "default": true
+    },
+    {
+      "name": "mesh_hull_overshoot",
+      "group": "Surface",
+      "meaning": "Place unmeasured surface as far inside the silhouette hull as the hull stands outside the measured surface",
       "kind": "boolean",
       "default": true
     },

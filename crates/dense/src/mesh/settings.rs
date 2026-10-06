@@ -190,7 +190,12 @@ mod tests {
     fn mesh_settings_cover_every_mesh_field() {
         let all = serde_json::to_value(DenseConfig::default()).unwrap();
         let ours = serde_json::to_value(MeshSettings::from(&DenseConfig::default())).unwrap();
-        let expected: Vec<(&String, &Value)> = all.as_object().unwrap().iter().filter(|(key, _)| key.starts_with("mesh_")).collect();
+        let expected: Vec<(&String, &Value)> = all
+            .as_object()
+            .unwrap()
+            .iter()
+            .filter(|(key, _)| key.starts_with("mesh_") && !crate::config::NATIVE_ONLY.contains(&key.as_str()))
+            .collect();
         let found: Vec<(&String, &Value)> = ours.as_object().unwrap().iter().collect();
         assert_eq!(found, expected);
         let text = serde_json::to_string(&MeshSettings::from(&DenseConfig::default())).unwrap();

@@ -183,7 +183,76 @@ pub async fn tsdf(
         heights.sort_unstable_by(f32::total_cmp);
         height = Some(heights[(0.998 * (heights.len() - 1) as f64) as usize]);
     }
+    if config.support_evidence {
+        if let Some(found) = height {
+            if support_evidence(hull, cameras, &Support { point: middle, down, height: Some(found) }).floating {
+                height = None;
+            }
+        }
+    }
     Ok(Fused { indices, total, weight, truncation, support: Support { point: middle, down, height } })
+}
+
+/// What the hull below a support height says about whether the object stands on anything.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SupportEvidence {
+    /// Deepest hull voxel below the support, voxels.
+    pub depth: f32,
+    /// Height of the hull above the support, voxels.
+    pub height: f32,
+    /// Depth of the cone the views leave under the footprint: tan(elevation) times its radius, voxels.
+    pub cone: f32,
+    /// Median elevation of the cameras over the support point, degrees.
+    pub elevation: f32,
+    /// No support: the hull goes on below the lowest measured level as the object itself would.
+    pub floating: bool,
+}
+
+/// Decides whether a support height is a support. Under an object standing on a
+/// plane, the silhouette hull reaches below the plane only by the cone the views
+/// leave under the footprint: no camera sees through the plane, so every voxel
+/// below it is one the masks cannot exclude, and from cameras at elevation `e`
+/// that region ends `tan(e)` times the footprint radius below the plane. That
+/// is shallow next to the object (at most 5.5 % of its height on the four test
+/// objects). An object without a support whose underside no view measures (a
+/// sphere seen from a low ring) has its real bottom there instead: the hull
+/// goes on by a large part of its height (26 % for the demo sphere). Floating
+/// therefore means deeper than both 15 % of the height and one and a half
+/// times the cone; the second bound keeps wide, flat objects on a support.
+pub fn support_evidence(hull: &Hull, cameras: &[Camera], support: &Support) -> SupportEvidence {
+    let none = SupportEvidence { depth: 0.0, height: 0.0, cone: 0.0, elevation: 0.0, floating: false };
+    let Some(level) = support.height else { return none };
+    let (point, down) = (support.point, support.down);
+    let voxel = hull.voxel as f32;
+    let axes = [hull.axis(0), hull.axis(1), hull.axis(2)];
+    let (mut depth, mut top, mut footprint) = (f32::MIN, f32::MAX, 0usize);
+    for linear in hull.indices() {
+        let [i, j, k] = hull.unravel(linear);
+        let p = [axes[0][i] - point[0], axes[1][j] - point[1], axes[2][k] - point[2]];
+        let below = ((p[0] * down[0] + p[1] * down[1] + p[2] * down[2]) - level) / voxel;
+        depth = depth.max(below);
+        top = top.min(below);
+        footprint += (below > -1.5 && below <= -0.5) as usize;
+    }
+    if depth == f32::MIN {
+        return none;
+    }
+    let base = [point[0] + level * down[0], point[1] + level * down[1], point[2] + level * down[2]];
+    let mut elevations: Vec<f32> = cameras
+        .iter()
+        .map(|camera| {
+            let c = camera.centre();
+            let r = [c[0] - base[0], c[1] - base[1], c[2] - base[2]];
+            let length = (r[0] * r[0] + r[1] * r[1] + r[2] * r[2]).sqrt().max(1e-12);
+            (-(r[0] * down[0] + r[1] * down[1] + r[2] * down[2]) / length).clamp(-1.0, 1.0).asin()
+        })
+        .collect();
+    elevations.sort_unstable_by(f32::total_cmp);
+    let elevation = elevations.get(elevations.len() / 2).copied().unwrap_or(0.0);
+    let cone = elevation.max(0.0).tan() * (footprint as f32 / std::f32::consts::PI).sqrt();
+    let height = -top;
+    let floating = depth > 0.15 * height && depth > 1.5 * cone;
+    SupportEvidence { depth: depth.max(0.0), height, cone, elevation: elevation.to_degrees(), floating }
 }
 
 /// Keeps the support from lying below the lowest matched features.

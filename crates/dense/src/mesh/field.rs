@@ -97,6 +97,8 @@ pub struct FieldReport {
     pub hull_fraction_below_support: Option<f64>,
     pub observed_hull_fraction: f64,
     pub extrapolated_hull_fraction: f64,
+    /// How far unmeasured surface was moved inside the silhouette hull (`mesh_hull_overshoot`), voxels.
+    pub hull_overshoot_voxels: f64,
 }
 
 pub struct Field {
@@ -147,6 +149,33 @@ pub fn field(volume: &Volume, config: &DenseConfig, check: &dyn Fn() -> Result<(
     }
     drop(hull);
 
+    // How far the silhouette hull stands outside the measured surface: the median depth below the
+    // hull boundary of the measured zero-crossings near it. The hull is wider than the object by the mask
+    // tolerance and by what the ring of views cannot carve; where nothing is measured, the surface
+    // is placed that far inside the hull instead of on it.
+    let overshoot = if config.mesh_hull_overshoot {
+        let reach = (truncation - 0.5) as f32;
+        let mut depths: Vec<f32> = place
+            .iter()
+            .enumerate()
+            .filter(|&(i, _)| volume.weight[i] >= 3.0 && (volume.total[i] / volume.weight[i]).abs() < 0.5)
+            // Depth of the zero-crossing itself: the voxel's depth plus its signed distance to the surface.
+            .map(|(i, &p)| -value[p as usize] * truncation as f32 - 0.5 + volume.total[i] / volume.weight[i] * truncation as f32)
+            .filter(|&d| d >= 0.0 && d < reach)
+            .collect();
+        if depths.len() >= 100 {
+            let middle = depths.len() / 2;
+            *depths.select_nth_unstable_by(middle, f32::total_cmp).1
+        } else {
+            0.0
+        }
+    } else {
+        0.0
+    };
+
+    // The silhouette prior of every hull voxel, for the overshoot correction below.
+    let priors: Vec<f32> = if overshoot > 0.0 { place.iter().map(|&p| value[p as usize]).collect() } else { Vec::new() };
+
     // Averaged signed distance times a confidence that saturates at a few views, and that
     // confidence, at the observed hull voxels (zero elsewhere).
     let minimum = config.mesh_minimum_weight as f32;
@@ -188,12 +217,24 @@ pub fn field(volume: &Volume, config: &DenseConfig, check: &dyn Fn() -> Result<(
         }
     }
     drop((confidence, work, numerator, place));
+    if overshoot > 0.0 {
+        // Unmeasured voxels (extrapolated or not) take at least the prior moved inward by the overshoot.
+        let shift = overshoot / truncation as f32;
+        for (i, voxel) in volume.index.iter().enumerate() {
+            if !observed[i] {
+                let [x, y, z] = voxel.map(|v| usize::from(v) + PAD);
+                let at = (x * dims[1] + y) * dims[2] + z;
+                value[at] = value[at].max((priors[i] + shift).clamp(-1.0, 1.0));
+            }
+        }
+    }
 
     let mut report = FieldReport {
         flat_base_applied: false,
         hull_fraction_below_support: None,
         observed_hull_fraction: observed.iter().filter(|&&o| o).count() as f64 / hull_count as f64,
         extrapolated_hull_fraction: filled.iter().zip(&observed).filter(|(&f, &o)| f && !o).count() as f64 / hull_count as f64,
+        hull_overshoot_voxels: f64::from(overshoot),
     };
 
     if let Some(support) = volume.support.as_ref().filter(|s| config.mesh_flat_base && s.height.is_finite()) {
