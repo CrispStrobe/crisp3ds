@@ -88,6 +88,41 @@ pub fn run_with(
     threads: usize,
     control: &crate::control::Control,
 ) -> Result<Report> {
+    run_source(Source::File(volume_path), output, config, step, events, label, threads, control)
+}
+
+/// [`run_with`] on a volume held in memory (handed over by the stereo stage of the same run):
+/// the same mesh as from its `volume.npz`, without encoding and decoding the file.
+#[allow(clippy::too_many_arguments)]
+pub fn run_volume(
+    volume: Volume,
+    output: &Path,
+    config: &DenseConfig,
+    step: usize,
+    events: &EventLog,
+    label: Option<&str>,
+    threads: usize,
+    control: &crate::control::Control,
+) -> Result<Report> {
+    run_source(Source::Memory(Box::new(volume)), output, config, step, events, label, threads, control)
+}
+
+enum Source<'a> {
+    File(&'a Path),
+    Memory(Box<Volume>),
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_source(
+    volume_path: Source,
+    output: &Path,
+    config: &DenseConfig,
+    step: usize,
+    events: &EventLog,
+    label: Option<&str>,
+    threads: usize,
+    control: &crate::control::Control,
+) -> Result<Report> {
     settings::validate(config)?;
     ensure!(step >= 1, "step must be at least 1");
     ensure!(!crate::storage::exists(output), "output directory already exists: {}", output.display());
@@ -117,7 +152,7 @@ fn finish(output: &Path, result: Result<Report>) -> Result<Report> {
 }
 
 fn extract(
-    volume_path: &Path,
+    volume_path: Source,
     output: &Path,
     config: &DenseConfig,
     step: usize,
@@ -126,7 +161,10 @@ fn extract(
     control: &crate::control::Control,
 ) -> Result<Report> {
     let started = Instant::now();
-    let volume = Volume::read(volume_path)?;
+    let volume = match volume_path {
+        Source::File(path) => Volume::read(path)?,
+        Source::Memory(volume) => *volume,
+    };
     control.check()?;
     let field = field::field(&volume, config, &|| control.check())?;
     control.check()?;

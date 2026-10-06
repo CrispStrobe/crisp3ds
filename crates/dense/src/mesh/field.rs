@@ -40,6 +40,28 @@ pub struct Volume {
 }
 
 impl Volume {
+    /// The volume of a fusion result, exactly as writing it to `volume.npz` and reading it back would
+    /// give it (the same single-precision origin, voxel size, truncation and support).
+    pub fn from_fused(hull: &crate::hull::Hull, fused: crate::fusion::Fused) -> Self {
+        let index = fused.indices.iter().map(|&linear| hull.unravel(linear).map(|v| v as u16)).collect();
+        let support = &fused.support;
+        let support = Some(Support {
+            point: Array::new(&[3], Data::F32(support.point.to_vec())),
+            down: support.down.iter().map(|&v| f64::from(v)).collect(),
+            height: f64::from(support.height.unwrap_or(f32::NAN)),
+        });
+        Volume {
+            shape: hull.shape,
+            index,
+            total: fused.total,
+            weight: fused.weight,
+            origin: Array::new(&[3], Data::F32(hull.origin.to_vec())),
+            voxel: f64::from(hull.voxel as f32),
+            truncation: f64::from(fused.truncation as f32),
+            support,
+        }
+    }
+
     pub fn read(path: &Path) -> Result<Self> {
         let mut npz = Npz::read(path)?;
         let shape = npz.get("shape")?.to_f64();

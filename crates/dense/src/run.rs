@@ -641,8 +641,14 @@ async fn stages(
         command.extend(["--reuse-depths".to_string(), text(depths)]);
     }
     let stage = driver.begin("stereo", command, Some(options.stereo_timeout))?;
+    // The fused volume goes to the surface stage in memory; `volume.npz` is written only when it is
+    // kept, and `depths.npz` (for --reuse-depths) not in a browser, where no later run could read it.
+    let files = stereo::run::Files { volume: options.keep_volume, depths: cfg!(not(target_arch = "wasm32")) };
+    let mut fused = None;
     let result = match stage.control.check() {
-        Ok(()) => stereo::run::run_with(&arguments, config, &gpu, &stage.events, &stage.control).await.map(|_| ()),
+        Ok(()) => stereo::run::run_fused(&arguments, config, &gpu, &stage.events, &stage.control, files).await.map(|(_, volume)| {
+            fused = volume;
+        }),
         Err(stopped) => Err(stopped),
     };
     driver.end(stage, result)?;
@@ -655,7 +661,10 @@ async fn stages(
     let command = ["crisp3ds-dense", "mesh", "--volume", &text(&volume)].map(String::from).to_vec();
     let threads = options.threads.max(1);
     let stage = driver.begin("mesh", command, Some(900.0))?;
-    let result = crate::mesh::run_with(&volume, &output.join("mesh"), config, 1, &stage.events, None, threads, &stage.control);
+    let result = match fused {
+        Some(fused) => crate::mesh::run_volume(fused, &output.join("mesh"), config, 1, &stage.events, None, threads, &stage.control),
+        None => crate::mesh::run_with(&volume, &output.join("mesh"), config, 1, &stage.events, None, threads, &stage.control),
+    };
     if let Ok(report) = &result {
         stage.control.log(serde_json::to_string_pretty(report)?);
     }
@@ -680,7 +689,7 @@ async fn stages(
         }
         driver.report["photo_check"] = driver.end(stage, result)?;
     }
-    if !options.keep_volume {
+    if !options.keep_volume && crate::storage::exists(&volume) {
         crate::storage::remove_file(&volume)?;
     }
     driver.report["mesh"] = json!(text(&output.join("mesh/mesh.stl")));

@@ -154,6 +154,37 @@ pub async fn run_with(
     events: &EventLog,
     control: &Control,
 ) -> anyhow::Result<Value> {
+    run_fused(arguments, config, gpu, events, control, Files::all()).await.map(|(report, _)| report)
+}
+
+/// Which files the stage writes at its end. Inside one `run` the fused volume
+/// goes to the surface stage in memory ([`run_fused`]), so `volume.npz` is
+/// written only when it is kept, and `depths.npz` only where a later run can
+/// reuse it (not in a browser).
+#[derive(Debug, Clone, Copy)]
+pub struct Files {
+    pub volume: bool,
+    pub depths: bool,
+}
+
+impl Files {
+    /// Both, as the `stereo` command and `run_with` do.
+    pub fn all() -> Self {
+        Files { volume: true, depths: true }
+    }
+}
+
+/// [`run_with`] that also returns the fused volume, in the form `volume.npz`
+/// would give it back, and writes only the files `files` asks for. Depth maps
+/// are released as soon as fusion and their file are done.
+pub async fn run_fused(
+    arguments: &Arguments,
+    config: &DenseConfig,
+    gpu: &Gpu,
+    events: &EventLog,
+    control: &Control,
+    files: Files,
+) -> anyhow::Result<(Value, Option<crate::mesh::field::Volume>)> {
     let output = &arguments.output;
     if crate::storage::exists(output) {
         bail!("output directory exists: {}", output.display());
@@ -201,7 +232,7 @@ pub async fn run_with(
         let neighbours: Vec<Vec<usize>> =
             (0..count).map(|i| inputs.neighbours(i, config.vote_neighbours as usize, config)).collect::<anyhow::Result<_>>()?;
         report["neighbours"] = json!(neighbours);
-        return finish(report, output, started);
+        return finish(report, output, started).map(|report| (report, None));
     }
 
     if config.repair_masks {
@@ -238,7 +269,7 @@ pub async fn run_with(
         previews.hull("01-hull-repaired", "Silhouette hull after mask repair", &state.hull)?;
     }
     if arguments.only.as_deref() == Some("repair") {
-        return finish(report, output, started);
+        return finish(report, output, started).map(|report| (report, None));
     }
 
     {
@@ -279,7 +310,7 @@ pub async fn run_with(
             }));
         }
         report["level_checks"] = json!(levels);
-        return finish(report, output, started);
+        return finish(report, output, started).map(|report| (report, None));
     }
     let (mut level, depths) = match &arguments.reuse_depths {
         Some(path) => (build_level(&inputs, *sizes.last().unwrap()), read_depths(path, count)?),
@@ -319,19 +350,26 @@ pub async fn run_with(
     events.progress(0.97, "Depth fused")?;
 
     let t = Instant::now();
-    write_volume(
-        &output.join("volume.npz"),
-        true,
-        &state.hull,
-        &fused.indices,
-        &fused.total,
-        &fused.weight,
-        fused.truncation,
-        Some(&fused.support),
-    )?;
-    write_depths(&output.join("depths.npz"), &depths)?;
+    if files.depths {
+        write_depths(&output.join("depths.npz"), &depths)?;
+    }
+    drop(depths);
+    drop(level);
+    if files.volume {
+        write_volume(
+            &output.join("volume.npz"),
+            true,
+            &state.hull,
+            &fused.indices,
+            &fused.total,
+            &fused.weight,
+            fused.truncation,
+            Some(&fused.support),
+        )?;
+    }
     report["write_seconds"] = json!(t.elapsed().as_secs_f64());
-    finish(report, output, started)
+    let volume = crate::mesh::field::Volume::from_fused(&state.hull, fused);
+    finish(report, output, started).map(|report| (report, Some(volume)))
 }
 
 fn finish(mut report: Value, output: &Path, started: Instant) -> anyhow::Result<Value> {
