@@ -51,7 +51,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: studio-${{ github.ref }}
+  group: studio-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.sha || 'branch' }}
+  # On main every commit keeps its own run: pushes to crates/dense arrive often, and a
+  # cancelled run reads like a failure.
   cancel-in-progress: true
 
 env:
