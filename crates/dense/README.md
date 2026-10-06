@@ -1123,13 +1123,18 @@ Peak WebAssembly memory of that run was 2499 MiB. What brought it to 2038 MiB
 | The scene moved out to JavaScript after the cameras stage | 2032 MiB | 672 MiB |
 | Staged photos deleted once the contrast images exist (`reads_staged_photos`) | 2038 MiB | 570 MiB |
 
-The photos stage now stays well below the dense stages: the peak is set in
-`stereo`, 1468 MiB above where it starts, and 470 MiB of that come after
-fusion, while `volume.npz` and `depths.npz` are encoded in memory. A run from
-the inputs directory peaks at 1921 MiB for the same reason. Getting the
-Bunny well under 2 GiB therefore needs the volume handed to the surface stage
-without encoding it (or a streamed encoder), not more work in the photos
-stage.
+The photos stage now stays well below the dense stages: the peak was set in
+`stereo`, 1468 MiB above where it starts, and 470 MiB of that came after
+fusion, while `volume.npz` and `depths.npz` were encoded in memory. Now the
+fused volume goes to the surface stage in memory inside one `run`
+(`stereo::run::run_fused`, `mesh::run_volume`; the mesh is byte-identical to
+the one made from `volume.npz`, checked on the Bunny), `volume.npz` is written
+only with `keep_volume`, `depths.npz` is not written in a browser (natively it
+is, for `--reuse-depths`), and the depth maps are released after fusion. The
+Bunny from photos in Chrome, no live previews: peak 1568 MiB (from 2038),
+nothing added after "Depth fused", 325 s, 1 045 330 triangles, closed, genus 7.
+With live previews it peaks at 2685 MiB: each preview volume is still written
+as a file and meshed while the matching data is held.
 
 ### Threads in the browser: a second package
 
