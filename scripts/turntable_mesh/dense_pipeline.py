@@ -191,7 +191,8 @@ def stages(args, config, output, python, torch_python, environment, events, even
     # (crates/dense), which reads and writes the same files.
     native = args.native or os.environ.get("CRISP3DS_NATIVE")
     mesher = [str(native), "mesh", "--threads", str(args.threads)] if native else [str(python), "-m", "scripts.turntable_mesh.tsdf_hull_mesh"]
-    report["native_stages"] = ["mesh"] if native else []
+    matcher = [str(native), "stereo"] if native else [str(torch_python), "-m", "scripts.turntable_mesh.multiscale_stereo"]
+    report["native_stages"] = ["stereo", "mesh"] if native else []
 
     # Preview volumes appear while matching runs; mesh them coarsely one at a time.
     meshing = {"process": None, "done": set()}
@@ -216,7 +217,7 @@ def stages(args, config, output, python, torch_python, environment, events, even
                 stdout=log, stderr=subprocess.STDOUT, cwd=REPOSITORY, env=environment)
             return
 
-    stage("stereo", [torch_python, "-m", "scripts.turntable_mesh.multiscale_stereo", "--inputs", inputs,
+    stage("stereo", [*matcher, "--inputs", inputs,
                      "--output", output / "stereo", "--device", args.device, "--config", output / "config.json",
                      "--events", events_path, *([] if args.no_live_previews else ["--previews"]),
                      *(["--reuse-depths", Path(args.reuse_depths).absolute()] if args.reuse_depths else [])],
@@ -271,8 +272,8 @@ def main():
     parser.add_argument("--device", choices=("mps", "cuda", "cpu"), default="mps")
     parser.add_argument("--python", help="interpreter with NumPy, SciPy, scikit-image, OpenCV, Pillow")
     parser.add_argument("--torch-python", help="interpreter with Torch, NumPy, Pillow")
-    parser.add_argument("--native", type=Path, help="crisp3ds-dense binary; stages it has ported (currently: mesh) "
-                        "run natively instead of in Python [CRISP3DS_NATIVE]")
+    parser.add_argument("--native", type=Path, help="crisp3ds-dense binary; the stereo and mesh stages then run "
+                        "natively (WebGPU) instead of in Python, and no Torch is needed [CRISP3DS_NATIVE]")
     parser.add_argument("--threads", type=int, default=2)
     parser.add_argument("--stereo-timeout", type=int, default=3600, help="seconds")
     parser.add_argument("--minimum-free-gib", type=float, default=2.0)

@@ -101,17 +101,29 @@ likewise refuses if none is available; `--device cpu` runs the same code on CPU.
 ### Native stages
 
 The pipeline is being ported to Rust and WebGPU so it can run without Python
-(`crates/dense`). Stages that are ported and at parity can be used already:
+(`crates/dense`). The two heavy stages are ported and at parity, and the driver
+uses them when given the binary:
 
 ```sh
 (cd crates/dense && cargo build --release)
 python -m scripts.turntable_mesh.dense_pipeline ... --native path/to/crisp3ds-dense
 ```
 
-Currently that is surface extraction, including the live preview meshes: same
-files, scanner scores within 0.002 of the Python stage on four objects, about
-four times faster and a third of the memory. The parity table is in
-[`crates/dense/README.md`](../../crates/dense/README.md).
+With `--native`, the stereo stage (mask repair, hull, matching, fusion) and the
+surface stage run natively through WebGPU (Metal, Vulkan, DirectX 12) and no
+PyTorch is needed. On the 3DLF Bunny on an Apple M1, through the driver:
+
+| | Python stages | Native stages |
+| --- | --- | --- |
+| Stereo stage | 588 s (idle machine) | 95 s |
+| Surface stage | 33 s | 8 s |
+| Scanner F1 above the support, 0.5 / 1 / 2% | 0.964 / 0.995 / 1.000 | 0.963 / 0.995 / 1.000 |
+
+Scanner scores of the native stages are within 0.002 of the Python ones on all
+four objects; the parity tables are in
+[`crates/dense/README.md`](../../crates/dense/README.md). The driver itself, the
+input table, the photo check and the photos step (SAM, AliceVision) are still
+Python.
 
 ### Running stages separately
 
