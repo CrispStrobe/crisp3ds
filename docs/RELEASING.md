@@ -9,7 +9,7 @@ it, and where the App Store and TestFlight stand.
 
 | File | Job | What it is |
 | --- | --- | --- |
-| `crisp3ds-studio-web-<v>.zip` | web | Studio as static files (relative URLs, demo recording and third-party notices inside) |
+| `crisp3ds-studio-web-<v>.zip` | web | Studio as static files (relative URLs; demo recording, third-party notices and the engine for browsers, `engine/`, inside) |
 | `crisp3ds-studio-<v>-macos-arm64.dmg`, `.app.tar.gz` | desktop | Studio desktop app with the engine built in, Apple Silicon, ad-hoc signed |
 | `crisp3ds-studio-<v>-windows-x64-setup.exe` | desktop | NSIS installer, per user, unsigned |
 | `crisp3ds-studio-<v>-linux-x64.AppImage`, `.deb` | desktop | Linux x64 |
@@ -27,9 +27,11 @@ Every release states, in its notes:
 
 - **Unsigned builds.** No developer certificate, no notarisation.
 - **The desktop app reconstructs by itself.** The engine (`crates/dense`) is
-  built in; no Python is needed for runs that start from cameras and masks.
-- **The photos start still needs external tools** (the Python pipeline with
-  AliceVision and SAM, installed separately). None of that is bundled.
+  built in; from cameras and masks it needs nothing else, and no Python.
+- **From plain photos it needs AliceVision or COLMAP on the computer**
+  (set under Folders > Tools). Neither is bundled; SAM masks are optional.
+- **The web build reconstructs in a browser with WebGPU** ("This browser"),
+  from an inputs folder on the device, within 4 GiB of memory.
 - **Tried on one Mac only**; Windows, Linux and the phone builds are untested
   beyond building.
 - **No GPU-tested CUDA path.** CI runs on CPU; MPS is used on the development
@@ -74,7 +76,11 @@ because Apple and Android accept nothing else.
   been tried by the project so far.
 - On macOS the app opens after the quarantine step described in the notes.
 - The web zip works from a sub-path: unpack, serve the folder one level up,
-  open `/<folder>/`, play the demo.
+  open `/<folder>/`, play the demo. In Chrome or Edge, "This browser" on the
+  Connection screen is offered and completes a small inputs folder
+  (`apps/studio/scripts/browser-engine-check.mjs` does this unattended).
+- The desktop app's Folders > Tools: "Check" finds AliceVision or COLMAP
+  where one is installed, and a photos run completes.
 - The pipeline archive: unpack, install the requirements, run the quick start
   of `scripts/turntable_mesh/README.md`.
 - The mobile files are present or deliberately absent (their jobs may fail
@@ -116,8 +122,11 @@ obligations**.
 
 The audit covers the Studio apps, including the reconstruction engine linked
 into them (`crates/dense`, the project's own code, and its dependencies such
-as `wgpu`). They contain no Python, PyTorch, AliceVision, SAM, OpenMVS or other
-third-party engine. The Python pipeline's dependencies are installed by the
+as `wgpu`), and the same engine as WebAssembly in the web bundle
+(`crates/dense/web`, listed as platform `browser`). They contain no Python,
+PyTorch, AliceVision, COLMAP, SAM, OpenMVS or other third-party engine: the
+app starts AliceVision or COLMAP as separate programs that the user
+installed, and ships none of their code. The Python pipeline's dependencies are installed by the
 user and are not redistributed by these releases, except as names in
 `requirements-dense.txt`.
 

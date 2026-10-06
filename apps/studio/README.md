@@ -4,11 +4,16 @@ The front end for Crisp3DS's photo-to-STL reconstruction. It shows a run as it
 happens: the stages, the surface getting better step by step in a 3D view, the
 diagnostic sheets, and the numbers.
 
-As a web page Studio does not compute anything: it is a client of an *engine*
-on some computer, or plays back a recorded run. As an app (Tauri) it has the
-engine built in: the native dense pipeline, `crates/dense`, runs inside the
-app. Either way it relies only on
-[`docs/ENGINE-CONTRACT.md`](../../docs/ENGINE-CONTRACT.md).
+It gets its runs in four ways, all behind one interface and all following
+[`docs/ENGINE-CONTRACT.md`](../../docs/ENGINE-CONTRACT.md):
+
+- **In the app (Tauri)** the engine is built in: `crates/dense` runs inside
+  the app, from an inputs folder, from cameras and masks, or **from plain
+  turntable photos** when AliceVision or COLMAP is installed on the computer.
+- **In a browser with WebGPU** the same engine runs in the page
+  ("This browser"), from an inputs folder on the device. Nothing is uploaded.
+- As a client of an **engine on some computer**, over HTTP.
+- Playing back a **recorded run**.
 
 It is one static web app. The same build is meant to be served by the engine,
 hosted on any web server, and wrapped by Tauri 2 for desktop and mobile.
@@ -113,11 +118,47 @@ because an `<img>` cannot send the header.
   focus; images carry their artifact label as text alternative. No external
   requests: system fonts, inline icons, everything bundled.
 
+### This browser (no engine, no upload)
+
+On the **Connection** screen, "This browser" runs the reconstruction in the
+page: `crates/dense/web` (the dense pipeline as WebAssembly, computing with
+WebGPU) in a worker. Choose an inputs folder (`cameras.json`, the photos and
+their masks, all inside the folder and named relative to it); the folder
+dialog of the File System Access API is used where the browser has it, a
+folder input otherwise. Files stay on disk and are read one at a time when the
+engine asks. Events go through the same reducer as every other source;
+sheets, reports and meshes come out of the engine's memory as object URLs,
+which are revoked when the run view is left. The final STL and every sheet
+have a **Download** button. Runs are gone when the page is closed.
+
+- **WebGPU is required.** Without it the card says so and offers nothing.
+  Current Chrome and Edge have it.
+- **Memory.** WebAssembly can address 4 GiB. On the Bunny (73 photos of 2
+  megapixels) the engine peaks at 1.9 GiB without intermediate surfaces and at
+  2.5 GiB with them (the crate's figures; the first was measured again here).
+  So above 60 megapixels in all, "Show intermediate surfaces while computing"
+  is off by default, the form says why, and it can be switched on.
+- **The engine is a separate file**, not part of the script bundle: the build
+  copies `crates/dense/web/{crisp3ds-dense.js, pkg/*}` to `dist/engine/` when
+  `pkg/` exists (`sh crates/dense/web/build.sh`: Rust with the
+  `wasm32-unknown-unknown` target and `wasm-bindgen-cli` 0.2.129). Without it
+  `npm run build` still works with Node alone, and the card says the engine is
+  not included. CI and the release build it.
+- Inside the app this mode is a hidden diagnostic (`#/?diagnostics=1` shows
+  the card, `=0` hides it): the built-in engine does the same job natively.
+
+```sh
+sh crates/dense/web/build.sh            # once, and after changes to crates/dense
+cd apps/studio && npm run build && npm run preview &
+npx playwright install chromium         # the full browser; the headless shell has no WebGPU
+STUDIO_INPUTS=/path/to/inputs node scripts/browser-engine-check.mjs
+```
+
 ## Architecture
 
 ```
 sources  ──events──▶  reducer  ──state──▶  views
-(replay | http | local)  (pure)            (Preact components, three.js viewer)
+(replay | http | local | browser)  (pure)  (Preact components, three.js viewer)
 ```
 
 ```
@@ -130,12 +171,16 @@ src/
     reports.ts     report JSON -> rows; unknown shapes fall through to raw JSON
     stl.ts         binary STL -> indexed mesh (welded vertices, smooth normals, bounds), resumable
     format.ts      durations, sizes, counts
+    startPoints.ts  the "New run" form from the engine's list: fields, provider choices, request body
+    providerOptions.ts  options of the mask and camera providers of the photos start
   sources/     no DOM; `fetch` and timers injected; unit-tested
     types.ts       RunSource and Engine: the one interface the views use
     replaySource.ts   bundle -> ReplayPlayer -> updates
     httpEngine.ts     HttpEngine (health, settings, runs, start) and HttpRunSource (polling, files, cancel)
     localEngine.ts    the engine built into the app, over the shell's commands (injected bridge)
+    browserEngine.ts  the engine in a worker of the page (injected worker), runs held in memory
     runStore.ts       folds a source's updates into RunState with the reducer
+  browser/     the worker that loads the WebAssembly engine, and its message types
   viewer/      three.js; loaded on demand
     viewer.ts      scene, camera, controls, lighting, up axis, render on demand
     meshLoader.ts  download with progress, parse in a worker, LRU cache of parsed meshes
@@ -145,7 +190,7 @@ src/
 
 Things worth knowing:
 
-- **One reducer.** Replay, HTTP and (later) local all deliver
+- **One reducer.** Replay, HTTP, the built-in engine and the browser engine all deliver
   `{type: "events" | "reset" | "link"}` updates. `events` are appended;
   `reset` (replay scrubbing backwards) recomputes from the first event. Unknown
   event types, artifact kinds and fields are ignored; unknown stages are
@@ -217,7 +262,7 @@ because it does not support TypeScript 7 yet.
 
 ## Verification
 
-Unit tests (`npm test`, 126 tests; `cargo test` in `src-tauri`, 29 tests): the reducer on the recorded sphere run and
+Unit tests (`npm test`, 140 tests; `cargo test` in `src-tauri`, 40 tests): the reducer on the recorded sphere run and
 on unknown events, kinds, fields, stages and schema; half-written last lines;
 replay timing, speeds, pause, scrub and step with a fake clock; the STL parser
 on all four fixture meshes (triangle counts as announced, closed and
@@ -290,7 +335,7 @@ engines to choose from on the **Connection** screen:
 
 | Engine | What it is | Where |
 | --- | --- | --- |
-| **This computer** (default) | The reconstruction itself, `crates/dense`, linked into the app and running in its own process on the GPU (`wgpu`: Metal, DirectX 12, Vulkan). No Python, no child process. Starts from an inputs folder, or from a camera solution with prepared images and raw masks | every build with the `native-engine` feature |
+| **This computer** (default) | The reconstruction itself, `crates/dense`, linked into the app and running in its own process on the GPU (`wgpu`: Metal, DirectX 12, Vulkan). No Python. Starts from an inputs folder, from a camera solution with prepared images and raw masks, or from turntable photos (see below) | every build with the `native-engine` feature |
 | **External Python engine** | The Python reference pipeline, started by the app as a child process with interpreters you installed (see below). For the plain-photos start, scoring against a scan, and comparisons | desktop builds with the `local-engine` feature; not possible in the App Sandbox |
 | **Another engine** | Any engine by address and token, over HTTP | everywhere |
 
@@ -331,25 +376,67 @@ LocalEngine / LocalRunSource ──invoke──▶ commands ──▶ native::Na
   or drive paths, no symbolic link leading out). The one exception: an
   absolute input path is accepted after the user picked it, or a folder above
   it, in a native dialog during this session.
-- **Cancel** sets the flag and creates the run's `cancel` file.
+- **Cancel** sets the flag and creates the run's `cancel` file. The crate
+  looks at the flag between views and passes, so a Bunny run says "cancelled
+  on request" within a fraction of a second to a few seconds.
 - **A started log is always closed.** If the pipeline panics or returns
   without `run_finished`, the shell appends `error` and `run_finished`. On
   quitting, runs are asked to stop and given eight seconds; what is still busy
-  is closed as cancelled because the process ends. Runs that an earlier
-  instance left open (they carry a `studio-run.json` marker) are closed as
-  failed at the next start. Runs written by another engine into the same
-  folder are left alone.
-- **Settings form.** The crate has the settings but not their group and
-  meaning, so the shell embeds `src-tauri/settings-schema.json`, generated
-  from the Python reference by `scripts/gen-settings-schema.py`. A test checks
-  it against the crate's defaults and `tests/fixtures/dense-config-defaults.json`.
-- **Start points.** The "New run" form is built from a list the engine gives
-  (`core/startPoints.ts`): today "inputs folder" and "camera solution, images
-  and masks". A start point may carry `providers` (a module such as `masks` or
-  `cameras`, its options and a default); the form then shows a choice per
-  module and sends `providers: {module: id}`. That is where the plain-photos
-  start with its provider lists (`docs/ARCHITECTURE.md`) plugs in; nothing
-  offers it yet.
+  is closed as cancelled because the process ends. (The crate stops computing
+  at once, but returns only when the preview surface it is meshing is done,
+  which on the Bunny took 0.5 to more than 8 s; so a quit takes between a
+  moment and those eight seconds.) Runs that an earlier instance left open
+  (they carry a `studio-run.json` marker) are closed as failed at the next
+  start. Runs written by another engine into the same folder are left alone.
+- **Settings form.** From the crate: `crisp3ds_dense::config::settings_schema()`
+  (name, group, meaning, kind, default). Nothing is embedded in the shell.
+- **Start points.** The "New run" form is built from the crate's
+  `crisp3ds_dense::run::describe()` (`core/startPoints.ts`): "inputs folder",
+  "camera solution, images and masks", and "turntable photos". The shell adds
+  to each provider whether it can run on this computer, and why not.
+- **The window keeps up when it is covered.** `backgroundThrottling` is
+  disabled for the window: a web view that is behind other windows otherwise
+  stops its timers after a while, and a run watched in it would stand still
+  until the window is shown again.
+
+### Starting from photos
+
+"Turntable photos" takes a folder of photos and a lens calibration, makes
+masks and cameras first (stages **Masks** and **Cameras** in the timeline,
+with their numbers and the sheets "Masks on photos" and "Sparse points on
+undistorted photos and masks") and then runs the dense stages.
+
+- **Lens calibration.** Calibration files found in the data folder, in
+  `calibrations/` under it and, from a checkout, in
+  `scripts/turntable_mesh/calibrations/` are offered as buttons; any other
+  file can be typed or picked.
+- **Providers.** One choice for masks (`threshold`, `import`,
+  `external-sam`) and one for cameras (`alicevision`, `colmap`, `import`),
+  from the crate's list. A provider that cannot run here is shown, disabled,
+  with the reason ("AliceVision is not set up. See Tools."). `import` asks
+  for the folder or file to import. Each provider's options are in the form,
+  the common ones visible and the rest under "More options"; only values that
+  differ from the default are sent.
+- **Tools.** The Folders screen has a section per external tool: AliceVision
+  (install folder and extra library folders), COLMAP (program), SAM 2.1
+  (Python, source folder, checkpoint). They are saved with the other settings
+  (or come from `CRISP3DS_ALICEVISION`, `CRISP3DS_ALICEVISION_LIBRARY_PATH`,
+  `CRISP3DS_COLMAP`, `CRISP3DS_SAM_PYTHON`, `CRISP3DS_SAM_SOURCE`,
+  `CRISP3DS_SAM_CHECKPOINT`). **Check** starts the tool once and shows its
+  version or what went wrong.
+- **What a request may say.** A start request names a provider and option
+  values. It can never name a program or a place for one: those come from the
+  Tools settings only, and option words that would (`--alicevision`,
+  `--colmap`, `--python`, `--output`, ...) are refused. The assembled
+  options are checked by the crate's own parser before the run starts.
+- **Not in the sandboxed variant**: an App Sandbox app cannot start other
+  programs. There the photos start offers `threshold` masks and imported
+  masks and cameras only, and says why.
+
+The provider options and the tool checks are written by hand in Studio
+(`core/providerOptions.ts`, `src-tauri/src/tools.rs`), because the crate
+describes providers but not their options and has no availability check. They
+follow `crisp3ds-dense photos --help` and need updating when that changes.
 
 Run ids are `YYYYMMDD-HHMMSS-<name>` in UTC (the Python engine uses local
 time).
@@ -415,7 +502,7 @@ above the executable with a `.venv` in it, then `python3` from `PATH`.
 | Variant | Cargo features | Engines | For |
 | --- | --- | --- | --- |
 | Desktop (default) | `native-engine`, `local-engine` | built-in, external Python, remote | direct download |
-| Mac App Store | `--no-default-features --features native-engine` | built-in, remote | sandboxed builds: a sandboxed app cannot start a Python from the disk |
+| Mac App Store | `--no-default-features --features native-engine` | built-in (no AliceVision, COLMAP or SAM), remote | sandboxed builds: a sandboxed app cannot start other programs. A folder chosen with a dialog has to be chosen again after a restart: Tauri does not offer security-scoped bookmarks, and the Folders screen says so |
 | Client only | `--no-default-features` | remote | fallback if the engine cannot be shipped on a platform |
 | Phones | default (the Python launcher is never compiled for phones) | built-in (untested), remote | Android, iOS |
 
@@ -497,21 +584,85 @@ Process handling of the external Python engine is unchanged and still
 untested on Windows (`taskkill /T /F`, which also kills a run in progress)
 and Linux (process group; a run in progress survives the app).
 
-### What a self-contained photos-to-model app still needs
+### Round five: photos, live Bunny, sandbox, quitting
 
-The dense stages no longer need Python. The plain-photos start does: masks
-(SAM through PyTorch) and cameras (AliceVision executables) are external. The
-plan for native providers is in `docs/ARCHITECTURE.md`; Studio's part is ready
-for it (start points with provider choices). Until then the photos start is
-only available through the external Python engine, and Studio has no screen
-for it.
+Same machine, debug build, the app's own form driven by the autopilot in the
+window (screen unlocked), unless said otherwise.
 
-## Releases
+- **Bunny from photos, once** (73 photos, calibration `3dlf-pro.json` picked
+  from the offered list, masks `threshold`, cameras `alicevision`, AliceVision
+  folder and library folder from the Tools settings): **Complete**, 1 064 830
+  triangles, silhouette overlap 0.967, 73 of 73 views registered, reprojection
+  median 0.43 px. Masks 21 s, cameras 24 min 46 s, stereo 3 min 04 s, mesh
+  30 s, check 11 s. The machine was heavily loaded by other work (load average
+  up to 80), which is where the camera stage's time went. The request the form
+  sent was read back from the run's `pipeline.json`:
+  `--calibration <3dlf-pro.json> --masks threshold --cameras alicevision
+  --alicevision <folder> --alicevision-library-path /opt/homebrew/lib`.
+  The timeline showed Masks and Cameras with their numbers while they ran.
+  The owner was working at the computer; when another window covered the
+  app, its web view stopped updating at 97 % of stereo and the script never
+  finished (this is what led to `backgroundThrottling`). The finished run was
+  then opened in the window: 11 of 11 sheets loaded, including "Masks on
+  photos" and "Sparse points", three reports, no CSP violation.
+- **Tools screen**: Check pressed for all three. AliceVision: "Works.
+  AliceVision 3.4 starts."; COLMAP and SAM, not installed here: "Does not
+  work." with the reason.
+- **Bunny live in the window**, inputs folder, default settings: Complete in
+  153 s (stereo 130 s, mesh 13 s, check 9 s), 2.25 GB peak resident. Hull,
+  repaired hull and both level surfaces appeared in the 3D view while it ran,
+  sheets one by one (9 of 9); the longest pause of the page was 0.39 s. The
+  final mesh (1 047 200 triangles) loaded from its button.
+- **Sandboxed variant** (ad-hoc signed app bundle with the three
+  entitlements), through its form: sphere Complete in 5 s with runs and data
+  in the container. Folders screen: a data folder typed, **Save** pressed,
+  the app restarted, the folder was still there. The photos start listed
+  `external-sam`, `alicevision` and `colmap` as not available.
+- **Switching engines** on the Connection screen (this computer, the
+  diagnostic browser engine, back): done by the script. WebGPU is there in
+  the app's web view on this Mac; no run was made with it there.
+- **Quitting during a Bunny run**, three times: the engine said "cancelled on
+  request" 0.2 to 4.7 s after the quit; the process was gone after 6.5 to
+  8.2 s (see "A started log is always closed"). Cancelling with the button
+  ended the run in 0.6 s.
+
+| Bunny from photos in the app | Bunny in the browser engine |
+| --- | --- |
+| ![](docs/photos-run.jpg) | ![](docs/browser-run.jpg) |
+
+**This browser**, headless Chromium 153 with WebGPU on Metal, through the
+app's own screens (`scripts/browser-engine-check.mjs`):
+
+- Synthetic sphere, eleven settings typed: Complete in 6 s, three surfaces
+  and 8 sheets shown, STL downloaded (33 836 triangles), a sheet downloaded,
+  all 8 object URLs dead after leaving the run view. A second run cancelled
+  with the button: "The run was cancelled during stereo."
+- **Bunny** (a self-contained copy of the inputs folder: 148 files, 147
+  megapixels; intermediate surfaces off by the rule above): Complete in
+  **250 s** (stereo 186 s, mesh 38 s, check 26 s), **1.9 GiB** peak
+  WebAssembly memory, downloaded STL **1 047 356 triangles** (52 367 884
+  bytes), 9 sheets.
+
+Still not verified:
+
+- **The native pickers.** They need a person's click; the path grant behind
+  them is unit-tested. Typing a path and the folder browser were used instead.
+- **Photos with COLMAP or SAM**, and the `import` providers, through the
+  window: neither tool is installed here. The request building is unit-tested
+  against the crate's parser.
+- A run in the browser engine in Safari or Firefox, on a phone, or inside the
+  app's web view; picking with the File System Access dialog (the test uses
+  the folder input, which is always present).
+- Windows and Linux as before: built and unit-tested in CI only.
+
+## Releases## Releases
 
 `.github/workflows/release.yml` builds the web bundle, the bundled desktop
 apps, the mobile probes and the pipeline's source archive, and on a `v*` tag
-creates a **draft prerelease**. The desktop bundles contain the engine and
-need no Python for runs that start from cameras and masks. `scripts/set-version.mjs` keeps
+creates a **draft prerelease**. The desktop bundles contain the engine: they
+reconstruct from cameras and masks with nothing else installed, and from
+plain photos when AliceVision or COLMAP is installed. The web bundle contains
+the engine for browsers. `scripts/set-version.mjs` keeps
 `package.json`, `tauri.conf.json` and `Cargo.toml` on one version. Signing is
 off until its secrets exist: `APPLE_CERTIFICATE`,
 `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`,
@@ -522,24 +673,28 @@ off until its secrets exist: `APPLE_CERTIFICATE`,
 ## Implemented, and not
 
 Implemented: everything under [What it shows](#what-it-shows); the replay and
-HTTP and local sources; the demo; the app with the built-in engine and the
-optional launcher for the external Python engine.
+HTTP, local and browser sources; the demo; the app with the built-in engine
+(including the photos start and the Tools screen) and the optional launcher
+for the external Python engine.
 
 Not implemented:
 
 - **Photo upload and capture.** Not in the contract yet, so a phone cannot
   send photos.
-- **The plain-photos start.** Runs start from an inputs folder or from a
-  camera solution with images and masks. The form can show provider choices
-  for a photos start; no engine offers one to Studio yet.
+- **Masks and cameras without external programs.** The photos start needs
+  AliceVision or COLMAP for cameras (or an imported solution); only the
+  `threshold` masks are built in. The browser engine starts from an inputs
+  folder only.
 - **Scoring against a reference scan** with the built-in engine (the Python
   engine does it).
-- **Remembering a picked folder across restarts** in the sandboxed variant
-  (security-scoped bookmarks).
+- **Remembering a picked folder across restarts** in the sandboxed variant:
+  Tauri offers no security-scoped bookmarks, and reaching for them through
+  unsafe platform calls was not done. The Folders screen says so.
 - **Thumbnails and compact meshes.** Gallery cards show the full sheet scaled
   down; the contract has no thumbnail or decimated-mesh artifact yet.
-- **Deleting or renaming runs, a download button for the STL**: no endpoint for
-  the first two; the STL is at `<engine>/api/runs/<id>/files/mesh/mesh.stl`.
+- **Deleting or renaming runs**: no endpoint. (The STL and the sheets have
+  Download buttons, except in the app, where they are files in the runs
+  folder.)
 - **Engine discovery on the network** (mDNS or a QR code with address and
   token), so nobody types an address on a phone.
 - **Push updates.** Studio polls, as the contract says.
