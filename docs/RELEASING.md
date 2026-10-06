@@ -9,12 +9,12 @@ it, and where the App Store and TestFlight stand.
 
 | File | Job | What it is |
 | --- | --- | --- |
-| `crisp3ds-studio-web-<v>.zip` | web | Studio as static files (relative URLs; demo recording, third-party notices and the engine for browsers, `engine/`, inside) |
-| `crisp3ds-studio-<v>-macos-arm64.dmg`, `.app.tar.gz` | desktop | Studio desktop app with the engine built in, Apple Silicon, ad-hoc signed |
-| `crisp3ds-studio-<v>-windows-x64-setup.exe` | desktop | NSIS installer, per user, unsigned |
-| `crisp3ds-studio-<v>-linux-x64.AppImage`, `.deb` | desktop | Linux x64 |
-| `crisp3ds-studio-<v>-android-arm64-debug.apk` | android (non-blocking) | debug build, throwaway debug key |
-| `crisp3ds-studio-<v>-ios-simulator-arm64.app.zip` | ios (non-blocking) | simulator build, not installable on a device |
+| `Crisp-3D-Studio_web-<v>.zip` | web | Studio as static files (relative URLs; demo recording, third-party notices and the engine for browsers, `engine/`, inside) |
+| `Crisp-3D-Studio_<v>-macos-arm64.dmg`, `.app.tar.gz` | desktop | Studio desktop app with the engine built in, Apple Silicon, ad-hoc signed |
+| `Crisp-3D-Studio_<v>-windows-x64-setup.exe` | desktop | NSIS installer, per user, unsigned |
+| `Crisp-3D-Studio_<v>-linux-x64.AppImage`, `.deb` | desktop | Linux x64 |
+| `Crisp-3D-Studio_<v>-android-arm64-debug.apk` | android (non-blocking) | debug build, throwaway debug key |
+| `Crisp-3D-Studio_<v>-ios-simulator-arm64.app.zip` | ios (non-blocking) | simulator build, not installable on a device |
 | `crisp3ds-dense-pipeline-<v>.tar.gz` | python | `scripts/turntable_mesh`, the modules it imports from elsewhere under `scripts/`, the engine contract, the sphere fixture, `LICENSE` |
 | `SHA256SUMS.txt` | publish | checksums of all of the above |
 

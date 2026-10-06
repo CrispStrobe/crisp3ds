@@ -1,9 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Crisp3DS Studio",
+  "productName": "Crisp 3D Studio",
   "mainBinaryName": "crisp3ds-studio",
-  "version": "0.1.0",
-  "identifier": "dev.crisp3ds.studio",
+  "version": "0.2.0",
+  "identifier": "com.crispstrobe.crisp3ds",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:1430",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Crisp3DS Studio",
+        "title": "Crisp 3D Studio",
         "width": 1320,
         "height": 880,
         "minWidth": 360,
@@ -37,7 +37,8 @@
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
-      "icons/icon.ico"
+      "icons/icon.ico",
+      "icons/icon.png"
     ]
   }
 }

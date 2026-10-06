@@ -1,4 +1,4 @@
-# Crisp3DS Studio
+# Crisp 3D Studio
 
 The front end for Crisp3DS's photo-to-STL reconstruction. It shows a run as it
 happens: the stages, the surface getting better step by step in a 3D view, the

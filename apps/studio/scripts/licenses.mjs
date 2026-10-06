@@ -15,6 +15,9 @@
 //   Other  icons, fonts and the demo recording are listed by hand in ASSETS below.
 //
 // The output is deterministic (no dates, no paths), so CI can tell when it is out of date.
+//   --store  audits only what the builds for Apple's stores link (sandboxed macOS variant, iOS),
+//            lists the crates that implement encryption, and fails on a license outside the policy.
+//
 // Needs `cargo` on PATH and network access to the crates.io index the first time.
 
 import { execFileSync } from "node:child_process";
@@ -171,10 +174,10 @@ function npmPackages() {
 // ---------------------------------------------------------------------------------------------
 // Rust
 
-function cargoMetadata(target, manifest = join(root, "src-tauri/Cargo.toml")) {
+function cargoMetadata(target, manifest = join(root, "src-tauri/Cargo.toml"), features = []) {
   const out = execFileSync(
     "cargo",
-    ["metadata", "--format-version", "1", "--locked", "--filter-platform", target, "--manifest-path", manifest],
+    ["metadata", "--format-version", "1", "--locked", "--filter-platform", target, "--manifest-path", manifest, ...features],
     { encoding: "utf8", maxBuffer: 256 * 1024 * 1024, stdio: ["ignore", "pipe", "inherit"] },
   );
   return JSON.parse(out);
@@ -248,6 +251,52 @@ function rustCrates() {
   };
 }
 
+/**
+ * What the builds for Apple's stores link, and nothing else: the sandboxed macOS variant
+ * (`--no-default-features --features native-engine`) and the iOS app.
+ */
+const STORE = {
+  macos: { target: TARGETS.macos, features: ["--no-default-features", "--features", "native-engine"] },
+  ios: { target: TARGETS.ios, features: [] },
+};
+
+/** Crates that implement ciphers, key exchange or TLS: what an export-compliance answer has to know about. */
+const ENCRYPTION = /^(ring|rustls|rustls-.*|openssl|openssl-sys|native-tls|aws-lc-rs|aws-lc-sys|boring|boring-sys|aes|aes-gcm|chacha20|chacha20poly1305|salsa20|rsa|ed25519.*|x25519.*|curve25519.*|p256|p384|k256|ecdsa|des|blowfish|twofish|cbc|ctr|gcm|sodiumoxide|libsodium-sys|orion|age|pgp|sequoia.*|security-framework|security-framework-sys|schannel|hyper-tls|tokio-rustls|tokio-native-tls|quinn.*|webpki.*)$/;
+
+function storeAudit() {
+  const npm = npmPackages();
+  const rows = new Map();
+  for (const [platform, { target, features }] of Object.entries(STORE)) {
+    const { linked, packages } = crateSets(cargoMetadata(target, undefined, features));
+    for (const id of linked) {
+      const p = packages.get(id);
+      const key = `${p.name}@${p.version}`;
+      const row = rows.get(key) ?? { name: p.name, version: p.version, license: p.license ?? "", ...classify(p.license), linked: [], own: p.source === null };
+      row.linked.push(platform);
+      rows.set(key, row);
+    }
+  }
+  const crates = [...rows.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const third = [...npm.shipped, ...crates.filter((row) => !row.own)];
+  const own = crates.filter((row) => row.own);
+  const worst = CATEGORIES[Math.max(0, ...third.map((row) => rank(row.category)))];
+  const verdict = { permissive: "clean", notice: "clean with obligations", decision: "needs a decision", blocker: "blocked" }[worst];
+  console.log("Builds for Apple's stores: macOS (sandboxed variant, native-engine only) and iOS.");
+  console.log(`third-party: ${npm.shipped.length} npm packages, ${crates.length - own.length} crates linked: ${verdict}`);
+  console.log("  " + Object.entries(tally(third)).map(([license, count]) => `${license}: ${count}`).join(", "));
+  const obligations = third.filter((row) => row.category === "notice");
+  if (obligations.length > 0) console.log("  with obligations (notices kept, source offered in the app's license screen): " + obligations.map((row) => `${row.name} ${row.version} [${row.linked?.join("+") ?? "web"}]`).join(", "));
+  console.log("the project's own code in these builds: " + own.map((row) => `${row.name} ${row.version} (${row.license})`).join(", "));
+  console.log("  Its license is the copyright holder's to grant; this audit does not judge it.");
+  const encryption = crates.filter((row) => ENCRYPTION.test(row.name));
+  console.log("crates that implement encryption or TLS: " + (encryption.length === 0 ? "none" : encryption.map((row) => `${row.name} ${row.version} [${row.linked.join("+")}]`).join(", ")));
+  const bad = third.filter((row) => rank(row.category) >= rank("decision"));
+  if (bad.length > 0) {
+    console.error("Licenses outside the policy:\n  " + bad.map((row) => `${row.name}@${row.version}: ${row.license || "(none)"} -> ${row.category}`).join("\n  "));
+    process.exitCode = 1;
+  }
+}
+
 // ---------------------------------------------------------------------------------------------
 // Report
 
@@ -299,7 +348,7 @@ function markdown(data) {
   const mpl = data.rust.linked.filter((row) => row.category === "notice");
   const flagged = [...data.npm.shipped, ...data.rust.linked].filter((row) => rank(row.category) >= rank("decision"));
   const lines = [
-    "# Third-party licenses in Crisp3DS Studio",
+    "# Third-party licenses in Crisp 3D Studio",
     "",
     "Generated by `scripts/licenses.mjs` (`npm run licenses`); the same data is in `licenses.json`. CI fails when a",
     "license outside the policy appears or when these files are out of date. Do not edit by hand.",
@@ -404,12 +453,25 @@ function markdown(data) {
 function notices(npm, rust, file) {
   const wanted = /^(licen[sc]e|copying|notice|copyright|unlicense)/i;
   const parts = [
-    "Crisp3DS Studio: third-party notices",
+    "Crisp 3D Studio: third-party notices",
     "",
-    "Crisp3DS Studio itself is licensed AGPL-3.0-only. It includes the following third-party",
+    "Crisp 3D Studio itself is licensed AGPL-3.0-only. It includes the following third-party",
     "software, each under its own license as reproduced below.",
     "",
+    "Source code of Crisp 3D Studio, with the exact versions of everything listed here",
+    "(package-lock.json, Cargo.lock): https://github.com/CrispStrobe/crisp3ds",
+    "",
   ];
+  const mpl = rust.linked.filter((row) => /MPL-2\.0/.test(row.chosen));
+  if (mpl.length > 0) {
+    parts.push(
+      "Mozilla Public License 2.0. The following parts are under the MPL-2.0 and are used",
+      "unmodified. Their source code is available from where they are published:",
+      "",
+      ...mpl.map((row) => `  ${row.name} ${row.version}    https://crates.io/crates/${row.name}/${row.version}`),
+      "",
+    );
+  }
   const add = (title, license, folder) => {
     parts.push("=".repeat(100), `${title}    (${license})`, "=".repeat(100), "");
     const files = existsSync(folder) ? readdirSync(folder).filter((name) => wanted.test(name)).sort() : [];
@@ -423,7 +485,9 @@ function notices(npm, rust, file) {
   console.log(`wrote ${file}: ${npm.shipped.length} npm packages, ${rust.linked.length} crates`);
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url) && process.argv.includes("--store")) {
+  storeAudit();
+} else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { data, npm, rust } = audit();
   const json = JSON.stringify(data, null, 2) + "\n";
   const md = markdown(data);

@@ -1,6 +1,6 @@
 name: studio
 
-# Crisp3DS Studio (apps/studio): the web front end and its Tauri 2 shell.
+# Crisp 3D Studio (apps/studio): the web front end and its Tauri 2 shell.
 #
 #   web      typecheck, unit tests and the static bundle (artifact). Built with
 #            relative asset URLs, so it can be served from any path. The bundle
@@ -234,6 +234,8 @@ jobs:
       - run: brew install xcodegen
       - run: npm ci
       - run: npx tauri ios init --ci
+      # The privacy manifest becomes a resource of the app.
+      - run: node scripts/ios-prepare.mjs
       - name: Unsigned simulator build
         run: npx tauri ios build --debug --target aarch64-sim --ci
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

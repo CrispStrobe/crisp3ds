@@ -10,6 +10,7 @@ import { Connection } from "./connection";
 import { Icon } from "./icons";
 import { NewRun } from "./newRun";
 import { applyTheme, loadPrefs, savePrefs, speedFromPref, type ThemeChoice } from "./prefs";
+import { Notices } from "./notices";
 import { Runs } from "./runs";
 import { RunView } from "./runView";
 import { LocalEngineGate, ShellSettingsScreen, useLocalEngine } from "./shellScreens";
@@ -21,13 +22,15 @@ export type Route =
   | { screen: "runs" }
   | { screen: "new" }
   | { screen: "run"; id: string }
-  | { screen: "shell" };
+  | { screen: "shell" }
+  | { screen: "notices" };
 
 export function parseRoute(hash: string): Route {
   const [path = "", query = ""] = hash.replace(/^#\/?/, "").split("?");
   const parts = path.split("/").filter((part) => part !== "");
   if (parts[0] === "replay") return { screen: "replay", bundle: new URLSearchParams(query).get("bundle") };
   if (parts[0] === "shell") return { screen: "shell" };
+  if (parts[0] === "notices") return { screen: "notices" };
   if (parts[0] === "engine") {
     if (parts[1] === "new") return { screen: "new" };
     if (parts[1] === "run" && parts[2] !== undefined) return { screen: "run", id: decodeURIComponent(parts[2]) };
@@ -62,18 +65,12 @@ const THEME_ICON = { system: "auto", light: "sun", dark: "moon" } as const;
 /** The demo recording ships next to index.html. */
 const DEMO_BUNDLE = "demo/";
 
-/** License line; the notices link appears in builds that carry the collected notices (release builds). */
+/** License line, and the way to the licenses of everything in the app (shown inside the app). */
 function Footer() {
-  // `npm run build:release` builds in mode "release" and writes the file next to index.html.
-  const notices = import.meta.env.MODE === "release";
   return (
     <footer class="footer">
-      <span>Crisp3DS Studio is free software under AGPL-3.0-only.</span>
-      {notices && (
-        <a href="THIRD-PARTY-NOTICES.txt" target="_blank" rel="noopener">
-          Third-party notices
-        </a>
-      )}
+      <span>Crisp 3D Studio is free software under AGPL-3.0-only.</span>
+      <a href="#/notices">Licenses and third-party notices</a>
     </footer>
   );
 }
@@ -182,8 +179,9 @@ export function App() {
   else if (route.screen === "new") title = "New run";
   else if (route.screen === "run") title = route.id;
   else if (route.screen === "shell") title = "Engine settings";
+  else if (route.screen === "notices") title = "Licenses";
   useEffect(() => {
-    document.title = title === "Studio" ? "Crisp3DS Studio" : `${title} - Crisp3DS Studio`;
+    document.title = title === "Studio" ? "Crisp 3D Studio" : `${title} - Crisp 3D Studio`;
   }, [title]);
 
   return (
@@ -192,10 +190,10 @@ export function App() {
         Skip to content
       </a>
       <header class="topbar">
-        <a class="brand" href="#/" aria-label="Crisp3DS Studio, connection">
+        <a class="brand" href="#/" aria-label="Crisp 3D Studio, connection">
           <Icon name="cube" size={20} />
           <span>
-            Crisp3DS <strong>Studio</strong>
+            Crisp 3D <strong>Studio</strong>
           </span>
         </a>
         <nav class="topnav" aria-label="Main">
@@ -227,6 +225,7 @@ export function App() {
           <Connection prefs={prefs} onChange={update} localEngine={hasLocal ? { native: hasNative, python: hasPython, status: local.status, mode } : null}
             browser={offerBrowser ? { built: browserEngine !== null, webgpu, inUse: mode === "browser" } : null} />
         )}
+        {route.screen === "notices" && <Notices />}
         {route.screen === "shell" &&
           (shell !== null && hasLocal ? (
             <ShellSettingsScreen shell={shell} info={shellInfo} status={local.status} mode={mode} onChange={local.refresh} />

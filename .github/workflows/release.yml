@@ -152,7 +152,7 @@ jobs:
           test -s dist/THIRD-PARTY-NOTICES.txt
           test -s dist/engine/pkg/crisp3ds_dense_web_bg.wasm
           ! grep -E '(src|href)="/' dist/index.html
-          name="crisp3ds-studio-web-$FILE_VERSION"
+          name="Crisp-3D-Studio_web-$FILE_VERSION"
           mkdir -p ../../release-out && mv dist "$name"
           zip -qr "../../release-out/$name.zip" "$name"
           ls -la ../../release-out
@@ -278,13 +278,13 @@ jobs:
           mkdir -p "$out"
           bundle=src-tauri/target/release/bundle
           find "$bundle" -maxdepth 2 | sort
-          base="crisp3ds-studio-$FILE_VERSION-$LABEL"
+          base="Crisp-3D-Studio_$FILE_VERSION-$LABEL"
           case "$RUNNER_OS" in
             macOS)
               cp "$bundle"/dmg/*.dmg "$out/$base.dmg"
               # tar keeps the bundle's symlinks, permissions and signature intact.
-              tar -C "$bundle/macos" -czf "$out/$base.app.tar.gz" "Crisp3DS Studio.app"
-              codesign --display --verbose=2 "$bundle/macos/Crisp3DS Studio.app" 2>&1 | grep -E 'Signature|Authority|TeamIdentifier' || true
+              tar -C "$bundle/macos" -czf "$out/$base.app.tar.gz" "Crisp 3D Studio.app"
+              codesign --display --verbose=2 "$bundle/macos/Crisp 3D Studio.app" 2>&1 | grep -E 'Signature|Authority|TeamIdentifier' || true
               ;;
             Windows)
               cp "$bundle"/nsis/*-setup.exe "$out/$base-setup.exe"
@@ -340,7 +340,7 @@ jobs:
         run: |
           mkdir -p "$GITHUB_WORKSPACE/release-out"
           apk=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' | head -n 1)
-          cp "$apk" "$GITHUB_WORKSPACE/release-out/crisp3ds-studio-$FILE_VERSION-android-arm64-debug.apk"
+          cp "$apk" "$GITHUB_WORKSPACE/release-out/Crisp-3D-Studio_$FILE_VERSION-android-arm64-debug.apk"
           ls -la "$GITHUB_WORKSPACE/release-out"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -375,6 +375,8 @@ jobs:
       - run: node scripts/set-version.mjs "$VERSION"
       - run: npm ci
       - run: npx tauri ios init --ci
+      # The privacy manifest becomes a resource of the app.
+      - run: node scripts/ios-prepare.mjs
       - name: Unsigned simulator build
         run: npx tauri ios build --debug --target aarch64-sim --ci
       # Informational: shows whether src-tauri/Info.ios.plist reached the app
@@ -390,7 +392,7 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/release-out"
           app=$(find src-tauri/gen/apple/build -name '*.app' -maxdepth 6 | head -n 1)
           test -n "$app"
-          ditto -c -k --keepParent "$app" "$GITHUB_WORKSPACE/release-out/crisp3ds-studio-$FILE_VERSION-ios-simulator-arm64.app.zip"
+          ditto -c -k --keepParent "$app" "$GITHUB_WORKSPACE/release-out/Crisp-3D-Studio_$FILE_VERSION-ios-simulator-arm64.app.zip"
           ls -la "$GITHUB_WORKSPACE/release-out"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -509,7 +511,7 @@ jobs:
           cat > notes.md <<EOF
           **Prerelease $VERSION. Read this before installing.**
 
-          - **Unsigned builds.** Nothing here is signed with a developer certificate or notarised. macOS (ad-hoc signature only) will refuse to open the app until you allow it under System Settings > Privacy & Security, or remove the quarantine flag (\`xattr -dr com.apple.quarantine "Crisp3DS Studio.app"\`). Windows SmartScreen will warn about the installer. The Android file is a debug build signed with a throwaway debug key; the iOS file runs in the simulator only.
+          - **Unsigned builds.** Nothing here is signed with a developer certificate or notarised. macOS (ad-hoc signature only) will refuse to open the app until you allow it under System Settings > Privacy & Security, or remove the quarantine flag (\`xattr -dr com.apple.quarantine "Crisp 3D Studio.app"\`). Windows SmartScreen will warn about the installer. The Android file is a debug build signed with a throwaway debug key; the iOS file runs in the simulator only.
           - **The desktop app reconstructs by itself; no Python is needed.** The engine is built in and runs on the computer's GPU (Metal, DirectX 12 or Vulkan). From cameras and masks that already exist (an inputs folder, or a camera solution with its prepared images and raw masks) it needs nothing else.
           - **From plain turntable photos it needs AliceVision or COLMAP on the computer.** The app makes the masks itself (dark object on a light backdrop) and runs AliceVision or COLMAP for the cameras; tell it where they are under Folders > Tools, where each has a Check button. Neither is bundled. Masks from SAM 2.1 are optional and need a Python with PyTorch. A lens calibration file for the camera is required.
           - **In a browser with WebGPU, the web build reconstructs too.** "This browser" on the Connection screen runs the same engine in the page from an inputs folder on the device (cameras, photos, masks); nothing is uploaded. It needs a current Chrome or Edge and enough memory: the engine may use up to 4 GiB, and a set of 73 photos of 2 megapixels takes 1.9 GiB.
@@ -520,13 +522,13 @@ jobs:
 
           | File | What it is |
           | --- | --- |
-          | \`crisp3ds-studio-*-macos-arm64.dmg\`, \`.app.tar.gz\` | Studio desktop app, Apple Silicon |
-          | \`crisp3ds-studio-*-windows-x64-setup.exe\` | Studio desktop app, Windows installer (per user) |
-          | \`crisp3ds-studio-*-linux-x64.AppImage\`, \`.deb\` | Studio desktop app, Linux |
-          | \`crisp3ds-studio-web-*.zip\` | Studio as static files, with the demo recording and the engine for browsers; serve from any path (over http or https, not opened as a file) or with \`engine_server.py --static\` |
+          | \`Crisp-3D-Studio_*-macos-arm64.dmg\`, \`.app.tar.gz\` | Studio desktop app, Apple Silicon |
+          | \`Crisp-3D-Studio_*-windows-x64-setup.exe\` | Studio desktop app, Windows installer (per user) |
+          | \`Crisp-3D-Studio_*-linux-x64.AppImage\`, \`.deb\` | Studio desktop app, Linux |
+          | \`Crisp-3D-Studio_web-*.zip\` | Studio as static files, with the demo recording and the engine for browsers; serve from any path (over http or https, not opened as a file) or with \`engine_server.py --static\` |
           | \`crisp3ds-dense-pipeline-*.tar.gz\` | The Python reference pipeline and its HTTP engine (source), contract and test fixture; needed only for scoring against a reference scan and for comparisons |
-          | \`crisp3ds-studio-*-android-arm64-debug.apk\` | Android debug build (if present) |
-          | \`crisp3ds-studio-*-ios-simulator-arm64.app.zip\` | iOS simulator build (if present) |
+          | \`Crisp-3D-Studio_*-android-arm64-debug.apk\` | Android debug build (if present) |
+          | \`Crisp-3D-Studio_*-ios-simulator-arm64.app.zip\` | iOS simulator build (if present) |
           | \`SHA256SUMS.txt\` | Checksums of all of the above |
           EOF
           sed -i 's/^          //' notes.md

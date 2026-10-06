@@ -1,4 +1,4 @@
-/* Crisp3DS Studio. Plain CSS, system fonts, no external requests. */
+/* Crisp 3D Studio. Plain CSS, system fonts, no external requests. */
 
 :root {
   color-scheme: light;
@@ -1822,4 +1822,12 @@ fieldset.panel > legend {
 
 .memory-note {
   color: var(--muted);
+}
+
+.notices {
+  max-height: 70vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
 }

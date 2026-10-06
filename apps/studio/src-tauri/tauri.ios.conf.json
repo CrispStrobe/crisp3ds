@@ -1,0 +1,11 @@
+{
+  "bundle": {
+    "active": true,
+    "iOS": {
+      "minimumSystemVersion": "16.0"
+    }
+  },
+  "build": {
+    "beforeBuildCommand": "npm run build:release"
+  }
+}

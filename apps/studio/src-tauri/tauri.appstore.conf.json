@@ -5,8 +5,8 @@
   "bundle": {
     "active": true,
     "category": "GraphicsAndDesign",
-    "shortDescription": "Watch a photo-to-STL reconstruction step by step",
-    "longDescription": "Crisp3DS Studio shows a photo-to-STL reconstruction as it happens. The reconstruction is built in and runs on this computer's graphics processor, starting from photos with known cameras and masks. It can also connect to a Crisp3DS engine on another computer, or play back recorded runs.",
+    "shortDescription": "Turntable photos to a printable 3D model",
+    "longDescription": "Crisp 3D Studio reconstructs a closed, printable surface (STL) from photos of an object on a turntable, on this computer's graphics processor, and shows the surface getting better step by step. This edition runs in the App Sandbox: everything is computed inside the app, and it starts no other program.",
     "copyright": "Crisp3DS contributors",
     "homepage": "https://github.com/CrispStrobe/crisp3ds",
     "macOS": {
