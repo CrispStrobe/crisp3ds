@@ -33,7 +33,12 @@ export const TARGETS = {
   windows: "x86_64-pc-windows-msvc",
   linux: "x86_64-unknown-linux-gnu",
   android: "aarch64-linux-android",
+  // The engine for "This browser" in the web bundle: another crate (crates/dense/web) with its own lockfile.
+  browser: "wasm32-unknown-unknown",
 };
+
+/** The manifest a platform is built from, where it is not the shell. */
+const MANIFESTS = { browser: join(root, "../../crates/dense/web/Cargo.toml") };
 
 // ---------------------------------------------------------------------------------------------
 // Policy
@@ -166,10 +171,10 @@ function npmPackages() {
 // ---------------------------------------------------------------------------------------------
 // Rust
 
-function cargoMetadata(target) {
+function cargoMetadata(target, manifest = join(root, "src-tauri/Cargo.toml")) {
   const out = execFileSync(
     "cargo",
-    ["metadata", "--format-version", "1", "--locked", "--filter-platform", target, "--manifest-path", join(root, "src-tauri/Cargo.toml")],
+    ["metadata", "--format-version", "1", "--locked", "--filter-platform", target, "--manifest-path", manifest],
     { encoding: "utf8", maxBuffer: 256 * 1024 * 1024, stdio: ["ignore", "pipe", "inherit"] },
   );
   return JSON.parse(out);
@@ -212,7 +217,7 @@ function crateSets(metadata) {
 function rustCrates() {
   const rows = new Map();
   for (const [platform, target] of Object.entries(TARGETS)) {
-    const { linked, buildOnly, packages } = crateSets(cargoMetadata(target));
+    const { linked, buildOnly, packages } = crateSets(cargoMetadata(target, MANIFESTS[platform]));
     for (const [ids, role] of [[linked, "linked"], [buildOnly, "build"]]) {
       for (const id of ids) {
         const p = packages.get(id);
@@ -359,7 +364,7 @@ function markdown(data) {
     "",
     counts(data.counts.rust_linked_macos_or_ios),
     "",
-    "### Rust crates linked on any platform (macOS, iOS, Windows, Linux, Android)",
+    "### Rust crates linked on any platform (macOS, iOS, Windows, Linux, Android, and the engine for browsers in the web bundle)",
     "",
     counts(data.counts.rust_linked_any_platform),
     "",

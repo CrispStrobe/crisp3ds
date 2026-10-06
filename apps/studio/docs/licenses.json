@@ -53,8 +53,8 @@
       "MIT AND Unicode-3.0": 1
     },
     "rust_linked_any_platform": {
-      "MIT": 275,
-      "Apache-2.0": 36,
+      "MIT": 280,
+      "Apache-2.0": 37,
       "Zlib": 20,
       "Unicode-3.0": 15,
       "BSD-3-Clause": 6,
@@ -69,7 +69,7 @@
       "MIT AND Unicode-3.0": 1
     },
     "rust_build_only": {
-      "MIT": 73,
+      "MIT": 76,
       "Apache-2.0": 9,
       "Unicode-3.0": 3,
       "Apache-2.0 WITH LLVM-exception": 1,
@@ -91,7 +91,8 @@
     "ios": "aarch64-apple-ios",
     "windows": "x86_64-pc-windows-msvc",
     "linux": "x86_64-unknown-linux-gnu",
-    "android": "aarch64-linux-android"
+    "android": "aarch64-linux-android",
+    "browser": "wasm32-unknown-unknown"
   },
   "npm": {
     "shipped": [
@@ -859,7 +860,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ]
       }
     ],
@@ -876,7 +878,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -968,7 +971,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -984,7 +988,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -1099,7 +1104,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -1147,7 +1153,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -1179,7 +1186,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -1273,7 +1281,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -1305,7 +1314,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -1437,7 +1447,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -1469,7 +1480,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -1482,6 +1494,18 @@
         "repository": "https://github.com/Marwes/combine",
         "linked": [
           "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "console_error_panic_hook",
+        "version": "0.1.7",
+        "license": "Apache-2.0/MIT",
+        "category": "permissive",
+        "chosen": "Apache-2.0",
+        "repository": "https://github.com/rustwasm/console_error_panic_hook",
+        "linked": [
+          "browser"
         ],
         "build": []
       },
@@ -1579,7 +1603,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -1611,7 +1636,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -1627,7 +1653,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -1643,7 +1670,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -1954,7 +1982,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -1982,7 +2011,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -2029,7 +2059,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -2057,7 +2088,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -2089,7 +2121,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -2173,7 +2206,8 @@
         "linked": [
           "ios",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -2227,7 +2261,8 @@
         "linked": [
           "ios",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -2241,7 +2276,8 @@
         "linked": [
           "ios",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -2506,7 +2542,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -2554,7 +2591,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -2858,7 +2896,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -2890,7 +2929,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -2935,7 +2975,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -3052,6 +3093,18 @@
         "repository": "https://github.com/jni-rs/jni-sys",
         "linked": [
           "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "js-sys",
+        "version": "0.3.106",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/wasm-bindgen/wasm-bindgen/tree/master/crates/js-sys",
+        "linked": [
+          "browser"
         ],
         "build": []
       },
@@ -3193,7 +3246,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -3238,7 +3292,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -3254,7 +3309,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -3286,7 +3342,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -3330,7 +3387,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -3346,7 +3404,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -3378,7 +3437,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -3408,7 +3468,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -3424,7 +3485,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -3508,7 +3570,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -3750,7 +3813,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -3782,7 +3846,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -3822,7 +3887,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -3838,7 +3904,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -3902,7 +3969,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -3934,7 +4002,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4032,7 +4101,9 @@
           "linux",
           "android"
         ],
-        "build": []
+        "build": [
+          "browser"
+        ]
       },
       {
         "name": "profiling",
@@ -4046,7 +4117,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4062,7 +4134,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4096,7 +4169,9 @@
           "linux",
           "android"
         ],
-        "build": []
+        "build": [
+          "browser"
+        ]
       },
       {
         "name": "range-alloc",
@@ -4122,7 +4197,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4151,7 +4227,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4167,7 +4244,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4290,7 +4368,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4401,7 +4480,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4449,7 +4529,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4465,7 +4546,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4481,7 +4563,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4594,7 +4677,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4624,7 +4708,8 @@
         "linked": [
           "ios",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4640,7 +4725,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4708,7 +4794,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4740,7 +4827,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4922,7 +5010,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -4954,7 +5043,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -5347,7 +5437,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -5377,7 +5468,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -5475,6 +5567,42 @@
         "build": []
       },
       {
+        "name": "wasm-bindgen",
+        "version": "0.2.129",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/wasm-bindgen/wasm-bindgen",
+        "linked": [
+          "browser"
+        ],
+        "build": []
+      },
+      {
+        "name": "wasm-bindgen-futures",
+        "version": "0.4.79",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/wasm-bindgen/wasm-bindgen/tree/master/crates/futures",
+        "linked": [
+          "browser"
+        ],
+        "build": []
+      },
+      {
+        "name": "wasm-bindgen-shared",
+        "version": "0.2.129",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/wasm-bindgen/wasm-bindgen/tree/master/crates/shared",
+        "linked": [
+          "browser"
+        ],
+        "build": []
+      },
+      {
         "name": "web_atoms",
         "version": "0.2.6",
         "license": "MIT OR Apache-2.0",
@@ -5491,6 +5619,18 @@
         "build": []
       },
       {
+        "name": "web-sys",
+        "version": "0.3.106",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/wasm-bindgen/wasm-bindgen/tree/master/crates/web-sys",
+        "linked": [
+          "browser"
+        ],
+        "build": []
+      },
+      {
         "name": "web-time",
         "version": "1.1.0",
         "license": "MIT OR Apache-2.0",
@@ -5502,7 +5642,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -5566,7 +5707,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -5582,7 +5724,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -5625,7 +5768,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -5641,7 +5785,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -5657,7 +5802,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -6098,7 +6244,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -6162,7 +6309,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -6178,7 +6326,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -6194,7 +6343,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       },
@@ -6210,7 +6360,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ],
         "build": []
       }
@@ -6229,7 +6380,20 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
+        ]
+      },
+      {
+        "name": "bumpalo",
+        "version": "3.20.3",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/fitzgen/bumpalo",
+        "linked": [],
+        "build": [
+          "browser"
         ]
       },
       {
@@ -6245,7 +6409,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ]
       },
       {
@@ -6293,7 +6458,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ]
       },
       {
@@ -6477,7 +6643,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ]
       },
       {
@@ -6663,7 +6830,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ]
       },
       {
@@ -6855,7 +7023,8 @@
         "repository": "https://github.com/dtolnay/rustversion",
         "linked": [],
         "build": [
-          "android"
+          "android",
+          "browser"
         ]
       },
       {
@@ -6887,7 +7056,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ]
       },
       {
@@ -7039,7 +7209,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ]
       },
       {
@@ -7055,7 +7226,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ]
       },
       {
@@ -7217,7 +7389,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ]
       },
       {
@@ -7381,6 +7554,30 @@
         ]
       },
       {
+        "name": "wasm-bindgen-macro",
+        "version": "0.2.129",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/wasm-bindgen/wasm-bindgen/tree/master/crates/macro",
+        "linked": [],
+        "build": [
+          "browser"
+        ]
+      },
+      {
+        "name": "wasm-bindgen-macro-support",
+        "version": "0.2.129",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/wasm-bindgen/wasm-bindgen/tree/main/crates/macro-support",
+        "linked": [],
+        "build": [
+          "browser"
+        ]
+      },
+      {
         "name": "webview2-com-macros",
         "version": "0.8.1",
         "license": "MIT",
@@ -7485,7 +7682,8 @@
           "ios",
           "windows",
           "linux",
-          "android"
+          "android",
+          "browser"
         ]
       },
       {
