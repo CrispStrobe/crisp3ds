@@ -11,7 +11,7 @@
     "homepage": "https://github.com/CrispStrobe/crisp3ds",
     "macOS": {
       "entitlements": "entitlements.appstore.plist",
-      "minimumSystemVersion": "11.0"
+      "minimumSystemVersion": "12.0"
     }
   }
 }
