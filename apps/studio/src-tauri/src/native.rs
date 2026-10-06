@@ -408,6 +408,24 @@ impl Native {
     }
 
     /// Remembers a path picked in a native dialog; it may then be used as a run's input.
+/// Writes one file that arrived from the system's file picker (phones) into the data folder,
+    /// as `<folder>/<name>`, and returns that relative path. Both are single, plain names.
+    pub fn import(&self, folder: &str, name: &str, bytes: &[u8]) -> Result<String, String> {
+        let plain = |text: &str, what: &str| -> Result<String, String> {
+            let text = text.trim();
+            let bad = text.is_empty() || text.starts_with('.') || text.len() > 200 || text.chars().any(|c| c == '/' || c == '\\' || c == '\0' || c.is_control());
+            if bad {
+                return Err(format!("{what}: {text:?} is not a plain file or folder name"));
+            }
+            Ok(text.to_string())
+        };
+        let (folder, name) = (plain(folder, "folder")?, plain(name, "name")?);
+        let target = self.data().join(&folder);
+        std::fs::create_dir_all(&target).map_err(|error| format!("Could not create {folder}: {error}"))?;
+        std::fs::write(target.join(&name), bytes).map_err(|error| format!("Could not write {name}: {error}"))?;
+        Ok(format!("{folder}/{name}"))
+    }
+
     pub fn grant(&self, path: &Path) {
         let real = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
         self.granted.lock().unwrap().insert(real);
@@ -802,6 +820,17 @@ mod tests {
             assert!(engine.file("r1", bad).is_err(), "{bad:?} was served");
         }
         assert!(engine.file("nope", "mesh/mesh.stl").is_err());
+    }
+
+    #[test]
+    fn files_from_the_picker_land_in_the_data_folder_and_nowhere_else() {
+        let (engine, root) = engine("import");
+        assert_eq!(engine.import("photos-1", "IMG_0001.HEIC", b"x").unwrap(), "photos-1/IMG_0001.HEIC");
+        assert_eq!(std::fs::read(root.join("data/photos-1/IMG_0001.HEIC")).unwrap(), b"x");
+        for (folder, name) in [("..", "a"), ("a/b", "c"), ("ok", "../x"), ("ok", ".hidden"), ("", "a"), ("ok", "a\\b")] {
+            assert!(engine.import(folder, name, b"x").is_err(), "{folder:?} {name:?} was accepted");
+        }
+        assert!(!root.join("x").exists() && !root.join("data/x").exists());
     }
 
     #[test]

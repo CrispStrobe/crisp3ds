@@ -5,7 +5,7 @@ import { describe, isAbort } from "../sources/transport";
 import type { RunSource } from "../sources/types";
 import { MeshLoader, type LoadProgress } from "../viewer/meshLoader";
 import type { UpAxis, Viewer } from "../viewer/viewer";
-import { canDownload, downloadFile } from "./download";
+import { canDownload, canShareFiles, downloadFile, shareFile } from "./download";
 import { Icon } from "./icons";
 import { loadPrefs, savePrefs } from "./prefs";
 
@@ -361,6 +361,21 @@ export function MeshPanel({ source, meshes, runStatus, themeTick }: Props) {
             }}
           >
             {saving ? "Saving..." : `Download STL${stlBytes(shownStep.triangles) !== undefined ? ` (${formatBytes(stlBytes(shownStep.triangles))})` : ""}`}
+          </button>
+        )}
+        {!canDownload(source) && shownStep !== undefined && canShareFiles() && (
+          <button
+            type="button"
+            class="button"
+            disabled={saving}
+            onClick={() => {
+              setSaving(true);
+              void shareFile(source, shownStep.path)
+                .catch((problem) => setError({ path: shownStep.path, message: describe(problem) }))
+                .finally(() => setSaving(false));
+            }}
+          >
+            {saving ? "Preparing..." : "Share STL"}
           </button>
         )}
         <button type="button" class="button" onClick={() => viewer.current?.resetView()} disabled={shown === null}>

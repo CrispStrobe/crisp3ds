@@ -94,6 +94,8 @@ export interface EngineHealth {
   sandboxed?: boolean;
   /** A sentence the engine wants shown on the "New run" form: how data gets to it. */
   note?: string;
+  /** Files can be brought in from the device's own picker (`Engine.importFiles`). */
+  imports?: boolean;
 }
 
 export interface RunSummary {
@@ -152,5 +154,7 @@ export interface Engine {
    */
   pickPath?(kind: "folder" | "file", title: string): Promise<string | null>;
   /** Lens calibration files the engine found on its computer, for the photos start. */
+  /** Copies picked files into `<data folder>/<folder>/`; returns the last one's path relative to the data folder. */
+  importFiles?(folder: string, files: File[], onProgress?: (done: number, total: number) => void): Promise<string>;
   calibrations?(): Promise<{ label: string; path: string }[]>;
 }

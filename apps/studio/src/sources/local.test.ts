@@ -7,13 +7,14 @@ import { RunStore } from "./runStore";
 import { EngineError, type LinkStatus, type SourceUpdate } from "./types";
 
 /** A stand-in for the shell: answers commands from a table and records what was asked. */
-function shell(answers: Record<string, (args: Record<string, unknown>) => unknown>) {
-  const calls: { command: string; args: Record<string, unknown> }[] = [];
-  const bridge: Bridge = async <T>(command: string, args: Record<string, unknown> = {}) => {
-    calls.push({ command, args });
+function shell(answers: Record<string, (args: Record<string, unknown>, headers?: Record<string, string>) => unknown>) {
+  const calls: { command: string; args: Record<string, unknown>; bytes?: Uint8Array; headers?: Record<string, string> }[] = [];
+  const bridge: Bridge = async <T>(command: string, payload: Record<string, unknown> | Uint8Array = {}, options?: { headers: Record<string, string> }) => {
+    const args = payload instanceof Uint8Array ? {} : payload;
+    calls.push({ command, args, bytes: payload instanceof Uint8Array ? payload : undefined, headers: options?.headers });
     const answer = answers[command];
     if (answer === undefined) throw `no such command: ${command}`;
-    return answer(args) as T;
+    return answer(args, options?.headers) as T;
   };
   return { bridge, calls };
 }
@@ -36,6 +37,25 @@ const page = (available: () => number) => (args: Record<string, unknown>) => {
 };
 
 describe("LocalEngine over a mocked command bridge", () => {
+  it("copies files picked on a phone into the data folder, one raw command per file", async () => {
+    const { bridge, calls } = shell({
+      native_health: () => ({ schema: "crisp3ds_dense_events_v1", can_start_runs: true, imports: true }),
+      native_import: (_args, headers) => ({ path: `${decodeURIComponent(headers!["x-folder"]!)}/${decodeURIComponent(headers!["x-name"]!)}` }),
+    });
+    const engine = new LocalEngine(bridge);
+    await expect(engine.importFiles("x", [])).rejects.toThrow(/no import/);
+    expect((await engine.health()).imports).toBe(true);
+    const progress: string[] = [];
+    const files = [new File([new Uint8Array([1, 2])], "IMG 1.jpg"), new File([new Uint8Array([3])], "Bild_ä.jpg")];
+    expect(await engine.importFiles("photos-1", files, (done, total) => progress.push(`${done}/${total}`))).toBe("photos-1/Bild_ä.jpg");
+    const sent = calls.filter((call) => call.command === "native_import");
+    expect(sent.map((call) => [call.headers, [...call.bytes!]])).toEqual([
+      [{ "x-folder": "photos-1", "x-name": "IMG%201.jpg" }, [1, 2]],
+      [{ "x-folder": "photos-1", "x-name": "Bild_%C3%A4.jpg" }, [3]],
+    ]);
+    expect(progress).toEqual(["1/2", "2/2"]);
+  });
+
   it("reads health with the engine's start points and what it does not offer", async () => {
     const { bridge } = shell({
       native_health: () => ({

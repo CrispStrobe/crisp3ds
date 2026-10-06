@@ -97,7 +97,7 @@ export interface Shell {
   /** Asks an external program of the photos start about itself, with the saved settings. */
   checkTool(tool: ToolName): Promise<ToolCheck>;
   /** Calls any command of the shell; the built-in engine is reached through this. */
-  bridge<T>(command: string, args?: Record<string, unknown>): Promise<T>;
+  bridge<T>(command: string, args?: Record<string, unknown> | Uint8Array, options?: { headers: Record<string, string> }): Promise<T>;
   /** Native picker; resolves to null when cancelled. */
   pickPath(kind: "folder" | "file", title: string, start?: string): Promise<string | null>;
 }
@@ -110,7 +110,7 @@ const tauriShell: Shell = {
   restartEngine: () => invoke<void>("restart_engine"),
   stopEngine: () => invoke<void>("stop_engine"),
   checkTool: (tool) => invoke<ToolCheck>("check_tool", { tool }),
-  bridge: (command, args) => invoke(command, args),
+  bridge: (command, args, options) => invoke(command, args, options),
   pickPath: (kind, title, start) => invoke<string | null>("pick_path", { kind, title, start: start ?? null }),
 };
 

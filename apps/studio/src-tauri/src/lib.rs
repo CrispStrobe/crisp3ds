@@ -210,6 +210,8 @@ async fn native_health(app: AppHandle) -> Result<Value, String> {
             "data_dir": data.to_string_lossy(),
             "start_points": built_in(&app).start_points(),
             "sandboxed": tools::contained(),
+            // Phones have no folder dialog of the app's own: files come in through the system's picker.
+            "imports": cfg!(any(target_os = "ios", target_os = "android")),
             "note": if cfg!(target_os = "ios") {
                 serde_json::json!("Photos get in and models get out through the Files app: under On My iPhone (or iPad), Crisp 3D Studio has a folder \"data\" for a folder of photos and the lens calibration, and a folder \"runs\" where each run leaves its STL.")
             } else {
@@ -354,6 +356,48 @@ async fn check_tool(app: AppHandle, tool: String) -> Result<Value, String> {
         let _ = (app, tool);
         Err(UNAVAILABLE.into())
     }
+}
+
+/// One file chosen with the system's file picker on a phone, sent as raw bytes with the
+/// headers `x-folder` and `x-name` (percent-encoded); written to `<data>/<folder>/<name>`.
+/// Returns the path relative to the data folder.
+#[tauri::command]
+async fn native_import(app: AppHandle, request: tauri::ipc::Request<'_>) -> Result<Value, String> {
+    #[cfg(native_engine)]
+    {
+        let header = |name: &str| -> Result<String, String> {
+            let raw = request.headers().get(name).and_then(|value| value.to_str().ok()).ok_or(format!("{name} is missing"))?;
+            percent_decode(raw).ok_or(format!("{name} is not valid"))
+        };
+        let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+            return Err("the file must be sent as raw bytes".into());
+        };
+        let path = built_in(&app).import(&header("x-folder")?, &header("x-name")?, bytes)?;
+        Ok(serde_json::json!({ "path": path }))
+    }
+    #[cfg(not(native_engine))]
+    {
+        let _ = (app, request);
+        Err(UNAVAILABLE.into())
+    }
+}
+
+/// `%E2%82%AC` -> `€`: what `encodeURIComponent` wrote.
+fn percent_decode(text: &str) -> Option<String> {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            let hex = std::str::from_utf8(bytes.get(i + 1..i + 3)?).ok()?;
+            out.push(u8::from_str_radix(hex, 16).ok()?);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).ok()
 }
 
 /// Lens calibration files found next to the app: in the crisp3ds checkout and in the data
@@ -512,6 +556,7 @@ pub fn run() {
         native_file_size,
         native_data,
         native_calibrations,
+        native_import,
         check_tool,
         autopilot_log,
         autopilot_quit,
@@ -537,6 +582,7 @@ pub fn run() {
         native_file_size,
         native_data,
         native_calibrations,
+        native_import,
         check_tool
     ]);
 

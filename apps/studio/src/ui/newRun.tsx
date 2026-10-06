@@ -16,6 +16,7 @@ import { describe, isAbort } from "../sources/transport";
 import { EngineError, type Engine, type EngineHealth } from "../sources/types";
 import { navigate } from "./app";
 import type { BrowserEngine } from "../sources/browserEngine";
+import { DeviceImport } from "./deviceImport";
 import { FolderPicker } from "./folderPicker";
 import { Icon } from "./icons";
 import { PathField } from "./pathField";
@@ -217,6 +218,9 @@ export function NewRun({ engine, prefs, onChange }: Props) {
               }
               required={field.required}
             >
+              {health?.imports === true && (field.key === "photos" || field.key === "calibration") && (
+                <DeviceImport engine={engine} what={field.key} onImported={(path) => setField(field.key, path)} />
+              )}
               {field.key === "calibration" && <CalibrationList engine={engine} current={values.calibration ?? ""} onPick={(path) => setField("calibration", path)} />}
             </PathField>
             ),

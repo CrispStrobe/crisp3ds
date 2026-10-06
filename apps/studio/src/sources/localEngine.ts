@@ -27,7 +27,7 @@ import {
 } from "./types";
 
 /** Calls a command of the shell. Rejects with the shell's sentence (a string or an Error). */
-export type Bridge = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
+export type Bridge = <T>(command: string, args?: Record<string, unknown> | Uint8Array, options?: { headers: Record<string, string> }) => Promise<T>;
 
 export interface LocalTimer {
   set(callback: () => void, delayMs: number): unknown;
@@ -61,6 +61,8 @@ const IMAGE_TYPES: Record<string, string> = { png: "image/png", jpg: "image/jpeg
 export class LocalEngine implements Engine {
   readonly kind = "local" as const;
   readonly label: string;
+  /** Whether the shell takes files from the device's picker (phones); known after `health`. */
+  private imports = false;
 
   constructor(
     private readonly bridge: Bridge,
@@ -74,6 +76,7 @@ export class LocalEngine implements Engine {
       throw refusal(problem, 0);
     });
     const startPoints = parseStartPoints(body?.start_points);
+    this.imports = body?.imports === true;
     return {
       schema: typeof body?.schema === "string" ? body.schema : undefined,
       device: typeof body?.device === "string" ? body.device : undefined,
@@ -84,6 +87,7 @@ export class LocalEngine implements Engine {
       dataFolder: typeof body?.data_dir === "string" ? body.data_dir : undefined,
       sandboxed: body?.sandboxed === true,
       note: typeof body?.note === "string" && body.note !== "" ? body.note : undefined,
+      imports: this.imports,
     };
   }
 
@@ -135,6 +139,26 @@ export class LocalEngine implements Engine {
       entries.push({ name: record.name, directory: record.directory === true, inputs: record.inputs === true });
     }
     return { path: typeof body?.path === "string" ? body.path : path, entries };
+  }
+
+  /**
+   * Copies files the user picked on the device into `<data folder>/<folder>/`, one command
+   * per file with its bytes as they are. Returns the last file's path relative to the data folder.
+   */
+  async importFiles(folder: string, files: File[], onProgress?: (done: number, total: number) => void): Promise<string> {
+    if (!this.imports) throw new EngineError("This engine takes files from the data folder; it has no import.", 0);
+    let last = "";
+    for (const [index, file] of files.entries()) {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      try {
+        const answer = await this.bridge<{ path: string }>("native_import", bytes, { headers: { "x-folder": encodeURIComponent(folder), "x-name": encodeURIComponent(file.name) } });
+        last = answer.path;
+      } catch (problem) {
+        throw refusal(problem, 400);
+      }
+      onProgress?.(index + 1, files.length);
+    }
+    return last;
   }
 
   async calibrations(): Promise<{ label: string; path: string }[]> {

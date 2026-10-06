@@ -16,6 +16,29 @@ export function canDownload(source: RunSource): boolean {
   return source.kind !== "local";
 }
 
+/** Whether this web view can hand files to the system's share sheet (iOS, iPadOS, macOS). */
+export function canShareFiles(): boolean {
+  try {
+    return typeof navigator !== "undefined" && typeof navigator.canShare === "function" && navigator.canShare({ files: [new File([new Uint8Array(1)], "probe.stl", { type: "model/stl" })] });
+  } catch {
+    return false;
+  }
+}
+
+/** Hands a file of the run to the share sheet: save to Files, AirDrop, send to a slicer app. */
+export async function shareFile(source: RunSource, path: string): Promise<void> {
+  const bytes = await source.fetchBytes(path);
+  const name = downloadName(source.title.split("/").filter(Boolean).pop() ?? "run", path);
+  const file = new File([bytes], name, { type: path.endsWith(".stl") ? "model/stl" : "application/octet-stream" });
+  try {
+    await navigator.share({ files: [file], title: name });
+  } catch (problem) {
+    // Closing the sheet is not an error.
+    if (problem instanceof DOMException && problem.name === "AbortError") return;
+    throw problem;
+  }
+}
+
 /**
  * Saves a file of the run through the browser's download. The bytes are fetched like any
  * other artifact (from memory for a run made in this browser) and handed over as an
