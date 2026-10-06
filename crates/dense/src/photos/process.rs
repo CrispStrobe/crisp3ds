@@ -8,6 +8,14 @@ use std::time::{Duration, Instant};
 use anyhow::{anyhow, Context};
 use serde_json::{json, Value};
 
+/// One external step: its name, command line and the variables added to the inherited environment.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExternalCommand {
+    pub name: String,
+    pub command: Vec<String>,
+    pub environment: Vec<(String, String)>,
+}
+
 /// How a bounded step ended.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Outcome {

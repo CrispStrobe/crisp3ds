@@ -3,22 +3,26 @@
 //! modules it calls (`silhouette_cleanup.py`, `alicevision_cameras.py`,
 //! `mve_full/prepare.py`'s contrast profile).
 //!
+//! Masks and cameras come from interchangeable providers (`docs/ARCHITECTURE.md`);
+//! undistortion, gates and the scene are done here for all of them.
+//!
 //! | Module | Content |
 //! | --- | --- |
-//! | `options` | command line, resolved configuration, AliceVision command lines |
+//! | `options`, `providers` | command line, resolved configuration, the provider table |
 //! | `staging`, `coarse` | capture order, `capture_NNNN.png` copies, coarse dark-object masks |
-//! | `cleanup` | dark-hole cleanup of the masks |
-//! | `sheets` | published masks, statistics, mask contact sheet, sparse overlay |
+//! | `masks` | mask providers: `threshold`, `import`, `external-sam` |
+//! | `cleanup`, `sheets` | dark-hole cleanup, published masks, contact sheet, sparse overlay |
 //! | `contrast` | gamma and CLAHE contrast images (OpenCV's 8-bit Lab and CLAHE) |
 //! | `calibration` | lens file, scaling, the locked AliceVision intrinsic |
+//! | `cameras` | camera providers: `alicevision`, `colmap`, `import` |
+//! | `solution` | a camera solution in neutral form; readers for `.sfm` and COLMAP models |
 //! | `audit`, `ring` | camera audit, ring statistics, gate decision |
-//! | `process` | bounded child processes |
-//! | `run` | the two stages, events, `frontend.json` |
+//! | `scene_writer` | undistortion of photos and masks, the scene directory |
+//! | `process`, `run` | bounded child processes; the two stages, events, `frontend.json` |
 //!
-//! Not ported: AliceVision (an external MPL-2.0 program, called as a child
-//! process) and SAM 2.1 (a PyTorch network; `--mask-mode sam` runs the
-//! reference `segment.py` in an external interpreter, `--masks DIR` takes masks
-//! made elsewhere).
+//! Not ported: AliceVision and COLMAP (external programs, called as child
+//! processes) and SAM 2.1 (a PyTorch network; `--masks external-sam` runs the
+//! reference `segment.py` in an external interpreter).
 
 pub mod audit;
 pub mod calibration;
@@ -26,15 +30,23 @@ pub mod cleanup;
 pub mod coarse;
 pub mod contrast;
 pub mod options;
-// External tools are child processes and the free-space floor needs a file system: not in a browser.
-#[cfg(not(target_arch = "wasm32"))]
-pub mod process;
+pub mod providers;
 pub mod ring;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod run;
+pub mod scene_writer;
 pub mod sheets;
+pub mod solution;
 pub mod staging;
 pub mod util;
+
+// Providers may start external programs and the free-space floor needs a file system: not in a browser.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod cameras;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod masks;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod process;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod run;
 
 /// Entry point of the `photos` subcommand.
 #[cfg(not(target_arch = "wasm32"))]
@@ -42,6 +54,10 @@ pub fn command(arguments: &[String]) -> std::process::ExitCode {
     use std::process::ExitCode;
     if arguments.iter().any(|a| a == "--help" || a == "-h") {
         println!("{}", options::USAGE);
+        return ExitCode::SUCCESS;
+    }
+    if arguments.iter().any(|a| a == "--list-providers") {
+        println!("{}", serde_json::to_string_pretty(&providers::listing()).unwrap_or_default());
         return ExitCode::SUCCESS;
     }
     let usage = |error: anyhow::Error| {
@@ -54,6 +70,16 @@ pub fn command(arguments: &[String]) -> std::process::ExitCode {
     };
     if options.output.exists() {
         return usage(anyhow::anyhow!("output exists: {}", options.output.display()));
+    }
+    let checked = masks::mask_provider(&options).check(&options).and_then(|()| {
+        if options.stop_after_masks {
+            Ok(())
+        } else {
+            cameras::camera_provider(&options).check(&options)
+        }
+    });
+    if let Err(error) = checked {
+        return usage(error);
     }
     let events_path = options.events.clone().unwrap_or_else(|| options.output.join("events.jsonl"));
     let events = crate::events::EventLog::new(Some(&events_path), "cameras");

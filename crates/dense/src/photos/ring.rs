@@ -1,12 +1,12 @@
 //! Ring sanity of the recovered cameras and the gate decision:
 //! `scene_cameras`, `ring_statistics` and `decide_gates` of `photos_to_inputs.py`.
 
-use anyhow::{anyhow, bail};
+use anyhow::bail;
 use serde_json::{json, Value};
 
 use crate::inputs::median_f64;
 
-use super::util::{self, python_number};
+use super::util::python_number;
 
 type Vector = [f64; 3];
 
@@ -122,46 +122,18 @@ pub struct SceneCamera {
     pub centre: Vector,
 }
 
-fn numbers<const N: usize>(value: &Value) -> anyhow::Result<[f64; N]> {
-    let items = value.as_array().filter(|a| a.len() == N).ok_or_else(|| anyhow!("invalid native numeric array"))?;
-    let mut out = [0.0; N];
-    for (target, item) in out.iter_mut().zip(items) {
-        *target = util::number(item)?;
-    }
-    Ok(out)
-}
-
-/// A pose's rotation, stored column by column, as world-to-camera rows.
-pub fn pose_rotation(transform: &Value) -> anyhow::Result<[Vector; 3]> {
-    let r: [f64; 9] = numbers(&transform["rotation"])?;
-    Ok([[r[0], r[3], r[6]], [r[1], r[4], r[7]], [r[2], r[5], r[8]]])
-}
-
-pub fn pose_centre(transform: &Value) -> anyhow::Result<Vector> {
-    numbers(&transform["center"])
-}
-
-/// The registered views of a scene whose photos are named `capture_NNNN.png`, in capture order.
-pub fn scene_cameras(scene: &Value) -> anyhow::Result<Vec<SceneCamera>> {
-    let empty = Vec::new();
-    let poses: std::collections::HashMap<String, &Value> = scene
-        .get("poses")
-        .and_then(Value::as_array)
-        .unwrap_or(&empty)
-        .iter()
-        .map(|p| (util::identifier(&p["poseId"]), &p["pose"]["transform"]))
-        .collect();
+/// The registered views of a solution whose photos are named `capture_NNNN.png`, in capture order.
+pub fn scene_cameras(solution: &super::solution::Solution) -> anyhow::Result<Vec<SceneCamera>> {
     let mut rows = Vec::new();
-    for view in scene.get("views").and_then(Value::as_array).ok_or_else(|| anyhow!("the scene has no views"))? {
-        let Some(pose) = poses.get(&util::identifier(&view["poseId"])) else { continue };
-        let name = super::staging::file_name(std::path::Path::new(view["path"].as_str().unwrap_or_default()));
+    for view in &solution.views {
+        let name = &view.source;
         let index = name
             .strip_prefix("capture_")
             .and_then(|rest| rest.strip_suffix(".png"))
             .filter(|digits| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()))
             .and_then(|digits| digits.parse::<usize>().ok());
         let Some(index) = index else { bail!("view is not a capture_NNNN.png photo: {name}") };
-        rows.push(SceneCamera { index, name, rotation: pose_rotation(pose)?, centre: pose_centre(pose)? });
+        rows.push(SceneCamera { index, name: name.clone(), rotation: view.rotation, centre: view.centre });
     }
     rows.sort_by_key(|row| row.index);
     Ok(rows)
@@ -504,18 +476,23 @@ pub(crate) mod tests {
 
     #[test]
     fn scene_cameras_read_poses_in_capture_order() {
-        let pose = |id: &str, centre: [f64; 3]| json!({"poseId": id, "pose": {"transform": {"rotation": ["1", "2", "3", "4", "5", "6", "7", "8", "9"], "center": centre}}});
+        let pose = |id: &str, centre: [f64; 3]| json!({"poseId": id, "pose": {"transform": {"rotation": ["1", "0", "0", "0", "0", "1", "0", "-1", "0"], "center": centre}}});
+        let view = |id: &str, name: &str| json!({"viewId": id, "poseId": id, "intrinsicId": "1", "path": format!("/x/{name}")});
         let scene = json!({
-            "views": [{"viewId": "9", "poseId": "9", "path": "/x/capture_0010.png"}, {"viewId": "4", "poseId": "4", "path": "/x/capture_0002.png"},
-                      {"viewId": "5", "poseId": "5", "path": "/x/capture_0003.png"}],
+            "version": ["1", "2", "14"],
+            "views": [view("9", "capture_0010.png"), view("4", "capture_0002.png"), view("5", "capture_0003.png")],
             "poses": [pose("9", [1.0, 2.0, 3.0]), pose("4", [4.0, 5.0, 6.0])],
+            "intrinsics": [{"intrinsicId": "1", "type": "pinhole", "distortionType": "radialk3", "width": "100", "height": "80", "sensorWidth": "36",
+                            "focalLength": "36", "pixelRatio": "1", "principalPoint": ["0", "0"], "distortionParams": ["0", "0", "0"]}],
         });
-        let cameras = scene_cameras(&scene).unwrap();
+        let solution = crate::photos::solution::parse_sfm(&scene).unwrap();
+        assert_eq!(solution.unregistered, ["capture_0003.png"]);
+        let cameras = scene_cameras(&solution).unwrap();
         assert_eq!(cameras.iter().map(|c| c.index).collect::<Vec<_>>(), [2, 10]);
         assert_eq!(cameras[1].centre, [1.0, 2.0, 3.0]);
-        // Column-major storage: the first row of the matrix is elements 0, 3, 6.
-        assert_eq!(cameras[0].rotation[0], [1.0, 4.0, 7.0]);
-        assert_eq!(cameras[0].rotation[2], [3.0, 6.0, 9.0]);
+        // Column-major storage: the second row of the matrix is elements 1, 4, 7.
+        assert_eq!(cameras[0].rotation[1], [0.0, 0.0, -1.0]);
+        assert_eq!(cameras[0].rotation[2], [0.0, 1.0, 0.0]);
     }
 
     #[test]

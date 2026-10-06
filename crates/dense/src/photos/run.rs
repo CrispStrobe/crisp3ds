@@ -1,7 +1,16 @@
-//! Orchestration of the photo front stage (`run` of `photos_to_inputs.py`):
-//! two stages in the event log, `masks` then `cameras`; image processing and
-//! bookkeeping in this process, AliceVision (and optionally SAM) as bounded
-//! child processes; the gates decide the exit code.
+//! Orchestration of the photo front stage (`run` of `photos_to_inputs.py`,
+//! reorganised around providers): two stages in the event log, `masks` then
+//! `cameras`.
+//!
+//! ```text
+//! masks    stage photos, coarse masks -> mask provider -> hole cleanup -> masks/, sheet
+//! cameras  contrast images -> camera provider -> audit and ring gates
+//!          -> undistortion and scene (inputs/) -> sparse overlay
+//! ```
+//!
+//! Image processing, gates, undistortion and bookkeeping run in this process;
+//! providers may start external programs as bounded child processes. The
+//! gates decide the exit code.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -14,15 +23,17 @@ use serde_json::{json, Value};
 use crate::control::Stopped;
 use crate::events::EventLog;
 
-use super::audit::{audit_scene, Policy};
-use super::calibration::{calibrated_scene, load_calibration, scale_calibration, scene_size};
-use super::options::{ExternalCommand, MaskMode, Options, SCHEMA};
-use super::process::{bounded, log_tail};
+use super::audit::{audit_solution, Policy};
+use super::calibration::{load_calibration, scale_calibration};
+use super::cameras::camera_provider;
+use super::masks::mask_provider;
+use super::options::{Options, SCHEMA};
+use super::process::{bounded, log_tail, ExternalCommand};
 use super::ring::{decide_gates, ring_statistics, scene_cameras};
-use super::staging::{capture_name, list_photos, open_photo, save_mask};
+use super::scene_writer::write_scene;
+use super::solution::{Lens, Solution};
+use super::staging::{capture_name, list_photos, open_photo};
 use super::{cleanup, contrast, sheets, staging, util};
-
-pub const INTERMEDIATES: [&str; 4] = ["work/photos", "work/contrast", "work/features", "work/matches"];
 
 /// The report (`frontend.json`) and the exit code: 0 complete, 2 cameras rejected by a gate, 1 a step failed.
 pub struct Finished {
@@ -30,13 +41,13 @@ pub struct Finished {
     pub code: u8,
 }
 
-struct Run<'a> {
-    options: &'a Options,
-    out: &'a Path,
+/// A run in progress: what providers get to start steps and leave notes.
+pub struct Run<'a> {
+    pub options: &'a Options,
+    pub out: &'a Path,
     events: EventLog,
     cancel_file: PathBuf,
     cancel: Option<Arc<AtomicBool>>,
-    commands: Vec<ExternalCommand>,
     report: Value,
     started: Instant,
 }
@@ -60,7 +71,7 @@ impl Ticker<'_> {
     }
 }
 
-fn count_files(folder: &Path, extension: &str) -> usize {
+pub fn count_files(folder: &Path, extension: &str) -> usize {
     std::fs::read_dir(folder)
         .map(|entries| entries.flatten().filter(|e| e.path().extension().is_some_and(|x| x == extension)).count())
         .unwrap_or(0)
@@ -71,56 +82,22 @@ fn round_to(value: f64, digits: i32) -> f64 {
     (value * scale).round() / scale
 }
 
-/// Masks made elsewhere, brought to the names and form the cleanup reads.
-fn import_masks(source: &Path, target: &Path, map: &Value, watch: &mut dyn FnMut(usize) -> anyhow::Result<()>) -> anyhow::Result<()> {
-    std::fs::create_dir_all(target)?;
-    let (width, height) = (map["width"].as_u64().unwrap_or(0) as u32, map["height"].as_u64().unwrap_or(0) as u32);
-    for (index, row) in map["photos"].as_array().ok_or_else(|| anyhow!("photo-map.json has no photos"))?.iter().enumerate() {
-        let (capture, original) = (capture_name(index), row["source"].as_str().unwrap_or_default());
-        let stem = Path::new(original).file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
-        let candidates =
-            [capture.clone(), format!("{capture}.png"), original.to_string(), format!("{original}.png"), format!("{stem}.png")];
-        let found =
-            candidates.iter().map(|name| source.join(name)).find(|path| path.extension().is_some_and(|e| e == "png") && path.is_file());
-        let Some(path) = found else {
-            bail!("--masks {}: no mask for photo {original} (looked for {})", source.display(), candidates.join(", "));
-        };
-        let gray = image::open(&path).with_context(|| path.display().to_string())?.to_luma8();
-        if (gray.width(), gray.height()) != (width, height) {
-            bail!("{}: mask is {}x{}, the photos are {width}x{height}", path.display(), gray.width(), gray.height());
-        }
-        let data: Vec<u8> = gray.into_raw().into_iter().map(|v| (v > 127) as u8).collect();
-        if !data.contains(&1) {
-            bail!("{}: mask is empty", path.display());
-        }
-        save_mask(&target.join(format!("{capture}.png")), &crate::inputs::Plane { width: width as usize, height: height as usize, data })?;
-        watch(index + 1)?;
-    }
-    Ok(())
-}
-
 /// Audit, ring statistics and the gate decision; writes the three JSON files and returns the gates.
-fn audit(options: &Options, out: &Path) -> anyhow::Result<Value> {
+fn judge(options: &Options, out: &Path, solution: &Solution, declared: Option<&Lens>) -> anyhow::Result<Value> {
     let sfm = out.join("sfm");
-    let scene = util::read_json(&sfm.join("final.sfm"))?;
-    let expected = util::read_json(&sfm.join("expected-calibration.json"))?;
-    let list = |value: &Value| -> Vec<f64> { value.as_array().map(|a| a.iter().filter_map(Value::as_f64).collect()).unwrap_or_default() };
-    let (pixels, k) = (list(&expected["pixels"]), list(&expected["k"]));
-    if pixels.len() != 4 || k.len() != 3 {
-        bail!("expected-calibration.json is malformed");
-    }
+    std::fs::create_dir_all(&sfm)?;
     let gates = &options.gates;
     let names: Vec<String> = (0..options.photo_count).map(capture_name).collect();
     let policy = Policy {
         expected_names: Some(&names),
-        expected_calibration: Some(([pixels[0], pixels[1], pixels[2], pixels[3]], [k[0], k[1], k[2]])),
+        expected_calibration: declared.map(|lens| (lens.pixels, lens.k)),
         minimum_coverage: gates.minimum_registered_fraction,
         minimum_observations_per_view: gates.minimum_observations_per_view,
         maximum_reprojection_p95: gates.maximum_view_reprojection_p95_pixels,
     };
-    let audit = audit_scene(&sfm.join("final.sfm"), &policy)?;
+    let audit = audit_solution(solution, &policy)?;
     util::write_json(&sfm.join("camera-audit.json"), &audit, 1)?;
-    let ring = ring_statistics(&scene_cameras(&scene)?, gates.duplicate_step_deg);
+    let ring = ring_statistics(&scene_cameras(solution)?, gates.duplicate_step_deg);
     util::write_json(&sfm.join("ring-sanity.json"), &ring, 1)?;
     let limits = gates.to_json();
     let (passed, reasons) = decide_gates(&audit, &ring, &limits);
@@ -150,10 +127,15 @@ impl Run<'_> {
         self.cancel.as_ref().is_some_and(|flag| flag.load(Ordering::Relaxed)) || self.cancel_file.exists()
     }
 
-    fn warn(&mut self, text: String) {
+    pub fn warn(&mut self, text: String) {
         if let Some(warnings) = self.report["warnings"].as_array_mut() {
             warnings.push(json!(text));
         }
+    }
+
+    /// Something a provider wants in the report, under `provider_notes`.
+    pub fn note(&mut self, key: &str, value: Value) {
+        self.report["provider_notes"][key] = value;
     }
 
     fn step_count(&self) -> usize {
@@ -183,31 +165,31 @@ impl Run<'_> {
         self.save()
     }
 
-    /// One external tool as a bounded process. `counter` estimates its completion between 0 and 1.
+    /// One external program as a bounded process started in `directory`.
+    /// `counter` estimates its completion between 0 and 1.
     #[allow(clippy::too_many_arguments)]
-    fn external(
+    pub fn external(
         &mut self,
         stage: &str,
-        name: &str,
+        step: &ExternalCommand,
+        directory: &Path,
         timeout: u64,
         low: f64,
         high: f64,
         message: &str,
         counter: Option<&dyn Fn() -> f64>,
     ) -> anyhow::Result<()> {
+        let name = step.name.as_str();
         let log = self.begin(stage, name, low, message)?;
-        let entry = self.commands.iter().find(|c| c.name == name).cloned().ok_or_else(|| anyhow!("no command for step {name}"))?;
         let threads = self.options.threads.to_string();
         let mut environment: Vec<(String, String)> = ["OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"]
             .iter()
             .map(|n| (n.to_string(), threads.clone()))
             .collect();
-        environment.extend(entry.environment.iter().cloned());
-        let directory =
-            if name == "sam" { self.options.repository.clone().unwrap_or_else(|| self.out.to_path_buf()) } else { self.out.to_path_buf() };
+        environment.extend(step.environment.iter().cloned());
         let staged = self.events.stage(stage);
         let mut ticker = Ticker { events: &staged, low, high, last: low, message };
-        let outcome = bounded(&entry.command, &log, Duration::from_secs(timeout), &environment, &directory, &mut || {
+        let outcome = bounded(&step.command, &log, Duration::from_secs(timeout), &environment, directory, &mut || {
             if let Some(counter) = counter {
                 ticker.tick(counter());
             }
@@ -231,7 +213,7 @@ impl Run<'_> {
     /// One step done in this process. `work` gets a callback to report finished
     /// items (of `total`), which also enforces the deadline and the cancel request.
     #[allow(clippy::too_many_arguments)]
-    fn internal<T>(
+    pub fn internal<T>(
         &mut self,
         stage: &str,
         name: &str,
@@ -279,15 +261,16 @@ impl Run<'_> {
         Ok(value)
     }
 
-    fn masks_stage(&mut self) -> anyhow::Result<()> {
+    /// Returns the photo map (`photo-map.json`).
+    fn masks_stage(&mut self) -> anyhow::Result<Value> {
         let (options, out) = (self.options, self.out);
         let (count, small, threads) = (options.photo_count, options.timeouts.small, options.threads);
+        let provider = mask_provider(options);
         let stage_started = Instant::now();
-        self.events.stage("masks").emit("stage_started", json!({}))?;
-        // The share of the stage each step gets depends on whether a network runs in between.
-        let segmenting = options.mask_mode != MaskMode::Dark;
-        let (coarse_end, cleanup_start, cleanup_end) =
-            if options.mask_mode == MaskMode::Sam { (0.08, 0.85, 0.92) } else { (0.45, 0.55, 0.85) };
+        self.events.stage("masks").emit("stage_started", json!({"provider": provider.info().name}))?;
+        // The share of the stage each step gets depends on whether the provider starts a network in between.
+        let slow = !provider.info().external.is_empty();
+        let (coarse_end, cleanup_start, cleanup_end) = if slow { (0.08, 0.85, 0.92) } else { (0.45, 0.55, 0.85) };
         let photos = list_photos(&options.photos)?;
         let photo_map =
             self.internal("masks", "coarse", small, 0.0, coarse_end, "Reading photos, coarse dark-object masks", count, |watch| {
@@ -302,27 +285,11 @@ impl Run<'_> {
             .collect();
         if let Some(first) = touching.first() {
             self.warn(format!(
-                "coarse object region touches the envelope in {} photos (first {first}): object clipped by the frame or by --envelope",
+                "coarse object region touches the envelope in {} photos (first {first}): object clipped by the frame or by --threshold-envelope",
                 touching.len()
             ));
         }
-        let segmented = match options.mask_mode {
-            MaskMode::Dark => out.join("work/coarse-masks"),
-            MaskMode::Sam => {
-                let produced = out.join("work/sam/masks");
-                let counter = || count_files(&produced, "png") as f64 / count as f64;
-                self.external("masks", "sam", options.timeouts.sam, coarse_end, cleanup_start, "Segmenting with SAM 2.1", Some(&counter))?;
-                produced
-            }
-            MaskMode::External => {
-                let (source, target) =
-                    (options.masks.clone().ok_or_else(|| anyhow!("--masks is missing"))?, out.join("work/external-masks"));
-                self.internal("masks", "import-masks", small, coarse_end, cleanup_start, "Reading supplied masks", count, |watch| {
-                    import_masks(&source, &target, &photo_map, watch)
-                })?;
-                target
-            }
-        };
+        let segmented = provider.segment(self, &photo_map, coarse_end, cleanup_start)?;
         let cleaned = out.join("work/mask-cleanup");
         self.internal("masks", "cleanup", small, cleanup_start, cleanup_end, "Filling small dark holes", count, |watch| {
             cleanup::run(&out.join("work/photos"), &segmented, &cleaned, options.hole_cleanup_budget, threads, watch)
@@ -335,11 +302,10 @@ impl Run<'_> {
         if let Some(object) = summary.as_object_mut() {
             object.remove("views");
         }
-        summary["mode"] = json!(options.mask_mode.name());
+        summary["provider"] = json!(provider.info().name);
         self.report["masks"] = summary;
         let dropping = masks["views_dropping_over_3_percent_of_coarse"].as_array().map(Vec::len).unwrap_or(0);
-        if dropping > 0 && segmenting {
-            let who = if options.mask_mode == MaskMode::Sam { "SAM dropped" } else { "the supplied masks leave out" };
+        if let (true, Some(who)) = (dropping > 0, provider.dropped_warning()) {
             self.warn(format!("{who} more than 3% of the coarse dark region in {dropping} photos (thin parts?)"));
         }
         let staged = self.events.stage("masks");
@@ -348,17 +314,29 @@ impl Run<'_> {
         staged.emit("metric", json!({"name": "mask_area_median_fraction", "value": fraction}))?;
         staged.artifact("mask_sheet", &out.join("mask-contact-sheet.png"), "Masks on photos (red: dark pixels left out)", json!({}))?;
         staged.emit("stage_finished", json!({"seconds": stage_started.elapsed().as_secs_f64()}))?;
-        Ok(())
+        Ok(photo_map)
     }
 
     /// Returns the exit code: 0 when the cameras passed, 2 when a gate rejected them.
-    fn cameras_stage(&mut self) -> anyhow::Result<u8> {
+    fn cameras_stage(&mut self, photo_map: &Value) -> anyhow::Result<u8> {
         let (options, out) = (self.options, self.out);
-        let (count, timeouts, threads) = (options.photo_count, &options.timeouts, options.threads);
-        let small = timeouts.small;
+        let (count, threads, small) = (options.photo_count, options.threads, options.timeouts.small);
+        let provider = camera_provider(options);
         let stage_started = Instant::now();
         let staged = self.events.stage("cameras");
-        staged.emit("stage_started", json!({}))?;
+        staged.emit("stage_started", json!({"provider": provider.info().name}))?;
+        // The declared lens at the photo resolution.
+        let (width, height) = (photo_map["width"].as_u64().unwrap_or(0) as u32, photo_map["height"].as_u64().unwrap_or(0) as u32);
+        let declared = match &options.calibration {
+            Some(path) => Some(scale_calibration(&load_calibration(path)?, width, height)?),
+            None => None,
+        };
+        let lens = declared.as_ref().map(|scaled| scaled.lens(width, height));
+        if let Some(scaled) = &declared {
+            std::fs::create_dir_all(out.join("sfm"))?;
+            let expected = json!({"pixels": [scaled.fx, scaled.fy, scaled.cx, scaled.cy], "k": scaled.k});
+            util::write_json(&out.join("sfm/expected-calibration.json"), &expected, 1)?;
+        }
         self.internal("cameras", "contrast", small, 0.0, 0.04, "Contrast images for feature detection", count, |watch| {
             let target = out.join("work/contrast");
             std::fs::create_dir_all(&target)?;
@@ -372,25 +350,15 @@ impl Run<'_> {
             };
             util::parallel(count, threads, work, watch).map(|_| ())
         })?;
-        self.external("cameras", "cameraInit-uncalibrated", small, 0.04, 0.05, "Listing views", None)?;
-        let features = out.join("work/features");
-        let extracted = || count_files(&features, "feat") as f64 / count as f64;
-        self.external("cameras", "featureExtraction", timeouts.features, 0.05, 0.30, "Detecting features", Some(&extracted))?;
-        let scene = util::read_json(&out.join("sfm/cameraInit-uncalibrated.sfm"))?;
-        let (width, height) = scene_size(&scene)?;
-        let scaled = scale_calibration(&load_calibration(&options.calibration)?, width, height)?;
-        util::write_json(&out.join("sfm/calibrated-input.sfm"), &calibrated_scene(&scene, &scaled)?, 2)?;
-        let expected = json!({"pixels": [scaled.fx, scaled.fy, scaled.cx, scaled.cy], "k": scaled.k});
-        util::write_json(&out.join("sfm/expected-calibration.json"), &expected, 1)?;
-        let mut lens = scaled.to_json();
-        lens["width"] = json!(width);
-        lens["height"] = json!(height);
-        self.report["lens"] = lens;
-        self.external("cameras", "cameraInit", small, 0.30, 0.31, "Applying the declared lens", None)?;
-        self.external("cameras", "imageMatching", small, 0.31, 0.32, "Choosing image pairs", None)?;
-        self.external("cameras", "featureMatching", timeouts.matching, 0.32, 0.60, "Matching features", None)?;
-        self.external("cameras", "globalSfM", timeouts.sfm, 0.60, 0.82, "Recovering cameras (global SfM, locked lens)", None)?;
-        let gates = self.internal("cameras", "audit", small, 0.82, 0.86, "Checking cameras", 1, |_| audit(options, out))?;
+        let solution = provider.recover(self, lens.as_ref())?;
+        let mut used = json!({"fx": solution.lens.pixels[0], "fy": solution.lens.pixels[1], "cx": solution.lens.pixels[2], "cy": solution.lens.pixels[3],
+                              "k": solution.lens.k, "width": solution.lens.width, "height": solution.lens.height});
+        if let Some(scaled) = &declared {
+            used["scale"] = json!(scaled.scale);
+        }
+        self.report["lens"] = used;
+        let gates =
+            self.internal("cameras", "audit", small, 0.82, 0.86, "Checking cameras", 1, |_| judge(options, out, &solution, lens.as_ref()))?;
         self.report["gates"] = gates.clone();
         let ring = &gates["ring"];
         let degenerate = ring["degenerate"].as_bool().unwrap_or(true);
@@ -423,27 +391,28 @@ impl Run<'_> {
             staged.emit("error", json!({"message": format!("cameras rejected: {}", reasons.join("; "))}))?;
             return Ok(2);
         }
-        let registered = gates["registered_views"].as_u64().unwrap_or(0).max(1) as f64;
-        let prepared = out.join("native-prepared");
-        let undistorted = || count_files(&prepared, "png") as f64 / registered;
-        self.external("cameras", "prepareDenseScene", timeouts.prepare, 0.86, 0.95, "Undistorting photos", Some(&undistorted))?;
-        self.internal("cameras", "verify-prepared", small, 0.95, 0.96, "Checking undistorted photos", 1, |_| {
-            sheets::step_verify_prepared(out)
-        })?;
-        self.internal("cameras", "inputs", small, 0.96, 0.98, "Writing dense inputs", 1, |_| {
-            crate::scene::run(&out.join("sfm/final.sfm"), &prepared, &out.join("masks"), &out.join("inputs"))
-        })?;
-        let overlay = self.internal("cameras", "overlay", small, 0.98, 1.0, "Sparse points on photos", registered as usize, |watch| {
+        let registered = solution.views.len();
+        let scene = self.internal(
+            "cameras",
+            "scene",
+            small,
+            0.86,
+            0.98,
+            "Undistorting photos and masks, writing the scene",
+            registered,
+            |watch| write_scene(&solution, &out.join("work/contrast"), &out.join("masks"), &out.join("inputs"), threads, watch),
+        )?;
+        self.report["scene"] = scene;
+        let overlay = self.internal("cameras", "overlay", small, 0.98, 1.0, "Sparse points on photos", registered, |watch| {
             sheets::step_overlay(out, watch)
         })?;
         self.report["sparse_overlay"] = overlay;
         staged.artifact("sparse_overlay", &out.join("sparse-overlay.png"), "Sparse points on undistorted photos and masks", json!({}))?;
-        self.remove_intermediates(&INTERMEDIATES, true);
+        let mut bulky = vec!["work/photos", "work/contrast"];
+        bulky.extend(provider.intermediates());
+        self.remove_intermediates(&bulky);
         let shown = |path: PathBuf| path.to_string_lossy().to_string();
-        self.report["outputs"] = json!({
-            "inputs": shown(out.join("inputs")), "masks": shown(out.join("masks")), "scene": shown(out.join("sfm/final.sfm")),
-            "prepared": shown(prepared.clone()),
-        });
+        self.report["outputs"] = json!({"inputs": shown(out.join("inputs")), "masks": shown(out.join("masks"))});
         self.report["status"] = json!("complete");
         self.save()?;
         staged.artifact("report", &out.join("frontend.json"), "Front stage report", json!({}))?;
@@ -451,18 +420,13 @@ impl Run<'_> {
         Ok(0)
     }
 
-    fn remove_intermediates(&mut self, names: &[&str], scene_paths_dangle: bool) {
+    fn remove_intermediates(&mut self, names: &[&str]) {
         let mut deleted = Vec::new();
         if !self.options.keep_intermediates {
             for name in names {
-                let _ = std::fs::remove_dir_all(self.out.join(name));
+                let path = self.out.join(name);
+                let _ = if path.is_dir() { std::fs::remove_dir_all(&path) } else { std::fs::remove_file(&path) };
                 deleted.push(*name);
-            }
-            if scene_paths_dangle {
-                self.warn(
-                    "sfm/final.sfm view paths point at deleted contrast images; downstream stages use native-prepared/ and inputs/ instead"
-                        .to_string(),
-                );
             }
         }
         self.report["intermediates_deleted"] = json!(deleted);
@@ -472,22 +436,25 @@ impl Run<'_> {
 /// Runs the stage into the fresh directory `options.output`. Events go to
 /// `events` under the stages `masks` and `cameras` (no `run_started` or
 /// `run_finished`: those belong to whatever drives the run). A `cancel` file
-/// next to the event log, or `cancel` set, stops the run.
+/// next to the event log (`events_path`), or `cancel` set, stops the run.
 pub fn run(options: &Options, events: &EventLog, events_path: &Path, cancel: Option<Arc<AtomicBool>>) -> anyhow::Result<Finished> {
     let out = options.output.as_path();
     if out.exists() {
         bail!("output exists: {}", out.display());
     }
-    for name in ["logs", "sfm/extra", "work/matches", "work/features"] {
-        std::fs::create_dir_all(out.join(name)).with_context(|| out.join(name).display().to_string())?;
+    // Missing external programs are reported before anything is written.
+    mask_provider(options).check(options)?;
+    if !options.stop_after_masks {
+        camera_provider(options).check(options)?;
     }
+    std::fs::create_dir_all(out.join("logs")).with_context(|| out.display().to_string())?;
     let configuration = options.to_json();
     util::write_json(&out.join("frontend-config.json"), &configuration, 1)?;
-    let environment = |name: &str| std::env::var(name).ok();
     let report = json!({
         "schema": SCHEMA, "status": "running", "reasons": [], "warnings": [], "configuration": configuration,
         "events": events_path.to_string_lossy(), "steps": [], "gates": null, "masks": null,
-        "reference_geometry_used": false, "supplied_poses_used": false, "depth_used": false,
+        "providers": {"masks": options.masks.name(), "cameras": if options.stop_after_masks { Value::Null } else { json!(options.cameras.name()) }},
+        "reference_geometry_used": false, "supplied_poses_used": matches!(options.cameras, super::options::CameraChoice::Import(_)), "depth_used": false,
     });
     let mut run = Run {
         options,
@@ -495,16 +462,14 @@ pub fn run(options: &Options, events: &EventLog, events_path: &Path, cancel: Opt
         events: events.clone(),
         cancel_file: events_path.parent().unwrap_or(Path::new(".")).join("cancel"),
         cancel,
-        commands: Vec::new(),
         report,
         started: Instant::now(),
     };
     let mut stage = "masks";
     let outcome = (|| -> anyhow::Result<u8> {
-        run.commands = options.build_commands(&environment)?;
-        run.masks_stage()?;
+        let photo_map = run.masks_stage()?;
         if options.stop_after_masks {
-            run.remove_intermediates(&INTERMEDIATES[..1], false);
+            run.remove_intermediates(&["work/photos"]);
             run.report["outputs"] = json!({"masks": out.join("masks").to_string_lossy()});
             run.report["status"] = json!("complete");
             run.report["stopped_after"] = json!("masks");
@@ -512,7 +477,7 @@ pub fn run(options: &Options, events: &EventLog, events_path: &Path, cancel: Opt
             return Ok(0);
         }
         stage = "cameras";
-        run.cameras_stage()
+        run.cameras_stage(&photo_map)
     })();
     let code = match outcome {
         Ok(code) => code,
@@ -533,7 +498,7 @@ pub fn run(options: &Options, events: &EventLog, events_path: &Path, cancel: Opt
 pub fn summary(report: &Value) -> Value {
     let gates = &report["gates"];
     json!({
-        "status": report["status"], "reasons": report["reasons"], "warnings": report["warnings"],
+        "status": report["status"], "reasons": report["reasons"], "warnings": report["warnings"], "providers": report["providers"],
         "registered_views": gates["registered_views"], "reprojection_pixels": gates["reprojection_pixels"],
         "seconds": report["seconds"],
         "report": Path::new(report["configuration"]["output"].as_str().unwrap_or_default()).join("frontend.json").to_string_lossy(),

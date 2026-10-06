@@ -6,73 +6,23 @@
 //! supports use as photo reconstruction cameras; it is not a statement about
 //! the accuracy of the shape.
 
-use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use anyhow::{anyhow, bail, Context};
+use anyhow::{bail, Context};
 use serde_json::{json, Value};
 
 use crate::inputs::percentile_sorted_f64;
 
-use super::ring::{pose_centre, pose_rotation};
-use super::staging::file_name;
+use super::solution::{parse_sfm, sfm_lens, Solution};
 use super::util;
 
 /// `(width, height, [fx, fy, cx, cy], [k1, k2, k3])` with the principal point from the image corner pixel centre.
 pub type PixelIntrinsic = (u32, u32, [f64; 4], [f64; 3]);
 
-fn finite(value: &Value) -> anyhow::Result<f64> {
-    let number = util::number(value).map_err(|_| anyhow!("invalid native numeric array"))?;
-    if !number.is_finite() {
-        bail!("nonfinite native camera parameter");
-    }
-    Ok(number)
-}
-
-fn array<const N: usize>(value: &Value) -> anyhow::Result<[f64; N]> {
-    let items = value.as_array().filter(|a| a.len() == N).ok_or_else(|| anyhow!("invalid native numeric array"))?;
-    let mut out = [0.0; N];
-    for (target, item) in out.iter_mut().zip(items) {
-        *target = finite(item)?;
-    }
-    Ok(out)
-}
-
 /// Converts the native serialization to zero-origin fx, fy, cx, cy and k.
 pub fn pixel_intrinsic(row: &Value) -> anyhow::Result<PixelIntrinsic> {
-    let kind = row.get("distortionType").and_then(Value::as_str);
-    if row.get("type").and_then(Value::as_str) != Some("pinhole") || !matches!(kind, Some("none" | "radialk3")) {
-        bail!("unsupported camera model");
-    }
-    let field = |name: &str| -> anyhow::Result<f64> {
-        match row.get(name) {
-            Some(Value::Bool(_)) => bail!("boolean camera parameter"),
-            Some(value) => util::number(value).map_err(|_| anyhow!("invalid camera parameter {name}")),
-            None => bail!("missing camera parameter {name}"),
-        }
-    };
-    let (width, height) = (field("width")?, field("height")?);
-    if width.fract() != 0.0
-        || height.fract() != 0.0
-        || !(1.0..=16384.0).contains(&width)
-        || !(1.0..=16384.0).contains(&height)
-        || width * height > 64e6
-    {
-        bail!("invalid image dimensions");
-    }
-    let (sensor, focal, ratio) = (field("sensorWidth")?, field("focalLength")?, field("pixelRatio")?);
-    if ![sensor, focal, ratio].iter().all(|v| v.is_finite() && *v > 0.0) {
-        bail!("invalid focal length or aspect ratio");
-    }
-    let fy = focal * width / sensor;
-    let fx = fy / ratio;
-    let offset: [f64; 2] = array(row.get("principalPoint").unwrap_or(&Value::Null))?;
-    let k = if kind == Some("radialk3") { array(row.get("distortionParams").unwrap_or(&Value::Null))? } else { [0.0; 3] };
-    let pixels = [fx, fy, offset[0] + width / 2.0, offset[1] + height / 2.0];
-    if !pixels.iter().all(|v| v.is_finite()) {
-        bail!("nonfinite pixel intrinsic");
-    }
-    Ok((width as u32, height as u32, pixels, k))
+    let lens = sfm_lens(row)?;
+    Ok((lens.width, lens.height, lens.pixels, lens.k))
 }
 
 /// Positive real roots of `c[0] x^3 + c[1] x^2 + c[2] x + c[3]`, ascending. Leading zeros lower the degree.
@@ -186,21 +136,11 @@ impl Default for Policy<'_> {
     }
 }
 
-struct Registered {
-    name: String,
-    rotation: [[f64; 3]; 3],
-    centre: [f64; 3],
-    intrinsic: String,
-    errors: Vec<f64>,
-    positive: Vec<bool>,
-}
-
-fn list<'a>(scene: &'a Value, name: &str) -> &'a [Value] {
-    scene.get(name).and_then(Value::as_array).map(Vec::as_slice).unwrap_or(&[])
-}
-
-/// Checks poses, lens and sparse observations of a scene file; the file is never changed.
-pub fn audit_scene(path: &Path, policy: &Policy) -> anyhow::Result<Value> {
+/// Checks a camera solution against the policy: lens, coverage, sparse
+/// observations in front of their cameras, reprojection per view. The report
+/// has the keys of `alicevision_cameras.audit_scene` (without the file's
+/// name and hash, which [`audit_scene`] adds).
+pub fn audit_solution(solution: &Solution, policy: &Policy) -> anyhow::Result<Value> {
     if !(policy.minimum_coverage.is_finite() && policy.maximum_reprojection_p95.is_finite())
         || !(policy.minimum_coverage > 0.0 && policy.minimum_coverage <= 1.0)
         || !(policy.maximum_reprojection_p95 > 0.0 && policy.maximum_reprojection_p95 <= 100.0)
@@ -210,6 +150,107 @@ pub fn audit_scene(path: &Path, policy: &Policy) -> anyhow::Result<Value> {
     if !(1..=100_000).contains(&policy.minimum_observations_per_view) {
         bail!("invalid observation bound");
     }
+    let mut names: Vec<&String> = solution.views.iter().map(|v| &v.source).chain(&solution.unregistered).collect();
+    let input_images = names.len();
+    names.sort();
+    names.dedup();
+    if names.len() != input_images
+        || policy.expected_names.is_some_and(|expected| {
+            let mut expected: Vec<&String> = expected.iter().collect();
+            expected.sort();
+            expected != names
+        })
+    {
+        bail!("camera image inventory mismatch");
+    }
+    let lens = &solution.lens;
+    let (p, k) = (lens.pixels, lens.k);
+    let mut reasons: Vec<&str> = Vec::new();
+    if solution.landmarks.is_empty() {
+        reasons.push("no triangulated landmarks");
+    }
+    let check = radial_field_check(lens.width, lens.height, p, k);
+    if check["passed"] != true {
+        reasons.push("lens principal branch does not cover the image field");
+    }
+    if let Some((expected_pixels, expected_k)) = policy.expected_calibration {
+        let same = p.iter().zip(expected_pixels).all(|(a, b)| (a - b).abs() <= 1e-7)
+            && k.iter().zip(expected_k).all(|(a, b)| (a - b).abs() <= 1e-12);
+        if !same || solution.lens_locked == Some(false) {
+            reasons.push("declared fixed calibration was changed or unlocked");
+        }
+    }
+    let coverage = solution.views.len() as f64 / input_images.max(1) as f64;
+    if coverage < policy.minimum_coverage {
+        reasons.push("insufficient registered camera coverage");
+    }
+    let mut per_camera: Vec<(Vec<f64>, usize, usize)> = vec![(Vec::new(), 0, 0); solution.views.len()];
+    let (mut errors, mut positive, mut observation_count) = (Vec::new(), 0usize, 0usize);
+    for landmark in &solution.landmarks {
+        let x = landmark.position;
+        for &(view, measured) in &landmark.observations {
+            observation_count += 1;
+            let camera = &solution.views[view];
+            let d = [x[0] - camera.centre[0], x[1] - camera.centre[1], x[2] - camera.centre[2]];
+            let q = camera.rotation.map(|row| row[0] * d[0] + row[1] * d[1] + row[2] * d[2]);
+            per_camera[view].1 += 1;
+            if q[2] <= 1e-12 || q[2].is_nan() {
+                if !reasons.contains(&"landmark behind camera") {
+                    reasons.push("landmark behind camera");
+                }
+                continue;
+            }
+            positive += 1;
+            per_camera[view].2 += 1;
+            let n = [q[0] / q[2], q[1] / q[2]];
+            let rr = n[0] * n[0] + n[1] * n[1];
+            let gain = 1.0 + k[0] * rr + k[1] * rr.powi(2) + k[2] * rr.powi(3);
+            let error = ((n[0] * gain * p[0] + p[2] - measured[0]).powi(2) + (n[1] * gain * p[1] + p[3] - measured[1]).powi(2)).sqrt();
+            if !error.is_finite() {
+                bail!("nonfinite reprojection");
+            }
+            errors.push(error);
+            per_camera[view].0.push(error);
+        }
+    }
+    let mut order: Vec<usize> = (0..solution.views.len()).collect();
+    order.sort_by(|&a, &b| solution.views[a].source.cmp(&solution.views[b].source));
+    let mut per_view = Vec::new();
+    for view in order {
+        let (view_errors, seen, in_front) = &per_camera[view];
+        let summary = stats(view_errors);
+        if (view_errors.len() as i64) < policy.minimum_observations_per_view {
+            reasons.push("insufficient distinct landmark support per registered view");
+        } else if summary["p95"].as_f64().is_some_and(|p95| p95 > policy.maximum_reprojection_p95) {
+            reasons.push("per-view reprojection exceeds declared bound");
+        }
+        per_view.push(json!({
+            "name": solution.views[view].source, "observations": seen, "reprojection_pixels": summary,
+            "positive_depth_fraction": if *seen == 0 { Value::Null } else { json!(*in_front as f64 / *seen as f64) },
+        }));
+    }
+    reasons.sort_unstable();
+    reasons.dedup();
+    let mut missing: Vec<&String> = solution.unregistered.iter().collect();
+    missing.sort();
+    Ok(json!({
+        "passed": reasons.is_empty(), "reasons": reasons,
+        "input_images": input_images, "registered_cameras": solution.views.len(), "coverage": coverage, "missing_names": missing,
+        "landmarks": solution.landmarks.len(), "observations": observation_count, "reprojection_pixels": stats(&errors),
+        "per_view": per_view,
+        "lenses": [{"intrinsic_id": "shared", "pixel_intrinsic": p, "radial_coefficients": k, "field_check": check}],
+        "positive_depth_fraction": if observation_count == 0 { Value::Null } else { json!(positive as f64 / observation_count as f64) },
+        "policy": {
+            "minimum_coverage": policy.minimum_coverage, "minimum_observations_per_view": policy.minimum_observations_per_view,
+            "maximum_per_view_reprojection_p95_pixels": policy.maximum_reprojection_p95,
+            "fixed_calibration_required": policy.expected_calibration.is_some(),
+        },
+        "reference_geometry_used": false, "shape_accuracy_claim": false,
+    }))
+}
+
+/// Audits an AliceVision scene file; the file is never changed.
+pub fn audit_scene(path: &Path, policy: &Policy) -> anyhow::Result<Value> {
     let size = std::fs::metadata(path).ok().filter(|m| m.is_file()).map(|m| m.len());
     if size.is_none_or(|s| s > 128 << 20) {
         bail!("native scene missing or exceeds 128 MiB bound");
@@ -217,164 +258,15 @@ pub fn audit_scene(path: &Path, policy: &Policy) -> anyhow::Result<Value> {
     let raw = std::fs::read(path).with_context(|| path.display().to_string())?;
     let sha = util::sha256(&raw);
     let scene: Value = serde_json::from_slice(&raw).with_context(|| path.display().to_string())?;
-    let mut version = Vec::new();
-    for part in list(&scene, "version") {
-        version.push(util::number(part)? as i64);
-    }
-    if version.is_empty() || version < vec![1, 2, 11] {
-        bail!("unsupported legacy focal serialization");
-    }
-    let (views, poses, landmarks, intrinsics) =
-        (list(&scene, "views"), list(&scene, "poses"), list(&scene, "structure"), list(&scene, "intrinsics"));
-    if !(3..=96).contains(&views.len())
-        || poses.len() > views.len()
-        || landmarks.len() > 1_000_000
-        || !(1..=views.len()).contains(&intrinsics.len())
-    {
-        bail!("invalid bounded native scene inventory");
-    }
-    let view_name = |view: &Value| file_name(Path::new(view["path"].as_str().unwrap_or_default()));
-    let names: Vec<String> = views.iter().map(view_name).collect();
-    let distinct: HashSet<&String> = names.iter().collect();
-    if distinct.len() != names.len() || policy.expected_names.is_some_and(|expected| expected.iter().collect::<HashSet<_>>() != distinct) {
-        bail!("camera image inventory mismatch");
-    }
-    let view_ids: Vec<String> = views.iter().map(|v| util::identifier(&v["viewId"])).collect();
-    let intrinsic_ids: Vec<String> = intrinsics.iter().map(|v| util::identifier(&v["intrinsicId"])).collect();
-    let pose_map: HashMap<String, &Value> = poses.iter().map(|p| (util::identifier(&p["poseId"]), &p["pose"]["transform"])).collect();
-    if view_ids.iter().collect::<HashSet<_>>().len() != views.len()
-        || intrinsic_ids.iter().collect::<HashSet<_>>().len() != intrinsics.len()
-        || pose_map.len() != poses.len()
-    {
-        bail!("duplicate native identifier");
-    }
-    let mut reasons: Vec<&str> = Vec::new();
-    let mut lenses = Vec::new();
-    if landmarks.is_empty() {
-        reasons.push("no triangulated landmarks");
-    }
-    let mut converted: HashMap<&str, PixelIntrinsic> = HashMap::new();
-    for (key, intrinsic) in intrinsic_ids.iter().zip(intrinsics) {
-        let (width, height, pixels, k) = pixel_intrinsic(intrinsic)?;
-        let check = radial_field_check(width, height, pixels, k);
-        if check["passed"] != true {
-            reasons.push("lens principal branch does not cover the image field");
-        }
-        if let Some((expected_pixels, expected_k)) = policy.expected_calibration {
-            let locked = matches!(intrinsic.get("locked"), Some(Value::Bool(true)))
-                || intrinsic.get("locked").and_then(Value::as_str) == Some("true");
-            let same = pixels.iter().zip(expected_pixels).all(|(a, b)| (a - b).abs() <= 1e-7)
-                && k.iter().zip(expected_k).all(|(a, b)| (a - b).abs() <= 1e-12);
-            if !same || !locked {
-                reasons.push("declared fixed calibration was changed or unlocked");
-            }
-        }
-        converted.insert(key, (width, height, pixels, k));
-        lenses.push(json!({"intrinsic_id": key, "pixel_intrinsic": pixels, "radial_coefficients": k, "field_check": check}));
-    }
-    let mut registered: HashMap<&str, Registered> = HashMap::new();
-    for (key, view) in view_ids.iter().zip(views) {
-        let intrinsic = util::identifier(&view["intrinsicId"]);
-        if !converted.contains_key(intrinsic.as_str()) {
-            bail!("unknown camera intrinsic");
-        }
-        let Some(pose) = pose_map.get(&util::identifier(&view["poseId"])) else { continue };
-        let (rotation, centre) = (pose_rotation(pose)?, pose_centre(pose)?);
-        if !rotation.iter().flatten().chain(&centre).all(|v| v.is_finite()) {
-            bail!("nonfinite native camera parameter");
-        }
-        let r = &rotation;
-        let orthonormal =
-            (0..3).all(|i| (0..3).all(|j| ((0..3).map(|n| r[i][n] * r[j][n]).sum::<f64>() - (i == j) as u8 as f64).abs() <= 1e-8));
-        let determinant = r[0][0] * (r[1][1] * r[2][2] - r[1][2] * r[2][1]) - r[0][1] * (r[1][0] * r[2][2] - r[1][2] * r[2][0])
-            + r[0][2] * (r[1][0] * r[2][1] - r[1][1] * r[2][0]);
-        let proper = (determinant - 1.0).abs() <= 1e-8;
-        if !orthonormal || !proper {
-            bail!("camera rotation is not proper");
-        }
-        registered.insert(key, Registered { name: view_name(view), rotation, centre, intrinsic, errors: Vec::new(), positive: Vec::new() });
-    }
-    let coverage = registered.len() as f64 / views.len() as f64;
-    if coverage < policy.minimum_coverage {
-        reasons.push("insufficient registered camera coverage");
-    }
-    let mut landmark_ids = HashSet::new();
-    let (mut errors, mut positive, mut observation_count) = (Vec::new(), 0usize, 0usize);
-    for point in landmarks {
-        let observations = list(point, "observations");
-        if !landmark_ids.insert(util::identifier(&point["landmarkId"])) || observations.len() < 2 {
-            bail!("duplicate or untriangulated landmark");
-        }
-        let x: [f64; 3] = array(&point["X"])?;
-        let mut observed = HashSet::new();
-        for observation in observations {
-            let key = util::identifier(&observation["observationId"]);
-            observation_count += 1;
-            let camera = registered.get_mut(key.as_str()).filter(|_| observation_count <= 16_000_000 && !observed.contains(&key));
-            let Some(camera) = camera else { bail!("invalid bounded landmark observations") };
-            observed.insert(key);
-            let (_, _, p, k) = converted[camera.intrinsic.as_str()];
-            let d = [x[0] - camera.centre[0], x[1] - camera.centre[1], x[2] - camera.centre[2]];
-            let q = camera.rotation.map(|row| row[0] * d[0] + row[1] * d[1] + row[2] * d[2]);
-            let valid = q[2] > 1e-12;
-            camera.positive.push(valid);
-            if !valid {
-                if !reasons.contains(&"landmark behind camera") {
-                    reasons.push("landmark behind camera");
-                }
-                continue;
-            }
-            positive += 1;
-            let n = [q[0] / q[2], q[1] / q[2]];
-            let rr = n[0] * n[0] + n[1] * n[1];
-            let gain = 1.0 + k[0] * rr + k[1] * rr.powi(2) + k[2] * rr.powi(3);
-            let measured: [f64; 2] = array(&observation["x"])?;
-            let error = ((n[0] * gain * p[0] + p[2] - measured[0]).powi(2) + (n[1] * gain * p[1] + p[3] - measured[1]).powi(2)).sqrt();
-            if !error.is_finite() {
-                bail!("nonfinite reprojection");
-            }
-            errors.push(error);
-            camera.errors.push(error);
-        }
-    }
-    let mut cameras: Vec<&Registered> = registered.values().collect();
-    cameras.sort_by(|a, b| a.name.cmp(&b.name));
-    let mut per_view = Vec::new();
-    for camera in &cameras {
-        let summary = stats(&camera.errors);
-        if (camera.errors.len() as i64) < policy.minimum_observations_per_view {
-            reasons.push("insufficient distinct landmark support per registered view");
-        } else if summary["p95"].as_f64().is_some_and(|p95| p95 > policy.maximum_reprojection_p95) {
-            reasons.push("per-view reprojection exceeds declared bound");
-        }
-        let in_front = camera.positive.iter().filter(|&&v| v).count();
-        per_view.push(json!({
-            "name": camera.name, "observations": camera.positive.len(), "reprojection_pixels": summary,
-            "positive_depth_fraction": if camera.positive.is_empty() { Value::Null } else { json!(in_front as f64 / camera.positive.len() as f64) },
-        }));
-    }
+    let mut report = audit_solution(&parse_sfm(&scene)?, policy)?;
     if util::sha256_file(path)? != sha {
         bail!("native scene changed during audit");
     }
-    reasons.sort_unstable();
-    reasons.dedup();
-    let registered_names: HashSet<&String> = cameras.iter().map(|c| &c.name).collect();
-    let mut missing: Vec<&String> = names.iter().filter(|n| !registered_names.contains(n)).collect();
-    missing.sort();
     let absolute = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
-    Ok(json!({
-        "passed": reasons.is_empty(), "reasons": reasons, "scene": absolute.to_string_lossy(), "scene_sha256": sha,
-        "input_images": views.len(), "registered_cameras": cameras.len(), "coverage": coverage, "missing_names": missing,
-        "landmarks": landmarks.len(), "observations": observation_count, "reprojection_pixels": stats(&errors),
-        "per_view": per_view, "lenses": lenses,
-        "positive_depth_fraction": if observation_count == 0 { Value::Null } else { json!(positive as f64 / observation_count as f64) },
-        "policy": {
-            "minimum_coverage": policy.minimum_coverage, "minimum_observations_per_view": policy.minimum_observations_per_view,
-            "maximum_per_view_reprojection_p95_pixels": policy.maximum_reprojection_p95,
-            "fixed_calibration_required": policy.expected_calibration.is_some(),
-        },
-        "reference_geometry_used": false, "shape_accuracy_claim": false, "source_unchanged": true,
-    }))
+    report["scene"] = json!(absolute.to_string_lossy());
+    report["scene_sha256"] = json!(sha);
+    report["source_unchanged"] = json!(true);
+    Ok(report)
 }
 
 #[cfg(test)]

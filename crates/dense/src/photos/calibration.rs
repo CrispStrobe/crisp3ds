@@ -6,6 +6,7 @@ use std::path::Path;
 use anyhow::{anyhow, bail};
 use serde_json::{json, Value};
 
+use super::solution::Lens;
 use super::util::{self, python_float};
 
 pub const CALIBRATION_SCHEMA: &str = "crisp3ds_lens_calibration_v1";
@@ -36,6 +37,11 @@ pub struct Scaled {
 }
 
 impl Scaled {
+    /// The scaled lens for photos of the given size.
+    pub fn lens(&self, width: u32, height: u32) -> Lens {
+        Lens { width, height, pixels: [self.fx, self.fy, self.cx, self.cy], k: self.k }
+    }
+
     pub fn to_json(&self) -> Value {
         json!({"fx": self.fx, "fy": self.fy, "cx": self.cx, "cy": self.cy, "k": self.k, "scale": self.scale})
     }
@@ -123,13 +129,15 @@ pub fn scale_calibration(calibration: &Calibration, width: u32, height: u32) -> 
 }
 
 /// The fields of an AliceVision pinhole/radialk3 intrinsic that pin the lens, all locked.
-pub fn alicevision_intrinsic_fields(scaled: &Scaled, width: u32, height: u32, sensor_width: f64) -> Value {
-    let focal = python_float(scaled.fy * sensor_width / width as f64);
+pub fn alicevision_intrinsic_fields(lens: &Lens, sensor_width: f64) -> Value {
+    let [fx, fy, cx, cy] = lens.pixels;
+    let (width, height) = (lens.width as f64, lens.height as f64);
+    let focal = python_float(fy * sensor_width / width);
     json!({
-        "focalLength": focal, "initialFocalLength": focal, "pixelRatio": python_float(scaled.fy / scaled.fx),
-        "principalPoint": [python_float(scaled.cx - width as f64 / 2.0), python_float(scaled.cy - height as f64 / 2.0)],
+        "focalLength": focal, "initialFocalLength": focal, "pixelRatio": python_float(fy / fx),
+        "principalPoint": [python_float(cx - width / 2.0), python_float(cy - height / 2.0)],
         "initializationMode": "calibrated", "distortionInitializationMode": "calibrated",
-        "distortionParams": scaled.k.map(python_float), "locked": "true", "scaleLocked": "true",
+        "distortionParams": lens.k.map(python_float), "locked": "true", "scaleLocked": "true",
         "offsetLocked": "true", "distortionLocked": "true", "pixelRatioLocked": "true",
     })
 }
@@ -148,14 +156,16 @@ pub fn scene_size(scene: &Value) -> anyhow::Result<(u32, u32)> {
 }
 
 /// Copy of an uncalibrated cameraInit scene with its single intrinsic replaced by the declared lens.
-pub fn calibrated_scene(scene: &Value, scaled: &Scaled) -> anyhow::Result<Value> {
+pub fn calibrated_scene(scene: &Value, lens: &Lens) -> anyhow::Result<Value> {
     let filled = |name: &str| scene.get(name).and_then(Value::as_array).is_some_and(|a| !a.is_empty());
     let intrinsics = scene.get("intrinsics").and_then(Value::as_array).map(Vec::len).unwrap_or(0);
     if intrinsics != 1 || filled("poses") || filled("structure") {
         bail!("expected one shared intrinsic and no poses or landmarks before camera recovery");
     }
     let mut scene = scene.clone();
-    let (width, height) = scene_size(&scene)?;
+    if scene_size(&scene)? != (lens.width, lens.height) {
+        bail!("the scene's photos are not the size the lens was scaled to");
+    }
     let intrinsic = &mut scene["intrinsics"][0];
     if intrinsic.get("type").and_then(Value::as_str) != Some("pinhole")
         || intrinsic.get("distortionType").and_then(Value::as_str) != Some("radialk3")
@@ -163,7 +173,7 @@ pub fn calibrated_scene(scene: &Value, scaled: &Scaled) -> anyhow::Result<Value>
         bail!("cameraInit did not produce a pinhole radialk3 intrinsic");
     }
     let sensor = util::number(intrinsic.get("sensorWidth").unwrap_or(&Value::Null))?;
-    let Value::Object(fields) = alicevision_intrinsic_fields(scaled, width, height, sensor) else { unreachable!() };
+    let Value::Object(fields) = alicevision_intrinsic_fields(lens, sensor) else { unreachable!() };
     let target = intrinsic.as_object_mut().ok_or_else(|| anyhow!("the intrinsic is not an object"))?;
     target.extend(fields);
     Ok(scene)
@@ -227,7 +237,7 @@ mod tests {
         let scaled = scale_calibration(&parse_calibration(&example()).unwrap(), 1749, 1155).unwrap();
         let scene = json!({"views": [], "intrinsics": [{"type": "pinhole", "distortionType": "radialk3", "width": "1749",
                                                         "height": "1155", "sensorWidth": "36", "focalLength": "40"}]});
-        let calibrated = calibrated_scene(&scene, &scaled).unwrap();
+        let calibrated = calibrated_scene(&scene, &scaled.lens(1749, 1155)).unwrap();
         let intrinsic = &calibrated["intrinsics"][0];
         assert_eq!(scene["intrinsics"][0]["focalLength"], "40"); // input untouched
         assert_eq!(intrinsic["locked"], "true");
@@ -246,6 +256,7 @@ mod tests {
         assert_eq!(intrinsic["distortionParams"][2], "-3.7169739384093505");
         let mut posed = scene.clone();
         posed["poses"] = json!([{}]);
-        assert!(calibrated_scene(&posed, &scaled).is_err());
+        assert!(calibrated_scene(&posed, &scaled.lens(1749, 1155)).is_err());
+        assert!(calibrated_scene(&scene, &scaled.lens(1749, 1000)).is_err());
     }
 }

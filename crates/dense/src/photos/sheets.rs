@@ -152,36 +152,6 @@ fn mask_sheet(out: &Path, names: &[String]) -> anyhow::Result<()> {
     sheet.save(&out.join("mask-contact-sheet.png"))
 }
 
-/// Checks that `native-prepared/` holds exactly one image of the scene's size per registered view.
-pub fn step_verify_prepared(out: &Path) -> anyhow::Result<usize> {
-    let scene = util::read_json(&out.join("sfm/final.sfm"))?;
-    let (width, height) = super::calibration::scene_size(&scene)?;
-    let poses: std::collections::HashSet<String> =
-        scene["poses"].as_array().map(|poses| poses.iter().map(|p| util::identifier(&p["poseId"])).collect()).unwrap_or_default();
-    let prepared = out.join("native-prepared");
-    let mut registered = 0;
-    for view in scene["views"].as_array().ok_or_else(|| anyhow!("the scene has no views"))? {
-        if !poses.contains(&util::identifier(&view["poseId"])) {
-            continue;
-        }
-        registered += 1;
-        let id = util::identifier(&view["viewId"]);
-        let path = prepared.join(format!("{id}.png"));
-        let size = image::image_dimensions(&path).with_context(|| path.display().to_string())?;
-        if size != (width, height) {
-            bail!("undistorted image {id} is {size:?}, expected ({width}, {height})");
-        }
-    }
-    let mut found = 0;
-    for entry in std::fs::read_dir(&prepared).with_context(|| prepared.display().to_string())? {
-        found += entry?.path().extension().is_some_and(|e| e == "png") as usize;
-    }
-    if found != registered {
-        bail!("{} unexpected undistorted images", found as i64 - registered as i64);
-    }
-    Ok(registered)
-}
-
 /// Sparse points projected into the undistorted photos with their masks: do
 /// cameras and masks agree? Writes `sparse-overlay.png` (four views) and
 /// `sparse-overlay.json`, and returns the latter.
