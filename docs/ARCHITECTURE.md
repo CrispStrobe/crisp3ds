@@ -100,7 +100,7 @@ interpolates in linear light), with the Bunny's scanner F1 unchanged within
 | Check | `mesh_photo_check.py` | `check` | identical scores |
 | Driver | `dense_pipeline.py` | `run`, library API, C interface | synthetic scene verified; real objects in progress |
 
-Rules of the port are in `crates/dense/README.md`: same files, same settings,
+The rules are in `crates/dense/README.md`: same files, same settings,
 same events, and a native stage replaces its reference only after reproducing
 the scanner scores within 0.003.
 

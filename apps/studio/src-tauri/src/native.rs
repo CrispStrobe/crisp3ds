@@ -1125,8 +1125,12 @@ mod tests {
         // The annotated start points say the same.
         let points = engine.start_points();
         let cameras = &points[2]["providers"][1];
-        assert_eq!(cameras["options"][0]["available"], true);
-        assert_eq!(cameras["options"][1]["available"], false);
+        let available = |id: &str| {
+            let options = cameras["options"].as_array().expect("camera providers");
+            options.iter().find(|option| option["id"] == id).unwrap_or_else(|| panic!("no provider {id}"))["available"].clone()
+        };
+        assert_eq!(available("alicevision"), true);
+        assert_eq!(available("colmap"), false);
         assert_eq!(points[2]["providers"][0]["default"], "threshold");
     }
 }
