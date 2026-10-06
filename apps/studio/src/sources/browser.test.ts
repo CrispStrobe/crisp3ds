@@ -6,7 +6,7 @@ import { activeOptions, chosenProviders, importFields, missingFields, parseStart
 import { event, fixtureEvents, settle } from "../testing/fixture";
 import { downloadName } from "../ui/download";
 import { servedByEngine } from "../ui/served";
-import { BrowserEngine, checkCalibration, describeInputs, photoFiles, PREVIEW_LIMIT_MEGAPIXELS, previewAdvice, relativeFiles } from "./browserEngine";
+import { BrowserEngine, browserStartPoints, checkCalibration, describeInputs, photoFiles, PREVIEW_LIMIT_MEGAPIXELS, previewAdvice, relativeFiles } from "./browserEngine";
 import { RunStore } from "./runStore";
 
 /** A stand-in for the worker: records what it is sent and lets the test answer. */
@@ -200,7 +200,7 @@ describe("the engine in this browser", () => {
     await expect(engine.startRun({ photos: "bunny" })).rejects.toThrow(/lens calibration/);
     expect(await engine.calibrations()).toEqual([{ label: "3dlf-pro", path: "calibrations/3dlf-pro.json" }]);
     await engine.useShippedCalibration("calibrations/3dlf-pro.json");
-    await expect(engine.startRun({ photos: "bunny", providers: { masks: "external-sam", cameras: "turntable" } })).rejects.toThrow(/threshold/);
+    await expect(engine.startRun({ photos: "bunny", providers: { masks: "external-sam", cameras: "turntable" } })).rejects.toThrow(/external-sam/);
     const id = await engine.startRun({ photos: "bunny", calibration: "3dlf-pro.json", providers: { masks: "threshold", cameras: "turntable" }, settings: { grid: 320 } });
     const sent = worker.sent.at(-1) as Extract<ToWorker, { type: "run-photos" }>;
     expect(sent).toMatchObject({ type: "run-photos", id, calibration: shipped, options: { live_previews: false, photo_options: ["--masks", "threshold", "--cameras", "turntable"], settings: { grid: 320 } } });
@@ -215,6 +215,60 @@ describe("the engine in this browser", () => {
     expect(store.get().run.errors.map((error) => error.message)).toEqual(["the photos are not in capture order"]);
     expect(() => checkCalibration("{}")).toThrow(/not a lens calibration/);
     expect(() => checkCalibration("nope")).toThrow(/not JSON/);
+  });
+
+  it("builds its form from the package's describe(): browser providers, path-taking ones explained, no places", () => {
+    const setting = (name: string, kind: string, fallback: unknown) => ({ name, flag: `--${name}`, kind, default: fallback, choices: [], repeated: false, meaning: name });
+    const described = {
+      start_points: [
+        { id: "inputs", label: "Inputs", fields: [{ key: "inputs", kind: "inputs" }], providers: [] },
+        { id: "scene", label: "Scene", fields: [{ key: "scene", kind: "file" }], providers: [] },
+        {
+          id: "photos",
+          label: "Turntable photos",
+          fields: [{ key: "photos", kind: "folder" }, { key: "calibration", kind: "file" }],
+          providers: [
+            {
+              module: "masks",
+              default: "threshold",
+              settings: [setting("hole-cleanup-budget", "number", 0.02)],
+              options: [
+                { id: "threshold", platforms: { wasm: true }, available: true, settings: [setting("threshold-level", "text", null)] },
+                { id: "import", platforms: { wasm: true }, available: true, settings: [] },
+                { id: "external-sam", platforms: { wasm: false }, available: false, settings: [setting("sam-python", "executable", null)] },
+              ],
+            },
+            {
+              module: "cameras",
+              default: "turntable",
+              settings: [],
+              options: [
+                { id: "turntable", platforms: { wasm: true }, available: true, settings: [setting("turntable-span", "integer", 4), setting("turntable-matches", "path", null)] },
+                { id: "markers", platforms: { wasm: true }, available: true, settings: [setting("markers-mat", "path", null), setting("markers-minimum", "integer", 5)] },
+              ],
+            },
+          ],
+          option_groups: [
+            { id: "tools", label: "Tools", settings: [setting("python", "executable", null)] },
+            { id: "gates", label: "Quality gates", settings: [setting("minimum-registered-fraction", "number", 0.8)] },
+          ],
+        },
+      ],
+    };
+    const points = browserStartPoints(described);
+    expect(points.map((point) => point.id)).toEqual(["inputs", "photos"]);
+    const photos = points[1]!;
+    expect(photos.fields.map((field) => field.key)).toEqual(["photos", "calibration"]);
+    const masks = photos.providers[0]!;
+    expect(masks.options.map((option) => [option.id, option.available])).toEqual([["threshold", true], ["import", false]]);
+    expect(masks.options[1]!.reason).toMatch(/Not in the browser yet/);
+    const cameras = photos.providers[1]!;
+    expect(cameras.options.map((option) => [option.id, option.available])).toEqual([["turntable", true], ["markers", false]]);
+    expect(cameras.options[0]!.settings.map((spec) => spec.name)).toEqual(["turntable-span"]);
+    expect(cameras.options[1]!.settings.map((spec) => spec.name)).toEqual(["markers-minimum"]);
+    expect(photos.optionGroups.map((group) => group.id)).toEqual(["gates"]);
+    expect(browserStartPoints(null)).toEqual([]);
+    expect(browserStartPoints({ start_points: "nonsense" })).toEqual([]);
   });
 
   it("names downloads after the run and what the file is", () => {

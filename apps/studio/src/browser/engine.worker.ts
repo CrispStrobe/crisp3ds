@@ -25,6 +25,7 @@ interface EnginePackage {
     onEvent(event: unknown): void;
   }): Promise<EngineRun>;
   settingsSchema(): Promise<unknown>;
+  describe?(): Promise<unknown>;
   memory(): { wasm: number; files: number };
 }
 
@@ -75,7 +76,8 @@ async function load(module: string): Promise<void> {
     // Some browsers say the same word for all three ("apple apple apple").
     const parts = [info.vendor, info.architecture, info.description].filter((part): part is string => typeof part === "string" && part !== "");
     const name = [...new Set(parts)].join(" ");
-    scope.postMessage({ type: "loaded", ok: true, settings: { settings }, adapter: name === "" ? null : name });
+    const described = engine.describe === undefined ? null : await engine.describe().catch(() => null);
+    scope.postMessage({ type: "loaded", ok: true, settings: { settings }, adapter: name === "" ? null : name, described });
   } catch (problem) {
     scope.postMessage({ type: "loaded", ok: false, message: problem instanceof Error ? problem.message : String(problem) });
   }

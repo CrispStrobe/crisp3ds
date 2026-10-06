@@ -10,7 +10,7 @@
 
 import { normaliseEvent, type RunEvent } from "../core/events";
 import { parseSettingsSchema, type SettingSpec } from "../core/settings";
-import type { StartPoint } from "../core/startPoints";
+import { parseStartPoints, type StartPoint } from "../core/startPoints";
 import type { FromWorker, WorkerLike } from "../browser/protocol";
 import {
   EngineError,
@@ -148,6 +148,59 @@ const BROWSER_START: StartPoint[] = [
   },
 ];
 
+const PLACE_KINDS = new Set(["path", "directory", "executable", "path_list"]);
+const NOT_YET = "Not in the browser yet: this needs a file or folder that the browser engine cannot take so far.";
+
+/**
+ * The start points of the package's describe(), shaped for this browser: an inputs folder and
+ * turntable photos (the scene start needs a camera solution on disk). Providers that run in a
+ * browser stay; those that need a path of their own (imported masks or cameras, the marker mat)
+ * are listed as not available, with the reason; options that name a place are left out. Returns
+ * [] when the description cannot be used, so the caller keeps its own list.
+ */
+export function browserStartPoints(described: unknown): StartPoint[] {
+  const raw = (described as { start_points?: unknown } | null)?.start_points;
+  if (!Array.isArray(raw)) return [];
+  const tunable = (rows: unknown) => (Array.isArray(rows) ? rows.filter((row) => !PLACE_KINDS.has((row as { kind?: string }).kind ?? "")) : []);
+  const shaped = raw
+    .filter((point) => ["inputs", "photos"].includes((point as { id?: string }).id ?? ""))
+    .map((point) => {
+      const p = point as Record<string, unknown>;
+      const providers = (Array.isArray(p.providers) ? p.providers : []).map((choice) => {
+        const c = choice as Record<string, unknown>;
+        const options = (Array.isArray(c.options) ? c.options : [])
+          .filter((option) => (option as { platforms?: { wasm?: boolean } }).platforms?.wasm !== false)
+          .map((option) => {
+            const o = option as Record<string, unknown>;
+            const needsPath = o.id === "import" || (Array.isArray(o.settings) && o.settings.some((row) => PLACE_KINDS.has((row as { kind?: string }).kind ?? "") && (row as { name?: string }).name !== "turntable-matches"));
+            return {
+              ...o,
+              available: o.available !== false && !needsPath,
+              reason: needsPath ? NOT_YET : o.reason,
+              settings: tunable(o.settings),
+              inputs: [],
+            };
+          });
+        return { ...c, options, settings: tunable(c.settings) };
+      });
+      const groups = (Array.isArray(p.option_groups) ? p.option_groups : [])
+        .map((group) => ({ ...(group as Record<string, unknown>), id: (group as { id?: unknown }).id, settings: tunable((group as { settings?: unknown }).settings) }))
+        .filter((group) => !["tools", "deadlines", "machine"].includes(String(group.id)) && group.settings.length > 0);
+      // The browser's own fields: a folder of photos and a calibration are picked here, not typed.
+      return { ...p, providers, option_groups: groups };
+    });
+  const points = parseStartPoints(shaped);
+  // Keep the browser's wording for what is picked on this device.
+  for (const point of points) {
+    const own = BROWSER_START.find((candidate) => candidate.id === point.id);
+    if (own !== undefined) {
+      point.meaning = own.meaning;
+      point.fields = own.fields;
+    }
+  }
+  return points.length === 2 ? points : [];
+}
+
 /** Photos picked on this device for the photos start, sorted by name (the capture order). */
 export interface PickedPhotos {
   name: string;
@@ -208,8 +261,10 @@ export class BrowserEngine implements Engine {
   readonly kind = "browser" as const;
   readonly label = "this browser";
   private worker: WorkerLike | null = null;
-  private loaded: Promise<{ settings: unknown; adapter: string | null }> | null = null;
-  private resolveLoaded: ((value: { settings: unknown; adapter: string | null }) => void) | null = null;
+  private loaded: Promise<{ settings: unknown; adapter: string | null; described?: unknown }> | null = null;
+  private resolveLoaded: ((value: { settings: unknown; adapter: string | null; described?: unknown }) => void) | null = null;
+  /** The start points this browser offers, from the package's describe() once loaded. */
+  private startPoints: StartPoint[] = BROWSER_START;
   private rejectLoaded: ((problem: Error) => void) | null = null;
   private runs = new Map<string, Held>();
   private requests = new Map<number, (bytes: ArrayBuffer | null) => void>();
@@ -279,7 +334,7 @@ export class BrowserEngine implements Engine {
     return this.runs.get(id)?.peak ?? 0;
   }
 
-  private load(): Promise<{ settings: unknown; adapter: string | null }> {
+  private load(): Promise<{ settings: unknown; adapter: string | null; described?: unknown }> {
     if (this.loaded === null) {
       this.loaded = new Promise((resolve, reject) => {
         this.resolveLoaded = resolve;
@@ -300,7 +355,11 @@ export class BrowserEngine implements Engine {
 
   private receive(message: FromWorker): void {
     if (message.type === "loaded") {
-      if (message.ok) this.resolveLoaded?.({ settings: message.settings, adapter: message.adapter });
+      if (message.ok) {
+        const points = browserStartPoints(message.described);
+        if (points.length > 0) this.startPoints = points;
+        this.resolveLoaded?.({ settings: message.settings, adapter: message.adapter, described: message.described });
+      }
       else this.rejectLoaded?.(new EngineError(message.message, 0));
     } else if (message.type === "event") {
       const run = this.runs.get(message.id);
@@ -347,7 +406,7 @@ export class BrowserEngine implements Engine {
       schema: "crisp3ds_dense_events_v1",
       device: adapter === null ? "WebGPU" : `WebGPU: ${adapter}`,
       canStartRuns: true,
-      startPoints: BROWSER_START,
+      startPoints: this.startPoints,
       choosesDevice: false,
       scoresReference: false,
     };
@@ -394,9 +453,18 @@ export class BrowserEngine implements Engine {
       throw new EngineError("A run is already in progress in this browser. Wait for it, or cancel it.", 400);
     }
     const providers = (typeof body.providers === "object" && body.providers !== null ? body.providers : {}) as Record<string, unknown>;
-    const masks = typeof providers.masks === "string" ? providers.masks : "threshold";
-    const cameras = typeof providers.cameras === "string" ? providers.cameras : "turntable";
-    if (masks !== "threshold" || cameras !== "turntable") throw new EngineError("providers: in the browser, masks come from threshold and cameras from turntable", 400);
+    const point = this.startPoints.find((candidate) => candidate.id === "photos");
+    const pick = (module: string, fallback: string): string => {
+      const choice = point?.providers.find((candidate) => candidate.module === module);
+      const wanted = typeof providers[module] === "string" ? (providers[module] as string) : (choice?.default ?? fallback);
+      const option = choice?.options.find((candidate) => candidate.id === wanted);
+      if (choice !== undefined && (option === undefined || !option.available)) {
+        throw new EngineError(`${module}: ${option?.reason ?? `there is no provider named ${wanted} in this browser`}`, 400);
+      }
+      return wanted;
+    };
+    const masks = pick("masks", "threshold");
+    const cameras = pick("cameras", "turntable");
     const extra = Array.isArray(body.photo_options) ? body.photo_options.filter((word): word is string => typeof word === "string") : [];
     const name = typeof body.name === "string" && body.name.trim() !== "" ? body.name.trim() : this.photos.name;
     const id = `browser-${String(++this.counter).padStart(2, "0")}-${name.replace(/[^A-Za-z0-9._-]+/g, "-").slice(0, 40) || "run"}`;

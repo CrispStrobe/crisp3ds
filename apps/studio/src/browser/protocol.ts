@@ -14,7 +14,8 @@ export type ToWorker =
   | { type: "dispose"; id: string };
 
 export type FromWorker =
-  | { type: "loaded"; ok: true; settings: unknown; adapter: string | null }
+  /** `described`: the package's describe() (start points, providers, their options), or null from an older package. */
+  | { type: "loaded"; ok: true; settings: unknown; adapter: string | null; described?: unknown }
   | { type: "loaded"; ok: false; message: string }
   | { type: "event"; id: string; event: unknown; wasmBytes: number }
   | { type: "finished"; id: string; ok: boolean; message?: string; seconds: number; peakWasmBytes: number }
