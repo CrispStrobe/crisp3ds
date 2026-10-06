@@ -15,6 +15,7 @@
 //! | `contrast` | gamma and CLAHE contrast images (OpenCV's 8-bit Lab and CLAHE) |
 //! | `calibration` | lens file, scaling, the locked AliceVision intrinsic |
 //! | `cameras` | camera providers: `alicevision`, `colmap`, `import` |
+//! | `markers` | camera provider `markers`: the printed mat, its detection, poses in millimetres |
 //! | `solution` | a camera solution in neutral form; readers for `.sfm` and COLMAP models |
 //! | `audit`, `ring` | camera audit, ring statistics, gate decision |
 //! | `scene_writer` | undistortion of photos and masks, the scene directory |
@@ -29,6 +30,7 @@ pub mod calibration;
 pub mod cleanup;
 pub mod coarse;
 pub mod contrast;
+pub mod markers;
 pub mod options;
 pub mod providers;
 pub mod ring;

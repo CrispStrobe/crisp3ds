@@ -39,6 +39,8 @@ impl MaskChoice {
 pub enum CameraChoice {
     AliceVision,
     Colmap,
+    /// A printed marker mat under the object (`photos/markers`).
+    Markers,
     /// An existing solution: an AliceVision `.sfm` file or a COLMAP model directory.
     Import(PathBuf),
 }
@@ -48,6 +50,7 @@ impl CameraChoice {
         match self {
             CameraChoice::AliceVision => "alicevision",
             CameraChoice::Colmap => "colmap",
+            CameraChoice::Markers => "markers",
             CameraChoice::Import(_) => "import",
         }
     }
@@ -133,6 +136,19 @@ pub struct ColmapOptions {
     pub mapper_option: Vec<String>,
 }
 
+/// Options of the `markers` camera provider.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MarkersOptions {
+    /// Description of the printed mat (`crisp3ds_marker_mat_v1`).
+    pub mat: Option<PathBuf>,
+    /// A photo with fewer decoded markers gets no pose.
+    pub minimum_per_photo: usize,
+    /// Height over width of the print relative to the design, when measured.
+    pub aspect: Option<f64>,
+    /// Estimate that number from all photos instead.
+    pub aspect_auto: bool,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct SamOptions {
     pub python: Option<String>,
@@ -171,6 +187,7 @@ pub struct Options {
     pub clahe_grid: usize,
     pub alicevision: AliceVisionOptions,
     pub colmap: ColmapOptions,
+    pub markers: MarkersOptions,
     pub random_seed: i64,
     pub timeouts: Timeouts,
     pub gates: Gates,
@@ -193,6 +210,7 @@ usage error); 1: a step failed. See docs/PHOTOS-TO-INPUTS.md.
         external-sam            SAM 2.1 through scripts/turntable_mesh/segment.py in an external Python interpreter (default)
 --cameras alicevision           external AliceVision executables, global SfM with the declared lens locked (default)
           colmap                external COLMAP executable, incremental mapper with the declared lens fixed
+          markers               a printed marker mat under the object: exact poses in millimetres, no external program
           import:PATH           an existing solution: AliceVision .sfm file or COLMAP model directory (text or binary)
 
 masks, threshold provider (also makes the prompts of external-sam and the red overlay of the sheet):
@@ -225,6 +243,10 @@ cameras, colmap provider:
   --colmap-overlap N (10)         --colmap-masks on|off (on: no features outside the masks)
   --colmap-max-features N (8192)  --colmap-cli auto|3|4 (auto: ask the executable; 3: SiftExtraction.* names; 4: FeatureExtraction.*)
   --colmap-extractor-option ARG, --colmap-matcher-option ARG, --colmap-mapper-option ARG   extra tokens; repeat
+cameras, markers provider (a printed mat under the object; docs/MARKER-MAT.md):
+  --markers-mat FILE              description of the printed mat, as `crisp3ds-dense mat` writes it [CRISP3DS_MARKERS_MAT]
+  --markers-minimum N (3)         a photo with fewer decoded markers gets no pose
+  --markers-aspect auto|X         height over width of the print relative to the design (1); auto estimates it
 tools:
   --python EXE                    only for .py wrappers [CRISP3DS_PYTHON]
 machine:
@@ -286,6 +308,9 @@ const VALUED: &[&str] = &[
     "colmap-extractor-option",
     "colmap-matcher-option",
     "colmap-mapper-option",
+    "markers-mat",
+    "markers-minimum",
+    "markers-aspect",
     "sam-timeout",
     "features-timeout",
     "matching-timeout",
@@ -432,9 +457,10 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
     let cameras = match choice("cameras", "CRISP3DS_CAMERAS", "alicevision") {
         (name, None) if name == "alicevision" => CameraChoice::AliceVision,
         (name, None) if name == "colmap" => CameraChoice::Colmap,
+        (name, None) if name == "markers" => CameraChoice::Markers,
         (name, Some(path)) if name == "import" && !path.is_empty() => CameraChoice::Import(absolute(&path)),
         (name, _) if name == "import" => bail!("--cameras import needs the solution: import:PATH (.sfm file or COLMAP model directory)"),
-        (name, _) => bail!("--cameras {name}: expected alicevision, colmap or import:PATH (see --list-providers)"),
+        (name, _) => bail!("--cameras {name}: expected alicevision, colmap, markers or import:PATH (see --list-providers)"),
     };
     if let CameraChoice::Import(path) = &cameras {
         if !path.exists() {
@@ -484,6 +510,21 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
     if !(1..=256).contains(&threads) || !(1..=64).contains(&clahe_grid) {
         bail!("--threads must be 1..256 and --clahe-grid 1..64");
     }
+    let markers = MarkersOptions {
+        mat: pick("markers-mat", "CRISP3DS_MARKERS_MAT").map(|p| absolute(&p)),
+        minimum_per_photo: integer("markers-minimum", 3)?.clamp(1, 1000) as usize,
+        aspect: match text("markers-aspect").as_deref() {
+            None | Some("auto") => None,
+            Some(value) => Some(
+                value
+                    .parse::<f64>()
+                    .ok()
+                    .filter(|v| (0.9..=1.1).contains(v))
+                    .ok_or_else(|| anyhow!("--markers-aspect needs auto or a number near 1"))?,
+            ),
+        },
+        aspect_auto: text("markers-aspect").as_deref() == Some("auto"),
+    };
     let colmap = ColmapOptions {
         location: pick("colmap", "CRISP3DS_COLMAP").map(|p| absolute(&p)),
         cli: if text("colmap-cli").as_deref() == Some("auto") { 0 } else { integer("colmap-cli", 0)? },
@@ -536,6 +577,7 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
             sfm_option: many("alicevision-sfm-option"),
         },
         colmap,
+        markers,
         random_seed: integer("random-seed", 0)?,
         timeouts: Timeouts {
             small: seconds("small-step-timeout", 600)?,
@@ -594,6 +636,8 @@ impl Options {
                 "sensor_database": av.sensor_database, "memory_gib": av.memory_gib, "initial_field_of_view": av.initial_field_of_view,
                 "describer_types": av.describer_types, "describer_preset": av.describer_preset, "matching_method": av.matching_method,
                 "sfm_option": av.sfm_option},
+            "markers": {"mat": self.markers.mat, "minimum_per_photo": self.markers.minimum_per_photo, "aspect": self.markers.aspect,
+                        "aspect_auto": self.markers.aspect_auto},
             "colmap": {"location": colmap.location, "cli": colmap.cli, "matching": colmap.matching, "overlap": colmap.overlap,
                        "masks": colmap.use_masks, "max_features": colmap.max_features, "extractor_option": colmap.extractor_option,
                        "matcher_option": colmap.matcher_option, "mapper_option": colmap.mapper_option},
@@ -732,7 +776,7 @@ pub(crate) mod tests {
             (&["--masks", "magic"][..], "expected threshold, import:DIR or external-sam"),
             (&["--masks", "import"][..], "needs the folder"),
             (&["--masks", "import:/no/such/masks"][..], "is not a directory"),
-            (&["--cameras", "meshroom"][..], "expected alicevision, colmap or import:PATH"),
+            (&["--cameras", "meshroom"][..], "expected alicevision, colmap, markers or import:PATH"),
             (&["--cameras", "import:/no/such.sfm"][..], "does not exist"),
             (&["--colmap-matching", "vocab"][..], "--colmap-matching"),
             (&["--threads", "two"][..], "needs an integer"),

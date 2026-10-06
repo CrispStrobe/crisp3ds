@@ -102,9 +102,17 @@ pub fn write_scene(
         },
         watch,
     )?;
-    let points: Vec<f64> = solution.landmarks.iter().flat_map(|l| l.position).collect();
+    let points: Vec<f64> = match &solution.object_points {
+        Some(points) => points.iter().flatten().copied().collect(),
+        None => solution.landmarks.iter().flat_map(|l| l.position).collect(),
+    };
     std::fs::write(output.join("sparse_points.npy"), crate::npz::npy_f64(&[points.len() / 3, 3], &points))?;
-    std::fs::write(output.join("cameras.json"), serde_json::to_string_pretty(&json!({ "views": rows }))? + "\n")?;
+    let mut cameras = json!({ "views": rows });
+    if let Some((unit, source)) = &solution.scale {
+        // One scene unit is one `unit`; absent for a scene of arbitrary scale.
+        cameras["scale"] = json!({"unit": unit, "source": source});
+    }
+    std::fs::write(output.join("cameras.json"), serde_json::to_string_pretty(&cameras)? + "\n")?;
     Ok(json!({"views": rows.len(), "sparse_points": points.len() / 3}))
 }
 
@@ -155,7 +163,7 @@ mod tests {
         // No distortion: the scene's images and masks are the inputs.
         let lens = Lens { width, height, pixels: [80.0, 80.0, 31.5, 23.5], k: [0.0; 3] };
         let landmarks = vec![Landmark { position: [0.5, 0.25, 4.0], observations: vec![] }];
-        let solution = Solution { lens, views, unregistered: vec![], landmarks, lens_locked: None };
+        let solution = Solution { lens, views, unregistered: vec![], landmarks, lens_locked: None, scale: None, object_points: None };
         let mut seen = 0;
         let report = write_scene(&solution, &root.join("photos"), &root.join("masks"), &root.join("scene"), 2, &mut |done| {
             seen = done;

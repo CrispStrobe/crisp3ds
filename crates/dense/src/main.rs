@@ -21,6 +21,13 @@ fn main() -> ExitCode {
         Some("mesh") => crisp3ds_dense::mesh::command(&arguments[1..]),
         #[cfg(not(target_arch = "wasm32"))]
         Some("photos") => crisp3ds_dense::photos::command(&arguments[1..]),
+        Some("mat") => match crisp3ds_dense::photos::markers::command(&arguments[1..]) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("crisp3ds-dense mat: {error:#}");
+                ExitCode::from(1)
+            }
+        },
         Some("--version") => {
             println!("crisp3ds-dense {}", env!("CARGO_PKG_VERSION"));
             ExitCode::SUCCESS
@@ -42,7 +49,7 @@ fn main() -> ExitCode {
             }
         }
         _ => {
-            eprintln!("usage: crisp3ds-dense <run|photos|inputs|stereo|mesh|check|synthetic|settings|defaults|--version> ...   (see crates/dense/README.md)");
+            eprintln!("usage: crisp3ds-dense <run|photos|mat|inputs|stereo|mesh|check|synthetic|settings|defaults|--version> ...   (see crates/dense/README.md)");
             ExitCode::from(2)
         }
     }

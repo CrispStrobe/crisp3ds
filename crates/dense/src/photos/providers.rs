@@ -106,8 +106,21 @@ pub const CAMERAS_IMPORT: Provider = Provider {
     default: false,
 };
 
-pub const PROVIDERS: [Provider; 6] =
-    [MASKS_THRESHOLD, MASKS_IMPORT, MASKS_EXTERNAL_SAM, CAMERAS_ALICEVISION, CAMERAS_COLMAP, CAMERAS_IMPORT];
+pub const CAMERAS_MARKERS: Provider = Provider {
+    module: "cameras",
+    name: "markers",
+    selector: "--cameras markers --markers-mat FILE",
+    summary: "A printed mat of ArUco markers under the object: pose per photo from the marker corners, in millimetres, right-handed",
+    desktop: true,
+    mobile: true,
+    wasm: true,
+    external: &[],
+    license: "this crate (AGPL-3.0-only); marker codes of OpenCV's DICT_4X4_50",
+    default: false,
+};
+
+pub const PROVIDERS: [Provider; 7] =
+    [MASKS_THRESHOLD, MASKS_IMPORT, MASKS_EXTERNAL_SAM, CAMERAS_ALICEVISION, CAMERAS_COLMAP, CAMERAS_MARKERS, CAMERAS_IMPORT];
 
 /// The provider table as JSON. `available` says whether this build can run the
 /// provider at all: external programs cannot be started from a browser build.
@@ -147,7 +160,9 @@ mod tests {
     fn the_table_lists_every_provider_once_with_one_default_per_module() {
         let table = listing();
         assert_eq!(table["schema"], "crisp3ds_photo_providers_v1");
-        for (module, names) in [("masks", ["threshold", "import", "external-sam"]), ("cameras", ["alicevision", "colmap", "import"])] {
+        let expected: [(&str, &[&str]); 2] =
+            [("masks", &["threshold", "import", "external-sam"]), ("cameras", &["alicevision", "colmap", "markers", "import"])];
+        for (module, names) in expected {
             let rows = table[module].as_array().unwrap();
             assert_eq!(rows.iter().map(|r| r["name"].as_str().unwrap()).collect::<Vec<_>>(), names);
             assert_eq!(rows.iter().filter(|r| r["default"] == true).count(), 1);

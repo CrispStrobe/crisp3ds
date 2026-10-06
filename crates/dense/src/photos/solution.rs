@@ -60,6 +60,11 @@ pub struct Solution {
     pub landmarks: Vec<Landmark>,
     /// Whether the producing program reports the lens as held fixed (`None`: it does not say).
     pub lens_locked: Option<bool>,
+    /// Physical scale of the frame as `(unit, source)`, e.g. `("mm", "markers")`; `None` for an arbitrary scale.
+    pub scale: Option<(String, String)>,
+    /// Points that locate the object, for the scene's `sparse_points.npy`, where the landmarks do not
+    /// (a marker mat's landmarks lie around the object, not on it).
+    pub object_points: Option<Vec<Vector>>,
 }
 
 /// `-R c` summed in the order NumPy's matrix product gives for `(-rotation) @ centre`.
@@ -211,7 +216,7 @@ pub fn parse_sfm(scene: &Value) -> anyhow::Result<Solution> {
         }
         landmarks.push(Landmark { position: array(&point["X"])?, observations });
     }
-    Ok(Solution { lens, views: solved, unregistered, landmarks, lens_locked: Some(locked) })
+    Ok(Solution { lens, views: solved, unregistered, landmarks, lens_locked: Some(locked), scale: None, object_points: None })
 }
 
 pub fn read_sfm(path: &Path) -> anyhow::Result<Solution> {
@@ -458,7 +463,7 @@ pub fn read_colmap(folder: &Path, photos: &[String]) -> anyhow::Result<Solution>
     }
     let registered: HashSet<&String> = views.iter().map(|v| &v.source).collect();
     let unregistered = photos.iter().filter(|name| !registered.contains(name)).cloned().collect();
-    Ok(Solution { lens, views, unregistered, landmarks, lens_locked: None })
+    Ok(Solution { lens, views, unregistered, landmarks, lens_locked: None, scale: None, object_points: None })
 }
 
 /// Reads a solution by what the path is: a COLMAP model directory or an AliceVision `.sfm` file.
