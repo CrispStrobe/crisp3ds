@@ -11,7 +11,10 @@ use std::path::Path;
 use anyhow::Context;
 use serde_json::json;
 
+use crate::inputs::Plane;
 use crate::npz::{self, Array, Data};
+
+use super::level::LevelView;
 
 /// Settings sized for the scene (`synthetic_scene.SMALL`).
 pub const SMALL: [&str; 11] = [
@@ -124,6 +127,25 @@ pub fn write(output: &Path, views: usize, size: usize) -> anyhow::Result<()> {
     npz::write(&output.join("exact_depths.npz"), &members, true)?;
     std::fs::write(output.join("cameras.json"), serde_json::to_string_pretty(&json!({ "views": rows }))? + "\n")?;
     Ok(())
+}
+
+/// Exact z-depth of the unit sphere at every pixel of a level view (0 where the ray misses).
+pub fn sphere_depth(view: &LevelView) -> Plane<f32> {
+    let origin = view.camera.centre().map(|v| v as f64);
+    let mut depth = Plane::<f32>::new(view.width, view.height);
+    for y in 0..view.height {
+        for x in 0..view.width {
+            let at_one = view.unproject(x, y, 1.0);
+            let d = [0, 1, 2].map(|a| at_one[a] as f64 - origin[a]);
+            let (a, b) = (d.iter().map(|v| v * v).sum::<f64>(), d.iter().zip(&origin).map(|(d, o)| d * o).sum::<f64>());
+            let c = origin.iter().map(|v| v * v).sum::<f64>() - 1.0;
+            let discriminant = b * b - a * c;
+            if discriminant > 0.0 {
+                depth.data[y * view.width + x] = ((-b - discriminant.sqrt()) / a) as f32;
+            }
+        }
+    }
+    depth
 }
 
 /// A fresh scene in a temporary directory; the caller removes it.

@@ -16,6 +16,7 @@ use crate::npz::{self, Array, Data, Npz};
 use crate::repair::{repair_masks, Coverer};
 
 use super::level::{build_level, level_sizes};
+use super::levels::{match_levels, LevelContext};
 use super::previews::colour_sheet;
 use super::Arguments;
 
@@ -88,22 +89,26 @@ pub fn read_depths(path: &Path, count: usize) -> anyhow::Result<Vec<Plane<f32>>>
         .collect()
 }
 
-fn log(text: impl AsRef<str>) {
+pub(super) fn log(text: impl AsRef<str>) {
     use std::io::Write;
     println!("{}", text.as_ref());
     let _ = std::io::stdout().flush();
 }
 
 /// Volumes the driver meshes coarsely while matching continues, renamed into place when complete.
-struct Previews<'a> {
+pub struct Previews<'a> {
     directory: Option<std::path::PathBuf>,
     events: &'a EventLog,
     config: &'a DenseConfig,
 }
 
 impl Previews<'_> {
+    pub fn enabled(&self) -> bool {
+        self.directory.is_some()
+    }
+
     #[allow(clippy::too_many_arguments)]
-    fn write(
+    pub fn write(
         &self,
         name: &str,
         label: &str,
@@ -246,9 +251,40 @@ pub fn run(arguments: &Arguments, config: &DenseConfig) -> anyhow::Result<Value>
     events.progress(0.08, "Masks and hull ready")?;
 
     let sizes = level_sizes(&config.sizes, inputs.longest);
+    if arguments.only.as_deref() == Some("levels") {
+        // Diagnostic: checksums of every level image, mask and camera for parity checks against Pillow.
+        let mut levels = Vec::new();
+        for &size in &sizes {
+            let level = build_level(&inputs, size);
+            levels.push(json!({
+                "size": size,
+                "working_size": [level[0].width, level[0].height],
+                "gray_crc32": level.iter().map(|v| crc32fast::hash(bytemuck::cast_slice(&v.gray.data))).collect::<Vec<_>>(),
+                "mask_crc32": level.iter().map(|v| crc32fast::hash(&v.mask.data)).collect::<Vec<_>>(),
+                "k": level.iter().map(|v| v.camera.k.map(|x| x as f64)).collect::<Vec<_>>(),
+            }));
+        }
+        report["level_checks"] = json!(levels);
+        return finish(report, output, started);
+    }
     let (level, depths) = match &arguments.reuse_depths {
         Some(path) => (build_level(&inputs, *sizes.last().unwrap()), read_depths(path, count)?),
-        None => bail!("matching is not ported yet; pass --reuse-depths"),
+        None => {
+            if config.fused_passes != 0 {
+                bail!("fused_passes is not ported to the native stage; use fused_passes=0");
+            }
+            let context = LevelContext {
+                gpu: &gpu,
+                inputs: &inputs,
+                state: &state,
+                config,
+                output,
+                events: &events,
+                previews: &previews,
+                picks: &picks,
+            };
+            match_levels(&context, &sizes, &mut report)?
+        }
     };
 
     let t = Instant::now();
@@ -282,4 +318,97 @@ fn finish(mut report: Value, output: &Path, started: Instant) -> anyhow::Result<
     report["reference_used"] = json!(false);
     std::fs::write(output.join("result.json"), serde_json::to_string_pretty(&report)? + "\n")?;
     Ok(report)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::stereo::{options, synthetic};
+
+    /// The whole stage on the analytic sphere, with the thresholds of
+    /// scripts/turntable_mesh/test_multiscale_stereo.py (CRISP3DS_GPU_TESTS=1).
+    #[test]
+    fn gpu_stage_recovers_the_sphere() {
+        if !crate::gpu::tests_enabled() {
+            return;
+        }
+        let root = synthetic::temporary("stage", 24, 128).unwrap();
+        let overrides: Vec<String> = synthetic::SMALL.iter().map(|s| s.to_string()).collect();
+        let config = options::build(None, &overrides).unwrap();
+        let arguments = Arguments {
+            inputs: root.join("inputs"),
+            output: root.join("stereo"),
+            events: Some(root.join("events.jsonl")),
+            previews: true,
+            ..Default::default()
+        };
+        let report = run(&arguments, &config).unwrap();
+        assert_eq!(report["views"], 24);
+        assert_eq!(report["reference_used"], false);
+        assert_eq!(report["levels"].as_array().unwrap().len(), 3);
+        assert!(report["gpu_peak_binding_bytes"].as_u64().unwrap() <= 128 << 20);
+
+        // Depth against the exact sphere depth, cropped as the stage crops.
+        let exact = Npz::read(&root.join("inputs/exact_depths.npz")).unwrap();
+        let found = read_depths(&root.join("stereo/depths.npz"), 24).unwrap();
+        let pad = config.crop_padding as usize;
+        let (mut errors, mut covered) = (Vec::new(), Vec::new());
+        for (n, depth) in found.iter().enumerate() {
+            let truth = exact.get(&format!("view_{n:03}")).unwrap();
+            let (th, tw) = (truth.shape[0], truth.shape[1]);
+            let values = truth.to_f32();
+            let hit: Vec<(usize, usize)> = (0..th * tw).filter(|&p| values[p] != 0.0).map(|p| (p % tw, p / tw)).collect();
+            let (x0, x1) = (hit.iter().map(|h| h.0).min().unwrap() - pad, hit.iter().map(|h| h.0).max().unwrap() + pad + 1);
+            let (y0, y1) = (hit.iter().map(|h| h.1).min().unwrap() - pad, hit.iter().map(|h| h.1).max().unwrap() + pad + 1);
+            // The common canvas is centred on the mask box; even sizes may add one pixel.
+            let (ox, oy) = ((depth.width - (x1 - x0)) / 2, (depth.height - (y1 - y0)) / 2);
+            let (mut both, mut inside) = (0usize, 0usize);
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    let t = values[y * tw + x];
+                    let d = depth.data[(y - y0 + oy) * depth.width + (x - x0 + ox)];
+                    inside += (t > 0.0) as usize;
+                    if t > 0.0 && d > 0.0 {
+                        both += 1;
+                        errors.push(((d - t).abs() / t) as f64);
+                    }
+                }
+            }
+            covered.push(both as f64 / inside as f64);
+        }
+        errors.sort_by(f64::total_cmp);
+        let median_error = errors[errors.len() / 2];
+        let p90_error = errors[(errors.len() as f64 * 0.9) as usize];
+        let median_covered = crate::inputs::median_f64(&mut covered);
+        assert!(median_covered > 0.6, "coverage {median_covered}");
+        assert!(median_error < 0.003, "median error {median_error}");
+        assert!(p90_error < 0.01, "p90 error {p90_error}");
+
+        // Volume and report, as test_volume_and_report checks them.
+        let volume = Npz::read(&root.join("stereo/volume.npz")).unwrap();
+        let (index, total, weight) = (volume.get("index").unwrap(), volume.get("total").unwrap(), volume.get("weight").unwrap());
+        assert_eq!(index.shape[0], total.len());
+        let observed = weight.to_f32().iter().filter(|&&w| w > 0.0).count() as f64 / weight.len() as f64;
+        assert!(observed > 0.3, "{observed}");
+        let hull_volume = index.shape[0] as f64 * volume.get("voxel").unwrap().scalar().unwrap().powi(3);
+        assert!(hull_volume > 4.0 && hull_volume < 7.0, "{hull_volume}");
+        assert!(root.join("stereo/masks-repaired/view_000.png").is_file());
+        for file in ["depth-level-0.png", "depth-level-1.png", "depth-merged.png", "hull-vs-mask.png", "mask-repair.png", "result.json"] {
+            assert!(root.join("stereo").join(file).is_file(), "{file}");
+        }
+        // Events: progress, sheets and preview volumes whose files exist.
+        let log = std::fs::read_to_string(root.join("events.jsonl")).unwrap();
+        let lines: Vec<Value> = log.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+        assert!(lines.iter().all(|l| l["stage"] == "stereo"));
+        let kinds: Vec<&str> = lines.iter().filter(|l| l["type"] == "artifact").map(|l| l["kind"].as_str().unwrap()).collect();
+        assert_eq!(kinds.iter().filter(|k| **k == "preview_volume").count(), 3);
+        assert_eq!(kinds.iter().filter(|k| **k == "depth_sheet").count(), 3);
+        for line in lines.iter().filter(|l| l["type"] == "artifact") {
+            assert!(root.join(line["path"].as_str().unwrap()).is_file(), "{line}");
+        }
+        assert!(lines.iter().any(|l| l["type"] == "metric" && l["name"] == "coverage_level_1"));
+        // A second run into the same directory is refused.
+        assert!(run(&arguments, &config).is_err());
+        std::fs::remove_dir_all(&root).unwrap();
+    }
 }

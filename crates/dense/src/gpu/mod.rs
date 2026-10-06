@@ -26,6 +26,7 @@ pub struct Gpu {
     pub queue: wgpu::Queue,
     pub info: wgpu::AdapterInfo,
     pub limits: wgpu::Limits,
+    peak: std::sync::atomic::AtomicU64,
 }
 
 impl Gpu {
@@ -49,11 +50,16 @@ impl Gpu {
             ..Default::default()
         }))
         .context("GPU device with default WebGPU limits")?;
-        Ok(Gpu { device, queue, info: adapter.get_info(), limits })
+        Ok(Gpu { device, queue, info: adapter.get_info(), limits, peak: std::sync::atomic::AtomicU64::new(0) })
     }
 
     pub fn describe(&self) -> String {
         format!("{} ({:?})", self.info.name, self.info.backend)
+    }
+
+    /// Largest buffer bound to a kernel so far, in bytes (128 MiB is the WebGPU default limit).
+    pub fn peak_binding(&self) -> u64 {
+        self.peak.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Bytes one storage binding may hold, with headroom below the device limit.
@@ -167,6 +173,9 @@ impl Gpu {
         if count == 0 {
             return Ok(());
         }
+        for buffer in buffers {
+            self.peak.fetch_max(buffer.size(), std::sync::atomic::Ordering::Relaxed);
+        }
         let entries: Vec<wgpu::BindGroupEntry> = buffers
             .iter()
             .enumerate()
@@ -217,4 +226,47 @@ pub fn pack_bits(values: impl ExactSizeIterator<Item = bool>) -> Vec<u32> {
 /// True when GPU tests should run (`CRISP3DS_GPU_TESTS=1`); they need an adapter.
 pub fn tests_enabled() -> bool {
     std::env::var("CRISP3DS_GPU_TESTS").map(|v| v == "1").unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use wgpu::naga;
+
+    const SHADERS: [(&str, &str); 8] = [
+        ("carve", include_str!("../shaders/carve.wgsl")),
+        ("cover", include_str!("../shaders/cover.wgsl")),
+        ("fuse", include_str!("../shaders/fuse.wgsl")),
+        ("warp", include_str!("../shaders/warp.wgsl")),
+        ("ncc_rows", include_str!("../shaders/ncc_rows.wgsl")),
+        ("ncc_columns", include_str!("../shaders/ncc_columns.wgsl")),
+        ("aggregate", include_str!("../shaders/aggregate.wgsl")),
+        ("peak", include_str!("../shaders/peak.wgsl")),
+    ];
+
+    /// Every kernel parses and validates without a GPU, uses plain WebGPU
+    /// features only and stays within the default limit of 8 storage buffers.
+    #[test]
+    fn kernels_are_valid_webgpu() {
+        for (name, source) in SHADERS {
+            let source = format!("const ROW: u32 = {}u;\n{source}", super::ROW);
+            let module = naga::front::wgsl::parse_str(&source).unwrap_or_else(|e| panic!("{name}: {}", e.emit_to_string(&source)));
+            let mut validator = naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::empty());
+            validator.validate(&module).unwrap_or_else(|e| panic!("{name}: {e:?}"));
+            let storage = module.global_variables.iter().filter(|(_, v)| matches!(v.space, naga::AddressSpace::Storage { .. })).count();
+            assert!(storage <= 8, "{name} binds {storage} storage buffers");
+            assert!(!module.entry_points.is_empty(), "{name} has no entry point");
+            for entry in &module.entry_points {
+                assert_eq!(entry.stage, naga::ShaderStage::Compute, "{name}");
+                assert_eq!(entry.workgroup_size, [super::WORKGROUP, 1, 1], "{name}");
+            }
+        }
+    }
+
+    #[test]
+    fn bits_pack_least_significant_first() {
+        let mut flags = vec![false; 34];
+        (flags[0], flags[2], flags[33]) = (true, true, true);
+        assert_eq!(super::pack_bits(flags.into_iter()), vec![0b101, 0b10]);
+        assert_eq!(super::pack_bits(Vec::<bool>::new().into_iter()), vec![0]);
+    }
 }

@@ -5,8 +5,9 @@ Python: GPU stages as WebGPU compute shaders through `wgpu` (Metal, Vulkan,
 DirectX 12, and WebGPU in browsers), the rest as plain Rust. The Python package
 stays the reference implementation until every stage here reproduces it.
 
-Status: surface extraction is ported and at parity (`mesh`, below). The other
-stages are being ported in this order: hull and fusion, matching, inputs.
+Status: surface extraction (`mesh`) and dense stereo (`stereo`) are ported; see
+their sections below for measured parity. Not ported: the photo front end
+(masks and cameras from plain photos), the photo check and the scan evaluator.
 
 ## Rules of the port
 
@@ -127,6 +128,75 @@ from `scan_evaluate.py` against the independent scans, which no stage reads):
 objects. Preview path (`--step 2`, Dragon): both closed, 245 442 / 245 436
 triangles, genus 12 / 11, distance median 0.001, p99 0.19, maximum 1.05 voxels
 (cells are two voxels wide there), 22.9 s / 6.2 s.
+
+## Dense stereo: `crisp3ds-dense stereo`
+
+Port of `python -m scripts.turntable_mesh.multiscale_stereo`: inputs, silhouette
+hull, mask repair, coarse-to-fine matching, cross-view agreement and TSDF
+fusion. Not yet called by `dense_pipeline.py`.
+
+```sh
+crisp3ds-dense stereo --inputs DIR --output DIR [--config config.json] \
+    [--set key=value ...] [--reuse-depths depths.npz] [--events events.jsonl] \
+    [--previews] [--device NAME]
+```
+
+Same behaviour as the Python module: refuses an existing output directory;
+writes `masks-repaired/`, `mask-repair.png`, `hull-vs-mask.png`,
+`depth-level-N.png`, `depth-merged.png`, `depths.npz`, `volume.npz` and
+`result.json`; with `--previews` writes `preview/*.npz` (renamed into place when
+complete); appends the same progress, metric and artifact events. `--device` is
+accepted and ignored (the adapter is chosen by `wgpu`); `result.json` carries
+`device` (adapter and backend) and `engine` instead of `torch_version`, and a
+few extra timings. `fused_passes` above 0 is refused (not ported; the default
+is 0).
+
+| Step | Where | Runs on |
+| --- | --- | --- |
+| Photos, masks, grey stretch, common canvas, neighbours | `inputs.rs` | CPU, 4 threads |
+| Silhouette carving (`carve`, `build_hull`) | `hull.rs`, `shaders/carve.wgsl` | GPU over candidate voxel lists; grid geometry and candidate test on the CPU |
+| Mask repair (`orbit_down`, `cover`, `repair_masks`) | `repair.rs`, `shaders/cover.wgsl` | GPU projection, CPU photo test |
+| Pyramid levels (`build_level`) | `stereo/level.rs` | CPU; Pillow's BILINEAR and BOX reductions reimplemented |
+| Matching (`score`, `ncc`, `_aggregate`, `_peak`, `sweep`, `refine`) | `stereo/matcher.rs`, `shaders/warp.wgsl`, `ncc_rows.wgsl`, `ncc_columns.wgsl`, `aggregate.wgsl`, `peak.wgsl` | GPU; the cost volume stays on the device |
+| `initial`, `consistent`, `hull_front`, level fallback | `stereo/depth.rs` | CPU, float32, PyTorch's interpolation and pooling conventions |
+| Fusion (`tsdf`) and support height | `fusion.rs`, `shaders/fuse.wgsl` | GPU over the hull's voxel list |
+| Level loop, sheets, files, events | `stereo/levels.rs`, `stereo/run.rs`, `stereo/previews.rs` | CPU |
+
+GPU use is plain WebGPU: WGSL compute shaders, storage and uniform buffers, no
+features, the default limits. The device is requested with `Limits::default()`,
+so a kernel that needs more than 8 storage buffers per stage, 128 MiB per
+binding or 65 535 workgroups per dimension fails validation here as it would in
+a browser. Work is chunked to fit: voxels in lists of 2 M, masks and depth maps
+in batches of whole views below 112 MiB, hypotheses in chunks whose six row
+sums per pixel fit one binding. The largest binding of a run is reported as
+`gpu_peak_binding_bytes`. A level whose whole cost volume (hypotheses x pixels
+x 4 bytes) exceeds 112 MiB is refused; with the default settings that is a
+canvas above about 2.6 megapixels at the finest level. Raised limits are not
+requested even where the adapter offers them.
+
+Tests: `cargo test` runs everything that needs no GPU, including validation of
+every shader with naga. `CRISP3DS_GPU_TESTS=1 cargo test` adds the kernels
+against scalar implementations and the whole stage on an analytic sphere
+(`stereo/synthetic.rs`, a port of `synthetic_scene.py`) with the thresholds of
+`test_multiscale_stereo.py`. `CRISP3DS_GPU_FALLBACK=1` asks for a software
+adapter.
+
+Deliberate differences from the reference:
+
+- Window sums of the matching score are accumulated row by row in float32
+  instead of through `avg_pool2d`; bilinear samples, projections and votes are
+  computed per element in WGSL rather than as tensor operations. Results differ
+  in the last bits and, at thresholds and pixel boundaries, in single decisions.
+- `orbit_down` takes the orbit normal from a double-precision eigenvector of
+  the camera centres' scatter matrix instead of a single-precision SVD.
+- `hull_front`, `initial`, `consistent` and the fallback merge run on the CPU.
+- Preview sheets are resampled in float and rounded (Pillow resamples 8-bit
+  data in fixed point); shading values above 1 saturate instead of wrapping.
+- `result.json` keys are in alphabetical order.
+
+Kept as in the reference although probably unintended there: all views of the
+finer levels search with the inverse-depth step of the last view swept at the
+coarsest level (`step` is overwritten per view in the level-0 loop).
 
 ## Dependencies
 

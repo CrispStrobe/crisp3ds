@@ -5,7 +5,10 @@
 //! on 32-bit float images. [`resize`] follows Pillow's `Resample.c` for that
 //! mode: per output pixel a normalised filter of support `support * scale`,
 //! accumulated in double precision and stored as float after each of the two
-//! passes (rows first, then columns).
+//! passes (rows first, then columns). Each term is added with a fused
+//! multiply-add, as the arm64 builds of Pillow do; with that the Bunny's levels
+//! are bit-identical to Pillow 11.2 on Apple silicon. Builds of Pillow that do
+//! not contract the product differ by one float32 unit in about 0.005 % of pixels.
 
 #![allow(clippy::needless_range_loop)]
 
@@ -91,7 +94,7 @@ pub fn resize(source: &Plane<f32>, width: usize, height: usize, filter: Filter) 
             for (x, (first, weights)) in horizontal.iter().enumerate() {
                 let mut sum = 0.0f64;
                 for (n, w) in weights.iter().enumerate() {
-                    sum += line[first + n] as f64 * w;
+                    sum = (line[first + n] as f64).mul_add(*w, sum);
                 }
                 rows.data[y * width + x] = sum as f32;
             }
@@ -106,7 +109,7 @@ pub fn resize(source: &Plane<f32>, width: usize, height: usize, filter: Filter) 
         for x in 0..width {
             let mut sum = 0.0f64;
             for (n, w) in weights.iter().enumerate() {
-                sum += rows.data[(first + n) * width + x] as f64 * w;
+                sum = (rows.data[(first + n) * width + x] as f64).mul_add(*w, sum);
             }
             out.data[y * width + x] = sum as f32;
         }

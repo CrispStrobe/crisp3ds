@@ -194,25 +194,6 @@ mod tests {
     use crate::stereo::level::build_level;
     use crate::stereo::{options, synthetic};
 
-    /// Exact z-depth of the unit sphere at every level pixel.
-    pub fn sphere_depth(view: &LevelView) -> Plane<f32> {
-        let origin = view.camera.centre().map(|v| v as f64);
-        let mut depth = Plane::<f32>::new(view.width, view.height);
-        for y in 0..view.height {
-            for x in 0..view.width {
-                let at_one = view.unproject(x, y, 1.0);
-                let d = [0, 1, 2].map(|a| at_one[a] as f64 - origin[a]);
-                let (a, b) = (d.iter().map(|v| v * v).sum::<f64>(), d.iter().zip(&origin).map(|(d, o)| d * o).sum::<f64>());
-                let c = origin.iter().map(|v| v * v).sum::<f64>() - 1.0;
-                let discriminant = b * b - a * c;
-                if discriminant > 0.0 {
-                    depth.data[y * view.width + x] = ((-b - discriminant.sqrt()) / a) as f32;
-                }
-            }
-        }
-        depth
-    }
-
     /// GPU fusion of exact sphere depth against the scalar votes (`CRISP3DS_GPU_TESTS=1`).
     #[test]
     fn gpu_fusion_matches_scalar_votes_and_finds_the_sphere() {
@@ -227,7 +208,7 @@ mod tests {
         let gpu = Gpu::new().unwrap();
         let state = build_hull(&gpu, &inputs, &config, &mut None).unwrap();
         let level = build_level(&inputs, 128);
-        let depths: Vec<Plane<f32>> = level.iter().map(sphere_depth).collect();
+        let depths: Vec<Plane<f32>> = level.iter().map(synthetic::sphere_depth).collect();
         let rim = 4;
         let fused = tsdf(&gpu, &state.hull, &inputs.cameras, &level, &depths, rim, &config).unwrap();
         assert_eq!(fused.indices.len(), state.hull.count());
