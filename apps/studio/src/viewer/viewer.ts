@@ -62,6 +62,8 @@ export class Viewer {
   });
   private mesh: Mesh | null = null;
   private framed = false;
+  /** The person has moved the camera since the last framing. */
+  private moved = false;
   private pending = 0;
   private disposed = false;
   private readonly observer: ResizeObserver;
@@ -90,13 +92,21 @@ export class Viewer {
     this.controls.enableDamping = false;
     this.controls.zoomToCursor = true;
     this.controls.addEventListener("change", () => this.requestRender());
+    // Once the person turns or zooms, new surfaces keep their view.
+    this.controls.addEventListener("start", () => {
+      this.moved = true;
+    });
 
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(host);
     this.resize();
   }
 
-  /** Shows `parsed` in place of whatever is shown; the camera moves only for the first mesh. */
+  /**
+   * Shows `parsed` in place of whatever is shown. Each new surface is framed until the person
+   * moves the camera, so what ends up on screen does not depend on which surfaces happened to
+   * be shown before it (a fast replay skips some).
+   */
   setMesh(parsed: ParsedMesh): void {
     this.clearMesh();
     const geometry = new BufferGeometry();
@@ -107,7 +117,7 @@ export class Viewer {
     geometry.boundingSphere = geometry.boundingBox.getBoundingSphere(new Sphere());
     this.mesh = new Mesh(geometry, this.material);
     this.orientation.add(this.mesh);
-    if (!this.framed) {
+    if (!this.framed || !this.moved) {
       this.frame();
       this.framed = true;
     } else {
@@ -172,6 +182,7 @@ export class Viewer {
 
   /** Turns the camera around the model (radians); for keyboard control. */
   orbit(azimuth: number, polar: number): void {
+    this.moved = true;
     const offset = this.camera.position.clone().sub(this.controls.target);
     const spherical = new Spherical().setFromVector3(offset);
     spherical.theta += azimuth;
@@ -183,6 +194,7 @@ export class Viewer {
 
   /** Moves the camera towards (factor < 1) or away from the model. */
   zoom(factor: number): void {
+    this.moved = true;
     const offset = this.camera.position.clone().sub(this.controls.target);
     const length = Math.min(this.controls.maxDistance, Math.max(this.controls.minDistance, offset.length() * factor));
     this.camera.position.copy(this.controls.target).add(offset.setLength(length));
@@ -194,6 +206,7 @@ export class Viewer {
   resetView(): void {
     this.camera.position.copy(this.controls.target).add(new Vector3(1, 0.62, 1.15));
     this.camera.up.set(0, 1, 0);
+    this.moved = false;
     this.frame();
   }
 

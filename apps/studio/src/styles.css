@@ -1868,3 +1868,22 @@ fieldset.panel > legend {
 .card.featured h2 {
   font-size: 1.3rem;
 }
+
+/* Which surface is on the picture, on the picture. */
+.viewer-label {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  margin: 0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  background: color-mix(in srgb, var(--panel) 85%, transparent);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.viewer-label.final {
+  color: var(--text);
+  font-weight: 600;
+}

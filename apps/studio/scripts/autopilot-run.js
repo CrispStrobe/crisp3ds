@@ -188,6 +188,32 @@
     await log(`sheets loaded: ${loaded} of ${document.querySelectorAll(".sheet").length}; reports: ${reports.join(", ")}`);
     await log(`CSP violations: ${violations.length === 0 ? "none" : violations.join(" | ")}`);
     const ok = status === "Complete" && loaded > 0 && loaded === images.length && violations.length === 0;
+    // With `marks`, the screens a person sees are shown one after another, each announced as
+    // "MARK <name>" and held, so whoever started the app can photograph them (CI screenshots).
+    if (options.marks) {
+      const hold = Number(options.hold ?? 5000);
+      const mark = async (name) => {
+        await sleep(800);
+        await log(`MARK ${name}`);
+        await sleep(hold);
+      };
+      scrollTo(0, 0);
+      await mark("run");
+      document.querySelector(".viewer")?.scrollIntoView({ block: "center" });
+      await mark("surface");
+      document.querySelector(".gallery, .sheet")?.scrollIntoView({ block: "start" });
+      await mark("sheets");
+      location.hash = "#/engine";
+      await until("the runs list", () => document.querySelector(".run-row"));
+      scrollTo(0, 0);
+      await mark("runs");
+      location.hash = "#/engine/new";
+      await until("the new run form", () => document.querySelector("#s-sizes"));
+      one(".segmented button", "Turntable photos")?.click();
+      await sleep(600);
+      scrollTo(0, 0);
+      await mark("new-run");
+    }
     await log(ok ? "AUTOPILOT DONE ok" : "AUTOPILOT DONE with problems");
   } catch (problem) {
     await log(`CSP violations: ${violations.length === 0 ? "none" : violations.join(" | ")}`);

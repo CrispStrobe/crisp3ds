@@ -431,8 +431,17 @@ async fn native_calibrations(app: AppHandle) -> Result<Value, String> {
 /// Debug builds only: lets a test script that the shell injected report back on stderr.
 #[cfg(debug_assertions)]
 #[tauri::command]
-fn autopilot_log(line: String) {
+fn autopilot_log(app: AppHandle, line: String) {
     eprintln!("[autopilot] {line}");
+    // Also into a file the host can read: on an iOS simulator or in the App Sandbox the
+    // app's standard error does not reach whoever started it.
+    if let Ok(folder) = app.path().app_data_dir() {
+        let _ = std::fs::create_dir_all(&folder);
+        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(folder.join("autopilot.log")) {
+            use std::io::Write as _;
+            let _ = writeln!(file, "[autopilot] {line}");
+        }
+    }
 }
 
 /// Debug builds only: quits the app the way the menu does, so the exit path can be tested.

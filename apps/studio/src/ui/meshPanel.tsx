@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { formatBytes, formatCount } from "../core/format";
+import { chooseMesh, LatestOnly } from "../core/meshChoice";
 import { stlBytes, type MeshStep, type RunStatus } from "../core/reducer";
 import { describe, isAbort } from "../sources/transport";
 import type { RunSource } from "../sources/types";
@@ -39,6 +40,7 @@ export function MeshPanel({ source, meshes, runStatus, themeTick }: Props) {
   const [error, setError] = useState<{ path: string; message: string } | null>(null);
   const [retry, setRetry] = useState(0);
   const [saving, setSaving] = useState(false);
+  const latest = useRef(new LatestOnly());
   /** Sizes learnt by asking the server, by path; null when it could not say. */
   const [probed, setProbed] = useState<Record<string, number | null>>({});
   const [flat, setFlat] = useState(() => loadPrefs().flat);
@@ -90,9 +92,6 @@ export function MeshPanel({ source, meshes, runStatus, themeTick }: Props) {
     viewer.current?.setUp(up);
   }, [ready, up]);
 
-  const newest = meshes[meshes.length - 1];
-  const selected = (chosen !== null ? meshes.find((step) => step.path === chosen) : undefined) ?? newest;
-  const following = chosen === null || selected === undefined || selected.path !== chosen;
 
   // The size of a binary STL follows from its triangle count. When an event does not carry
   // one, the file is asked for its size (HEAD) instead of being downloaded to find out.
@@ -119,11 +118,8 @@ export function MeshPanel({ source, meshes, runStatus, themeTick }: Props) {
 
   // What to put on screen: the selected step, unless it is a big final mesh nobody asked for
   // yet. Then the newest smaller surface stays up (when following) under a "load" button.
-  const awaitingConsent = selected !== undefined && needsConsent(selected);
-  let target: MeshStep | undefined = selected;
-  if (awaitingConsent) {
-    target = following ? [...meshes].reverse().find((step) => !needsConsent(step)) : undefined;
-  }
+  // A function of the steps alone: replay speed or event timing cannot change it.
+  const { selected, target, awaitingConsent, following } = chooseMesh(meshes, chosen, needsConsent);
   const targetPath = target?.path;
 
   useEffect(() => {
@@ -137,6 +133,7 @@ export function MeshPanel({ source, meshes, runStatus, themeTick }: Props) {
     }
     if (shown?.path === targetPath && viewer.current.hasMesh()) return;
     const abort = new AbortController();
+    const ticket = latest.current.begin();
     setError(null);
     setLoading({ path: targetPath, progress: { phase: "download" } });
     loader.current
@@ -144,7 +141,8 @@ export function MeshPanel({ source, meshes, runStatus, themeTick }: Props) {
         if (!abort.signal.aborted) setLoading({ path: targetPath, progress });
       })
       .then((mesh) => {
-        if (abort.signal.aborted || viewer.current === null) return;
+        // Only the newest load may put its surface up: one that finishes late is dropped.
+        if (abort.signal.aborted || !latest.current.isCurrent(ticket) || viewer.current === null) return;
         // The previous mesh's GPU buffers are released inside setMesh.
         viewer.current.setMesh(mesh);
         setShown({ path: targetPath, triangles: mesh.triangles - mesh.dropped });
@@ -217,6 +215,13 @@ export function MeshPanel({ source, meshes, runStatus, themeTick }: Props) {
             event.preventDefault();
           }}
         />
+        {shownStep !== undefined && shown !== null && (
+          // Always on the picture: which surface this is, so nobody mistakes a preview for the result.
+          <p class={`viewer-label${shownStep.kind === "final_mesh" ? " final" : ""}`} aria-hidden="true">
+            {shownStep.label} · {formatCount(shown.triangles)} triangles
+            {shownStep.kind !== "final_mesh" && selected?.kind === "final_mesh" && " (the final surface is not loaded yet)"}
+          </p>
+        )}
         {unsupported !== "" && <p class="viewer-message">{unsupported}</p>}
         {unsupported === "" && meshes.length === 0 && (
           <p class="viewer-message">
