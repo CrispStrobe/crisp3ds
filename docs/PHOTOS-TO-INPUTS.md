@@ -12,8 +12,7 @@ contrast images, gates, sheets, events) and is described in the second half.
 ```sh
 crisp3ds-dense photos --photos data/bunny/rgb \
   --calibration scripts/turntable_mesh/calibrations/3dlf-pro.json \
-  --output runs/bunny-front \
-                                                # masks: threshold, cameras: turntable, unless given
+  --output runs/bunny-front                     # masks: threshold, cameras: turntable, unless given
 crisp3ds-dense run --inputs runs/bunny-front/inputs --output runs/bunny-dense
 crisp3ds-dense photos --list-providers      # the table below, as JSON
 ```

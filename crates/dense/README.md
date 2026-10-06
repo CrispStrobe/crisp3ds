@@ -477,14 +477,13 @@ Every provider now also passes a closure gate: a capture is one closed turn
 unless `--open-turn` says otherwise, and what is left from the last photo to
 the first must be a step like the others.
 
-`turntable` is the default camera provider. With `--masks threshold` a run
-from photos therefore starts no other program (`--masks` itself still defaults
-to `external-sam`):
+`turntable` is the default camera provider and `threshold` the default mask
+provider, so a run from photos starts no other program:
 
 ```sh
 crisp3ds-dense run --photos data/bunny/rgb \
   --calibration scripts/turntable_mesh/calibrations/3dlf-pro.json \
-  --masks threshold --output runs/bunny
+  --output runs/bunny
 ```
 
 One run per object, 73 photos, Apple M1 with 16 GB, scanner F1 at 0.5 %, 1 %
@@ -492,10 +491,16 @@ and 2 % of the scan's diagonal:
 
 | Object | Whole run | Photos stage (cameras in it) | Stereo | Mesh | Check | F1, whole surface | F1, above the support |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Bunny | 93 s | 41 s (31 s) | 45 s | 5 s | 2 s | 0.905 / 0.938 / 0.953 | 0.967 / 0.997 / 1.000 |
-| Armadillo | 83 s | 42 s (32 s) | 35 s | 4 s | 2 s | 0.913 / 0.960 / 0.975 | 0.950 / 0.996 / 1.000 |
-| Dragon | 78 s | 33 s (23 s) | 39 s | 4 s | 2 s | 0.784 / 0.913 / 0.973 | 0.849 / 0.964 / 0.994 |
-| Lucy | 50 s | 23 s (13 s) | 25 s | 1 s | 1 s | 0.819 / 0.937 / 0.963 | 0.862 / 0.985 / 0.999 |
+| Bunny | 93 s | 41 s (31 s) | 45 s | 5 s | 2 s | 0.904 / 0.939 / 0.956 | 0.964 / 0.995 / 1.000 |
+| Armadillo | 83 s | 42 s (32 s) | 35 s | 4 s | 2 s | 0.924 / 0.972 / 0.987 | 0.952 / 0.997 / 1.000 |
+| Dragon | 78 s | 33 s (23 s) | 39 s | 4 s | 2 s | 0.802 / 0.933 / 0.982 | 0.847 / 0.965 / 0.995 |
+| Lucy | 50 s | 23 s (13 s) | 25 s | 1 s | 1 s | 0.822 / 0.940 / 0.965 | 0.861 / 0.985 / 0.999 |
+
+Scores are from the default command at `ac36992` (threshold masks with the
+contact shadow taken out, `--threshold-shadow 0.25`). Times are from the same
+command with `--masks threshold` at `545356e`, before the shadow step, on an
+otherwise idle machine; the runs at `ac36992` shared the machine with other
+work and their times say nothing.
 
 ### Cameras from a printed mat: `--cameras markers`, `crisp3ds-dense mat`
 
