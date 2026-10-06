@@ -148,6 +148,7 @@ pub fn sphere_depth(view: &LevelView) -> Plane<f32> {
     depth
 }
 
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 const USAGE: &str = "usage: crisp3ds-dense synthetic --output DIR [--views N] [--size PIXELS]      an inputs directory (sphere)
        crisp3ds-dense synthetic --capture --output DIR [--views N] [--width W] [--height H]   raw photos, lens.json, truth.json
        crisp3ds-dense synthetic --verify RUN --truth CAPTURE_DIR      check a run made from such a capture";
