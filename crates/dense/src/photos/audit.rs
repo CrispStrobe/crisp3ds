@@ -251,18 +251,18 @@ pub fn audit_solution(solution: &Solution, policy: &Policy) -> anyhow::Result<Va
 
 /// Audits an AliceVision scene file; the file is never changed.
 pub fn audit_scene(path: &Path, policy: &Policy) -> anyhow::Result<Value> {
-    let size = std::fs::metadata(path).ok().filter(|m| m.is_file()).map(|m| m.len());
+    let size = crate::photos::fs::file_len(path);
     if size.is_none_or(|s| s > 128 << 20) {
         bail!("native scene missing or exceeds 128 MiB bound");
     }
-    let raw = std::fs::read(path).with_context(|| path.display().to_string())?;
+    let raw = crate::photos::fs::read(path).with_context(|| path.display().to_string())?;
     let sha = util::sha256(&raw);
     let scene: Value = serde_json::from_slice(&raw).with_context(|| path.display().to_string())?;
     let mut report = audit_solution(&parse_sfm(&scene)?, policy)?;
     if util::sha256_file(path)? != sha {
         bail!("native scene changed during audit");
     }
-    let absolute = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+    let absolute = crate::photos::fs::absolute(path);
     report["scene"] = json!(absolute.to_string_lossy());
     report["scene_sha256"] = json!(sha);
     report["source_unchanged"] = json!(true);

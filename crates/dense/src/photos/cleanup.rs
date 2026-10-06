@@ -6,6 +6,7 @@
 //! a luminance of at most 128. A photo whose filled pixels exceed the budget
 //! fails, and no mask is published unless every photo passes.
 
+use crate::photos::fs::Stored as _;
 use std::path::Path;
 
 use anyhow::{bail, Context};
@@ -96,12 +97,11 @@ pub fn run(
     watch: &mut dyn FnMut(usize) -> anyhow::Result<()>,
 ) -> anyhow::Result<Value> {
     let budget = validate_budget(budget)?;
-    if output.exists() {
+    if output.stored() {
         bail!("output exists: {}", output.display());
     }
     let mut paths = Vec::new();
-    for entry in std::fs::read_dir(images).with_context(|| images.display().to_string())? {
-        let path = entry?.path();
+    for path in crate::photos::fs::list(images).with_context(|| images.display().to_string())? {
         let suffix = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
         if ["png", "jpg", "jpeg"].contains(&suffix.as_str()) {
             paths.push(path);
@@ -123,7 +123,7 @@ pub fn run(
         "background_connectivity": 4, "dark_object_bright_background": true,
     });
     let before = digests(watch)?;
-    std::fs::create_dir_all(output)?;
+    crate::photos::fs::create_dir_all(output)?;
     util::write_json(&output.join("frozen.json"), &json!({"configuration": configuration, "source_hashes_before": before}), 2)?;
     let mut report = json!({
         "schema": "photo_dark_hole_cleanup_v1", "status": "running", "configuration": configuration,
@@ -155,7 +155,7 @@ pub fn run(
         if before != after {
             bail!("source changed during cleanup");
         }
-        std::fs::create_dir_all(output.join("masks"))?;
+        crate::photos::fs::create_dir_all(output.join("masks"))?;
         let mut outputs = serde_json::Map::new();
         for (path, (clean, _)) in paths.iter().zip(&prepared) {
             let target = output.join("masks").join(format!("{}.png", file_name(path)));

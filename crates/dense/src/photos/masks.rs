@@ -4,6 +4,7 @@
 //! same for every provider: dark-hole cleanup, statistics, contact sheet
 //! (`run.rs`).
 
+use crate::photos::fs::Stored as _;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, bail};
@@ -69,7 +70,7 @@ impl MaskProvider for ImportMasks {
     }
 
     fn check(&self, _options: &Options) -> anyhow::Result<()> {
-        if !self.folder.is_dir() {
+        if !self.folder.stored_dir() {
             bail!("--masks import:{} is not a directory", self.folder.display());
         }
         Ok(())

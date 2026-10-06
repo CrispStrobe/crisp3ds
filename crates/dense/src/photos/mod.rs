@@ -32,6 +32,7 @@ pub mod calibration;
 pub mod cleanup;
 pub mod coarse;
 pub mod contrast;
+pub mod fs;
 pub mod markers;
 pub mod option_table;
 pub mod options;
@@ -45,19 +46,13 @@ pub mod staging;
 pub mod turntable;
 pub mod util;
 
-// Everything above is plain image processing and bookkeeping and builds for every target, the browser
-// included: threshold masks, hole cleanup, contrast images, solution readers, gates, undistortion and the
-// scene writer. The modules below start external programs (and ask the file system for free space),
-// which a browser build cannot do.
-#[cfg(not(target_arch = "wasm32"))]
+// The modules below start external programs where a provider needs one. They build for every target:
+// in a browser (and with an in-memory run directory) only the providers without external programs are
+// offered and run (`providers::Provider::external`), and file access goes through `fs` (crate::storage).
 pub mod availability;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod cameras;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod masks;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod process;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod run;
 
 /// Entry point of the `photos` subcommand.

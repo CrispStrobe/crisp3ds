@@ -9,6 +9,7 @@
 //! its reader removes); radial distortion `x_d = x (1 + k1 r^2 + k2 r^4 + k3
 //! r^6)` on normalised coordinates.
 
+use crate::photos::fs::Stored as _;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -320,7 +321,7 @@ impl Reader<'_> {
 type ColmapCameras = HashMap<u64, Lens>;
 
 fn colmap_binary(folder: &Path) -> anyhow::Result<(ColmapCameras, Vec<ColmapImage>, HashMap<u64, Vector>)> {
-    let read = |name: &str| std::fs::read(folder.join(name)).with_context(|| folder.join(name).display().to_string());
+    let read = |name: &str| crate::photos::fs::read(folder.join(name)).with_context(|| folder.join(name).display().to_string());
     let (bytes, mut cameras) = (read("cameras.bin")?, HashMap::new());
     let mut reader = Reader { bytes: &bytes, at: 0 };
     for _ in 0..reader.count(1 << 20)? {
@@ -369,7 +370,7 @@ fn colmap_binary(folder: &Path) -> anyhow::Result<(ColmapCameras, Vec<ColmapImag
 }
 
 fn colmap_text(folder: &Path) -> anyhow::Result<(ColmapCameras, Vec<ColmapImage>, HashMap<u64, Vector>)> {
-    let read = |name: &str| std::fs::read_to_string(folder.join(name)).with_context(|| folder.join(name).display().to_string());
+    let read = |name: &str| crate::photos::fs::read_to_string(folder.join(name)).with_context(|| folder.join(name).display().to_string());
     let number = |text: &str| text.parse::<f64>().map_err(|_| anyhow!("not a number in a COLMAP text file: {text:?}"));
     let integer = |text: &str| text.parse::<i64>().map_err(|_| anyhow!("not an integer in a COLMAP text file: {text:?}"));
     let mut cameras = HashMap::new();
@@ -429,7 +430,7 @@ fn colmap_text(folder: &Path) -> anyhow::Result<(ColmapCameras, Vec<ColmapImage>
 /// or `.txt`). All images must share one camera. `photos` lists the photos
 /// that were given to COLMAP, so that the ones without a pose are known.
 pub fn read_colmap(folder: &Path, photos: &[String]) -> anyhow::Result<Solution> {
-    let (cameras, mut images, points) = if folder.join("images.bin").is_file() { colmap_binary(folder)? } else { colmap_text(folder)? };
+    let (cameras, mut images, points) = if folder.join("images.bin").stored_file() { colmap_binary(folder)? } else { colmap_text(folder)? };
     images.sort_by_key(|image| image.id);
     let used: HashSet<u64> = images.iter().map(|image| image.camera).collect();
     if images.is_empty() || used.len() != 1 {
@@ -468,11 +469,11 @@ pub fn read_colmap(folder: &Path, photos: &[String]) -> anyhow::Result<Solution>
 
 /// Reads a solution by what the path is: a COLMAP model directory or an AliceVision `.sfm` file.
 pub fn read_any(path: &Path, photos: &[String]) -> anyhow::Result<Solution> {
-    if path.is_dir() {
+    if path.stored_dir() {
         let nested = ["", "sparse/0", "0"]
             .iter()
             .map(|sub| path.join(sub))
-            .find(|dir| dir.join("images.bin").is_file() || dir.join("images.txt").is_file());
+            .find(|dir| dir.join("images.bin").stored_file() || dir.join("images.txt").stored_file());
         return read_colmap(
             &nested.ok_or_else(|| anyhow!("{}: no COLMAP model (images.bin or images.txt) there", path.display()))?,
             photos,
@@ -514,9 +515,12 @@ pub(crate) mod tests {
 
     /// A small model: three cameras on the x axis looking along +z, four points, FULL_OPENCV lens.
     pub fn colmap_text_model(folder: &Path) {
-        std::fs::create_dir_all(folder).unwrap();
-        std::fs::write(folder.join("cameras.txt"), "# Camera list\n1 FULL_OPENCV 100 80 90 100 52.5 39.5 -0.1 0.02 0 0 0.003 0 0 0\n")
-            .unwrap();
+        crate::photos::fs::create_dir_all(folder).unwrap();
+        crate::photos::fs::write(
+            folder.join("cameras.txt"),
+            "# Camera list\n1 FULL_OPENCV 100 80 90 100 52.5 39.5 -0.1 0.02 0 0 0.003 0 0 0\n",
+        )
+        .unwrap();
         let (fx, fy, cx, cy, k) = (90.0, 100.0, 52.5, 39.5, [-0.1, 0.02, 0.003]);
         let points = [[0.1, 0.05, 2.0], [-0.2, 0.1, 2.5], [0.3, -0.1, 3.0], [0.0, 0.0, 2.2]];
         let mut images = String::from("# Image list\n");
@@ -531,17 +535,17 @@ pub(crate) mod tests {
             }
             images += "33.0 44.0 -1\n";
         }
-        std::fs::write(folder.join("images.txt"), images).unwrap();
+        crate::photos::fs::write(folder.join("images.txt"), images).unwrap();
         let mut text = String::from("# 3D point list\n");
         for (id, p) in points.iter().enumerate() {
             text += &format!("{} {} {} {} 10 20 30 0.5 1 0 2 0 3 0\n", id + 7, p[0], p[1], p[2]);
         }
-        std::fs::write(folder.join("points3D.txt"), text).unwrap();
+        crate::photos::fs::write(folder.join("points3D.txt"), text).unwrap();
     }
 
     /// The binary form of a text model, written field by field as COLMAP's `WriteBinary` does.
     pub fn colmap_binary_from_text(text: &Path, binary: &Path) {
-        std::fs::create_dir_all(binary).unwrap();
+        crate::photos::fs::create_dir_all(binary).unwrap();
         let mut cameras = 1u64.to_le_bytes().to_vec();
         cameras.extend(1u32.to_le_bytes());
         cameras.extend(6i32.to_le_bytes());
@@ -550,8 +554,8 @@ pub(crate) mod tests {
         for value in [90.0, 100.0, 52.5, 39.5, -0.1, 0.02, 0.0, 0.0, 0.003, 0.0, 0.0, 0.0f64] {
             cameras.extend(value.to_le_bytes());
         }
-        std::fs::write(binary.join("cameras.bin"), cameras).unwrap();
-        let listing = std::fs::read_to_string(text.join("images.txt")).unwrap();
+        crate::photos::fs::write(binary.join("cameras.bin"), cameras).unwrap();
+        let listing = crate::photos::fs::read_to_string(text.join("images.txt")).unwrap();
         let lines: Vec<&str> = listing.lines().filter(|l| !l.starts_with('#')).collect();
         let mut images = ((lines.len() / 2) as u64).to_le_bytes().to_vec();
         for pair in lines.chunks(2) {
@@ -571,8 +575,8 @@ pub(crate) mod tests {
                 images.extend((triple[2].parse::<i64>().unwrap() as u64).to_le_bytes());
             }
         }
-        std::fs::write(binary.join("images.bin"), images).unwrap();
-        let listing = std::fs::read_to_string(text.join("points3D.txt")).unwrap();
+        crate::photos::fs::write(binary.join("images.bin"), images).unwrap();
+        let listing = crate::photos::fs::read_to_string(text.join("points3D.txt")).unwrap();
         let lines: Vec<&str> = listing.lines().filter(|l| !l.starts_with('#')).collect();
         let mut points = (lines.len() as u64).to_le_bytes().to_vec();
         for line in lines {
@@ -589,13 +593,13 @@ pub(crate) mod tests {
                 points.extend(value.parse::<u32>().unwrap().to_le_bytes());
             }
         }
-        std::fs::write(binary.join("points3D.bin"), points).unwrap();
+        crate::photos::fs::write(binary.join("points3D.bin"), points).unwrap();
     }
 
     #[test]
     fn colmap_text_and_binary_models_convert_conventions() {
         let root = std::env::temp_dir().join(format!("crisp3ds-colmap-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
+        let _ = crate::photos::fs::remove_dir_all(&root);
         colmap_text_model(&root.join("text"));
         colmap_binary_from_text(&root.join("text"), &root.join("sparse/0"));
         let photos: Vec<String> = (0..4).map(|n| format!("capture_{n:04}.png")).collect();
@@ -620,11 +624,11 @@ pub(crate) mod tests {
                 assert!((text.lens.pixels[1] * n[1] * gain + text.lens.pixels[3] - pixel[1]).abs() < 1e-9);
             }
         }
-        std::fs::write(root.join("text/cameras.txt"), "1 OPENCV 100 80 90 100 52.5 39.5 -0.1 0.02 0.001 0\n").unwrap();
+        crate::photos::fs::write(root.join("text/cameras.txt"), "1 OPENCV 100 80 90 100 52.5 39.5 -0.1 0.02 0.001 0\n").unwrap();
         assert!(read_colmap(&root.join("text"), &photos).unwrap_err().to_string().contains("tangential"));
-        std::fs::write(root.join("text/cameras.txt"), "1 OPENCV_FISHEYE 100 80 90 100 52.5 39.5 0 0 0 0\n").unwrap();
+        crate::photos::fs::write(root.join("text/cameras.txt"), "1 OPENCV_FISHEYE 100 80 90 100 52.5 39.5 0 0 0 0\n").unwrap();
         assert!(read_colmap(&root.join("text"), &photos).is_err());
-        std::fs::remove_dir_all(&root).unwrap();
+        crate::photos::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

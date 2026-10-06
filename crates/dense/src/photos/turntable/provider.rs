@@ -1,5 +1,6 @@
 //! The `turntable` camera provider inside the `photos` command.
 
+use crate::photos::fs::Stored as _;
 use anyhow::{anyhow, bail};
 use serde_json::json;
 
@@ -24,7 +25,7 @@ impl CameraProvider for Turntable {
 
     fn check(&self, options: &Options) -> anyhow::Result<()> {
         if let Some(path) = &options.turntable.matches {
-            if !path.is_file() {
+            if !path.stored_file() {
                 bail!("--turntable-matches {}: not found", path.display());
             }
         }
@@ -86,7 +87,7 @@ impl CameraProvider for Turntable {
                 solver::solve(&matches, &camera, &settings)
             })?;
         let folder = out.join("sfm/turntable");
-        std::fs::create_dir_all(&folder)?;
+        crate::photos::fs::create_dir_all(&folder)?;
         let mut report = solved.report.clone();
         let mut counts: Vec<f64> = matches.keypoints.iter().map(|k| k.len() as f64).collect();
         let total: usize = matches.pairs.iter().map(|p| p.2.len()).sum();

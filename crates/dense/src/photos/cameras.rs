@@ -11,6 +11,7 @@
 //!   read from `cameras`/`images`/`points3D`;
 //! - `import`: an existing `.sfm` file or COLMAP model.
 
+use crate::photos::fs::Stored as _;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context};
@@ -92,7 +93,7 @@ pub fn alicevision_command(
     let location = tools.location.to_string_lossy().to_string();
     let mut command;
     let mut extra = Vec::new();
-    if tools.location.is_dir() {
+    if tools.location.stored_dir() {
         command = vec![text(alicevision_executable(&tools.location, tool))];
         extra.push(("ALICEVISION_ROOT".to_string(), location));
         let mut libraries = vec![tools.location.join("lib")];
@@ -127,7 +128,7 @@ pub fn sensor_database(location: &Path, explicit: Option<&Path>) -> PathBuf {
     if let Some(explicit) = explicit {
         return explicit.to_path_buf();
     }
-    let prefix = if location.is_dir() { location.to_path_buf() } else { location.parent().unwrap_or(Path::new(".")).join("prefix") };
+    let prefix = if location.stored_dir() { location.to_path_buf() } else { location.parent().unwrap_or(Path::new(".")).join("prefix") };
     prefix.join("share").join("aliceVision").join("cameraSensors.db")
 }
 
@@ -268,16 +269,16 @@ impl CameraProvider for AliceVision {
         let Some(tools) = &options.alicevision.tools else { bail!("missing tool locations: --alicevision / CRISP3DS_ALICEVISION") };
         let location = &tools.location;
         let hint = format!("AliceVision {EXTERNAL_HINT}; give its install prefix or a wrapper script (docs/PHOTOS-TO-INPUTS.md)");
-        if location.is_dir() {
+        if location.stored_dir() {
             let absent: Vec<String> = ALICEVISION_TOOLS
                 .iter()
-                .filter(|tool| !alicevision_executable(location, tool).is_file())
+                .filter(|tool| !alicevision_executable(location, tool).stored_file())
                 .map(|tool| format!("aliceVision_{tool}"))
                 .collect();
             if !absent.is_empty() {
                 bail!("--alicevision {}: no bin/{} there. {hint}", location.display(), absent.join(", bin/"));
             }
-        } else if !location.is_file() {
+        } else if !location.stored_file() {
             bail!("--alicevision {}: not found. {hint}", location.display());
         } else if location.extension().is_some_and(|e| e == "py") && options.python.is_none() {
             bail!(
@@ -292,7 +293,7 @@ impl CameraProvider for AliceVision {
         let lens = lens.ok_or_else(|| anyhow!("the alicevision provider needs the declared lens (--calibration)"))?;
         let (options, out) = (run.options, run.out);
         for name in ["sfm/extra", "work/matches", "work/features"] {
-            std::fs::create_dir_all(out.join(name))?;
+            crate::photos::fs::create_dir_all(out.join(name))?;
         }
         let commands = alicevision_commands(options, &process_environment)?;
         let command = |name: &str| commands.iter().find(|c| c.name == name).expect("command built above");
@@ -462,10 +463,9 @@ pub fn colmap_commands(options: &Options, lens: &Lens) -> anyhow::Result<Vec<Ext
 /// The model directory below `sparse/` with the most registered images.
 fn largest_model(sparse: &Path, photos: &[String]) -> anyhow::Result<(PathBuf, Solution)> {
     let mut best: Option<(PathBuf, Solution)> = None;
-    let mut folders: Vec<PathBuf> =
-        std::fs::read_dir(sparse).with_context(|| sparse.display().to_string())?.flatten().map(|e| e.path()).collect();
+    let mut folders: Vec<PathBuf> = crate::photos::fs::list(sparse).with_context(|| sparse.display().to_string())?;
     folders.sort();
-    for folder in folders.into_iter().filter(|f| f.join("images.bin").is_file() || f.join("images.txt").is_file()) {
+    for folder in folders.into_iter().filter(|f| f.join("images.bin").stored_file() || f.join("images.txt").stored_file()) {
         let solution = read_colmap(&folder, photos)?;
         if best.as_ref().is_none_or(|(_, held)| solution.views.len() > held.views.len()) {
             best = Some((folder, solution));
@@ -483,12 +483,12 @@ impl CameraProvider for Colmap {
         let hint =
             format!("COLMAP {EXTERNAL_HINT}; give the executable or a wrapper with --colmap / CRISP3DS_COLMAP (docs/PHOTOS-TO-INPUTS.md)");
         match &options.colmap.location {
-            Some(location) if !location.is_file() => bail!("--colmap {}: not found. {hint}", location.display()),
+            Some(location) if !location.stored_file() => bail!("--colmap {}: not found. {hint}", location.display()),
             Some(_) => colmap_program(options).map(|_| ()),
             None => {
                 let name = format!("colmap{}", std::env::consts::EXE_SUFFIX);
-                let found =
-                    std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|folder| folder.join(&name).is_file()));
+                let found = std::env::var_os("PATH")
+                    .is_some_and(|path| std::env::split_paths(&path).any(|folder| folder.join(&name).stored_file()));
                 if !found {
                     bail!("no colmap on the PATH. {hint}");
                 }
@@ -501,9 +501,9 @@ impl CameraProvider for Colmap {
         let lens = lens.ok_or_else(|| anyhow!("the colmap provider needs the declared lens (--calibration)"))?;
         let (options, out) = (run.options, run.out);
         let work = out.join("sfm/colmap");
-        std::fs::create_dir_all(work.join("sparse"))?;
+        crate::photos::fs::create_dir_all(work.join("sparse"))?;
         let count = options.photo_count;
-        std::fs::write(work.join("pairs.txt"), ring_pairs(count, options.colmap.overlap as usize))?;
+        crate::photos::fs::write(work.join("pairs.txt"), ring_pairs(count, options.colmap.overlap as usize))?;
         // The option names of the feature steps changed with COLMAP 4; ask the executable unless told.
         let mut versioned = options.clone();
         if versioned.colmap.cli == 0 {
@@ -541,7 +541,7 @@ impl CameraProvider for Import {
     }
 
     fn check(&self, _options: &Options) -> anyhow::Result<()> {
-        if !self.path.exists() {
+        if !self.path.stored() {
             bail!("--cameras import:{} does not exist", self.path.display());
         }
         Ok(())

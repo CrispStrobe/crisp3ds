@@ -207,8 +207,8 @@ impl Capture {
     /// Writes `photos/shot_N.png`, `masks/capture_NNNN.png`, `lens.json` (the true lens) and
     /// `truth.json` (the true poses) into a fresh folder, with the mat's description as `mat.json`.
     pub fn write(&self, mat: &Mat, folder: &Path, threads: usize) -> anyhow::Result<()> {
-        std::fs::create_dir_all(folder.join("photos")).with_context(|| folder.display().to_string())?;
-        std::fs::create_dir_all(folder.join("masks"))?;
+        crate::photos::fs::create_dir_all(folder.join("photos")).with_context(|| folder.display().to_string())?;
+        crate::photos::fs::create_dir_all(folder.join("masks"))?;
         util::parallel(
             self.views,
             threads,

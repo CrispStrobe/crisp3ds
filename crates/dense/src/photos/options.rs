@@ -2,6 +2,7 @@
 //! and `resolve` of `photos_to_inputs.py`, reorganised around providers: one
 //! for the masks, one for the cameras, each with its own namespaced options).
 
+use crate::photos::fs::Stored as _;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -329,7 +330,7 @@ const ALIASES: &[(&str, &str)] = &[
 ];
 
 fn absolute(path: &str) -> PathBuf {
-    std::path::absolute(path).unwrap_or_else(|_| PathBuf::from(path))
+    crate::photos::fs::absolute(path)
 }
 
 fn split_paths(text: &str) -> Vec<String> {
@@ -415,7 +416,7 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
 
     let photos = absolute(&required("photos")?);
     let output = absolute(&required("output")?);
-    if !photos.is_dir() {
+    if !photos.stored_dir() {
         bail!("--photos must be a directory");
     }
     let photo_count = list_photos(&photos)?.len();
@@ -436,7 +437,7 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
         (name, _) => bail!("--masks {name}: expected threshold, import:DIR, external-sam or sam (see --list-providers)"),
     };
     if let MaskChoice::Import(folder) = &masks {
-        if !folder.is_dir() {
+        if !folder.stored_dir() {
             bail!("--masks import:{} is not a directory", folder.display());
         }
     }
@@ -450,7 +451,7 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
         (name, _) => bail!("--cameras {name}: expected alicevision, colmap, turntable, markers or import:PATH (see --list-providers)"),
     };
     if let CameraChoice::Import(path) = &cameras {
-        if !path.exists() {
+        if !path.stored() {
             bail!("--cameras import:{} does not exist", path.display());
         }
     }
@@ -665,12 +666,12 @@ pub(crate) mod tests {
 
     pub fn scratch(name: &str) -> PathBuf {
         let folder = std::env::temp_dir().join(format!("crisp3ds-options-{}-{name}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&folder);
-        std::fs::create_dir_all(folder.join("photos")).unwrap();
+        let _ = crate::photos::fs::remove_dir_all(&folder);
+        crate::photos::fs::create_dir_all(folder.join("photos")).unwrap();
         for n in [1, 2, 10] {
-            std::fs::write(folder.join(format!("photos/thing_{n}_rgb.png")), b"").unwrap();
+            crate::photos::fs::write(folder.join(format!("photos/thing_{n}_rgb.png")), b"").unwrap();
         }
-        std::fs::write(folder.join("av.py"), b"").unwrap();
+        crate::photos::fs::write(folder.join("av.py"), b"").unwrap();
         folder
     }
 
@@ -715,7 +716,7 @@ pub(crate) mod tests {
             (Some("otsu"), Some(0.999))
         );
         assert_eq!(record["timeouts"]["sfm"], 900);
-        std::fs::create_dir_all(folder.join("given")).unwrap();
+        crate::photos::fs::create_dir_all(folder.join("given")).unwrap();
         let given = folder.join("given").to_string_lossy().to_string();
         let variables = |name: &str| match name {
             "CRISP3DS_CAMERAS" => Some("colmap".to_string()),
@@ -729,7 +730,7 @@ pub(crate) mod tests {
         assert_eq!((options.colmap.matching.as_str(), options.colmap.use_masks), ("ring", false));
         let options = resolve(&arguments(&folder, &["--cameras", &format!("import:{given}"), "--masks", "external-sam"]), &none).unwrap();
         assert_eq!((&options.masks, &options.cameras), (&MaskChoice::ExternalSam, &CameraChoice::Import(PathBuf::from(&given))));
-        std::fs::remove_dir_all(&folder).unwrap();
+        crate::photos::fs::remove_dir_all(&folder).unwrap();
     }
 
     #[test]
@@ -769,7 +770,7 @@ pub(crate) mod tests {
         let av = &options.alicevision;
         assert_eq!((av.matching_method.as_str(), av.describer_preset.as_str(), av.initial_field_of_view), ("Sequential", "high", 50.0));
         assert_eq!(av.sfm_option, ["--a", "b"]);
-        std::fs::remove_dir_all(&folder).unwrap();
+        crate::photos::fs::remove_dir_all(&folder).unwrap();
     }
 
     #[test]
@@ -795,16 +796,16 @@ pub(crate) mod tests {
             let error = with(more).unwrap_err().to_string();
             assert!(error.contains(expected), "{more:?}: {error}");
         }
-        std::fs::write(folder.join("bad.json"), "{\"fx\": 1}").unwrap();
+        crate::photos::fs::write(folder.join("bad.json"), "{\"fx\": 1}").unwrap();
         let bad = folder.join("bad.json").to_string_lossy().to_string();
         assert!(with(&["--calibration", &bad]).unwrap_err().to_string().contains("unknown calibration format"));
-        std::fs::create_dir_all(folder.join("two")).unwrap();
+        crate::photos::fs::create_dir_all(folder.join("two")).unwrap();
         for name in ["a.png", "b.png", "notes.txt"] {
-            std::fs::write(folder.join("two").join(name), b"").unwrap();
+            crate::photos::fs::write(folder.join("two").join(name), b"").unwrap();
         }
         assert!(with(&["--photos", &folder.join("two").to_string_lossy()]).unwrap_err().to_string().contains("found 2 photos"));
         let no_lens: Vec<String> = arguments(&folder, &[]).into_iter().filter(|w| w != "--calibration" && *w != example()).collect();
         assert_eq!(resolve(&no_lens, &none).unwrap_err().to_string(), "--calibration is required");
-        std::fs::remove_dir_all(&folder).unwrap();
+        crate::photos::fs::remove_dir_all(&folder).unwrap();
     }
 }

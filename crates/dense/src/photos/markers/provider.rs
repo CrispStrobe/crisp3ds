@@ -61,7 +61,7 @@ impl CameraProvider for Markers {
             Ok((results, estimate))
         })?;
         let folder = out.join("sfm/markers");
-        std::fs::create_dir_all(&folder)?;
+        crate::photos::fs::create_dir_all(&folder)?;
         let found: Vec<_> =
             names.iter().zip(&detections).map(|(name, list)| json!({"photo": name, "markers": super::detections_json(list)})).collect();
         util::write_json(&folder.join("detections.json"), &json!(found), 1)?;

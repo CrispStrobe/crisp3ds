@@ -10,6 +10,7 @@
 //! bilinear sampling in floating point, black outside the photo. No camera
 //! provider has to deliver undistorted images.
 
+use crate::photos::fs::Stored as _;
 use std::path::Path;
 
 use anyhow::{bail, Context};
@@ -64,11 +65,11 @@ pub fn write_scene(
     threads: usize,
     watch: &mut dyn FnMut(usize) -> anyhow::Result<()>,
 ) -> anyhow::Result<Value> {
-    if output.exists() {
+    if output.stored() {
         bail!("output directory exists: {}", output.display());
     }
-    std::fs::create_dir_all(output.join("masks")).with_context(|| output.display().to_string())?;
-    std::fs::create_dir_all(output.join("images"))?;
+    crate::photos::fs::create_dir_all(output.join("masks")).with_context(|| output.display().to_string())?;
+    crate::photos::fs::create_dir_all(output.join("images"))?;
     let (width, height) = (solution.lens.width as usize, solution.lens.height as usize);
     let [fx, fy, cx, cy] = solution.lens.pixels;
     let (map_x, map_y) = undistort_map(solution);
@@ -81,7 +82,9 @@ pub fn write_scene(
             let view = &solution.views[order[n]];
             let name = format!("view_{}", view.id);
             let photo_path = photos.join(&view.source);
-            let photo = image::open(&photo_path).with_context(|| format!("photo of view {}: {}", view.id, photo_path.display()))?.to_rgb8();
+            let photo = crate::photos::fs::open_image(&photo_path)
+                .with_context(|| format!("photo of view {}: {}", view.id, photo_path.display()))?
+                .to_rgb8();
             let mask_path = masks.join(&view.source);
             let mask = read_gray(&mask_path).with_context(|| format!("mask of view {}", view.id))?;
             if (photo.width() as usize, photo.height() as usize) != (width, height) || (mask.width, mask.height) != (width, height) {
@@ -106,13 +109,13 @@ pub fn write_scene(
         Some(points) => points.iter().flatten().copied().collect(),
         None => solution.landmarks.iter().flat_map(|l| l.position).collect(),
     };
-    std::fs::write(output.join("sparse_points.npy"), crate::npz::npy_f64(&[points.len() / 3, 3], &points))?;
+    crate::photos::fs::write(output.join("sparse_points.npy"), crate::npz::npy_f64(&[points.len() / 3, 3], &points))?;
     let mut cameras = json!({ "views": rows });
     if let Some((unit, source)) = &solution.scale {
         // One scene unit is one `unit`; absent for a scene of arbitrary scale.
         cameras["scale"] = json!({"unit": unit, "source": source});
     }
-    std::fs::write(output.join("cameras.json"), serde_json::to_string_pretty(&cameras)? + "\n")?;
+    crate::photos::fs::write(output.join("cameras.json"), serde_json::to_string_pretty(&cameras)? + "\n")?;
     Ok(json!({"views": rows.len(), "sparse_points": points.len() / 3}))
 }
 

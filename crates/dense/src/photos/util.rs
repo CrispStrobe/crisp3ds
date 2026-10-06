@@ -17,11 +17,11 @@ pub fn write_json(path: &Path, value: &Value, indent: usize) -> anyhow::Result<(
     let mut serializer = serde_json::Serializer::with_formatter(&mut out, formatter);
     value.serialize(&mut serializer)?;
     out.push(b'\n');
-    std::fs::write(path, out).with_context(|| path.display().to_string())
+    crate::photos::fs::write(path, out).with_context(|| path.display().to_string())
 }
 
 pub fn read_json(path: &Path) -> anyhow::Result<Value> {
-    let text = std::fs::read_to_string(path).with_context(|| path.display().to_string())?;
+    let text = crate::photos::fs::read_to_string(path).with_context(|| path.display().to_string())?;
     serde_json::from_str(&text).with_context(|| path.display().to_string())
 }
 
@@ -126,7 +126,7 @@ pub fn sha256(bytes: &[u8]) -> String {
 }
 
 pub fn sha256_file(path: &Path) -> anyhow::Result<String> {
-    Ok(sha256(&std::fs::read(path).with_context(|| path.display().to_string())?))
+    Ok(sha256(&crate::photos::fs::read(path).with_context(|| path.display().to_string())?))
 }
 
 /// Runs `work(index)` for every index on `threads` threads and returns the
@@ -139,6 +139,15 @@ pub fn parallel<T: Send>(
     work: impl Fn(usize) -> anyhow::Result<T> + Sync,
     watch: &mut dyn FnMut(usize) -> anyhow::Result<()>,
 ) -> anyhow::Result<Vec<T>> {
+    // Without threads (a browser): one item after the other on the calling thread.
+    if cfg!(target_arch = "wasm32") {
+        let mut out = Vec::with_capacity(count);
+        for n in 0..count {
+            out.push(work(n)?);
+            watch(n + 1)?;
+        }
+        return Ok(out);
+    }
     let next = AtomicUsize::new(0);
     let stop = AtomicBool::new(false);
     let (sender, receiver) = std::sync::mpsc::channel::<(usize, anyhow::Result<T>)>();
@@ -203,13 +212,13 @@ pub fn luma(r: u8, g: u8, b: u8) -> u8 {
 /// Writes a single-channel 8-bit PNG.
 pub fn save_gray(path: &Path, width: usize, height: usize, data: Vec<u8>) -> anyhow::Result<()> {
     let image = image::GrayImage::from_raw(width as u32, height as u32, data).ok_or_else(|| anyhow::anyhow!("image size mismatch"))?;
-    image.save_with_format(path, image::ImageFormat::Png).with_context(|| path.display().to_string())
+    crate::photos::fs::save_image(&image, path)
 }
 
 /// Writes an 8-bit RGB PNG.
 pub fn save_rgb(path: &Path, width: usize, height: usize, data: Vec<u8>) -> anyhow::Result<()> {
     let image = image::RgbImage::from_raw(width as u32, height as u32, data).ok_or_else(|| anyhow::anyhow!("image size mismatch"))?;
-    image.save_with_format(path, image::ImageFormat::Png).with_context(|| path.display().to_string())
+    crate::photos::fs::save_image(&image, path)
 }
 
 #[cfg(test)]

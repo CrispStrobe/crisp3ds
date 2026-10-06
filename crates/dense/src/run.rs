@@ -47,7 +47,8 @@ pub struct RunOptions {
     /// 0/255 masks named like the source photos.
     pub raw_masks: Option<PathBuf>,
     /// Folder of turntable photos: the photos stage (masks, cameras) runs first
-    /// and its scene is the inputs directory. Not in a browser.
+    /// and its scene is the inputs directory. In a browser, or with an output in
+    /// the in-memory tree, only providers without external programs can run.
     pub photos: Option<PathBuf>,
     /// Command-line options of the photos stage (`crisp3ds-dense photos --help`):
     /// `--calibration FILE`, `--masks PROVIDER`, `--cameras PROVIDER` and the
@@ -395,10 +396,6 @@ pub async fn run_async(options: &RunOptions, observer: Option<Observer>, cancel:
     if options.inputs.is_none() && !from_scene && options.photos.is_none() {
         bail!("give photos, or inputs, or all of scene, prepared and raw_masks");
     }
-    if options.photos.is_some() && (cfg!(target_arch = "wasm32") || crate::storage::is_memory(&output)) {
-        bail!("the photos stage starts external programs and needs a run directory on disk");
-    }
-    #[cfg(not(target_arch = "wasm32"))]
     let photo_stage = match &options.photos {
         Some(photos) => Some(photo_stage_options(options, photos, &output)?),
         None => None,
@@ -476,10 +473,7 @@ pub async fn run_async(options: &RunOptions, observer: Option<Observer>, cancel:
         let mesher = mesher.clone();
         std::thread::Builder::new().name("crisp3ds-previews".into()).spawn(move || mesher.work())?
     };
-    #[cfg(not(target_arch = "wasm32"))]
     let outcome = stages(options, photo_stage.as_ref(), &config, &output, &mut driver, source_name).await;
-    #[cfg(target_arch = "wasm32")]
-    let outcome = stages(options, &config, &output, &mut driver, source_name).await;
     let outcome = close(outcome, &events, &mut driver);
     mesher.close();
     #[cfg(not(target_arch = "wasm32"))]
@@ -506,7 +500,6 @@ fn close(outcome: anyhow::Result<()>, events: &EventLog, driver: &mut Driver) ->
 
 /// The photos stage's options for this run: its command line with the run's directories filled in.
 /// Resolved before anything is written, so that a bad option or a missing program fails early.
-#[cfg(not(target_arch = "wasm32"))]
 fn photo_stage_options(options: &RunOptions, photos: &Path, output: &Path) -> anyhow::Result<crate::photos::options::Options> {
     use crate::photos::{cameras::camera_provider, masks::mask_provider, options::resolve};
     let mut arguments: Vec<String> =
@@ -519,14 +512,29 @@ fn photo_stage_options(options: &RunOptions, photos: &Path, output: &Path) -> an
     if resolved.stop_after_masks {
         bail!("--stop-after masks leaves no scene to reconstruct; use the photos command for that");
     }
-    mask_provider(&resolved).check(&resolved)?;
-    camera_provider(&resolved).check(&resolved)?;
+    let (masks, cameras) = (mask_provider(&resolved), camera_provider(&resolved));
+    // External programs need a process and a real directory; ask the provider table which do.
+    if cfg!(target_arch = "wasm32") || crate::storage::is_memory(output) {
+        for provider in [masks.info(), cameras.info()] {
+            if !provider.external.is_empty() {
+                bail!(
+                    "--{} {} starts external programs ({}); in a browser or with an in-memory run directory only providers without \
+                     one can run (see --list-providers)",
+                    provider.module,
+                    provider.name,
+                    provider.external.join(", ")
+                );
+            }
+        }
+    }
+    masks.check(&resolved)?;
+    cameras.check(&resolved)?;
     Ok(resolved)
 }
 
 async fn stages(
     options: &RunOptions,
-    #[cfg(not(target_arch = "wasm32"))] photo_stage: Option<&crate::photos::options::Options>,
+    photo_stage: Option<&crate::photos::options::Options>,
     config: &DenseConfig,
     output: &Path,
     driver: &mut Driver,
@@ -544,7 +552,6 @@ async fn stages(
     )?;
 
     // From plain photos: masks and cameras first. That stage writes its own `masks` and `cameras` stage events.
-    #[cfg(not(target_arch = "wasm32"))]
     let from_photos = match photo_stage {
         Some(photo_options) => {
             println!("[photos] ...");
@@ -581,8 +588,6 @@ async fn stages(
         }
         None => None,
     };
-    #[cfg(target_arch = "wasm32")]
-    let from_photos: Option<PathBuf> = None;
     let given = from_photos.as_ref().or(options.inputs.as_ref());
     let inputs = match given {
         Some(inputs) => {
@@ -713,7 +718,6 @@ pub fn describe_with(photo_options: &[String]) -> Value {
     let _ = photo_options;
     let field =
         |key: &str, label: &str, kind: &str, help: &str| json!({"key": key, "label": label, "kind": kind, "required": true, "help": help});
-    #[cfg_attr(target_arch = "wasm32", allow(unused_mut))]
     let mut points = vec![
         json!({
             "id": "inputs", "label": "Inputs folder",
@@ -735,7 +739,7 @@ pub fn describe_with(photo_options: &[String]) -> Value {
         }),
     ];
     let table = crate::photos::providers::listing();
-    #[cfg(not(target_arch = "wasm32"))]
+    // Only providers that can run on this platform are offered (in a browser: none with an external program).
     {
         use crate::photos::{availability, option_table};
         let tools = availability::ToolLocations::from_words(photo_options, &|name| std::env::var(name).ok());
@@ -865,6 +869,56 @@ pub fn main(arguments: &[String]) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Photos to STL entirely in the in-memory tree: photos and lens copied into `mem:`, the run directory in
+    /// `mem:`, the mesh and the reports written out to `CRISP3DS_MEMORY_RUN_OUT`. Runs only when
+    /// `CRISP3DS_MEMORY_RUN_PHOTOS` (a photo folder) and `CRISP3DS_MEMORY_RUN_CALIBRATION` are set.
+    #[test]
+    fn a_photos_run_in_memory() {
+        let (Ok(photos), Ok(calibration), Ok(out)) = (
+            std::env::var("CRISP3DS_MEMORY_RUN_PHOTOS"),
+            std::env::var("CRISP3DS_MEMORY_RUN_CALIBRATION"),
+            std::env::var("CRISP3DS_MEMORY_RUN_OUT"),
+        ) else {
+            return;
+        };
+        for path in crate::storage::list(&photos).unwrap() {
+            let name = path.file_name().unwrap().to_string_lossy().to_string();
+            crate::storage::write(format!("mem:/given/photos/{name}"), std::fs::read(&path).unwrap()).unwrap();
+        }
+        crate::storage::write("mem:/given/lens.json", std::fs::read(&calibration).unwrap()).unwrap();
+        // An external provider is refused before anything runs.
+        let refused = RunOptions {
+            output: "mem:/refused".into(),
+            photos: Some("mem:/given/photos".into()),
+            photo_options: ["--calibration", "mem:/given/lens.json", "--cameras", "colmap"].map(String::from).to_vec(),
+            ..Default::default()
+        };
+        assert!(run(&refused, None, None).unwrap_err().to_string().contains("starts external programs"));
+        let options = RunOptions {
+            output: "mem:/run".into(),
+            photos: Some("mem:/given/photos".into()),
+            photo_options: ["--calibration", "mem:/given/lens.json"].map(String::from).to_vec(),
+            threads: 4,
+            live_previews: false,
+            ..Default::default()
+        };
+        let report = run(&options, None, None).unwrap();
+        assert_eq!(report["status"], "complete");
+        std::fs::create_dir_all(&out).unwrap();
+        for (from, to) in [
+            ("mesh/mesh.stl", "mesh.stl"),
+            ("pipeline.json", "pipeline.json"),
+            ("check/preview.png", "preview.png"),
+            ("frontend/frontend.json", "frontend.json"),
+            ("frontend/inputs/cameras.json", "cameras.json"),
+        ] {
+            std::fs::write(Path::new(&out).join(to), crate::storage::read(format!("mem:/run/{from}")).unwrap()).unwrap();
+        }
+        let files = crate::storage::memory_files("mem:/run");
+        std::fs::write(Path::new(&out).join("memory-files.json"), serde_json::to_string(&files).unwrap()).unwrap();
+        assert!(!Path::new("mem:").exists(), "nothing was written to a directory named mem:");
+    }
 
     #[test]
     fn options_from_the_command_line_and_from_json() {

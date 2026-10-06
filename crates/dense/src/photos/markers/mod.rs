@@ -20,9 +20,9 @@ pub mod mat;
 pub mod pose;
 pub mod synth;
 
-#[cfg(not(target_arch = "wasm32"))]
 pub mod provider;
 
+use crate::photos::fs::Stored as _;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context};
@@ -148,7 +148,7 @@ pub fn command(arguments: &[String]) -> anyhow::Result<()> {
             table: number("table", d.table)?,
             ..d
         };
-        if PathBuf::from(&folder).exists() {
+        if PathBuf::from(&folder).stored() {
             bail!("output exists: {folder}");
         }
         capture.write(&mat()?, Path::new(&folder), number("threads", 2.0)? as usize)?;

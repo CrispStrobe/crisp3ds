@@ -6,7 +6,9 @@
 //! again when it runs.
 
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use web_time::Instant;
 
 use serde_json::{json, Value};
 

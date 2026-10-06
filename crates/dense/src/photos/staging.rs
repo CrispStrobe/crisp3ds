@@ -1,6 +1,7 @@
 //! Photo staging: the capture order, `capture_NNNN.png` copies and the coarse
 //! masks (`_photos` and `step_coarse` of `photos_to_inputs.py`).
 
+use crate::photos::fs::Stored as _;
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
@@ -53,9 +54,8 @@ fn suffix(path: &Path) -> String {
 /// The photos of a folder in capture order (natural order of the file names).
 pub fn list_photos(folder: &Path) -> anyhow::Result<Vec<PathBuf>> {
     let mut photos = Vec::new();
-    for entry in std::fs::read_dir(folder).with_context(|| folder.display().to_string())? {
-        let path = entry?.path();
-        if PHOTO_SUFFIXES.contains(&suffix(&path).as_str()) && path.is_file() {
+    for path in crate::photos::fs::list(folder).with_context(|| folder.display().to_string())? {
+        if PHOTO_SUFFIXES.contains(&suffix(&path).as_str()) && path.stored_file() {
             photos.push(path);
         }
     }
@@ -94,7 +94,8 @@ impl Photo {
 /// by the decoder, which Pillow does differently; TIFF is not built in.
 pub fn open_photo(path: &Path) -> anyhow::Result<Photo> {
     let context = || format!("{} (the native stage reads PNG and JPEG photos)", path.display());
-    let reader = image::ImageReader::open(path).with_context(context)?.with_guessed_format().with_context(context)?;
+    let bytes = crate::photos::fs::read(path).with_context(context)?;
+    let reader = image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format().with_context(context)?;
     let mut decoder = reader.into_decoder().with_context(context)?;
     let orientation = decoder.orientation().with_context(context)?;
     let mut decoded = image::DynamicImage::from_decoder(decoder).with_context(context)?;
@@ -104,7 +105,7 @@ pub fn open_photo(path: &Path) -> anyhow::Result<Photo> {
 
 /// A 0/255 mask file as a 0/1 plane; anything else in the file is an error.
 pub fn open_binary_mask(path: &Path) -> anyhow::Result<Plane<u8>> {
-    let decoded = image::open(path).with_context(|| path.display().to_string())?;
+    let decoded = crate::photos::fs::open_image(path).with_context(|| path.display().to_string())?;
     let (width, height) = (decoded.width() as usize, decoded.height() as usize);
     let values = match decoded {
         image::DynamicImage::ImageLuma8(gray) => gray.into_raw(),
@@ -122,7 +123,7 @@ pub fn save_mask(path: &Path, mask: &Plane<u8>) -> anyhow::Result<()> {
 
 /// Masks made elsewhere, brought to the names and form the cleanup reads.
 pub fn import_masks(source: &Path, target: &Path, map: &Value, watch: &mut dyn FnMut(usize) -> anyhow::Result<()>) -> anyhow::Result<()> {
-    std::fs::create_dir_all(target)?;
+    crate::photos::fs::create_dir_all(target)?;
     let (width, height) = (map["width"].as_u64().unwrap_or(0) as u32, map["height"].as_u64().unwrap_or(0) as u32);
     for (index, row) in map["photos"].as_array().ok_or_else(|| anyhow!("photo-map.json has no photos"))?.iter().enumerate() {
         let (capture, original) = (capture_name(index), row["source"].as_str().unwrap_or_default());
@@ -130,11 +131,11 @@ pub fn import_masks(source: &Path, target: &Path, map: &Value, watch: &mut dyn F
         let candidates =
             [capture.clone(), format!("{capture}.png"), original.to_string(), format!("{original}.png"), format!("{stem}.png")];
         let found =
-            candidates.iter().map(|name| source.join(name)).find(|path| path.extension().is_some_and(|e| e == "png") && path.is_file());
+            candidates.iter().map(|name| source.join(name)).find(|path| path.extension().is_some_and(|e| e == "png") && path.stored_file());
         let Some(path) = found else {
             bail!("masks import:{}: no mask for photo {original} (looked for {})", source.display(), candidates.join(", "));
         };
-        let gray = image::open(&path).with_context(|| path.display().to_string())?.to_luma8();
+        let gray = crate::photos::fs::open_image(&path).with_context(|| path.display().to_string())?.to_luma8();
         if (gray.width(), gray.height()) != (width, height) {
             bail!("{}: mask is {}x{}, the photos are {width}x{height}", path.display(), gray.width(), gray.height());
         }
@@ -193,8 +194,8 @@ pub fn step_coarse_shadow(
     watch: &mut dyn FnMut(usize) -> anyhow::Result<()>,
 ) -> anyhow::Result<Value> {
     let (staged, masks) = (out.join("work/photos"), out.join("work/coarse-masks"));
-    std::fs::create_dir_all(&staged)?;
-    std::fs::create_dir_all(&masks)?;
+    crate::photos::fs::create_dir_all(&staged)?;
+    crate::photos::fs::create_dir_all(&masks)?;
     let rows = util::parallel(
         photos.len(),
         threads,
@@ -204,9 +205,9 @@ pub fn step_coarse_shadow(
             let photo = open_photo(source)?;
             let byte_exact = suffix(source) == "png" && photo.upright;
             if byte_exact {
-                std::fs::copy(source, staged.join(&name)).with_context(|| source.display().to_string())?;
+                crate::photos::fs::copy(source, staged.join(&name)).with_context(|| source.display().to_string())?;
             } else {
-                photo.rgb.save_with_format(staged.join(&name), image::ImageFormat::Png)?;
+                crate::photos::fs::save_image(&photo.rgb, staged.join(&name))?;
             }
             let (width, height) = (photo.width(), photo.height());
             let window = resolve_envelope(envelope, width, height)?;

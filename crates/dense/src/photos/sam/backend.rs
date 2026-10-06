@@ -4,6 +4,7 @@
 //! at build time by cargo features (`sam-onnx`: ONNX Runtime through the
 //! `ort` crate); everything else of the provider is independent of them.
 
+use crate::photos::fs::Stored as _;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context};
@@ -82,12 +83,12 @@ impl ModelInfo {
     /// Reads `<directory>/model.json` and checks that the files it names are there.
     pub fn read(directory: &Path) -> anyhow::Result<Self> {
         let path = directory.join("model.json");
-        let text =
-            std::fs::read_to_string(&path).with_context(|| format!("{} (a SAM model directory holds model.json)", path.display()))?;
+        let text = crate::photos::fs::read_to_string(&path)
+            .with_context(|| format!("{} (a SAM model directory holds model.json)", path.display()))?;
         let description: Value = serde_json::from_str(&text).with_context(|| path.display().to_string())?;
         let model = Self::parse(directory, &description)?;
         for file in [&model.encoder, &model.decoder] {
-            if !file.is_file() {
+            if !file.stored_file() {
                 bail!("{}: named in model.json but not found", file.display());
             }
         }
@@ -178,13 +179,13 @@ pub mod tests {
     #[test]
     fn a_model_directory_is_described_by_model_json() {
         let folder = std::env::temp_dir().join(format!("crisp3ds-sam-model-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&folder);
-        std::fs::create_dir_all(&folder).unwrap();
+        let _ = crate::photos::fs::remove_dir_all(&folder);
+        crate::photos::fs::create_dir_all(&folder).unwrap();
         assert!(ModelInfo::read(&folder).unwrap_err().to_string().contains("model.json"));
-        std::fs::write(folder.join("model.json"), description().to_string()).unwrap();
+        crate::photos::fs::write(folder.join("model.json"), description().to_string()).unwrap();
         assert!(ModelInfo::read(&folder).unwrap_err().to_string().contains("encoder.onnx: named in model.json but not found"));
-        std::fs::write(folder.join("encoder.onnx"), b"").unwrap();
-        std::fs::write(folder.join("decoder.onnx"), b"").unwrap();
+        crate::photos::fs::write(folder.join("encoder.onnx"), b"").unwrap();
+        crate::photos::fs::write(folder.join("decoder.onnx"), b"").unwrap();
         let model = ModelInfo::read(&folder).unwrap();
         assert_eq!((model.image_size, model.mask_size, model.stability), (1024, 256, Some((0.05, 0.98))));
         assert_eq!(model.decoder, folder.join("decoder.onnx"));
@@ -200,6 +201,6 @@ pub mod tests {
             assert!(open(&model, &options).err().unwrap().to_string().contains("--features sam-onnx"));
         }
         assert!(unavailable("gguf").unwrap().contains("gguf") || compiled().contains(&"gguf"));
-        std::fs::remove_dir_all(&folder).unwrap();
+        crate::photos::fs::remove_dir_all(&folder).unwrap();
     }
 }

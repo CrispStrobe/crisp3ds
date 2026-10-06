@@ -12,10 +12,13 @@
 //! providers may start external programs as bounded child processes. The
 //! gates decide the exit code.
 
+use crate::photos::fs::Stored as _;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use web_time::Instant;
 
 use anyhow::{anyhow, bail, Context};
 use serde_json::{json, Value};
@@ -72,8 +75,8 @@ impl Ticker<'_> {
 }
 
 pub fn count_files(folder: &Path, extension: &str) -> usize {
-    std::fs::read_dir(folder)
-        .map(|entries| entries.flatten().filter(|e| e.path().extension().is_some_and(|x| x == extension)).count())
+    crate::photos::fs::list(folder)
+        .map(|entries| entries.iter().filter(|p| p.extension().is_some_and(|x| x == extension)).count())
         .unwrap_or(0)
 }
 
@@ -85,7 +88,7 @@ fn round_to(value: f64, digits: i32) -> f64 {
 /// Audit, ring statistics and the gate decision; writes the three JSON files and returns the gates.
 fn judge(options: &Options, out: &Path, solution: &Solution, declared: Option<&Lens>) -> anyhow::Result<Value> {
     let sfm = out.join("sfm");
-    std::fs::create_dir_all(&sfm)?;
+    crate::photos::fs::create_dir_all(&sfm)?;
     let gates = &options.gates;
     let names: Vec<String> = (0..options.photo_count).map(capture_name).collect();
     let policy = Policy {
@@ -124,7 +127,7 @@ impl Run<'_> {
     }
 
     fn cancelled(&self) -> bool {
-        self.cancel.as_ref().is_some_and(|flag| flag.load(Ordering::Relaxed)) || self.cancel_file.exists()
+        self.cancel.as_ref().is_some_and(|flag| flag.load(Ordering::Relaxed)) || self.cancel_file.stored()
     }
 
     pub fn warn(&mut self, text: String) {
@@ -144,9 +147,13 @@ impl Run<'_> {
 
     /// Free space floor, the opening progress event and the log file of a step.
     fn begin(&self, stage: &str, name: &str, low: f64, message: &str) -> anyhow::Result<PathBuf> {
-        let free = fs4::available_space(self.out).with_context(|| self.out.display().to_string())? as f64 / (1u64 << 30) as f64;
-        if free < self.options.minimum_free_gib {
-            bail!("{name}: only {free:.1} GiB free; need {} (--minimum-free-gib)", util::python_float(self.options.minimum_free_gib));
+        // There is no disk to ask in a browser or for the in-memory tree.
+        #[cfg(not(target_arch = "wasm32"))]
+        if !crate::storage::is_memory(self.out) {
+            let free = fs4::available_space(self.out).with_context(|| self.out.display().to_string())? as f64 / (1u64 << 30) as f64;
+            if free < self.options.minimum_free_gib {
+                bail!("{name}: only {free:.1} GiB free; need {} (--minimum-free-gib)", util::python_float(self.options.minimum_free_gib));
+            }
         }
         if self.cancelled() {
             bail!("{name} failed (cancelled)");
@@ -230,7 +237,7 @@ impl Run<'_> {
         let mut ticker = Ticker { events: &staged, low, high, last: low, message };
         let (cancel, cancel_file) = (self.cancel.clone(), self.cancel_file.clone());
         let result = work(&mut |done| {
-            if cancel.as_ref().is_some_and(|flag| flag.load(Ordering::Relaxed)) || cancel_file.exists() {
+            if cancel.as_ref().is_some_and(|flag| flag.load(Ordering::Relaxed)) || cancel_file.stored() {
                 return Err(Stopped::Cancelled.into());
             }
             if started.elapsed() > Duration::from_secs(timeout) {
@@ -244,7 +251,7 @@ impl Run<'_> {
             Ok(_) => "done\n".to_string(),
             Err(error) => format!("{error:#}\n"),
         };
-        std::fs::write(&log, &text).with_context(|| log.display().to_string())?;
+        crate::photos::fs::write(&log, &text).with_context(|| log.display().to_string())?;
         let entry = json!({
             "command": ["crisp3ds-dense", "photos", "(in process)", name],
             "exit_code": if stopped.is_some() { Value::Null } else { json!(result.is_err() as u8) },
@@ -345,13 +352,13 @@ impl Run<'_> {
         };
         let lens = declared.as_ref().map(|scaled| scaled.lens(width, height));
         if let Some(scaled) = &declared {
-            std::fs::create_dir_all(out.join("sfm"))?;
+            crate::photos::fs::create_dir_all(out.join("sfm"))?;
             let expected = json!({"pixels": [scaled.fx, scaled.fy, scaled.cx, scaled.cy], "k": scaled.k});
             util::write_json(&out.join("sfm/expected-calibration.json"), &expected, 1)?;
         }
         self.internal("cameras", "contrast", small, 0.0, 0.04, "Contrast images for feature detection", count, |watch| {
             let target = out.join("work/contrast");
-            std::fs::create_dir_all(&target)?;
+            crate::photos::fs::create_dir_all(&target)?;
             let work = |index: usize| -> anyhow::Result<()> {
                 let name = capture_name(index);
                 let photo = open_photo(&out.join("work/photos").join(&name))?;
@@ -437,7 +444,7 @@ impl Run<'_> {
         if !self.options.keep_intermediates {
             for name in names {
                 let path = self.out.join(name);
-                let _ = if path.is_dir() { std::fs::remove_dir_all(&path) } else { std::fs::remove_file(&path) };
+                let _ = if path.stored_dir() { crate::photos::fs::remove_dir_all(&path) } else { crate::photos::fs::remove_file(&path) };
                 deleted.push(*name);
             }
         }
@@ -451,7 +458,7 @@ impl Run<'_> {
 /// next to the event log (`events_path`), or `cancel` set, stops the run.
 pub fn run(options: &Options, events: &EventLog, events_path: &Path, cancel: Option<Arc<AtomicBool>>) -> anyhow::Result<Finished> {
     let out = options.output.as_path();
-    if out.exists() {
+    if out.stored() {
         bail!("output exists: {}", out.display());
     }
     // Missing external programs are reported before anything is written.
@@ -459,7 +466,7 @@ pub fn run(options: &Options, events: &EventLog, events_path: &Path, cancel: Opt
     if !options.stop_after_masks {
         camera_provider(options).check(options)?;
     }
-    std::fs::create_dir_all(out.join("logs")).with_context(|| out.display().to_string())?;
+    crate::photos::fs::create_dir_all(out.join("logs")).with_context(|| out.display().to_string())?;
     let configuration = options.to_json();
     util::write_json(&out.join("frontend-config.json"), &configuration, 1)?;
     let report = json!({

@@ -21,7 +21,6 @@ pub mod image;
 #[cfg(feature = "sam-onnx")]
 pub mod onnx;
 pub mod prompts;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod provider;
 pub mod select;
 

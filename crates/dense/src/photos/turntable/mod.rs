@@ -20,5 +20,4 @@ pub mod geometry;
 pub mod matching;
 pub mod solver;
 
-#[cfg(not(target_arch = "wasm32"))]
 pub mod provider;

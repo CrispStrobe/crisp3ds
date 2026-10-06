@@ -3,6 +3,7 @@
 //! first model is opened (`--sam-runtime`, else `ORT_DYLIB_PATH`), so that
 //! building this crate downloads and links nothing.
 
+use crate::photos::fs::Stored as _;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
@@ -25,7 +26,7 @@ fn runtime(library: Option<&PathBuf>) -> anyhow::Result<String> {
                 None => return Err("ONNX Runtime's shared library is not given (--sam-runtime FILE or ORT_DYLIB_PATH)".to_string()),
             },
         };
-        if !path.is_file() {
+        if !path.stored_file() {
             return Err(format!("{}: ONNX Runtime's shared library not found", path.display()));
         }
         match ort::init_from(&path) {

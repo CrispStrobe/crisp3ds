@@ -3,7 +3,9 @@
 
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use web_time::Instant;
 
 use anyhow::{anyhow, Context};
 use serde_json::{json, Value};

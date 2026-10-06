@@ -208,7 +208,7 @@ impl Mat {
     }
 
     pub fn load(path: &Path) -> anyhow::Result<Mat> {
-        let text = std::fs::read_to_string(path).with_context(|| path.display().to_string())?;
+        let text = crate::photos::fs::read_to_string(path).with_context(|| path.display().to_string())?;
         Mat::from_json(&serde_json::from_str(&text).with_context(|| path.display().to_string())?)
             .with_context(|| path.display().to_string())
     }
@@ -365,12 +365,12 @@ impl Mat {
 
     /// Writes `mat.json`, `mat.svg`, `mat.pdf` and `mat.png` (300 dpi) into `folder`.
     pub fn write(&self, folder: &Path) -> anyhow::Result<()> {
-        std::fs::create_dir_all(folder).with_context(|| folder.display().to_string())?;
+        crate::photos::fs::create_dir_all(folder).with_context(|| folder.display().to_string())?;
         let stem = format!("crisp3ds-marker-mat-{}", self.name);
         let text = serde_json::to_string_pretty(&self.to_json())? + "\n";
-        std::fs::write(folder.join(format!("{stem}.json")), text)?;
-        std::fs::write(folder.join(format!("{stem}.svg")), self.svg())?;
-        std::fs::write(folder.join(format!("{stem}.pdf")), self.pdf())?;
+        crate::photos::fs::write(folder.join(format!("{stem}.json")), text)?;
+        crate::photos::fs::write(folder.join(format!("{stem}.svg")), self.svg())?;
+        crate::photos::fs::write(folder.join(format!("{stem}.pdf")), self.pdf())?;
         let (width, height, pixels) = self.raster(300.0);
         crate::photos::util::save_gray(&folder.join(format!("{stem}.png")), width, height, pixels)
     }

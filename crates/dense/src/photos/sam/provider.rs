@@ -3,8 +3,9 @@
 //! `raw-masks/`, `result.json`), the same files the reference script leaves
 //! under `work/sam/`.
 
+use crate::photos::fs::Stored as _;
 use std::path::{Path, PathBuf};
-use std::time::Instant;
+use web_time::Instant;
 
 use anyhow::{anyhow, bail, Context};
 use serde_json::{json, Value};
@@ -34,7 +35,7 @@ fn default_model() -> Option<PathBuf> {
 pub fn readiness(model: Option<&Path>, runtime: Option<&Path>) -> Result<String, String> {
     let runtime_ready = || match runtime.map(Path::to_path_buf).or_else(|| std::env::var_os("ORT_DYLIB_PATH").map(PathBuf::from)) {
         None => Err("ONNX Runtime's shared library is not given (--sam-runtime FILE or ORT_DYLIB_PATH)".to_string()),
-        Some(library) if !library.is_file() => Err(format!("{}: ONNX Runtime's shared library not found", library.display())),
+        Some(library) if !library.stored_file() => Err(format!("{}: ONNX Runtime's shared library not found", library.display())),
         Some(_) => Ok(()),
     };
     let Some(directory) = model else {
@@ -87,13 +88,12 @@ pub fn run(
     automatic_cues: bool,
     watch: &mut dyn FnMut(usize) -> anyhow::Result<()>,
 ) -> anyhow::Result<Value> {
-    if output.exists() {
+    if output.stored() {
         bail!("output exists: {}", output.display());
     }
     let started = Instant::now();
     let mut paths = Vec::new();
-    for entry in std::fs::read_dir(photos).with_context(|| photos.display().to_string())? {
-        let path = entry?.path();
+    for path in crate::photos::fs::list(photos).with_context(|| photos.display().to_string())? {
         let suffix = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
         if ["png", "jpg", "jpeg"].contains(&suffix.as_str()) {
             paths.push(path);
@@ -125,7 +125,7 @@ pub fn run(
     let mut network = backend::open(model, backend_options)?;
     let load_seconds = loading.elapsed().as_secs_f64();
     for folder in ["masks", "raw-masks"] {
-        std::fs::create_dir_all(output.join(folder))?;
+        crate::photos::fs::create_dir_all(output.join(folder))?;
     }
     let mut rows = Vec::new();
     for (index, (path, prompt)) in paths.iter().zip(&prompts).enumerate() {

@@ -43,7 +43,7 @@ fn reduce(image: &Rgb, width: usize, height: usize) -> Rgb {
 
 /// A mask file as 0/1, like `np.asarray(image.convert("L")) > 0` (masks) or `> 127` (inputs).
 fn open_mask(path: &Path, threshold: u8) -> anyhow::Result<Plane<u8>> {
-    let gray = image::open(path).with_context(|| path.display().to_string())?.to_luma8();
+    let gray = crate::photos::fs::open_image(path).with_context(|| path.display().to_string())?.to_luma8();
     Ok(Plane {
         width: gray.width() as usize,
         height: gray.height() as usize,
@@ -60,7 +60,7 @@ pub fn step_publish_masks(
     watch: &mut dyn FnMut(usize) -> anyhow::Result<()>,
 ) -> anyhow::Result<Value> {
     let target = out.join("masks");
-    std::fs::create_dir(&target).with_context(|| target.display().to_string())?;
+    crate::photos::fs::create_dir(&target).with_context(|| target.display().to_string())?;
     let names: Vec<String> = (0..photo_count).map(capture_name).collect();
     let (mut rows, mut areas, mut dropped, mut pixels) = (Vec::new(), Vec::new(), Vec::new(), 0usize);
     for (done, name) in names.iter().enumerate() {
