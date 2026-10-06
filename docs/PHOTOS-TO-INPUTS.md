@@ -13,7 +13,7 @@ contrast images, gates, sheets, events) and is described in the second half.
 crisp3ds-dense photos --photos data/bunny/rgb \
   --calibration scripts/turntable_mesh/calibrations/3dlf-pro.json \
   --output runs/bunny-front \
-  --masks threshold --cameras alicevision --alicevision /opt/alicevision
+  --masks threshold --cameras colmap            # or: --cameras alicevision --alicevision /opt/alicevision
 crisp3ds-dense run --inputs runs/bunny-front/inputs --output runs/bunny-dense
 crisp3ds-dense photos --list-providers      # the table below, as JSON
 ```
@@ -46,12 +46,14 @@ stages, the same cameras for both mask sets, and the scanner evaluator
 (`crates/dense/README.md` has the table). Above the support the Otsu threshold
 masks give the same scanner F1 as SAM on the Bunny and the Armadillo (within
 0.002) and a higher one on the Dragon and Lucy. Over the whole surface they are
-0.015 to 0.02 lower on three of the four objects, because the contact shadow
-under the object is dark and becomes a ragged skirt around the base. A fixed
-level of 70 keeps most of the shadow out but cuts lit upward faces off (the top
-of the Armadillo's shell). Because of the base, `external-sam` stays the
-default; `--masks threshold` is the choice when no network can run, and it is
-no worse above the support.
+lower where the contact shadow under the object is dark and enters the mask:
+0.003 on the Bunny, 0.005 to 0.013 on the Dragon and 0.015 on the Armadillo
+(after the fusion stage stopped placing the support below the sparse points,
+which removed most of the loss on the Bunny and the Dragon). A fixed level of
+70 keeps most of the shadow out but cuts lit upward faces off (the top of the
+Armadillo's shell). Because of the base, `external-sam` stays the default;
+`--masks threshold` is the choice when no network can run, and it is no worse
+above the support.
 
 ### Camera providers
 
@@ -63,8 +65,8 @@ it used. It does not undistort anything.
 
 | `--cameras` | What it does | Needs | License | Desktop / phone / browser |
 | --- | --- | --- | --- | --- |
-| `alicevision` (default) | `cameraInit`, `featureExtraction` inside the masks, `imageMatching`, `featureMatching`, `globalSfM --lockAllIntrinsics true`: the commands of the reference | AliceVision executables (`--alicevision`) | MPL-2.0 (parts derived from libmv MIT); dependencies carry their own | yes / no / no |
-| `colmap` | `feature_extractor` with one shared `FULL_OPENCV` camera fixed to the declared lens and the masks as COLMAP masks, `exhaustive_matcher` (or `sequential_matcher`, or `matches_importer` on a closed ring of pairs), `mapper` with focal length, principal point and distortion not refined | a COLMAP executable (`--colmap`, or `colmap` on the `PATH`) | BSD-3-Clause; dependencies carry their own | yes / no / no |
+| `colmap` (default) | `feature_extractor` with one shared `FULL_OPENCV` camera fixed to the declared lens and the masks as COLMAP masks, `exhaustive_matcher` (or `sequential_matcher`, or `matches_importer` on a closed ring of pairs), `mapper` with focal length, principal point and distortion not refined | a COLMAP executable (`--colmap`, or `colmap` on the `PATH`) | BSD-3-Clause; dependencies carry their own | yes / no / no |
+| `alicevision` | `cameraInit`, `featureExtraction` inside the masks, `imageMatching`, `featureMatching`, `globalSfM --lockAllIntrinsics true`: the commands of the reference | AliceVision executables (`--alicevision`) | MPL-2.0 (parts derived from libmv MIT); dependencies carry their own | yes / no / no |
 | `turntable` | our own solver for one turn of ordered turntable photos ([`TURNTABLE-SOLVER.md`](TURNTABLE-SOLVER.md)): SIFT features in the masks, one rotation about a fixed axis fitted to all consecutive pairs, tracks, bundle adjustment with free poses and the lens fixed. Repeatable; `--open-turn` for photos that do not close a turn | nothing | this crate | yes / yes / yes |
 | `markers` | a printed mat of ArUco markers under the object ([`MARKER-MAT.md`](MARKER-MAT.md)): markers detected in every photo, a pose per photo from all visible corners, the scene in the mat's millimetres and handedness. Verified on rendered photos only | the mat's description (`--markers-mat`, written by `crisp3ds-dense mat`) | this crate; marker codes of OpenCV's `DICT_4X4_50` | yes / yes / yes |
 | `import:PATH` | reads an existing solution: an AliceVision `.sfm` file, or a COLMAP model directory (`cameras`, `images`, `points3D` as `.bin` or `.txt`, also below `sparse/0`). Its photos may be named like the originals or `capture_NNNN.png` | nothing | this crate | yes / yes / yes |
@@ -87,18 +89,32 @@ less; keypoints likewise); a pose is a world-to-camera quaternion `(w, x, y, z)`
 and translation; the mapper refuses cameras with a distortion coefficient above
 `Mapper.max_extra_param` (1 by default), so the provider raises that bound to
 twice the largest declared coefficient (the 3DLF lens has k3 = -3.7; without
-this only the initial pair registers). `--colmap-cli 4` switches to the option
-names of COLMAP 4 (`FeatureExtraction.use_gpu` for `SiftExtraction.use_gpu`).
+this only the initial pair registers). The option names differ between COLMAP 3 and 4
+(`SiftExtraction.use_gpu` became `FeatureExtraction.use_gpu`); the provider
+asks the executable for its version and uses the matching names
+(`--colmap-cli auto`, the default; `3` or `4` force one).
 `--random-seed` is not passed to COLMAP.
 
-**The COLMAP executable path has not been run.** This machine has no `colmap`;
-Homebrew's bottle (4.2.1) would upgrade Boost, which the local AliceVision
-build links against, and was not installed. The provider was validated with
+`colmap` is the first choice: on the four test objects it registered every
+photo, was several times faster than AliceVision's global SfM and led to equal
+or better reconstructions (`crates/dense/README.md`, "Camera providers through
+the dense stages"). `alicevision` remains available and is the provider the
+Python reference uses.
+
+**Where the COLMAP executable has run.** In CI on Ubuntu (job "photos with the
+COLMAP executable" in `.github/workflows/dense-native.yml`): the distribution's
+COLMAP 3.9.1, version detected by the provider, on a synthetic textured capture
+written by `crisp3ds-dense synthetic --capture` (40 photos of a sphere on a
+20 degree orbit): 40 of 40 photos registered, recovered elevation 19.99 degrees
+against 20, largest step error 0.06 degrees, radius spread 0.06 %, and a dense
+run on top that ends in a closed mesh of genus 0. On the development Mac there
+is no `colmap` (Homebrew's bottle would upgrade Boost under the local
+AliceVision build); the four real objects were run through
 `crates/dense/tools/colmap_pycolmap.py`, a stand-in that accepts the provider's
 command lines and runs the same COLMAP 3.11 library steps through the PyCOLMAP
 wheel (`--colmap crates/dense/tools/colmap_pycolmap.py --python <python with pycolmap>`).
 It has no `matches_importer`, so `--colmap-matching ring` is untested, as are
-the COLMAP 4 option names.
+the COLMAP 4 option names (no COLMAP 4 executable has been run).
 
 ### After the provider
 

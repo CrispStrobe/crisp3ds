@@ -61,6 +61,19 @@ pub const MASKS_EXTERNAL_SAM: Provider = Provider {
     default: true,
 };
 
+pub const CAMERAS_COLMAP: Provider = Provider {
+    module: "cameras",
+    name: "colmap",
+    selector: "--cameras colmap",
+    summary: "COLMAP executable: SIFT features, exhaustive or ordered matching, incremental mapper with the declared lens fixed",
+    desktop: true,
+    mobile: false,
+    wasm: false,
+    external: &["colmap"],
+    license: "COLMAP BSD-3-Clause; its dependencies carry their own licenses",
+    default: true,
+};
+
 pub const CAMERAS_ALICEVISION: Provider = Provider {
     module: "cameras",
     name: "alicevision",
@@ -77,19 +90,6 @@ pub const CAMERAS_ALICEVISION: Provider = Provider {
         "aliceVision_globalSfM",
     ],
     license: "AliceVision MPL-2.0 (parts derived from libmv MIT); its dependencies carry their own licenses",
-    default: true,
-};
-
-pub const CAMERAS_COLMAP: Provider = Provider {
-    module: "cameras",
-    name: "colmap",
-    selector: "--cameras colmap",
-    summary: "COLMAP executable: SIFT features, exhaustive or ordered matching, incremental mapper with the declared lens fixed",
-    desktop: true,
-    mobile: false,
-    wasm: false,
-    external: &["colmap"],
-    license: "COLMAP BSD-3-Clause; its dependencies carry their own licenses",
     default: false,
 };
 
@@ -136,8 +136,8 @@ pub const PROVIDERS: [Provider; 8] = [
     MASKS_THRESHOLD,
     MASKS_IMPORT,
     MASKS_EXTERNAL_SAM,
-    CAMERAS_ALICEVISION,
     CAMERAS_COLMAP,
+    CAMERAS_ALICEVISION,
     CAMERAS_TURNTABLE,
     CAMERAS_MARKERS,
     CAMERAS_IMPORT,
@@ -183,7 +183,7 @@ mod tests {
         assert_eq!(table["schema"], "crisp3ds_photo_providers_v1");
         let expected: [(&str, &[&str]); 2] = [
             ("masks", &["threshold", "import", "external-sam"]),
-            ("cameras", &["alicevision", "colmap", "turntable", "markers", "import"]),
+            ("cameras", &["colmap", "alicevision", "turntable", "markers", "import"]),
         ];
         for (module, names) in expected {
             let rows = table[module].as_array().unwrap();
@@ -192,6 +192,6 @@ mod tests {
             // Whatever starts another program cannot run in a browser.
             assert!(rows.iter().all(|r| r["external"].as_array().unwrap().is_empty() || r["platforms"]["wasm"] == false));
         }
-        assert_eq!(table["cameras"][1]["license"].as_str().unwrap().split(';').next(), Some("COLMAP BSD-3-Clause"));
+        assert_eq!(table["cameras"][0]["license"].as_str().unwrap().split(';').next(), Some("COLMAP BSD-3-Clause"));
     }
 }

@@ -689,7 +689,8 @@ mod tests {
         let folder = scratch("missing");
         let wrapper = folder.join("av.py").to_string_lossy().to_string();
         let check = |more: &[&str]| -> String {
-            let options = resolve(&arguments(&folder, more), &none).unwrap();
+            let all: Vec<&str> = ["--cameras", "alicevision"].iter().chain(more).copied().collect();
+            let options = resolve(&arguments(&folder, &all), &none).unwrap();
             camera_provider(&options).check(&options).err().map(|e| e.to_string()).unwrap_or_default()
         };
         assert_eq!(check(&[]), "missing tool locations: --alicevision / CRISP3DS_ALICEVISION");

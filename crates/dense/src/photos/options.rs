@@ -230,8 +230,8 @@ usage error); 1: a step failed. See docs/PHOTOS-TO-INPUTS.md.
         import:DIR              masks made elsewhere: one 8-bit PNG per photo, white object, named capture_NNNN.png in
                                 capture order or like the photo; the hole cleanup still runs
         external-sam            SAM 2.1 through scripts/turntable_mesh/segment.py in an external Python interpreter (default)
---cameras alicevision           external AliceVision executables, global SfM with the declared lens locked (default)
-          colmap                external COLMAP executable, incremental mapper with the declared lens fixed
+--cameras colmap                external COLMAP executable, incremental mapper with the declared lens fixed (default)
+          alicevision           external AliceVision executables, global SfM with the declared lens locked
           turntable             our own solver for one turn of ordered photos; no external program
           markers               a printed marker mat under the object: exact poses in millimetres, no external program
           import:PATH           an existing solution: AliceVision .sfm file or COLMAP model directory (text or binary)
@@ -486,7 +486,7 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
             bail!("--masks import:{} is not a directory", folder.display());
         }
     }
-    let cameras = match choice("cameras", "CRISP3DS_CAMERAS", "alicevision") {
+    let cameras = match choice("cameras", "CRISP3DS_CAMERAS", "colmap") {
         (name, None) if name == "alicevision" => CameraChoice::AliceVision,
         (name, None) if name == "colmap" => CameraChoice::Colmap,
         (name, None) if name == "markers" => CameraChoice::Markers,
@@ -740,12 +740,12 @@ pub(crate) mod tests {
         let folder = scratch("choices");
         let options = resolve(&arguments(&folder, &[]), &none).unwrap();
         assert_eq!((options.photo_count, options.dark_threshold, options.envelope.as_str()), (3, Threshold::Level(70), "auto"));
-        assert_eq!((&options.masks, &options.cameras), (&MaskChoice::ExternalSam, &CameraChoice::AliceVision));
+        assert_eq!((&options.masks, &options.cameras), (&MaskChoice::ExternalSam, &CameraChoice::Colmap));
         assert_eq!(resolve(&arguments(&folder, &["--masks", "threshold"]), &none).unwrap().dark_threshold, Threshold::Otsu);
         assert_eq!((options.colmap.matching.as_str(), options.colmap.use_masks, options.colmap.cli), ("exhaustive", true, 0));
         let record = options.to_json();
         assert_eq!(record["schema"], SCHEMA);
-        assert_eq!((record["masks_provider"].as_str(), record["cameras_provider"].as_str()), (Some("external-sam"), Some("alicevision")));
+        assert_eq!((record["masks_provider"].as_str(), record["cameras_provider"].as_str()), (Some("external-sam"), Some("colmap")));
         assert_eq!(
             (record["dark_threshold"].as_u64(), record["gates"]["minimum_positive_depth_fraction"].as_f64()),
             (Some(70), Some(0.999))
