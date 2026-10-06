@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { FromWorker, ToWorker, WorkerLike } from "../browser/protocol";
-import { optionErrors, optionsFor, optionTokens } from "../core/providerOptions";
+import { optionErrors, optionTokens, parseOptionSpecs } from "../core/providerOptions";
 import { initialState, reduce } from "../core/reducer";
-import { chosenProviders, importFields, missingFields, parseStartPoints, startBody } from "../core/startPoints";
+import { activeOptions, chosenProviders, importFields, missingFields, parseStartPoints, startBody, startOptionErrors } from "../core/startPoints";
 import { event, fixtureEvents, settle } from "../testing/fixture";
 import { downloadName } from "../ui/download";
 import { BrowserEngine, describeInputs, PREVIEW_LIMIT_MEGAPIXELS, previewAdvice, relativeFiles } from "./browserEngine";
@@ -177,6 +177,8 @@ describe("the engine in this browser", () => {
 });
 
 describe("the photos start", () => {
+  // In the shape of `crisp3ds-dense run --describe`, as the app hands it on.
+  const setting = (name: string, kind: string, fallback: unknown, more: Record<string, unknown> = {}) => ({ name, flag: `--${name}`, kind, default: fallback, choices: [], repeated: false, meaning: `Meaning of ${name}`, ...more });
   const described = [
     {
       id: "photos",
@@ -187,99 +189,122 @@ describe("the photos start", () => {
           module: "masks",
           label: "Masks",
           default: "external-sam",
+          settings: [setting("hole-cleanup-budget", "number", 0.02)],
           options: [
-            { id: "threshold", label: "threshold", available: true, reason: null, external: [], license: "this crate (AGPL-3.0-only)" },
-            { id: "import", label: "import", available: true, external: [] },
-            { id: "external-sam", label: "external-sam", available: false, reason: "SAM is not set up: the Python interpreter missing. See Tools.", external: ["Python interpreter with PyTorch"] },
+            { id: "threshold", label: "threshold", available: true, reason: null, version: "0.1.0", external: [], license: "this crate (AGPL-3.0-only)", settings: [setting("threshold-level", "text", null), setting("threshold-envelope", "text", "auto")], inputs: [] },
+            { id: "import", label: "import", available: true, external: [], settings: [], inputs: [{ key: "masks_import", label: "Masks folder", kind: "folder", help: "One PNG per photo." }] },
+            {
+              id: "external-sam",
+              label: "external-sam",
+              available: false,
+              reason: "SAM 2.1 runs in an external Python: missing an interpreter with PyTorch (--sam-python)",
+              external: ["Python interpreter with PyTorch"],
+              settings: [setting("sam-python", "executable", null), setting("sam-device", "choice", "mps", { choices: ["mps", "cpu", "cuda"] }), setting("sam-multimask", "switch", true)],
+              inputs: [],
+            },
           ],
         },
         {
           module: "cameras",
           label: "Cameras",
-          default: "alicevision",
-          options: [{ id: "alicevision", external: ["aliceVision_cameraInit"], license: "AliceVision MPL-2.0" }, { id: "colmap", available: false, reason: "COLMAP is not set up." }, { id: "import" }],
+          default: "turntable",
+          settings: [setting("clahe-clip", "number", 2.0), setting("open-turn", "switch", false)],
+          options: [
+            { id: "turntable", external: [], version: "0.1.0", settings: [setting("turntable-features", "integer", 6000), setting("turntable-span", "integer", 4), setting("turntable-matches", "path", null)] },
+            { id: "markers", external: [], settings: [setting("markers-minimum", "integer", 5)], inputs: [{ key: "markers_mat", label: "Marker mat description", kind: "file" }] },
+            {
+              id: "colmap",
+              available: true,
+              version: "3.9.1",
+              external: ["colmap"],
+              license: "COLMAP BSD-3-Clause",
+              settings: [setting("colmap-matching", "choice", "exhaustive", { choices: ["exhaustive", "sequential", "ring"] }), setting("colmap-overlap", "integer", 10), setting("colmap-mapper-option", "text", null, { repeated: true })],
+            },
+            { id: "alicevision", available: false, reason: "AliceVision is an external program: give its install prefix", external: ["aliceVision_cameraInit"] },
+            { id: "import" },
+          ],
         },
+      ],
+      option_groups: [
+        { id: "gates", label: "Quality gates", settings: [setting("minimum-registered-fraction", "number", 0.8)] },
+        { id: "nothing", label: "Empty", settings: [setting("python", "executable", null)] },
       ],
     },
   ];
   const point = parseStartPoints(described)[0]!;
+  const provider = (module: string, id: string) => point.providers.find((choice) => choice.module === module)!.options.find((option) => option.id === id)!;
+  const form = (values: Record<string, string>, providers: Record<string, string>, options: Record<string, string | boolean> = {}) => ({ name: "", device: "", reference: "", values, providers, options });
 
   it("keeps providers that cannot run, with the reason, and defaults to one that can", () => {
     const [masks, cameras] = point.providers;
     expect(masks!.options.map((option) => [option.id, option.available])).toEqual([["threshold", true], ["import", true], ["external-sam", false]]);
-    expect(masks!.options[2]!.reason).toContain("SAM is not set up");
+    expect(provider("masks", "external-sam").reason).toContain("SAM 2.1 runs in an external Python");
+    // The engine's default cannot run: the first that can.
     expect(masks!.default).toBe("threshold");
-    expect(cameras!.default).toBe("alicevision");
-    expect(cameras!.options[0]).toMatchObject({ external: ["aliceVision_cameraInit"], license: "AliceVision MPL-2.0", available: true });
-    expect(chosenProviders(point, {})).toEqual({ masks: "threshold", cameras: "alicevision" });
+    expect(cameras!.default).toBe("turntable");
+    expect(provider("cameras", "colmap")).toMatchObject({ external: ["colmap"], license: "COLMAP BSD-3-Clause", available: true, version: "3.9.1" });
+    expect(chosenProviders(point, {})).toEqual({ masks: "threshold", cameras: "turntable" });
     expect(chosenProviders(point, { cameras: "import", masks: "nonsense" })).toEqual({ masks: "threshold", cameras: "import" });
   });
 
-  it("builds the request the engine expects: fields, providers, only the options that differ", () => {
-    const form = {
-      name: "bunny",
-      device: "",
-      reference: "",
-      values: { photos: "rgb", calibration: "/repo/scripts/turntable_mesh/calibrations/3dlf-pro.json", masks_import: "left over" },
-      providers: { masks: "threshold", cameras: "alicevision" },
-      options: { "threshold-level": "otsu", "alicevision-describer-preset": "high", "alicevision-sfm-option": "--maxIter  50", "colmap-matching": "ring", "random-seed": " 0 " },
-    };
-    expect(startBody(point, form, { grid: 320 })).toEqual({
-      photos: "rgb",
-      calibration: "/repo/scripts/turntable_mesh/calibrations/3dlf-pro.json",
-      name: "bunny",
-      providers: { masks: "threshold", cameras: "alicevision" },
-      photo_options: ["--alicevision-describer-preset", "high", "--alicevision-sfm-option", "--maxIter", "--alicevision-sfm-option", "50"],
-      settings: { grid: 320 },
-    });
-    // Everything at its default: no option words at all.
-    expect(startBody(point, { ...form, options: {} }, {})).not.toHaveProperty("photo_options");
+  it("takes every option from the engine's description and has no field for a path or a program", () => {
+    expect(provider("masks", "threshold").settings).toEqual([
+      { name: "threshold-level", label: "Meaning of threshold-level", kind: "text", default: "", choices: [], repeated: false },
+      { name: "threshold-envelope", label: "Meaning of threshold-envelope", kind: "text", default: "auto", choices: [], repeated: false },
+    ]);
+    expect(provider("masks", "external-sam").settings.map((spec) => [spec.name, spec.kind, spec.default])).toEqual([["sam-device", "choice", "mps"], ["sam-multimask", "switch", "on"]]);
+    expect(provider("cameras", "turntable").settings.map((spec) => spec.name)).toEqual(["turntable-features", "turntable-span"]);
+    expect(point.providers.map((choice) => choice.settings.map((spec) => spec.name))).toEqual([["hole-cleanup-budget"], ["clahe-clip", "open-turn"]]);
+    // A group with nothing the form can show is dropped.
+    expect(point.optionGroups.map((group) => [group.id, group.label, group.settings.length])).toEqual([["gates", "Quality gates", 1]]);
+    expect(activeOptions(point, {}).map((spec) => spec.name)).toEqual(["threshold-level", "threshold-envelope", "turntable-features", "turntable-span", "hole-cleanup-budget", "clahe-clip", "open-turn", "minimum-registered-fraction"]);
+    expect(parseOptionSpecs([{ flag: "--x-y", kind: "integer", default: 3 }, { name: "x-y", kind: "integer" }, { name: "odd", kind: "matrix" }, "junk"])).toEqual([{ name: "x-y", label: "x-y", kind: "integer", default: "3", choices: [], repeated: false }]);
   });
 
-  it("asks for the place of imported masks and cameras", () => {
+  it("builds the request the engine expects: fields, providers, only the options that differ", () => {
+    const start = {
+      ...form({ photos: "rgb", calibration: "/repo/calibrations/3dlf-pro.json", masks_import: "left over" }, { masks: "threshold", cameras: "colmap" }),
+      name: "bunny",
+      options: { "threshold-level": "otsu", "threshold-envelope": "auto", "colmap-matching": "ring", "colmap-mapper-option": "--ba_refine_focal_length  0", "turntable-span": "9", "clahe-clip": "2.00", "open-turn": true, "minimum-registered-fraction": " 0.9 " },
+    };
+    expect(startBody(point, start, { grid: 320 })).toEqual({
+      photos: "rgb",
+      calibration: "/repo/calibrations/3dlf-pro.json",
+      name: "bunny",
+      providers: { masks: "threshold", cameras: "colmap" },
+      // The provider's own, the module's, the groups'; nothing of a provider that was not chosen, nothing at its default.
+      photo_options: ["--threshold-level", "otsu", "--colmap-matching", "ring", "--colmap-mapper-option", "--ba_refine_focal_length", "--colmap-mapper-option", "0", "--open-turn", "--minimum-registered-fraction", "0.9"],
+      settings: { grid: 320 },
+    });
+    expect(startBody(point, { ...start, options: {} }, {})).not.toHaveProperty("photo_options");
+    expect(optionTokens(provider("masks", "external-sam").settings, { "sam-multimask": false, "sam-device": "cpu" })).toEqual(["--sam-device", "cpu", "--no-sam-multimask"]);
+  });
+
+  it("asks for the paths a provider needs as data of the run", () => {
     const providers = { masks: "import", cameras: "import" };
-    expect(importFields(point, providers).map((entry) => entry.spec.key)).toEqual(["masks_import", "cameras_import"]);
+    // The app says which; an engine that does not is assumed to import from one path per module.
+    expect(importFields(point, providers).map((entry) => entry.spec)).toEqual([
+      { key: "masks_import", label: "Masks folder", kind: "folder", help: "One PNG per photo." },
+      { key: "cameras_import", label: "Existing cameras", kind: "file" },
+    ]);
     expect(missingFields(point, { photos: "rgb", calibration: "lens.json" }, providers)).toEqual(["masks_import", "cameras_import"]);
-    const body = startBody(point, { name: "", device: "", reference: "", values: { photos: "rgb", calibration: "lens.json", masks_import: "bunny/masks", cameras_import: "bunny/final.sfm" }, providers }, {});
-    expect(body).toMatchObject({ masks_import: "bunny/masks", cameras_import: "bunny/final.sfm", providers });
+    expect(startBody(point, form({ photos: "rgb", calibration: "lens.json", masks_import: "bunny/masks", cameras_import: "bunny/final.sfm" }, providers), {})).toMatchObject({ masks_import: "bunny/masks", cameras_import: "bunny/final.sfm", providers });
     expect(missingFields(point, { photos: "rgb", calibration: "lens.json" }, {})).toEqual([]);
     // The printed marker mat: its description is a file with a field of its own, never an option word.
-    const mat = parseStartPoints([{ ...described[0]!, providers: [described[0]!.providers[0], { module: "cameras", label: "Cameras", default: "markers", options: [{ id: "markers" }, { id: "import" }] }] }])[0]!;
-    expect(importFields(mat, {}).map((entry) => entry.spec.key)).toEqual(["markers_mat"]);
-    expect(missingFields(mat, { photos: "rgb", calibration: "lens.json" }, {})).toEqual(["markers_mat"]);
-    const sent = startBody(mat, { name: "", device: "", reference: "", values: { photos: "rgb", calibration: "lens.json", markers_mat: "mat.json" }, providers: {}, options: { "markers-minimum": "4", "markers-aspect": "auto" } }, {});
+    expect(missingFields(point, { photos: "rgb", calibration: "lens.json" }, { cameras: "markers" })).toEqual(["markers_mat"]);
+    const sent = startBody(point, form({ photos: "rgb", calibration: "lens.json", markers_mat: "mat.json" }, { cameras: "markers" }, { "markers-minimum": "4" }), {});
     expect(sent).toMatchObject({ markers_mat: "mat.json", providers: { masks: "threshold", cameras: "markers" }, photo_options: ["--markers-minimum", "4"] });
   });
 
-  it("writes booleans and repeated options the way the photos stage reads them", () => {
-    expect(optionTokens({ masks: "external-sam", cameras: "colmap" }, { "sam-multimask": false, "sam-preserve-holes": true, "colmap-masks": false, "colmap-overlap": "5", "sam-device": "cpu" })).toEqual([
-      "--colmap-overlap",
-      "5",
-      "--colmap-masks",
-      "off",
-      "--sam-device",
-      "cpu",
-      "--no-sam-multimask",
-    ]);
-    // The same flag has another default under another provider.
-    expect(optionTokens({ masks: "external-sam" }, { "threshold-level": "otsu" })).toEqual(["--threshold-level", "otsu"]);
-    expect(optionTokens({ masks: "threshold" }, { "threshold-level": "70" })).toEqual(["--threshold-level", "70"]);
-    expect(optionsFor("masks", "import").map((spec) => spec.flag)).toEqual(["hole-cleanup-budget"]);
-  });
-
-  it("catches typing slips before sending and never names a program or a place", () => {
-    expect(optionErrors({ cameras: "colmap" }, { "colmap-overlap": "many", "colmap-max-features": "4096", "clahe-clip": "x", "colmap-matching": "spiral" })).toEqual({
+  it("catches typing slips before sending", () => {
+    expect(startOptionErrors(point, { cameras: "colmap" }, { "colmap-overlap": "many", "clahe-clip": "x", "colmap-matching": "spiral", "threshold-envelope": "--output", "turntable-span": "nonsense of a provider that is not chosen" })).toEqual({
       "colmap-overlap": "Needs a whole number.",
       "clahe-clip": "Needs a number.",
-      "colmap-matching": "Must be one of: exhaustive, ring, sequential.",
+      "colmap-matching": "Must be one of: exhaustive, sequential, ring.",
+      "threshold-envelope": "A value cannot start with two dashes.",
     });
-    expect(optionTokens({ cameras: "colmap" }, { "colmap-overlap": "many" })).toEqual([]);
-    const reserved = ["photos", "output", "events", "calibration", "masks", "cameras", "python", "alicevision", "alicevision-library-path", "colmap", "sam-python", "sam-source", "sam-checkpoint", "sam-repository", "stop-after", "markers-mat"];
-    for (const module of ["masks", "cameras"]) {
-      for (const provider of ["threshold", "import", "external-sam", "alicevision", "colmap", "markers"]) {
-        for (const spec of optionsFor(module, provider)) expect(reserved).not.toContain(spec.flag);
-      }
-    }
+    expect(optionTokens(provider("cameras", "colmap").settings, { "colmap-overlap": "many" })).toEqual([]);
+    expect(optionErrors(provider("masks", "threshold").settings, { "threshold-envelope": "" })).toEqual({ "threshold-envelope": "Needs a value." });
   });
 });
 

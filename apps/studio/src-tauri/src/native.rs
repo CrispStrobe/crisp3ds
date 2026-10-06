@@ -129,6 +129,9 @@ pub struct Native {
     granted: Mutex<HashSet<PathBuf>>,
     /// Where the external programs of the photos start are, and the crisp3ds checkout.
     tools: Mutex<Option<(crate::config::Tools, String)>>,
+    /// The start points with the tools looked at, kept until the tools change: looking
+    /// may start a program to ask for its version.
+    described: Mutex<Option<Value>>,
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -313,14 +316,25 @@ impl Native {
     /// Sets where the external programs of the photos start are (from the settings).
     pub fn configure_tools(&self, tools: crate::config::Tools, repo: String) {
         *self.tools.lock().unwrap() = Some((tools, repo));
+        self.forget_tools();
     }
 
-    /// The crate's start points, with every provider marked available or not, and why.
+    /// Makes the next look at the start points ask the tools again (after "Check").
+    pub fn forget_tools(&self) {
+        *self.described.lock().unwrap() = None;
+    }
+
+    /// The crate's start points for the form: every provider with whether it can run here
+    /// and why not, its version, its options and its path fields.
     pub fn start_points(&self) -> Value {
-        let mut points = start_points();
-        if let Some((tools, repo)) = self.tools.lock().unwrap().as_ref() {
-            crate::tools::annotate(&mut points, tools, repo, crate::tools::sandboxed());
+        if let Some(points) = self.described.lock().unwrap().as_ref() {
+            return points.clone();
         }
+        let points = match self.tools.lock().unwrap().as_ref() {
+            Some((tools, repo)) => crate::tools::start_points(tools, repo, crate::tools::contained()),
+            None => start_points(),
+        };
+        *self.described.lock().unwrap() = Some(points.clone());
         points
     }
 
@@ -333,11 +347,11 @@ impl Native {
         if !calibration.is_file() {
             return Err("calibration: that is not a file".into());
         }
+        let points = self.start_points();
         let guard = self.tools.lock().unwrap();
         let (tools, repo) = guard.as_ref().ok_or("the tools of the photos start are not configured")?;
         let mut chosen = Vec::new();
         for (module, import) in [("masks", &body.masks_import), ("cameras", &body.cameras_import)] {
-            let points = start_points();
             let choice = points
                 .as_array()
                 .into_iter()
@@ -347,11 +361,11 @@ impl Native {
                 .find(|choice| choice["module"] == module)
                 .ok_or_else(|| format!("{module}: this build has no providers for it"))?;
             let name = body.providers.get(module).and_then(Value::as_str).or(choice["default"].as_str()).unwrap_or_default().to_string();
-            if !choice["options"].as_array().into_iter().flatten().any(|option| option["id"] == name.as_str()) {
+            let Some(option) = choice["options"].as_array().into_iter().flatten().find(|option| option["id"] == name.as_str()) else {
                 return Err(format!("{module}: there is no provider named {name:?}"));
-            }
-            if let Some(reason) = crate::tools::unavailable(module, &name, tools, repo, crate::tools::sandboxed()) {
-                return Err(format!("{module}: {reason}"));
+            };
+            if option["available"] == false {
+                return Err(format!("{module}: {}", option["reason"].as_str().unwrap_or("this provider cannot run here")));
             }
             let selector = if name == "import" {
                 let key = format!("{module}_import");
@@ -374,7 +388,9 @@ impl Native {
             }
             options.extend(["--markers-mat".to_string(), mat.to_string_lossy().into_owned()]);
         }
-        options.extend(crate::tools::location_flags(&chosen[0].0, &chosen[1].0, tools, repo));
+        if !crate::tools::contained() {
+            options.extend(crate::tools::location_words(Some((&chosen[0].0, &chosen[1].0)), tools, repo));
+        }
         options.extend(body.photo_options.iter().cloned());
         Ok(options)
     }
@@ -1049,15 +1065,8 @@ mod tests {
         std::fs::write(root.join("data/bunny/final.sfm"), "{}").unwrap();
         let calibration = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../scripts/turntable_mesh/calibrations/3dlf-pro.json");
         std::fs::copy(calibration, root.join("data/lens.json")).unwrap();
-        // A fake AliceVision prefix makes that provider available.
-        let prefix = root.join("av");
-        std::fs::create_dir_all(prefix.join("bin")).unwrap();
-        for name in crate::tools::ALICEVISION_PROGRAMS {
-            std::fs::write(prefix.join("bin").join(if cfg!(windows) { format!("{name}.exe") } else { name.to_string() }), "").unwrap();
-        }
         let mut tools = no_tools();
-        tools.alicevision.value = prefix.to_string_lossy().into_owned();
-        tools.alicevision_library_path.value = "/opt/homebrew/lib".into();
+        tools.alicevision.value = root.join("no-alicevision-here").to_string_lossy().into_owned();
         engine.configure_tools(tools, String::new());
 
         let body = |providers: Value| StartBody {
@@ -1066,20 +1075,17 @@ mod tests {
             providers: providers.as_object().cloned().unwrap(),
             ..StartBody::default()
         };
-        let mut request = body(json!({"masks": "threshold", "cameras": "alicevision"}));
-        request.photo_options = ["--threshold-level", "otsu", "--alicevision-describer-preset", "high"].map(String::from).to_vec();
+        // Providers inside the crate need no tool, and none is named.
+        let mut request = body(json!({"masks": "threshold", "cameras": "turntable"}));
+        request.photo_options = ["--threshold-level", "otsu", "--turntable-span", "6"].map(String::from).to_vec();
         let options = engine.options(&request, "id").unwrap();
         assert_eq!(options.photos.as_deref(), Some(root.join("data/bunny/rgb").as_path()));
         assert_eq!(options.inputs, None);
         let lens = root.join("data/lens.json").to_string_lossy().into_owned();
-        let prefix_text = prefix.to_string_lossy().into_owned();
-        assert_eq!(
-            options.photo_options,
-            [
-                "--calibration", lens.as_str(), "--masks", "threshold", "--cameras", "alicevision", "--alicevision", prefix_text.as_str(),
-                "--alicevision-library-path", "/opt/homebrew/lib", "--threshold-level", "otsu", "--alicevision-describer-preset", "high",
-            ]
-        );
+        assert_eq!(options.photo_options, ["--calibration", lens.as_str(), "--masks", "threshold", "--cameras", "turntable", "--threshold-level", "otsu", "--turntable-span", "6"]);
+        // Nothing chosen: the app's defaults, which need nothing external.
+        let defaults = engine.options(&body(json!({})), "id").unwrap().photo_options;
+        assert_eq!(defaults[2..6], ["--masks", "threshold", "--cameras", "turntable"]);
 
         // Imports name their place through the request's own fields, inside the data folder.
         let mut imported = body(json!({"masks": "import", "cameras": "import"}));
@@ -1109,28 +1115,31 @@ mod tests {
 
         // What cannot run, does not exist, or tries to name a program is refused with a sentence.
         assert!(engine.options(&body(json!({"masks": "threshold", "cameras": "colmap"})), "id").unwrap_err().starts_with("cameras: "));
-        assert!(engine.options(&body(json!({"masks": "external-sam", "cameras": "alicevision"})), "id").unwrap_err().contains("SAM is not set up"));
-        assert!(engine.options(&body(json!({"masks": "magic", "cameras": "alicevision"})), "id").unwrap_err().contains("no provider named"));
-        let mut sneaky = body(json!({"masks": "threshold", "cameras": "alicevision"}));
+        assert!(engine.options(&body(json!({"masks": "threshold", "cameras": "alicevision"})), "id").unwrap_err().starts_with("cameras: "));
+        assert!(engine.options(&body(json!({"masks": "external-sam", "cameras": "turntable"})), "id").unwrap_err().starts_with("masks: "));
+        assert!(engine.options(&body(json!({"masks": "magic", "cameras": "turntable"})), "id").unwrap_err().contains("no provider named"));
+        let mut sneaky = body(json!({"masks": "threshold", "cameras": "turntable"}));
         sneaky.photo_options = vec!["--alicevision".into(), "/bin/sh".into()];
         assert!(engine.options(&sneaky, "id").unwrap_err().contains("cannot be set by a run request"));
-        let mut wrong = body(json!({"masks": "threshold", "cameras": "alicevision"}));
+        let mut wrong = body(json!({"masks": "threshold", "cameras": "turntable"}));
         wrong.photo_options = vec!["--no-such-option".into()];
         assert!(engine.options(&wrong, "id").unwrap_err().starts_with("photos: "));
-        let mut uncalibrated = body(json!({"masks": "threshold", "cameras": "alicevision"}));
+        let mut uncalibrated = body(json!({"masks": "threshold", "cameras": "turntable"}));
         uncalibrated.calibration = None;
         assert!(engine.options(&uncalibrated, "id").unwrap_err().starts_with("calibration:"));
         assert!(!root.join("runs/id").exists(), "checking must not create the run");
 
-        // The annotated start points say the same.
+        // The start points for the form say the same.
         let points = engine.start_points();
-        let cameras = &points[2]["providers"][1];
+        let photos = points.as_array().unwrap().iter().find(|point| point["id"] == "photos").unwrap();
+        let cameras = photos["providers"].as_array().unwrap().iter().find(|choice| choice["module"] == "cameras").unwrap();
         let available = |id: &str| {
             let options = cameras["options"].as_array().expect("camera providers");
             options.iter().find(|option| option["id"] == id).unwrap_or_else(|| panic!("no provider {id}"))["available"].clone()
         };
-        assert_eq!(available("alicevision"), true);
+        assert_eq!(available("turntable"), true);
+        assert_eq!(available("alicevision"), false);
         assert_eq!(available("colmap"), false);
-        assert_eq!(points[2]["providers"][0]["default"], "threshold");
+        assert_eq!(cameras["default"], "turntable");
     }
 }

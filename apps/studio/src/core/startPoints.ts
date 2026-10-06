@@ -5,7 +5,7 @@
  * `providers` filled in: nothing in the form has to change for it. No DOM.
  */
 
-import { optionTokens, PROVIDER_IMPORTS, type ImportSpec, type OptionValues } from "./providerOptions";
+import { optionErrors, optionTokens, parseOptionSpecs, parsePathInputs, type OptionSpec, type OptionValues, type PathInput } from "./providerOptions";
 import type { SettingValue } from "./settings";
 
 export interface StartField {
@@ -28,6 +28,19 @@ export interface ProviderOption {
   /** External programs it starts; empty when everything runs inside the engine. */
   external: string[];
   license?: string;
+  /** Version of the external program, or of the engine for a provider inside it, where known. */
+  version?: string;
+  /** Its own tuning options. */
+  settings: OptionSpec[];
+  /** Paths it needs as data of the run (masks to import, a marker mat). */
+  inputs: PathInput[];
+}
+
+/** Options that are not tied to one provider (machine, deadlines, quality gates). */
+export interface OptionGroup {
+  id: string;
+  label: string;
+  settings: OptionSpec[];
 }
 
 /** One module of the pipeline with interchangeable implementations. */
@@ -37,6 +50,8 @@ export interface ProviderChoice {
   label: string;
   options: ProviderOption[];
   default?: string;
+  /** Options every provider of the module has. */
+  settings: OptionSpec[];
 }
 
 export interface StartPoint {
@@ -45,6 +60,7 @@ export interface StartPoint {
   meaning?: string;
   fields: StartField[];
   providers: ProviderChoice[];
+  optionGroups: OptionGroup[];
 }
 
 /** What every engine of docs/ENGINE-CONTRACT.md accepts: an inputs folder, or scene + prepared + raw masks. */
@@ -55,6 +71,7 @@ export const CONTRACT_START_POINTS: StartPoint[] = [
     meaning: "A folder with cameras.json, the undistorted photos and their masks.",
     fields: [{ key: "inputs", label: "Inputs folder", kind: "inputs", required: true, help: "A folder with cameras.json, the photos and their masks." }],
     providers: [],
+    optionGroups: [],
   },
   {
     id: "scene",
@@ -66,6 +83,7 @@ export const CONTRACT_START_POINTS: StartPoint[] = [
       { key: "raw_masks", label: "Raw masks", kind: "folder", required: true, help: "One 0/255 mask per source photo, named like the photo." },
     ],
     providers: [],
+    optionGroups: [],
   },
   {
     id: "photos",
@@ -76,6 +94,7 @@ export const CONTRACT_START_POINTS: StartPoint[] = [
       { key: "calibration", label: "Lens calibration (.json)", kind: "file", required: true, help: "Focal length, principal point and radial distortion of the lens." },
     ],
     providers: [],
+    optionGroups: [],
   },
 ];
 
@@ -115,6 +134,15 @@ export function parseStartPoints(json: unknown): StartPoint[] {
           reason: text(option.reason),
           external: Array.isArray(option.external) ? option.external.filter((item): item is string => typeof item === "string") : [],
           license: text(option.license),
+          version: text(option.version),
+          settings: parseOptionSpecs(option.settings),
+          // An engine that does not say: an import brings its data from a path.
+          inputs:
+            option.inputs !== undefined
+              ? parsePathInputs(option.inputs)
+              : optionId === "import" && module !== undefined
+                ? [{ key: `${module}_import`, label: `Existing ${module}`, kind: module === "masks" ? "folder" : "file" }]
+                : [],
         });
       }
       if (module === undefined || options.length === 0) continue;
@@ -123,12 +151,19 @@ export function parseStartPoints(json: unknown): StartPoint[] {
         module,
         label: text(choice.label) ?? module,
         options,
+        settings: parseOptionSpecs(choice.settings),
         // The engine's default if it can be used, else the first provider that can, else the default anyway.
         default: (options.find((option) => option.id === preferred && option.available) ?? options.find((option) => option.available) ?? options.find((option) => option.id === preferred) ?? options[0]!).id,
       });
     }
     if (fields.length === 0) continue;
-    points.push({ id, label: text(row.label) ?? id, meaning: text(row.meaning), fields, providers });
+    const optionGroups: OptionGroup[] = [];
+    for (const group of rows(row.option_groups)) {
+      const settings = parseOptionSpecs(group.settings);
+      const groupId = text(group.id);
+      if (groupId !== undefined && settings.length > 0) optionGroups.push({ id: groupId, label: text(group.label) ?? groupId, settings });
+    }
+    points.push({ id, label: text(row.label) ?? id, meaning: text(row.meaning), fields, providers, optionGroups });
   }
   return points;
 }
@@ -155,13 +190,30 @@ export function chosenProviders(point: StartPoint, picked: Record<string, string
   return chosen;
 }
 
-/** Keys of the paths that the chosen providers import their data from. */
-export function importFields(point: StartPoint, picked: Record<string, string>): { module: string; spec: ImportSpec }[] {
+/** The chosen provider of each module. */
+export function chosenOptions(point: StartPoint, picked: Record<string, string>): { choice: ProviderChoice; option: ProviderOption }[] {
   const chosen = chosenProviders(point, picked);
-  return Object.entries(chosen).flatMap(([module, provider]) => {
-    const spec = PROVIDER_IMPORTS[`${module}:${provider}`];
-    return spec === undefined ? [] : [{ module, spec }];
+  return point.providers.flatMap((choice) => {
+    const option = choice.options.find((candidate) => candidate.id === chosen[choice.module]);
+    return option === undefined ? [] : [{ choice, option }];
   });
+}
+
+/** The paths that the chosen providers need as data of the run. */
+export function importFields(point: StartPoint, picked: Record<string, string>): { module: string; spec: PathInput }[] {
+  return chosenOptions(point, picked).flatMap(({ choice, option }) => option.inputs.map((spec) => ({ module: choice.module, spec })));
+}
+
+/** Every tuning option in effect: the chosen providers' own, their modules', then the general groups. Each once. */
+export function activeOptions(point: StartPoint, picked: Record<string, string>): OptionSpec[] {
+  const chosen = chosenOptions(point, picked);
+  const all = [...chosen.flatMap(({ option }) => option.settings), ...chosen.flatMap(({ choice }) => choice.settings), ...point.optionGroups.flatMap((group) => group.settings)];
+  return all.filter((spec, index) => all.findIndex((other) => other.name === spec.name) === index);
+}
+
+/** Problems of the tuning options in effect, by option name. */
+export function startOptionErrors(point: StartPoint, picked: Record<string, string>, values: OptionValues): Record<string, string> {
+  return optionErrors(activeOptions(point, picked), values);
 }
 
 /** Required fields of the start point that are still empty, by key. */
@@ -192,7 +244,7 @@ export function startBody(point: StartPoint, form: StartForm, changed: Record<st
       const value = (form.values[spec.key] ?? "").trim();
       if (value !== "") body[spec.key] = value;
     }
-    const tokens = optionTokens(providers, form.options ?? {});
+    const tokens = optionTokens(activeOptions(point, form.providers), form.options ?? {});
     if (tokens.length > 0) body.photo_options = tokens;
   }
   if (Object.keys(changed).length > 0) body.settings = changed;

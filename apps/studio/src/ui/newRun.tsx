@@ -10,8 +10,8 @@ import {
   type FormValues,
   type SettingSpec,
 } from "../core/settings";
-import { optionErrors, type OptionValues } from "../core/providerOptions";
-import { chosenProviders, CONTRACT_START_POINTS, missingFields, startBody } from "../core/startPoints";
+import type { OptionValues } from "../core/providerOptions";
+import { CONTRACT_START_POINTS, importFields, missingFields, startBody, startOptionErrors } from "../core/startPoints";
 import { describe, isAbort } from "../sources/transport";
 import { EngineError, type Engine, type EngineHealth } from "../sources/types";
 import { navigate } from "./app";
@@ -75,7 +75,7 @@ export function NewRun({ engine, prefs, onChange }: Props) {
   const points = health?.startPoints ?? CONTRACT_START_POINTS;
   const point = points.find((candidate) => candidate.id === pointId) ?? points[0]!;
   const missing = missingFields(point, values, providers);
-  const optionProblems = point.providers.length > 0 ? optionErrors(chosenProviders(point, providers), providerOptions) : {};
+  const optionProblems = point.providers.length > 0 ? startOptionErrors(point, providers, providerOptions) : {};
   const choosesDevice = health?.choosesDevice !== false;
   const scoresReference = health?.scoresReference !== false;
   const setField = (key: string, value: string) => {
@@ -109,7 +109,7 @@ export function NewRun({ engine, prefs, onChange }: Props) {
       navigate(`#/engine/run/${encodeURIComponent(id)}`);
     } catch (problem) {
       const message = describe(problem);
-      const names = [...(specs ?? []).map((spec) => spec.name), ...point.fields.map((field) => field.key), "masks_import", "cameras_import", "reference", "device", "name"];
+      const names = [...(specs ?? []).map((spec) => spec.name), ...point.fields.map((field) => field.key), ...importFields(point, providers).map((entry) => entry.spec.key), "reference", "device", "name"];
       setServerError(
         problem instanceof EngineError && problem.status === 400 ? placeServerError(message, names) : { fields: [], message },
       );

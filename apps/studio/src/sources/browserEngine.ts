@@ -111,6 +111,7 @@ const BROWSER_START: StartPoint[] = [
     meaning: "A folder on this device with cameras.json, the undistorted photos and their masks. It is read here; nothing is uploaded.",
     fields: [{ key: "inputs", label: "Inputs folder", kind: "inputs", required: true, help: "A folder with cameras.json, the photos and their masks." }],
     providers: [],
+    optionGroups: [],
   },
 ];
 

@@ -1,4 +1,4 @@
-//! Crisp3DS Studio as an app.
+//! Crisp 3D Studio as an app.
 //!
 //! Three ways to get a reconstruction, in the order the app prefers them:
 //!
@@ -53,7 +53,7 @@ fn shell_info() -> ShellInfo {
         native_engine: cfg!(native_engine),
         can_run_engine: cfg!(local_engine),
         can_pick_paths: cfg!(desktop),
-        sandboxed: std::env::var_os("APP_SANDBOX_CONTAINER_ID").is_some(),
+        sandboxed: cfg!(any(target_os = "ios", target_os = "android")) || std::env::var_os("APP_SANDBOX_CONTAINER_ID").is_some(),
         os: std::env::consts::OS,
         version: env!("CARGO_PKG_VERSION"),
         auto_device: config::auto_device(),
@@ -206,7 +206,7 @@ async fn native_health(app: AppHandle) -> Result<Value, String> {
             "runs_dir": runs.to_string_lossy(),
             "data_dir": data.to_string_lossy(),
             "start_points": built_in(&app).start_points(),
-            "sandboxed": tools::sandboxed(),
+            "sandboxed": tools::contained(),
         }))
     }
     #[cfg(not(native_engine))]
@@ -337,6 +337,8 @@ async fn check_tool(app: AppHandle, tool: String) -> Result<Value, String> {
     #[cfg(native_engine)]
     {
         let settings = settings(&app)?;
+        // Whatever the answer, the form's list of providers is made anew: the tool may have been installed since.
+        built_in(&app).forget_tools();
         serde_json::to_value(tools::check(&tool, &settings.tools, &settings.resolved.repo.value)).map_err(|error| error.to_string())
     }
     #[cfg(not(native_engine))]
@@ -530,7 +532,7 @@ pub fn run() {
         check_tool
     ]);
 
-    let app = builder.build(tauri::generate_context!()).expect("error while building Crisp3DS Studio");
+    let app = builder.build(tauri::generate_context!()).expect("error while building Crisp 3D Studio");
     app.run(|_handle, _event| {
         if let tauri::RunEvent::Exit = _event {
             // Runs of the built-in engine are asked to stop and given a moment; whatever is

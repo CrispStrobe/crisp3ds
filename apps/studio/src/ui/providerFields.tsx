@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
-import { optionError, optionsFor, type OptionValues, type ProviderOptionSpec } from "../core/providerOptions";
-import { chosenProviders, importFields, type StartPoint } from "../core/startPoints";
+import { isChanged, optionError, type OptionSpec, type OptionValues } from "../core/providerOptions";
+import { chosenProviders, type StartPoint } from "../core/startPoints";
 import type { Engine } from "../sources/types";
 import { PathField } from "./pathField";
 
@@ -11,23 +11,23 @@ interface Props {
   providers: Record<string, string>;
   onProvider(module: string, id: string): void;
   options: OptionValues;
-  onOption(flag: string, value: string | boolean): void;
+  onOption(name: string, value: string | boolean): void;
   values: Record<string, string>;
   onValue(key: string, value: string): void;
-  /** Error for a field key (import paths) or an option flag. */
+  /** Error for a field key (paths) or an option name. */
   error(key: string): string | undefined;
   /** Where the tools of unavailable providers are set up, if this app has such a screen. */
   toolsHref?: string;
 }
 
-function OptionField({ spec, value, error, onChange }: { spec: ProviderOptionSpec; value: string | boolean | undefined; error?: string; onChange(value: string | boolean): void }) {
-  const id = `o-${spec.flag}`;
+function OptionField({ spec, value, error, onChange }: { spec: OptionSpec; value: string | boolean | undefined; error?: string; onChange(value: string | boolean): void }) {
+  const id = `o-${spec.name}`;
   const describedBy = [`${id}-help`, error !== undefined ? `${id}-error` : ""].filter(Boolean).join(" ");
   const text = value === undefined ? spec.default : String(value);
-  const changed = spec.kind === "boolean" ? (value === undefined ? false : (value === true ? "on" : "off") !== spec.default) : text.trim() !== spec.default;
+  const changed = isChanged(spec, value);
   return (
     <div class={`field setting${changed ? " changed" : ""}`}>
-      {spec.kind === "boolean" ? (
+      {spec.kind === "switch" ? (
         <label class="check" for={id}>
           <input
             id={id}
@@ -45,7 +45,7 @@ function OptionField({ spec, value, error, onChange }: { spec: ProviderOptionSpe
           </label>
           {spec.kind === "choice" ? (
             <select id={id} value={text} aria-describedby={describedBy} onChange={(event) => onChange(event.currentTarget.value)}>
-              {(spec.choices ?? []).map((choice) => (
+              {spec.choices.map((choice) => (
                 <option key={choice} value={choice}>
                   {choice}
                 </option>
@@ -67,8 +67,8 @@ function OptionField({ spec, value, error, onChange }: { spec: ProviderOptionSpe
         </>
       )}
       <span class="help" id={`${id}-help`}>
-        {spec.help}
-        {changed && spec.default !== "" && ` Default: ${spec.default}.`}
+        <span class="mono">--{spec.name}</span>
+        {changed && spec.default !== "" && ` · default ${spec.default}`}
       </span>
       {error !== undefined && (
         <span class="field-error" id={`${id}-error`}>
@@ -79,33 +79,52 @@ function OptionField({ spec, value, error, onChange }: { spec: ProviderOptionSpe
   );
 }
 
+function OptionGrid({ specs, options, onOption, error }: { specs: OptionSpec[]; options: OptionValues; onOption(name: string, value: string | boolean): void; error(key: string): string | undefined }) {
+  return (
+    <div class="settings-grid">
+      {specs.map((spec) => (
+        <OptionField key={spec.name} spec={spec} value={options[spec.name]} error={error(spec.name) ?? optionError(spec, options[spec.name])} onChange={(value) => onOption(spec.name, value)} />
+      ))}
+    </div>
+  );
+}
+
+function More({ title, specs, options, onOption, error }: { title: string; specs: OptionSpec[]; options: OptionValues; onOption(name: string, value: string | boolean): void; error(key: string): string | undefined }) {
+  if (specs.length === 0) return null;
+  const changed = specs.filter((spec) => isChanged(spec, options[spec.name])).length;
+  return (
+    <details class="raw provider-more">
+      <summary>
+        {title}
+        {changed > 0 ? ` (${changed} changed)` : ""}
+      </summary>
+      <OptionGrid specs={specs} options={options} onOption={onOption} error={error} />
+    </details>
+  );
+}
+
 /**
  * For a start point with interchangeable modules (masks, cameras): which provider does each,
- * with the ones that cannot run shown and explained, and the chosen provider's options.
+ * with the ones that cannot run shown and explained, the chosen provider's paths and
+ * options, and the options that belong to no provider. All of it from the engine's description.
  */
 export function ProviderChoices({ engine, point, providers, onProvider, options, onOption, values, onValue, error, toolsHref }: Props) {
   const chosen = chosenProviders(point, providers);
-  const imports = importFields(point, providers);
   return (
     <>
       {point.providers.map((choice) => {
-        const current = chosen[choice.module]!;
-        const specs = optionsFor(choice.module, current);
-        const basic = specs.filter((spec) => !spec.advanced);
-        const advanced = specs.filter((spec) => spec.advanced);
-        const imported = imports.find((entry) => entry.module === choice.module);
-        const changedAdvanced = advanced.filter((spec) => options[spec.flag] !== undefined && String(options[spec.flag] === true ? "on" : options[spec.flag] === false ? "off" : options[spec.flag]).trim() !== spec.default).length;
+        const current = choice.options.find((option) => option.id === chosen[choice.module]) ?? choice.options[0]!;
         return (
           <fieldset class="provider" key={`${point.id}-${choice.module}`}>
             <legend>{choice.label}</legend>
             <div class="provider-list" role="radiogroup" aria-label={choice.label}>
               {choice.options.map((option) => (
-                <label key={option.id} class={`provider-option${option.id === current ? " chosen" : ""}${option.available ? "" : " unavailable"}`}>
+                <label key={option.id} class={`provider-option${option.id === current.id ? " chosen" : ""}${option.available ? "" : " unavailable"}`}>
                   <input
                     type="radio"
                     name={`provider-${choice.module}`}
                     value={option.id}
-                    checked={option.id === current}
+                    checked={option.id === current.id}
                     disabled={!option.available}
                     onChange={() => onProvider(choice.module, option.id)}
                   />
@@ -117,7 +136,8 @@ export function ProviderChoices({ engine, point, providers, onProvider, options,
                     {option.meaning !== undefined && <span class="help">{option.meaning}</span>}
                     {option.external.length > 0 && (
                       <span class="help">
-                        Needs: {option.external.join(", ")}.{option.license !== undefined && ` License: ${option.license}.`}
+                        Needs: {option.external.join(", ")}.{option.available && option.version !== undefined && ` Found: version ${option.version}.`}
+                        {option.license !== undefined && ` License: ${option.license}.`}
                       </span>
                     )}
                     {!option.available && (
@@ -130,42 +150,28 @@ export function ProviderChoices({ engine, point, providers, onProvider, options,
                 </label>
               ))}
             </div>
-            {imported !== undefined && (
+            {current.inputs.map((input) => (
               <PathField
+                key={input.key}
                 engine={engine}
-                want={imported.spec.kind}
-                id={`f-${imported.spec.key}`}
-                label={imported.spec.label}
-                value={values[imported.spec.key] ?? ""}
-                onInput={(value) => onValue(imported.spec.key, value)}
-                help={imported.spec.help}
-                error={error(imported.spec.key)}
+                want={input.kind}
+                id={`f-${input.key}`}
+                label={input.label}
+                value={values[input.key] ?? ""}
+                onInput={(value) => onValue(input.key, value)}
+                help={input.help}
+                error={error(input.key)}
                 required
               />
-            )}
-            {basic.length > 0 && (
-              <div class="settings-grid">
-                {basic.map((spec) => (
-                  <OptionField key={spec.flag} spec={spec} value={options[spec.flag]} error={error(spec.flag) ?? optionError(spec, options[spec.flag])} onChange={(value) => onOption(spec.flag, value)} />
-                ))}
-              </div>
-            )}
-            {advanced.length > 0 && (
-              <details class="raw provider-more">
-                <summary>
-                  More options for {current}
-                  {changedAdvanced > 0 ? ` (${changedAdvanced} changed)` : ""}
-                </summary>
-                <div class="settings-grid">
-                  {advanced.map((spec) => (
-                    <OptionField key={spec.flag} spec={spec} value={options[spec.flag]} error={error(spec.flag) ?? optionError(spec, options[spec.flag])} onChange={(value) => onOption(spec.flag, value)} />
-                  ))}
-                </div>
-              </details>
-            )}
+            ))}
+            {current.settings.length > 0 && <OptionGrid specs={current.settings} options={options} onOption={onOption} error={error} />}
+            <More title={`More options for ${choice.label.toLowerCase()}`} specs={choice.settings.filter((spec) => !current.settings.some((own) => own.name === spec.name))} options={options} onOption={onOption} error={error} />
           </fieldset>
         );
       })}
+      {point.optionGroups.map((group) => (
+        <More key={group.id} title={group.label} specs={group.settings} options={options} onOption={onOption} error={error} />
+      ))}
     </>
   );
 }
