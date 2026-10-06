@@ -504,3 +504,7 @@ pub fn summary(report: &Value) -> Value {
         "report": Path::new(report["configuration"]["output"].as_str().unwrap_or_default()).join("frontend.json").to_string_lossy(),
     })
 }
+
+#[cfg(test)]
+#[path = "run_tests.rs"]
+mod tests;
