@@ -1,0 +1,75 @@
+name: pages
+
+# Publishes the Studio web app to GitHub Pages. In the browser it replays the demo run,
+# connects to an engine, or reconstructs on the visitor's own GPU ("This browser":
+# crates/dense compiled to WebAssembly, WebGPU). Nothing is computed on GitHub's side.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/studio/**'
+      - 'crates/dense/**'
+      - 'tests/fixtures/dense-run-sphere/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/studio
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/studio/package-lock.json
+      - run: npm ci
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/bin/wasm-bindgen
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            crates/dense/web/target
+          key: studio-wasm-${{ hashFiles('crates/dense/web/Cargo.lock') }}
+      - name: Engine for browsers (WebAssembly)
+        working-directory: crates/dense/web
+        run: |
+          rustup target add wasm32-unknown-unknown
+          wasm-bindgen --version 2>/dev/null | grep -q ' 0\.2\.129$' || cargo install wasm-bindgen-cli --version 0.2.129 --locked
+          sh build.sh
+      - run: npm run build
+      - name: The site carries the engine, the demo and only relative URLs
+        run: |
+          test -s dist/engine/pkg/crisp3ds_dense_web_bg.wasm
+          test -s dist/demo/events.jsonl
+          ! grep -E '(src|href)="/' dist/index.html
+          touch dist/.nojekyll
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: apps/studio/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
