@@ -256,10 +256,13 @@ pub fn run(options: &RunOptions, observer: Option<Observer>, cancel: Option<Arc<
     if options.inputs.is_none() && !from_scene {
         bail!("give inputs, or all of scene, prepared and raw_masks");
     }
-    let parent = output.parent().filter(|p| p.exists()).map(Path::to_path_buf).unwrap_or(std::env::current_dir()?);
-    let free = fs4::available_space(&parent).with_context(|| parent.display().to_string())? as f64 / (1u64 << 30) as f64;
-    if free < options.minimum_free_gib {
-        bail!("only {free:.1} GiB free; need {} (see minimum_free_gib)", options.minimum_free_gib);
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let parent = output.parent().filter(|p| p.exists()).map(Path::to_path_buf).unwrap_or(std::env::current_dir()?);
+        let free = fs4::available_space(&parent).with_context(|| parent.display().to_string())? as f64 / (1u64 << 30) as f64;
+        if free < options.minimum_free_gib {
+            bail!("only {free:.1} GiB free; need {} (see minimum_free_gib)", options.minimum_free_gib);
+        }
     }
     std::fs::create_dir_all(&output).with_context(|| output.display().to_string())?;
     // Event paths are relative to the run directory as the file system names it.

@@ -5,9 +5,12 @@ Python: GPU stages as WebGPU compute shaders through `wgpu` (Metal, Vulkan,
 DirectX 12, and WebGPU in browsers), the rest as plain Rust. The Python package
 stays the reference implementation until every stage here reproduces it.
 
-Status: surface extraction (`mesh`) and dense stereo (`stereo`) are ported; see
-their sections below for measured parity. Not ported: the photo front end
-(masks and cameras from plain photos), the photo check and the scan evaluator.
+Status: the whole pipeline from recovered cameras to a checked STL runs
+natively, as one command (`run`), as a library call, or through a C interface.
+Each stage is also a subcommand (`inputs`, `stereo`, `mesh`, `check`) that reads
+and writes the files of its Python counterpart; measured parity is listed per
+stage below. Not ported: masks and cameras from plain photos (SAM 2.1,
+AliceVision) and the scan evaluator, which stay in Python.
 
 ## Rules of the port
 
@@ -34,7 +37,11 @@ their sections below for measured parity. Not ported: the photo front end
 | `src/npz.rs`, `src/stl.rs` | Array and mesh file formats |
 | `src/mesh/` | Surface extraction (port of `tsdf_hull_mesh.py`) |
 | `src/gpu/`, `src/shaders/` | `wgpu` device handling and WGSL kernels |
-| `src/inputs.rs`, `src/arrays.rs` | Inputs directory as `Stereo.__init__` prepares it; standalone `.npy` |
+| `src/run.rs`, `src/control.rs` | The run driver (port of `dense_pipeline.py`): library API and `run` command; cancel flag, deadlines, stage logs |
+| `src/capi.rs`, `include/crisp3ds_dense.h` | C interface of the run driver (feature `capi`) |
+| `src/scene.rs` | Inputs directory from an AliceVision scene (port of `dense_all_views_inputs.py`) |
+| `src/check.rs`, `src/render.rs` | Photo check and its sheets (ports of `mesh_photo_check.py`, `stl_compare_render.py`) |
+| `src/inputs.rs` | Inputs directory as `Stereo.__init__` prepares it |
 | `src/hull.rs`, `src/repair.rs`, `src/fusion.rs`, `src/stereo/` | Ports of `multiscale_stereo.py` |
 | `src/main.rs` | `crisp3ds-dense <stage>` command line |
 
@@ -50,10 +57,132 @@ Formatting follows `rustfmt.toml` (`cargo fmt --check`), lints are
 `cargo clippy --all-targets -- -D warnings`; `.github/workflows/dense-native.yml`
 runs both and the tests on Linux, macOS and Windows. Needs Rust 1.88 or newer.
 
+## A whole run: `crisp3ds-dense run`, `crisp3ds_dense::run`, C interface
+
+Port of `scripts/turntable_mesh/dense_pipeline.py` for two of its three
+starting points, in one process and without Python:
+
+```sh
+crisp3ds-dense run --output RUN --inputs DIR                                   # an inputs directory
+crisp3ds-dense run --output RUN --scene final.sfm --prepared DIR --raw-masks DIR
+    [--config FILE] [--set key=value ...] [--threads N] [--stereo-timeout S]
+    [--minimum-free-gib G] [--reuse-depths depths.npz] [--no-live-previews]
+    [--preview-step N] [--skip-check] [--no-preview] [--keep-volume]
+```
+
+`--photos`/`--calibration` (masks and cameras from plain photos) and
+`--reference` (scoring against a scan) are refused with a pointer to the Python
+tools. `--device`, `--python`, `--torch-python` and `--native` are accepted and
+ignored, so a command line written for the Python driver works.
+
+The run directory is the one `docs/ENGINE-CONTRACT.md` describes: `config.json`,
+`events.jsonl` (`run_started`, stage events, artifacts, `run_finished`; once
+`run_started` is written `run_finished` always follows, also on failure, with an
+`error` event before it), `pipeline.json` with the Python driver's keys,
+`input-sheet.png`, `stereo/`, `mesh/`, `check/`, one `<stage>.log` per stage.
+Stages run on the calling thread; preview volumes are meshed on a worker thread
+while matching continues, and their `preview_mesh` events arrive when they are
+done. Creating a file named `cancel` in the run directory stops the run: while
+matching at the next view, otherwise at the next stage boundary (surface
+extraction and the check are not interrupted; they take seconds). The run then
+ends with status `cancelled`. `stereo/volume.npz` is deleted at the end unless
+`--keep-volume`. `scripts/turntable_mesh/export_replay.py` accepts the result.
+
+As a library:
+
+```rust
+use std::sync::{atomic::AtomicBool, Arc};
+use crisp3ds_dense::run::{run, RunOptions};
+
+let options = RunOptions { output: "runs/bunny".into(), inputs: Some("bunny/inputs".into()), ..Default::default() };
+let cancel = Arc::new(AtomicBool::new(false));           // set from any thread to stop the run
+let observer = Arc::new(|event: &serde_json::Value| {     // every event, on the thread that emits it
+    println!("{}", event["type"]);
+});
+let report = run(&options, Some(observer), Some(cancel))?;   // blocks; call it on a worker thread
+```
+
+`RunOptions` deserialises from JSON with the same field names (unknown fields
+are an error); `settings` takes values by name as a settings form produces them.
+`run` returns the content of `pipeline.json`, or the error that stopped the run
+(`crisp3ds_dense::control::Stopped` when cancelled or past a deadline). The
+observer is called from the run's thread and from the preview thread, so it must
+be `Send + Sync` and should return quickly; a Tauri command would forward each
+event to the window from there. One run uses one GPU device; start runs one at a
+time.
+
+From C, Swift, Kotlin or C++ (`include/crisp3ds_dense.h`):
+
+```sh
+cargo rustc --release --lib --features capi --crate-type cdylib      # or staticlib
+```
+
+```c
+char *error = NULL;
+Crisp3dsRun *run = crisp3ds_run_start("{\"output\": \"runs/bunny\", \"inputs\": \"bunny/inputs\"}", &error);
+for (;;) {
+    char *state = crisp3ds_run_poll(run);    /* {"finished", "status", "events": [...], "report", "error"} */
+    /* ... show the new events; stop when "finished" is true ... */
+    crisp3ds_string_free(state);
+}
+crisp3ds_run_cancel(run);                    /* optional, from any thread */
+crisp3ds_run_free(run);                      /* cancels if still running, waits, releases */
+```
+
+The run executes on a thread the library starts; `poll` never blocks. This is
+the only module with `unsafe` code beyond byte casts (it dereferences the
+caller's pointers).
+
+## Inputs from a scene: `crisp3ds-dense inputs`
+
+```sh
+crisp3ds-dense inputs --scene final.sfm --prepared DIR --raw-masks DIR --output DIR
+```
+
+Port of `dense_all_views_inputs.py`: one camera table for all registered views
+of an AliceVision scene with one shared `radialk3` intrinsic, pointing at the
+prepared images in place; raw photo masks remapped through the lens
+undistortion with nearest sampling; the sparse points as `sparse_points.npy`.
+The undistortion map follows OpenCV's `initUndistortRectifyMap` (double
+precision, the camera matrix inverted by cofactors, coordinates accumulated
+along each row, stored as float32) and `remap` with `INTER_NEAREST` (round half
+to even, zero outside).
+
+Parity with the Python module (OpenCV 4.10) on the Bunny and the Armadillo, 73
+views each: every number of `cameras.json` identical, `sparse_points.npy`
+identical, all 147 466 935 mask pixels identical. The translation is
+accumulated with fused multiply-adds, which is what NumPy's matrix product does
+on Apple silicon; a NumPy build that does not may differ in the last bit of a
+translation.
+
+## Photo check: `crisp3ds-dense check`
+
+```sh
+crisp3ds-dense check --inputs DIR --mesh mesh.stl --output DIR \
+    [--repaired-masks DIR] [--preview-views N] [--check-views N] [--events events.jsonl]
+```
+
+Port of `mesh_photo_check.py` with the renderer of `stl_compare_render.py`:
+silhouette intersection-over-union of the projected mesh against the input
+masks and the repaired masks on evenly spaced views, `photo-overlay.png`,
+`preview.png` (photos above, z-buffered flat-shaded mesh below), `result.json`
+and the events. The silhouette is drawn as `cv2.fillPoly` draws a list of
+triangles with four fractional bits: every edge as an 8-connected line between
+the rounded vertex pixels, then an even-odd scanline fill of the whole edge
+collection with span ends rounded to the nearest pixel.
+
+Parity on the Bunny (mesh of 1 055 216 triangles, 26 views): the drawn
+silhouettes are pixel-identical to OpenCV's on the views compared, and all IoU
+numbers (median, minimum, maximum against input and repaired masks) equal the
+Python module's to the last printed digit. The sheets show the same crops,
+scales, colours and shading; they are resampled in float instead of OpenCV's
+fixed point, and the two labels of the preview are set in a built-in 5x7 font
+instead of OpenCV's Hershey font.
+
 ## Surface extraction: `crisp3ds-dense mesh`
 
 Status: ported, at parity with `python -m scripts.turntable_mesh.tsdf_hull_mesh`
-on the four test objects (table below). Not yet called by `dense_pipeline.py`.
+on the four test objects (table below). `dense_pipeline.py --native` calls it.
 
 ```sh
 crisp3ds-dense mesh --volume stereo/volume.npz --output mesh \
@@ -133,7 +262,7 @@ triangles, genus 12 / 11, distance median 0.001, p99 0.19, maximum 1.05 voxels
 
 Port of `python -m scripts.turntable_mesh.multiscale_stereo`: inputs, silhouette
 hull, mask repair, coarse-to-fine matching, cross-view agreement and TSDF
-fusion. Not yet called by `dense_pipeline.py`.
+fusion. `dense_pipeline.py --native` calls it.
 
 ```sh
 crisp3ds-dense stereo --inputs DIR --output DIR [--config config.json] \
@@ -275,3 +404,4 @@ licenses are listed here as they are added.
 | bytemuck | Zlib OR Apache-2.0 OR MIT | plain-data casts for GPU buffers |
 | pollster | Apache-2.0 OR MIT | blocking on `wgpu` futures |
 | image (png, jpeg only) | MIT OR Apache-2.0 | photo and mask decoding, PNG writing |
+| fs4 | MIT OR Apache-2.0 | free disk space before a run |

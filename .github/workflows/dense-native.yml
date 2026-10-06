@@ -59,10 +59,78 @@ jobs:
       - name: Format
         run: cargo fmt --check
       - name: Lint
-        run: cargo clippy --locked --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets --features capi -- -D warnings
       - name: Test
-        run: cargo test --locked
+        run: cargo test --locked --features capi
       - name: Command line smoke
         run: |
           cargo run --locked --quiet -- --version
           cargo run --locked --quiet -- mesh --help
+
+  # The GPU kernels and the whole pipeline on a software WebGPU adapter: Mesa's
+  # lavapipe (Vulkan) on Linux, WARP (DirectX 12) on Windows. Evidence that the
+  # kernels are not tied to Metal. Software rasterisers on shared runners are
+  # slow and occasionally unavailable, so this job does not block.
+  software-gpu:
+    name: GPU tests, software adapter (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+        working-directory: crates/dense
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: '0'
+      CRISP3DS_GPU_TESTS: '1'
+      CRISP3DS_GPU_FALLBACK: '1'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
+      - name: Mesa lavapipe
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mesa-vulkan-drivers libvulkan1 vulkan-tools
+          vulkaninfo --summary || true
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            crates/dense/target
+          key: dense-native-gpu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('crates/dense/Cargo.lock') }}
+          restore-keys: |
+            dense-native-gpu-${{ runner.os }}-${{ runner.arch }}-
+      - name: Adapter
+        run: cargo test --locked --release -- gpu::tests::adapter --nocapture
+      - name: GPU tests
+        run: cargo test --locked --release -- gpu_ --test-threads 1
+
+  # What a browser build of the library still needs. Does not block.
+  wasm:
+    name: wasm32 library check
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+        working-directory: crates/dense
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown --no-self-update
+          rustup default stable
+      - name: Check
+        run: cargo check --locked --lib --target wasm32-unknown-unknown

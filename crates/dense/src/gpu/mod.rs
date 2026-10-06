@@ -262,6 +262,17 @@ mod tests {
         }
     }
 
+    /// Names the adapter the GPU tests run on (CRISP3DS_GPU_TESTS=1), for CI logs.
+    #[test]
+    fn adapter() {
+        if !super::tests_enabled() {
+            return;
+        }
+        let gpu = super::Gpu::new().expect("a GPU adapter");
+        println!("adapter: {} ({:?}, {:?})", gpu.info.name, gpu.info.backend, gpu.info.device_type);
+        assert!(gpu.limits.max_storage_buffers_per_shader_stage >= 8);
+    }
+
     #[test]
     fn bits_pack_least_significant_first() {
         let mut flags = vec![false; 34];
