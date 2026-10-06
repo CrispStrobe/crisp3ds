@@ -5,12 +5,13 @@ import { navigate } from "./app";
 import { Icon } from "./icons";
 import type { Prefs } from "./prefs";
 import type { EngineStatus } from "../shell/shell";
+import type { EngineMode } from "./app";
 
 interface Props {
   prefs: Prefs;
   onChange(change: Partial<Prefs>): void;
   /** Present inside the desktop app, which runs an engine itself. */
-  localEngine: { status: EngineStatus | null; inUse: boolean } | null;
+  localEngine: { native: boolean; python: boolean; status: EngineStatus | null; mode: EngineMode } | null;
 }
 
 const LOCAL_STATE: Record<EngineStatus["state"], string> = {
@@ -94,16 +95,37 @@ export function Connection({ prefs, onChange, localEngine }: Props) {
       </p>
 
       <div class="cards">
-        {localEngine !== null && (
+        {localEngine?.native && (
           <section class="card wide" aria-labelledby="c-local">
             <h2 id="c-local">This computer</h2>
             <p>
-              The app runs an engine on this computer. It {localEngine.status === null ? "is starting" : LOCAL_STATE[localEngine.status.state]}
-              {localEngine.status?.state === "failed" && localEngine.status.message !== null ? `: ${localEngine.status.message}` : "."}
+              The reconstruction is built into this app and runs on this computer's graphics processor. It starts from
+              cameras and masks; nothing else needs to be installed.
             </p>
             <div class="actions">
-              <a class="button primary" href="#/engine" onClick={() => onChange({ engineChoice: "local" })}>
-                {localEngine.inUse ? "Open runs" : "Use this computer"}
+              <a class="button primary" href="#/engine" onClick={() => onChange({ engineChoice: "native" })}>
+                {localEngine.mode === "native" ? "Open runs" : "Use the built-in engine"}
+              </a>
+              <a class="button" href="#/shell">
+                Folders
+              </a>
+            </div>
+          </section>
+        )}
+        {localEngine?.python && (
+          <section class="card wide" aria-labelledby="c-python">
+            <h2 id="c-python">External Python engine</h2>
+            <p>
+              The reference pipeline in Python, started by this app with an interpreter you installed. For runs that start
+              from plain photos, for scoring against a scan, and for comparisons.
+              {localEngine.mode === "python" &&
+                ` It ${localEngine.status === null ? "is starting" : LOCAL_STATE[localEngine.status.state]}${
+                  localEngine.status?.state === "failed" && localEngine.status.message !== null ? `: ${localEngine.status.message}` : "."
+                }`}
+            </p>
+            <div class="actions">
+              <a class="button" href="#/engine" onClick={() => onChange({ engineChoice: "python" })}>
+                {localEngine.mode === "python" ? "Open runs" : "Use the Python engine"}
               </a>
               <a class="button" href="#/shell">
                 Engine settings
@@ -167,7 +189,7 @@ export function Connection({ prefs, onChange, localEngine }: Props) {
                   type="button"
                   class="button"
                   onClick={() => {
-                    onChange({ engineUrl: "", engineToken: "", engineChoice: "local" });
+                    onChange({ engineUrl: "", engineToken: "", engineChoice: "native" });
                     setUrl("");
                     setToken("");
                   }}

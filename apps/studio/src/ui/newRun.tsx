@@ -7,10 +7,10 @@ import {
   groupSettings,
   isChanged,
   placeServerError,
-  startRunBody,
   type FormValues,
   type SettingSpec,
 } from "../core/settings";
+import { CONTRACT_START_POINTS, missingFields, startBody } from "../core/startPoints";
 import { describe, isAbort } from "../sources/transport";
 import { EngineError, type Engine, type EngineHealth } from "../sources/types";
 import { navigate } from "./app";
@@ -37,7 +37,9 @@ export function NewRun({ engine, prefs, onChange }: Props) {
   const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState<FormValues>({});
   const [name, setName] = useState("");
-  const [inputs, setInputs] = useState(prefs.inputs);
+  const [values, setValues] = useState<Record<string, string>>({ inputs: prefs.inputs });
+  const [pointId, setPointId] = useState("inputs");
+  const [providers, setProviders] = useState<Record<string, string>>({});
   const [reference, setReference] = useState("");
   const [device, setDevice] = useState(prefs.device);
   const [busy, setBusy] = useState(false);
@@ -65,7 +67,15 @@ export function NewRun({ engine, prefs, onChange }: Props) {
   const groups = useMemo(() => groupSettings(specs ?? []), [specs]);
   const diff = useMemo(() => diffSettings(specs ?? [], form), [specs, form]);
   const changedCount = Object.keys(diff.changed).length + Object.keys(diff.errors).length;
-  const inputsMissing = inputs.trim() === "";
+  const points = health?.startPoints ?? CONTRACT_START_POINTS;
+  const point = points.find((candidate) => candidate.id === pointId) ?? points[0]!;
+  const missing = missingFields(point, values);
+  const choosesDevice = health?.choosesDevice !== false;
+  const scoresReference = health?.scoresReference !== false;
+  const setField = (key: string, value: string) => {
+    setValues((current) => ({ ...current, [key]: value }));
+    setServerError(null);
+  };
 
   const setValue = (settingName: string, value: string | boolean) => {
     setForm((current) => ({ ...current, [settingName]: value }));
@@ -76,7 +86,7 @@ export function NewRun({ engine, prefs, onChange }: Props) {
     event.preventDefault();
     setShowErrors(true);
     setServerError(null);
-    if (inputsMissing || Object.keys(diff.errors).length > 0) {
+    if (missing.length > 0 || Object.keys(diff.errors).length > 0) {
       // Open the groups that hold a problem and move to the first one.
       requestAnimationFrame(() => {
         const first = document.querySelector<HTMLElement>(".new-run [aria-invalid='true']");
@@ -87,12 +97,13 @@ export function NewRun({ engine, prefs, onChange }: Props) {
     }
     setBusy(true);
     try {
-      const id = await engine.startRun(startRunBody({ name, inputs, reference, device }, diff.changed));
-      onChange({ inputs: inputs.trim(), device });
+      const start = { name, device: choosesDevice ? device : "", reference: scoresReference ? reference : "", values, providers };
+      const id = await engine.startRun(startBody(point, start, diff.changed));
+      onChange({ inputs: (values.inputs ?? "").trim(), device });
       navigate(`#/engine/run/${encodeURIComponent(id)}`);
     } catch (problem) {
       const message = describe(problem);
-      const names = [...(specs ?? []).map((spec) => spec.name), "inputs", "reference", "device", "name"];
+      const names = [...(specs ?? []).map((spec) => spec.name), ...point.fields.map((field) => field.key), "reference", "device", "name"];
       setServerError(
         problem instanceof EngineError && problem.status === 400 ? placeServerError(message, names) : { fields: [], message },
       );
@@ -122,8 +133,6 @@ export function NewRun({ engine, prefs, onChange }: Props) {
     );
   }
 
-  const inputsError = fieldError("inputs") ?? (showErrors && inputsMissing ? "Say where the inputs are." : undefined);
-  const referenceError = fieldError("reference");
 
   return (
     <section class="page narrow new-run">
@@ -133,42 +142,105 @@ export function NewRun({ engine, prefs, onChange }: Props) {
       <h1>New run</h1>
       <p class="sub">
         Runs start from data that is already on the engine's computer: recovered cameras and one mask per photo.
-        Paths are relative to the engine's data directory.
+        {engine.pickPath !== undefined
+          ? " Type a path inside the data folder, browse it, or choose any folder on this computer."
+          : " Paths are relative to the engine's data directory."}
+        {health?.dataFolder !== undefined && (
+          <>
+            {" "}
+            Data folder: <span class="mono wrap">{health.dataFolder}</span>
+          </>
+        )}
       </p>
 
       <form onSubmit={submit} novalidate>
         <fieldset class="panel">
           <legend>Data</legend>
-          <PathField
-            engine={engine}
-            want="inputs"
-            id="f-inputs"
-            label="Inputs folder"
-            value={inputs}
-            onInput={(value) => {
-              setInputs(value);
-              setServerError(null);
-            }}
-            placeholder="dragon/inputs"
-            help="A folder with cameras.json, the photos and their masks."
-            error={inputsError}
-            required
-          />
-          <PathField
-            engine={engine}
-            want="file"
-            id="f-reference"
-            label="Reference scan"
-            optional="optional"
-            value={reference}
-            onInput={(value) => {
-              setReference(value);
-              setServerError(null);
-            }}
-            placeholder="dragon/scan.ply"
-            help="Used only after the reconstruction, to score the result against an independent scan."
-            error={referenceError}
-          />
+          {points.length > 1 && (
+            <div class="field">
+              <span class="field-label" id="f-start-label">
+                Start from
+              </span>
+              <div class="segmented wrap-segments" role="group" aria-labelledby="f-start-label">
+                {points.map((candidate) => (
+                  <button
+                    key={candidate.id}
+                    type="button"
+                    aria-pressed={candidate.id === point.id}
+                    onClick={() => {
+                      setPointId(candidate.id);
+                      setServerError(null);
+                    }}
+                  >
+                    {candidate.label}
+                  </button>
+                ))}
+              </div>
+              {point.meaning !== undefined && <span class="help">{point.meaning}</span>}
+            </div>
+          )}
+          {point.fields.map((field) => (
+            <PathField
+              key={`${point.id}-${field.key}`}
+              engine={engine}
+              want={field.kind}
+              id={`f-${field.key}`}
+              label={field.label}
+              optional={field.required ? undefined : "optional"}
+              value={values[field.key] ?? ""}
+              onInput={(value) => setField(field.key, value)}
+              placeholder={field.kind === "inputs" ? "dragon/inputs" : undefined}
+              help={field.help}
+              error={
+                fieldError(field.key) ??
+                (showErrors && missing.includes(field.key)
+                  ? field.kind === "inputs"
+                    ? "Say where the inputs are."
+                    : `Say where it is: ${field.label.toLowerCase()}.`
+                  : undefined)
+              }
+              required={field.required}
+            />
+          ))}
+          {point.providers.map((choice) => (
+            <label class="field" for={`f-provider-${choice.module}`} key={`${point.id}-${choice.module}`}>
+              <span class="field-label">{choice.label}</span>
+              <select
+                id={`f-provider-${choice.module}`}
+                value={providers[choice.module] ?? choice.default ?? ""}
+                onChange={(event) => {
+                  const chosen = event.currentTarget.value;
+                  setProviders((current) => ({ ...current, [choice.module]: chosen }));
+                }}
+              >
+                {choice.options.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {choice.options.find((option) => option.id === (providers[choice.module] ?? choice.default))?.meaning !== undefined && (
+                <span class="help">{choice.options.find((option) => option.id === (providers[choice.module] ?? choice.default))?.meaning}</span>
+              )}
+            </label>
+          ))}
+          {scoresReference && (
+            <PathField
+              engine={engine}
+              want="file"
+              id="f-reference"
+              label="Reference scan"
+              optional="optional"
+              value={reference}
+              onInput={(value) => {
+                setReference(value);
+                setServerError(null);
+              }}
+              placeholder="dragon/scan.ply"
+              help="Used only after the reconstruction, to score the result against an independent scan."
+              error={fieldError("reference")}
+            />
+          )}
           <div class="field-row">
             <TextField
               id="f-name"
@@ -179,16 +251,18 @@ export function NewRun({ engine, prefs, onChange }: Props) {
               placeholder="my dragon"
               error={fieldError("name")}
             />
-            <label class="field" for="f-device">
-              <span class="field-label">Device</span>
-              <select id="f-device" value={device} onChange={(event) => setDevice(event.currentTarget.value)}>
-                {DEVICES.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.value === "" && health?.device !== undefined ? `Engine default (${health.device})` : option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {choosesDevice && (
+              <label class="field" for="f-device">
+                <span class="field-label">Device</span>
+                <select id="f-device" value={device} onChange={(event) => setDevice(event.currentTarget.value)}>
+                  {DEVICES.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.value === "" && health?.device !== undefined ? `Engine default (${health.device})` : option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
         </fieldset>
 

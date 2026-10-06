@@ -16,7 +16,7 @@ export interface Prefs {
   flat: boolean;
   inputs: string;
   device: string;
-  /** Inside the desktop app: use the engine the app runs ("local") or one at `engineUrl` ("remote"). */
+  /** Inside the app: "native" (built in), "python" (external Python engine the app starts) or "remote" (`engineUrl`). */
   engineChoice: string;
 }
 
@@ -32,7 +32,7 @@ const DEFAULTS: Prefs = {
   flat: false,
   inputs: "",
   device: "",
-  engineChoice: "local",
+  engineChoice: "native",
 };
 
 let cache: Prefs | null = null;

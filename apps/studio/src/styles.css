@@ -406,6 +406,11 @@ main:focus {
   flex: none;
 }
 
+.segmented.wrap-segments {
+  flex-wrap: wrap;
+  align-self: flex-start;
+}
+
 .segmented button {
   min-height: calc(var(--tap) - 2px);
   min-width: 44px;

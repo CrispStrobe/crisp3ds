@@ -1,92 +1,304 @@
 /**
- * STUB. The local source for the future Tauri shell: same shape as the HTTP engine, not
- * implemented. It exists so that wrapping the app later means filling in this file, not
- * touching the UI.
+ * The local source: the engine built into the app (crates/dense, running in the shell's
+ * own process). This is the "Local (desktop shell)" row of docs/ENGINE-CONTRACT.md.
  *
- * Intended implementation (docs/ENGINE-CONTRACT.md, "Local (desktop shell)"):
- *   - events:  the shell tails `<run>/events.jsonl`, remembers the line count, and pushes
- *              complete lines to the web view (Tauri event or channel) -> `SourceUpdate`.
- *   - files:   read from the run directory through a scoped asset protocol
- *              (`convertFileSrc`) for images, and as bytes for STL and JSON.
- *   - engine:  list run directories, start `dense_pipeline` as a sidecar process,
- *              cancel by creating `<run>/cancel`.
- * The simplest first step is not to implement this at all: let the shell start
- * `engine_server.py` on localhost and point `HttpEngine` at it.
+ * The shell offers the same operations as the HTTP engine, one command each, and the run
+ * directory on disk stays the source of truth: events are read from `events.jsonl` by line
+ * number, files by their path relative to the run. So this file is the HTTP source with
+ * `invoke` in place of `fetch`. The bridge is injected, which keeps it free of Tauri and
+ * testable.
  */
 
-import type { SettingSpec } from "../core/settings";
-import type { Engine, EngineHealth, FetchOptions, RunSource, RunSummary, SourceUpdate } from "./types";
+import { normaliseEvent, type RunEvent } from "../core/events";
+import { parseSettingsSchema, type SettingSpec } from "../core/settings";
+import { parseStartPoints } from "../core/startPoints";
+import { describe } from "./transport";
+import {
+  EngineError,
+  type DataEntry,
+  type DataListing,
+  type Engine,
+  type EngineHealth,
+  type FetchOptions,
+  type LinkStatus,
+  type RunSource,
+  type RunSummary,
+  type SourceUpdate,
+} from "./types";
 
-export class NotImplementedError extends Error {
-  constructor(what: string) {
-    super(`${what} is not available: the local engine is only present in the desktop app, which is not built yet.`);
-    this.name = "NotImplementedError";
-  }
+/** Calls a command of the shell. Rejects with the shell's sentence (a string or an Error). */
+export type Bridge = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
+
+export interface LocalTimer {
+  set(callback: () => void, delayMs: number): unknown;
+  clear(handle: unknown): void;
 }
 
-/** True inside a Tauri web view. The UI uses it only to decide whether to offer the local engine. */
-export function localEngineAvailable(): boolean {
-  return false;
+export interface LocalOptions {
+  label?: string;
+  timer?: LocalTimer;
+  /** Wall clock in Unix seconds. */
+  clock?: () => number;
+  objectUrls?: { create(blob: Blob): string; revoke(url: string): void };
 }
+
+/** Reading a local file is cheap, so the log is looked at more often than over HTTP. */
+export const LOCAL_POLL_MS = 400;
+export const LOCAL_BACKOFF_MS = [500, 1000, 2000, 5000] as const;
+
+const systemTimer: LocalTimer = {
+  set: (callback, delayMs) => setTimeout(callback, delayMs),
+  clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+};
+
+function refusal(problem: unknown, status: number): EngineError {
+  const message = typeof problem === "string" ? problem : describe(problem);
+  return new EngineError(message, status);
+}
+
+const IMAGE_TYPES: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp" };
 
 export class LocalEngine implements Engine {
   readonly kind = "local" as const;
-  readonly label = "This computer";
+  readonly label: string;
 
-  health(): Promise<EngineHealth> {
-    return Promise.reject(new NotImplementedError("The local engine"));
+  constructor(
+    private readonly bridge: Bridge,
+    private readonly options: LocalOptions = {},
+  ) {
+    this.label = options.label ?? "this computer";
   }
 
-  settings(): Promise<SettingSpec[]> {
-    return Promise.reject(new NotImplementedError("Reading settings"));
+  async health(): Promise<EngineHealth> {
+    const body = await this.bridge<Record<string, unknown> | null>("native_health").catch((problem) => {
+      throw refusal(problem, 0);
+    });
+    const startPoints = parseStartPoints(body?.start_points);
+    return {
+      schema: typeof body?.schema === "string" ? body.schema : undefined,
+      device: typeof body?.device === "string" ? body.device : undefined,
+      canStartRuns: body?.can_start_runs === true,
+      startPoints: startPoints.length > 0 ? startPoints : undefined,
+      choosesDevice: false,
+      scoresReference: false,
+      dataFolder: typeof body?.data_dir === "string" ? body.data_dir : undefined,
+    };
   }
 
-  listRuns(): Promise<RunSummary[]> {
-    return Promise.reject(new NotImplementedError("Listing runs"));
+  async settings(): Promise<SettingSpec[]> {
+    return parseSettingsSchema(await this.bridge<unknown>("native_settings").catch((problem) => {
+      throw refusal(problem, 0);
+    }));
   }
 
-  startRun(): Promise<string> {
-    return Promise.reject(new NotImplementedError("Starting a run"));
+  async listRuns(): Promise<RunSummary[]> {
+    const body = await this.bridge<{ runs?: unknown } | null>("native_runs").catch((problem) => {
+      throw refusal(problem, 0);
+    });
+    const runs: RunSummary[] = [];
+    for (const row of Array.isArray(body?.runs) ? body.runs : []) {
+      if (typeof row !== "object" || row === null) continue;
+      const record = row as Record<string, unknown>;
+      if (typeof record.id !== "string") continue;
+      runs.push({
+        id: record.id,
+        status: typeof record.status === "string" ? record.status : "unknown",
+        started: typeof record.started === "number" ? record.started : null,
+        stage: typeof record.stage === "string" ? record.stage : null,
+        stageFraction: typeof record.stage_fraction === "number" ? record.stage_fraction : 0,
+        events: typeof record.events === "number" ? record.events : 0,
+      });
+    }
+    return runs;
+  }
+
+  async startRun(body: Record<string, unknown>): Promise<string> {
+    // The shell refuses an invalid request with one sentence, like the HTTP engine's 400.
+    const answer = await this.bridge<{ id?: unknown } | null>("native_start", { body }).catch((problem) => {
+      throw refusal(problem, 400);
+    });
+    if (typeof answer?.id !== "string") throw new EngineError("The engine did not return a run id.", 0);
+    return answer.id;
+  }
+
+  async listData(path: string): Promise<DataListing> {
+    const body = await this.bridge<{ path?: unknown; entries?: unknown } | null>("native_data", { path }).catch((problem) => {
+      throw refusal(problem, 400);
+    });
+    const entries: DataEntry[] = [];
+    for (const row of Array.isArray(body?.entries) ? body.entries : []) {
+      if (typeof row !== "object" || row === null) continue;
+      const record = row as Record<string, unknown>;
+      if (typeof record.name !== "string" || record.name === "") continue;
+      entries.push({ name: record.name, directory: record.directory === true, inputs: record.inputs === true });
+    }
+    return { path: typeof body?.path === "string" ? body.path : path, entries };
+  }
+
+  pickPath(kind: "folder" | "file", title: string): Promise<string | null> {
+    return this.bridge<string | null>("pick_path", { kind, title, start: null });
   }
 
   openRun(id: string): RunSource {
-    return new LocalRunSource(id);
+    return new LocalRunSource(this.bridge, id, this.options);
   }
 }
 
 export class LocalRunSource implements RunSource {
   readonly kind = "local" as const;
+  private readonly timer: LocalTimer;
+  private readonly clock: () => number;
+  private readonly objectUrls: NonNullable<LocalOptions["objectUrls"]>;
   private listeners = new Set<(update: SourceUpdate) => void>();
+  private link: LinkStatus = { state: "connecting" };
+  private since = 0;
+  private failures = 0;
+  private running = false;
+  private handle: unknown = null;
+  private images = new Map<string, Promise<string>>();
+  private created: string[] = [];
 
-  constructor(readonly title: string) {}
+  constructor(
+    private readonly bridge: Bridge,
+    readonly title: string,
+    options: LocalOptions = {},
+  ) {
+    this.timer = options.timer ?? systemTimer;
+    this.clock = options.clock ?? (() => Date.now() / 1000);
+    this.objectUrls = options.objectUrls ?? {
+      create: (blob) => URL.createObjectURL(blob),
+      revoke: (url) => URL.revokeObjectURL(url),
+    };
+  }
 
   subscribe(listener: (update: SourceUpdate) => void): () => void {
     this.listeners.add(listener);
+    listener({ type: "link", link: this.link });
     return () => this.listeners.delete(listener);
   }
 
   start(): void {
-    const message = new NotImplementedError("Opening a local run").message;
-    for (const listener of [...this.listeners]) listener({ type: "link", link: { state: "failed", message } });
+    if (this.running) return;
+    this.running = true;
+    void this.poll();
   }
 
   stop(): void {
-    this.listeners.clear();
+    this.running = false;
+    if (this.handle !== null) this.timer.clear(this.handle);
+    this.handle = null;
+    for (const url of this.created) this.objectUrls.revoke(url);
+    this.created = [];
+    this.images.clear();
   }
 
   now(): number {
-    return Date.now() / 1000;
+    return this.clock();
   }
 
-  imageUrl(): Promise<string> {
-    return Promise.reject(new NotImplementedError("Reading run files"));
+  /** The web view cannot read the run folder itself: the bytes come through the shell and are shown as an object URL. */
+  imageUrl(path: string): Promise<string> {
+    let pending = this.images.get(path);
+    if (pending === undefined) {
+      pending = this.fetchBytes(path).then((bytes) => {
+        const extension = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
+        const url = this.objectUrls.create(new Blob([bytes], { type: IMAGE_TYPES[extension] ?? "application/octet-stream" }));
+        this.created.push(url);
+        return url;
+      });
+      pending.catch(() => this.images.delete(path));
+      this.images.set(path, pending);
+    }
+    return pending;
   }
 
-  fetchBytes(_path: string, _options?: FetchOptions): Promise<ArrayBuffer> {
-    return Promise.reject(new NotImplementedError("Reading run files"));
+  async fetchBytes(path: string, options: FetchOptions = {}): Promise<ArrayBuffer> {
+    const data = await this.bridge<ArrayBuffer | Uint8Array | number[]>("native_file", { id: this.title, path }).catch((problem) => {
+      throw refusal(problem, 404);
+    });
+    options.signal?.throwIfAborted();
+    let buffer: ArrayBuffer;
+    if (data instanceof ArrayBuffer) buffer = data;
+    else if (data instanceof Uint8Array) buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+    else buffer = new Uint8Array(data).buffer;
+    options.onProgress?.(buffer.byteLength, buffer.byteLength);
+    return buffer;
   }
 
-  fetchJson(_path: string, _options?: FetchOptions): Promise<unknown> {
-    return Promise.reject(new NotImplementedError("Reading run files"));
+  async fetchJson(path: string, options: FetchOptions = {}): Promise<unknown> {
+    return JSON.parse(new TextDecoder().decode(await this.fetchBytes(path, options)));
+  }
+
+  async fileSize(path: string): Promise<number | undefined> {
+    const size = await this.bridge<number>("native_file_size", { id: this.title, path }).catch(() => undefined);
+    return typeof size === "number" && size > 0 ? size : undefined;
+  }
+
+  async cancel(): Promise<void> {
+    await this.bridge("native_cancel", { id: this.title }).catch((problem) => {
+      throw refusal(problem, 400);
+    });
+  }
+
+  private async poll(): Promise<void> {
+    if (!this.running) return;
+    let delay = LOCAL_POLL_MS;
+    try {
+      const body = await this.bridge<{ events?: unknown; next?: unknown } | null>("native_events", { id: this.title, since: this.since });
+      if (!this.running) return;
+      const events = this.accept(body);
+      this.failures = 0;
+      if (events.length > 0) this.emit({ type: "events", events });
+      if (events.some((event) => event.type === "run_finished")) {
+        this.setLink({ state: "ended" });
+        this.running = false;
+        return;
+      }
+      this.setLink({ state: "live" });
+    } catch (problem) {
+      if (!this.running) return;
+      const message = typeof problem === "string" ? problem : describe(problem);
+      if (message === "unknown run") {
+        this.setLink({ state: "failed", message: "There is no such run on this computer." });
+        this.running = false;
+        return;
+      }
+      delay = LOCAL_BACKOFF_MS[Math.min(this.failures, LOCAL_BACKOFF_MS.length - 1)]!;
+      this.failures += 1;
+      this.setLink({ state: "retrying", message });
+    }
+    this.handle = this.timer.set(() => {
+      this.handle = null;
+      void this.poll();
+    }, delay);
+  }
+
+  /** Takes the events of one answer, in order, skipping any the cursor has already passed. */
+  private accept(body: { events?: unknown; next?: unknown } | null): RunEvent[] {
+    const events: RunEvent[] = [];
+    let cursor = this.since;
+    for (const row of Array.isArray(body?.events) ? body.events : []) {
+      const event = normaliseEvent(row, cursor);
+      if (event === null) {
+        cursor += 1;
+        continue;
+      }
+      if (event.seq < this.since) continue;
+      events.push(event);
+      cursor = event.seq + 1;
+    }
+    const next = typeof body?.next === "number" && Number.isFinite(body.next) ? body.next : cursor;
+    this.since = Math.max(this.since, next, cursor);
+    return events;
+  }
+
+  private setLink(link: LinkStatus): void {
+    if (link.state === this.link.state && link.message === this.link.message) return;
+    this.link = link;
+    this.emit({ type: "link", link });
+  }
+
+  private emit(update: SourceUpdate): void {
+    for (const listener of [...this.listeners]) listener(update);
   }
 }

@@ -12,7 +12,7 @@ import {
 import { describe } from "../sources/transport";
 
 /** Polls the shell for the local engine's state: quickly while it starts, lazily once it runs. */
-export function useLocalEngine(shell: Shell | null): { info: ShellInfo | null; status: EngineStatus | null; refresh(): void } {
+export function useLocalEngine(shell: Shell | null, wanted: boolean): { info: ShellInfo | null; status: EngineStatus | null; refresh(): void } {
   const [info, setInfo] = useState<ShellInfo | null>(null);
   const [status, setStatus] = useState<EngineStatus | null>(null);
   const [tick, setTick] = useState(0);
@@ -20,8 +20,12 @@ export function useLocalEngine(shell: Shell | null): { info: ShellInfo | null; s
     if (shell === null) return;
     shell.info().then(setInfo, () => undefined);
   }, [shell]);
-  const canRun = info?.can_run_engine === true;
+  // The Python engine is only looked at, and only started, while it is the chosen engine.
+  const canRun = info?.can_run_engine === true && wanted;
   const state = status?.state;
+  useEffect(() => {
+    if (shell !== null && canRun && state === "stopped") void shell.restartEngine().then(() => setTick((count) => count + 1));
+  }, [shell, canRun, state]);
   useEffect(() => {
     if (shell === null || !canRun) return;
     let alive = true;
@@ -49,7 +53,7 @@ export function useLocalEngine(shell: Shell | null): { info: ShellInfo | null; s
 }
 
 export const NOT_BUNDLED =
-  "This app does not contain Python or PyTorch. It runs the reconstruction with the interpreters named here, from a crisp3ds source folder on this computer.";
+  "The external engine runs with the interpreters named here, from a crisp3ds source folder on this computer. The built-in engine needs none of this.";
 
 const STATE_TEXT: Record<EngineStatus["state"], string> = {
   stopped: "Stopped",
@@ -124,7 +128,7 @@ interface FieldSpec {
   pickTitle?: string;
 }
 
-const FIELDS: FieldSpec[] = [
+const PYTHON_FIELDS: FieldSpec[] = [
   {
     field: "repo",
     label: "Crisp3DS source folder",
@@ -146,10 +150,13 @@ const FIELDS: FieldSpec[] = [
     pick: "file",
     pickTitle: "Choose the Python interpreter that has PyTorch",
   },
+];
+
+const FOLDER_FIELDS: FieldSpec[] = [
   {
     field: "data_dir",
     label: "Data folder",
-    help: "Runs can only start from folders inside this one. Put your prepared photo sets here.",
+    help: "Where your prepared photo sets are. New runs browse this folder; with the built-in engine a folder elsewhere can be chosen too.",
     pick: "folder",
     pickTitle: "Choose the data folder",
   },
@@ -162,7 +169,19 @@ const FIELDS: FieldSpec[] = [
   },
 ];
 
-export function ShellSettingsScreen({ shell, info, status, onChange }: { shell: Shell; info: ShellInfo | null; status: EngineStatus | null; onChange(): void }) {
+export function ShellSettingsScreen({
+  shell,
+  info,
+  status,
+  mode,
+  onChange,
+}: {
+  shell: Shell;
+  info: ShellInfo | null;
+  status: EngineStatus | null;
+  mode: "native" | "python" | "remote";
+  onChange(): void;
+}) {
   const [settings, setSettings] = useState<ShellSettings | null>(null);
   const [form, setForm] = useState<ShellConfig | null>(null);
   const [error, setError] = useState("");
@@ -190,6 +209,7 @@ export function ShellSettingsScreen({ shell, info, status, onChange }: { shell: 
     );
   }
   if (settings === null || form === null) return null;
+  const python = info?.can_run_engine === true;
 
   const change = (field: ConfigField, value: string) => setForm({ ...form, [field]: value });
   const dirty = !sameConfig(form, settings.saved);
@@ -202,7 +222,7 @@ export function ShellSettingsScreen({ shell, info, status, onChange }: { shell: 
       const saved = await shell.saveSettings(form);
       setSettings(saved);
       setForm(saved.saved);
-      await shell.restartEngine();
+      if (mode === "python") await shell.restartEngine();
       onChange();
     } catch (problem) {
       setError(describe(problem));
@@ -220,16 +240,18 @@ export function ShellSettingsScreen({ shell, info, status, onChange }: { shell: 
 
   return (
     <section class="page narrow">
-      <h1>Engine on this computer</h1>
-      <div class="notice" role="note">
-        <p>
-          <strong>Python is not part of this app.</strong> {NOT_BUNDLED} See the README for what to install.
+      <h1>This computer</h1>
+      {info?.native_engine && (
+        <p class="sub">
+          The reconstruction is built into this app{mode === "native" ? " and is the engine in use" : ""}. It needs only the two folders
+          below. <a href="#/engine">Open runs</a>
         </p>
-      </div>
+      )}
 
+      {python && mode === "python" && (
       <section class="panel" aria-labelledby="shell-state">
         <div class="panel-head">
-          <h2 id="shell-state">State</h2>
+          <h2 id="shell-state">External Python engine</h2>
           <span class={`badge status-${status?.state === "running" ? "complete" : status?.state === "failed" ? "failed" : "running"}`} role="status">
             {status === null ? "Unknown" : STATE_TEXT[status.state]}
           </span>
@@ -247,11 +269,23 @@ export function ShellSettingsScreen({ shell, info, status, onChange }: { shell: 
         )}
         {status !== null && <EngineLog status={status} />}
       </section>
+      )}
 
       <form onSubmit={apply} novalidate>
-        <fieldset class="panel">
-          <legend>Where things are</legend>
-          {FIELDS.map((spec) => {
+        {[
+          { legend: "Folders", fields: FOLDER_FIELDS, shown: true },
+          { legend: "External Python engine (optional)", fields: PYTHON_FIELDS, shown: python },
+        ]
+          .filter((group) => group.shown)
+          .map((group) => (
+        <fieldset class="panel" key={group.legend}>
+          <legend>{group.legend}</legend>
+          {group.fields === PYTHON_FIELDS && (
+            <p class="help">
+              <strong>Python is not part of this app.</strong> {NOT_BUNDLED}
+            </p>
+          )}
+          {group.fields.map((spec) => {
             const resolved = settings.resolved[spec.field];
             const id = `shell-${spec.field}`;
             return (
@@ -291,6 +325,7 @@ export function ShellSettingsScreen({ shell, info, status, onChange }: { shell: 
               </div>
             );
           })}
+          {group.fields === PYTHON_FIELDS && (
           <label class="field" for="shell-device">
             <span class="field-label">Device</span>
             <select id="shell-device" value={form.device === "" ? "auto" : form.device} onChange={(event) => change("device", event.currentTarget.value)}>
@@ -301,7 +336,9 @@ export function ShellSettingsScreen({ shell, info, status, onChange }: { shell: 
             </select>
             <span class="help">The default for new runs; each run can choose another.</span>
           </label>
+          )}
         </fieldset>
+          ))}
 
         {error !== "" && (
           <div class="notice bad" role="alert">
@@ -310,7 +347,7 @@ export function ShellSettingsScreen({ shell, info, status, onChange }: { shell: 
         )}
         <div class="actions">
           <button type="submit" class="button primary" disabled={busy}>
-            {dirty ? "Save and restart the engine" : "Restart the engine"}
+            {mode === "python" ? (dirty ? "Save and restart the engine" : "Restart the engine") : "Save"}
           </button>
           <a class="button" href="#/engine">
             Runs

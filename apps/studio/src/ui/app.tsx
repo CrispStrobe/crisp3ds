@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { getShell } from "../shell/shell";
+import { getShell, type ShellInfo } from "../shell/shell";
+import { LocalEngine } from "../sources/localEngine";
 import { HttpEngine } from "../sources/httpEngine";
 import { ReplaySource } from "../sources/replaySource";
 import type { Engine, RunSource } from "../sources/types";
@@ -32,6 +33,9 @@ export function parseRoute(hash: string): Route {
   }
   return { screen: "connection" };
 }
+
+/** `native`: built into the app. `python`: the external Python engine the app starts. `remote`: an engine by address. */
+export type EngineMode = "native" | "python" | "remote";
 
 export function navigate(hash: string): void {
   location.hash = hash;
@@ -66,9 +70,26 @@ export function App() {
   const [themeTick, setThemeTick] = useState(0);
   // Inside the desktop app the shell runs an engine of its own. In a browser `shell` is null.
   const shell = useMemo(getShell, []);
-  const local = useLocalEngine(shell);
-  const hasLocal = shell !== null && local.info?.can_run_engine === true;
-  const useLocal = hasLocal && prefs.engineChoice !== "remote";
+  const [shellInfo, setShellInfo] = useState<ShellInfo | null>(null);
+  useEffect(() => {
+    shell?.info().then(setShellInfo, () => undefined);
+  }, [shell]);
+  const hasNative = shell !== null && shellInfo?.native_engine === true;
+  const hasPython = shell !== null && shellInfo?.can_run_engine === true;
+  // Which engine is in use: the one built into the app unless the user chose otherwise.
+  const mode: EngineMode =
+    prefs.engineChoice === "remote"
+      ? "remote"
+      : prefs.engineChoice === "python" && hasPython
+        ? "python"
+        : hasNative
+          ? "native"
+          : hasPython
+            ? "python"
+            : "remote";
+  const local = useLocalEngine(shell, mode === "python");
+  const hasLocal = hasNative || hasPython;
+  const useLocal = mode !== "remote";
 
   useEffect(() => {
     const onHash = () => setRoute(parseRoute(location.hash));
@@ -94,14 +115,15 @@ export function App() {
   const localToken = local.status?.state === "running" ? local.status.token : null;
   const engine = useMemo<Engine | null>(() => {
     try {
-      if (useLocal) {
+      if (mode === "native" && shell !== null) return new LocalEngine(shell.bridge, { label: "this computer" });
+      if (mode === "python") {
         return localUrl !== null ? new HttpEngine(localUrl, { token: localToken ?? undefined, label: "this computer" }) : null;
       }
       return prefs.engineUrl !== "" ? new HttpEngine(prefs.engineUrl, { token: prefs.engineToken || undefined }) : null;
     } catch {
       return null;
     }
-  }, [useLocal, localUrl, localToken, prefs.engineUrl, prefs.engineToken]);
+  }, [mode, shell, localUrl, localToken, prefs.engineUrl, prefs.engineToken]);
 
   const runSource = useMemo<RunSource | null>(() => {
     if (route.screen === "replay") {
@@ -165,11 +187,11 @@ export function App() {
       </header>
       <main id="main" tabIndex={-1}>
         {route.screen === "connection" && (
-          <Connection prefs={prefs} onChange={update} localEngine={hasLocal ? { status: local.status, inUse: useLocal } : null} />
+          <Connection prefs={prefs} onChange={update} localEngine={hasLocal ? { native: hasNative, python: hasPython, status: local.status, mode } : null} />
         )}
         {route.screen === "shell" &&
           (shell !== null && hasLocal ? (
-            <ShellSettingsScreen shell={shell} info={local.info} status={local.status} onChange={local.refresh} />
+            <ShellSettingsScreen shell={shell} info={shellInfo} status={local.status} mode={mode} onChange={local.refresh} />
           ) : (
             <section class="page narrow">
               <div class="notice" role="note">
@@ -180,10 +202,10 @@ export function App() {
               </div>
             </section>
           ))}
-        {needsEngine && engine === null && useLocal && shell !== null && (
+        {needsEngine && engine === null && mode === "python" && shell !== null && (
           <LocalEngineGate status={local.status} shell={shell} onChange={local.refresh} />
         )}
-        {needsEngine && engine === null && !useLocal && (
+        {needsEngine && engine === null && mode !== "python" && (
           <section class="page narrow">
             <div class="notice bad" role="alert">
               <p>No engine is connected.</p>

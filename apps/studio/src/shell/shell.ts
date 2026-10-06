@@ -1,15 +1,19 @@
 /**
  * The native shell (Tauri), when Studio runs inside one. In a browser `getShell()` is
- * null and nothing here is used. The shell's only job on desktop is to run the engine as
- * a child process and say where it is; the UI then talks to it over HTTP like to any
- * other engine.
+ * null and nothing here is used. The shell offers the built-in engine (see
+ * sources/localEngine.ts) and, on desktop, can also start the external Python engine as a
+ * child process and say where it is.
  */
 
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
 export interface ShellInfo {
-  /** False on phones and tablets: no engine can be started there. */
+  /** The reconstruction is built into the app (crates/dense). */
+  native_engine: boolean;
+  /** The app can start the external Python engine: desktop builds outside the sandbox. */
   can_run_engine: boolean;
+  /** Native folder and file pickers exist. */
+  can_pick_paths: boolean;
   os: string;
   version: string;
   auto_device: string;
@@ -56,6 +60,9 @@ export interface Shell {
   saveSettings(config: ShellConfig): Promise<ShellSettings>;
   engineStatus(): Promise<EngineStatus>;
   restartEngine(): Promise<void>;
+  stopEngine(): Promise<void>;
+  /** Calls any command of the shell; the built-in engine is reached through this. */
+  bridge<T>(command: string, args?: Record<string, unknown>): Promise<T>;
   /** Native picker; resolves to null when cancelled. */
   pickPath(kind: "folder" | "file", title: string, start?: string): Promise<string | null>;
 }
@@ -66,6 +73,8 @@ const tauriShell: Shell = {
   saveSettings: (config) => invoke<ShellSettings>("save_settings", { config }),
   engineStatus: () => invoke<EngineStatus>("engine_status"),
   restartEngine: () => invoke<void>("restart_engine"),
+  stopEngine: () => invoke<void>("stop_engine"),
+  bridge: (command, args) => invoke(command, args),
   pickPath: (kind, title, start) => invoke<string | null>("pick_path", { kind, title, start: start ?? null }),
 };
 

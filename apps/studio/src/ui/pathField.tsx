@@ -14,7 +14,7 @@ interface Props {
   required?: boolean;
   engine: Engine;
   /** `inputs`: pick a folder a run can start from. `file`: pick a file (or a folder). */
-  want: "inputs" | "file";
+  want: "inputs" | "folder" | "file";
   onInput(value: string): void;
 }
 
@@ -61,7 +61,7 @@ export function PathField({ id, label, optional, value, placeholder, help, error
   const canList = engine.listData !== undefined;
   const [open, setOpen] = useState(false);
   const [folder, setFolder] = useState("");
-  const typed = splitTyped(value);
+  const typed = splitTyped(/^(\/|[A-Za-z]:)/.test(value.trim()) ? "" : value);
   // Type-ahead: list the folder being typed in, a moment after the typing pauses.
   const [suggestIn, setSuggestIn] = useState<string | null>(null);
   useEffect(() => {
@@ -81,7 +81,9 @@ export function PathField({ id, label, optional, value, placeholder, help, error
   const toggle = () => {
     if (!open) {
       // Start where the field points: the typed folder if it is one, else its parent.
-      const clean = cleanPath(value);
+      // An absolute path (chosen with the native picker) is not inside the data folder: start at its top.
+      const absolute = /^(\/|[A-Za-z]:)/.test(value.trim());
+      const clean = absolute ? "" : cleanPath(value);
       setFolder(listable(clean) ? (value.trim().endsWith("/") || clean === "" ? clean : parentPath(clean)) : "");
     }
     setOpen(!open);
@@ -118,6 +120,22 @@ export function PathField({ id, label, optional, value, placeholder, help, error
         {canList && (
           <button type="button" class="button" aria-expanded={open} aria-controls={`${id}-browser`} onClick={toggle}>
             Browse
+          </button>
+        )}
+        {engine.pickPath !== undefined && (
+          <button
+            type="button"
+            class="button"
+            onClick={() => {
+              void engine.pickPath?.(want === "file" ? "file" : "folder", label).then(
+                (chosen) => {
+                  if (chosen !== null) onInput(chosen);
+                },
+                () => undefined,
+              );
+            }}
+          >
+            Choose<span class="visually-hidden"> {label} on this computer</span>
           </button>
         )}
       </div>
@@ -173,7 +191,7 @@ export function PathField({ id, label, optional, value, placeholder, help, error
               )}
               {browsing.listing.entries.filter(visible).map((entry) => {
                 const path = joinPath(folder, entry.name);
-                const pick = want === "inputs" ? entry.inputs : !entry.directory;
+                const pick = want === "inputs" ? entry.inputs : want === "folder" ? entry.directory : !entry.directory;
                 return (
                   <li key={entry.name} class={pick ? "pickable" : undefined}>
                     {entry.directory ? (
@@ -206,7 +224,7 @@ export function PathField({ id, label, optional, value, placeholder, help, error
           )}
           <div class="browser-foot">
             <span class="sub">
-              {want === "inputs" ? "Folders marked Inputs hold cameras.json; a run can start from them." : "Choose a file."}
+              {want === "inputs" ? "Folders marked Inputs hold cameras.json; a run can start from them." : want === "folder" ? "Choose a folder." : "Choose a file."}
             </span>
             <button type="button" class="button small" onClick={() => setOpen(false)}>
               Close

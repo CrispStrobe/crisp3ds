@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { RunEvent } from "../core/events";
 import { FakeTime, fakeFetch, fixtureEvents, fixtureText, json, settle } from "../testing/fixture";
 import { BACKOFF_MS, HttpEngine, normaliseEngineUrl, POLL_MS } from "./httpEngine";
-import { LocalEngine, NotImplementedError } from "./localEngine";
 import { ReplaySource } from "./replaySource";
 import { RunStore } from "./runStore";
 import { EngineError, type LinkStatus, type SourceUpdate } from "./types";
@@ -353,15 +352,3 @@ describe("ReplaySource", () => {
   });
 });
 
-describe("LocalEngine (stub for the Tauri shell)", () => {
-  it("has the engine's shape and says it is not implemented", async () => {
-    const engine = new LocalEngine();
-    await expect(engine.health()).rejects.toBeInstanceOf(NotImplementedError);
-    await expect(engine.listRuns()).rejects.toBeInstanceOf(NotImplementedError);
-    const source = engine.openRun("r1");
-    const seen = collect(source);
-    source.start();
-    expect(seen.links.at(-1)?.state).toBe("failed");
-    await expect(source.fetchBytes("mesh/mesh.stl")).rejects.toBeInstanceOf(NotImplementedError);
-  });
-});

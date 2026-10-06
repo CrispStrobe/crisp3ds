@@ -9,6 +9,7 @@
 import type { RunEvent } from "../core/events";
 import type { ReplaySnapshot, ReplaySpeed } from "../core/replay";
 import type { SettingSpec } from "../core/settings";
+import type { StartPoint } from "../core/startPoints";
 
 export type SourceKind = "replay" | "http" | "local";
 
@@ -79,6 +80,14 @@ export interface EngineHealth {
   schema?: string;
   device?: string;
   canStartRuns: boolean;
+  /** How a run may start here. Absent: what the contract guarantees (inputs, or scene + prepared + raw masks). */
+  startPoints?: StartPoint[];
+  /** False when the engine picks its device itself (the built-in engine: the system's GPU). */
+  choosesDevice?: boolean;
+  /** False when the engine cannot score against a reference scan. */
+  scoresReference?: boolean;
+  /** Where the engine keeps its data, when it runs on this computer and says so. */
+  dataFolder?: string;
 }
 
 export interface RunSummary {
@@ -127,4 +136,9 @@ export interface Engine {
   openRun(id: string): RunSource;
   /** Folders and files under the engine's data directory; `path` is relative to it ("" is the top). */
   listData?(path: string, signal?: AbortSignal): Promise<DataListing>;
+  /**
+   * Present when the engine runs on this computer inside the app: opens a native picker and
+   * resolves to the chosen absolute path (null when cancelled), which the engine then accepts.
+   */
+  pickPath?(kind: "folder" | "file", title: string): Promise<string | null>;
 }
