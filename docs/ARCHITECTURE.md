@@ -22,8 +22,10 @@ photos + lens calibration
 ```
 
 Everything above the scene is provider-based. Everything below it is one
-implementation, the native crate `crates/dense`, with the Python package
-`scripts/turntable_mesh` kept as its reference.
+implementation, the native crate `crates/dense`. That crate is now the primary
+implementation: new behaviour is developed there and judged by the scanner
+evaluator on the test objects. The Python package `scripts/turntable_mesh` is
+the reference for what was ported and is no longer extended.
 
 ### The scene: what providers hand to the dense stages
 
@@ -105,7 +107,7 @@ the scanner scores within 0.003.
 
 | | macOS, Windows, Linux | iOS, Android | Browser |
 | --- | --- | --- | --- |
-| Compute | native crate through Metal, DirectX 12, Vulkan | native crate through Metal, Vulkan (not yet built or measured) | WebAssembly and WebGPU (build check in CI; not yet run) |
+| Compute | native crate; real objects run on Metal (Apple M1); kernels tested on Vulkan and DirectX 12 software adapters in CI | native crate through Metal, Vulkan (not yet built or measured) | WebAssembly and WebGPU: the Bunny completes in headless Chromium with the native scanner score, about 2.7 times slower than native, 1.9 GiB peak without live previews |
 | Cameras | `alicevision`, `colmap`, `import`, `markers`, `turntable` | `markers`, `turntable`, `device`, `import` | `markers`, `turntable`, `import` |
 | Masks | `threshold`, `sam`, `import` | `threshold`, `import`; `sam` once native | same |
 | Front end | Studio (Tauri) | Studio (Tauri mobile) | Studio (static web app) |
