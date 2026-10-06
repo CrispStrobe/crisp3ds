@@ -198,6 +198,67 @@ Kept as in the reference although probably unintended there: all views of the
 finer levels search with the inverse-depth step of the last view swept at the
 coarsest level (`step` is overwritten per view in the level-0 loop).
 
+Parity with the Python stage (Torch 2.7 on MPS, Apple M1; native on the same
+GPU through Metal; default settings unless noted; 73 or 71 photos of
+1749 x 1155).
+
+Inputs and hull. Grey images, canvas boxes, neighbour lists and pyramid levels
+(grey, mask, camera; three sizes) are bit-identical on the Bunny in all 73
+views. Synthetic sphere: identical hull voxel set. Bunny without mask repair:
+12 826 963 voxels on both sides, 7 only in Python and 7 only in native, each
+with a projection within 0.0003 pixels of a rounding boundary. Depth bounds per
+view then differ by up to 3.6e-4 relative, because the reference takes them
+from every seventh hull voxel and the lists are shifted against each other;
+with identical hulls they agree to float32 rounding.
+
+Mask repair and fusion from the same saved depths (`--reuse-depths`):
+
+| | Bunny | Armadillo | Dragon | Lucy |
+| --- | --- | --- | --- | --- |
+| Repaired mask pixels that differ (of 147 M; pixels added by repair) | 19 (714 488) | 15 (731 575) | 187 (779 416) | 94 (509 033) |
+| Hull voxels, Python / native | 13 560 339 / 13 560 383 | 5 628 084 / 5 628 109 | 6 785 506 / 6 785 672 | 1 794 135 / 1 794 147 |
+| Voxels only in Python / only in native | 7 / 51 | 4 / 29 | 7 / 173 | 6 / 18 |
+| `weight` identical on common voxels; largest difference | 99.992 %; 2 | 99.984 %; 1 | 99.979 %; 3 | 99.972 %; 2 |
+| `total` absolute difference, p99.9 / maximum | 0.00028 / 2.0 | 0.00037 / 1.7 | 0.00027 / 3.0 | 0.00037 / 2.0 |
+| Largest F1 difference after the Python mesher | 0.0003 | 0.0001 | 0.0010 | 0.0003 |
+
+With identical masks (Bunny, repair off) fusion alone gives: `weight` identical
+in 99.993 % of voxels, largest difference 1 (one nearest-pixel lookup or one
+truncation threshold decided the other way; the median distance of those
+voxels' nearest lookup from a rounding boundary is 0.00009 pixels), `total`
+p99.9 0.00025. Support height and observed fraction agree to all printed digits.
+
+Whole stage, each side with its own matching:
+
+| | Bunny | Armadillo | Dragon | Lucy |
+| --- | --- | --- | --- | --- |
+| Consistent coverage per pass, Python | 0.554 / 0.820 / 0.810 / 0.710 | 0.499 / 0.773 / 0.776 / 0.703 | 0.633 / 0.753 / 0.765 / 0.648 | 0.600 / 0.794 / 0.734 / 0.585 |
+| Consistent coverage per pass, native | 0.556 / 0.821 / 0.809 / 0.711 | 0.498 / 0.772 / 0.776 / 0.701 | 0.634 / 0.752 / 0.764 / 0.648 | 0.598 / 0.794 / 0.735 / 0.589 |
+| Largest coverage difference | 0.0013 | 0.0019 | 0.0012 | 0.0042 |
+| Hull-front pixels, Python / native | 933 637 / 933 652 | 924 985 / 918 072 | 790 169 / 787 561 | 283 605 / 286 843 |
+| Final depth valid in both, of valid in Python (median over views) | 97.3 % | 95.4 % | 96.1 % | 95.6 % |
+| Relative depth difference where both valid, median / p95 | 5.0e-5 / 1.0e-3 | 1.1e-4 / 1.4e-3 | 6.3e-5 / 1.5e-3 | 8.0e-5 / 1.4e-3 |
+| F1 `all` at 0.5 / 1 / 2 %, Python | 0.905 / 0.941 / 0.955 | 0.922 / 0.971 / 0.987 | 0.772 / 0.926 / 0.981 | 0.789 / 0.903 / 0.938 |
+| F1 `all` at 0.5 / 1 / 2 %, native | 0.905 / 0.941 / 0.956 | 0.923 / 0.971 / 0.987 | 0.770 / 0.927 / 0.981 | 0.789 / 0.904 / 0.938 |
+| Largest F1 difference (`all` and `above_margin`) | 0.0007 | 0.0008 | 0.0020 | 0.0005 |
+| Largest GPU binding | 110.6 MiB | 110.9 MiB | 111.3 MiB | 104.3 MiB |
+| Stage time, Python / native | 588 s / 78 s | 475 s / 58 s | 505 s / 66 s | 306 s / 40 s |
+
+On the synthetic sphere, where the hulls are identical, the two stages agree
+far more closely: coverage per pass within 0.0001, depth valid in both for at
+least 99.9 % of each view's pixels, relative depth difference median 9e-8 and
+p99 4e-6. On real objects the hulls differ in a few dozen voxels, so depth
+bounds and with them the sweep planes are not the same.
+
+Time per step on the Bunny, seconds, Python / native: hull
+33.5 / 1.6; two repair rounds with their hulls 127 / 8.3; level 256 sweep
+79.5 / 6.5; level 512 first pass with hull-front candidate 135.9 / 14.7;
+level 512 second pass 41.6 / 5.2; level 876 121.9 / 17.8 (of which 4.5 on the
+CPU for the initial surfaces and 0.9 for agreement); fusion 20.8 / 0.9;
+everything else (loading, sheets, writing the files) 27.8 / 23.2, of which the
+native stage spends 0.8 on loading and 21.8 on writing `volume.npz` and
+`depths.npz` with single-threaded deflate.
+
 ## Dependencies
 
 License: AGPL-3.0-only, like the rest of the repository. Dependencies and their
