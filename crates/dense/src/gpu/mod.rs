@@ -37,7 +37,7 @@ pub struct Gpu {
 }
 
 impl Gpu {
-    /// The system's preferred adapter with default WebGPU limits.
+    /// The system's preferred adapter with default WebGPU limits (or the adapter's, where lower).
     /// `CRISP3DS_GPU_FALLBACK=1` asks for a software adapter instead (for CI).
     #[cfg(not(target_arch = "wasm32"))]
     pub fn new() -> anyhow::Result<Self> {
@@ -57,7 +57,10 @@ impl Gpu {
             })
             .await
             .map_err(|e| anyhow!("no GPU adapter: {e}"))?;
-        let limits = wgpu::Limits::default();
+        // Default WebGPU limits, lowered where the adapter offers less (the iOS simulator's
+        // Metal adapter has 15 inter-stage variables, not 16). Never more than the defaults,
+        // so results do not depend on how generous the GPU is.
+        let limits = wgpu::Limits::default().or_worse_values_from(&adapter.limits());
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: Some("crisp3ds-dense"),
