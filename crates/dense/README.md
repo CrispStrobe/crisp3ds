@@ -473,6 +473,34 @@ CrispEmbed's own check (`test-sam2-diff`, every encoder stage against PyTorch on
 the CPU): F32 and F16 cosine at least 0.999999 on the CPU and 0.999994 on Metal;
 Q8_0 drifts (worst mask IoU 0.9895) and Q4_K is unusable, so neither is offered.
 
+**Flat base only on a support (`support_evidence`), unmeasured surface inside
+the hull (`mesh_hull_overshoot`).** Both are native-only settings, on by
+default. The flat base assumes the object stands on the turntable; it is now
+cut only when the silhouette hull below the support height is the shallow
+cone a support plane leaves (no camera sees through the plane, so the hull
+reaches below it only by about tan(elevation) times the footprint radius).
+Floating means deeper than 15 % of the object's height and 1.5 times that
+cone. The four objects: 2.7 to 5.5 % of their height, support kept; the demo
+sphere seen from a 10-degree ring: 26 %, no support, no cut. Where nothing is
+measured, the surface used to lie on the silhouette hull, which stands
+outside the object by the mask tolerance and by what a ring of views cannot
+carve. It is now moved inside by the hull's measured overshoot: the median
+depth below the hull boundary of the measured zero-crossings, 0.7 voxels on
+the demo sphere and 1.4 to 1.6 on the four objects. Demo sphere (24 views of
+128 px, grid 96), radius by latitude band (true 1):
+
+| surface | rms abs(r−1) | z min | z<−0.8 | −0.8..−0.4 | −0.4..0.4 | 0.4..0.8 | >0.8 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| hull | 0.0431 | −1.07 | 1.030±0.008 | 1.046±0.004 | 1.042±0.009 | 1.049±0.004 | 1.034±0.008 |
+| before, final | 0.0696 | −0.67 | cut flat | 0.978±0.053 | 1.011±0.005 | 1.005±0.005 | 1.027±0.011 |
+| after, level 0 preview | 0.0148 | −1.04 | 1.003±0.008 | 1.009±0.020 | 1.006±0.008 | 1.001±0.013 | 1.014±0.013 |
+| after, final | 0.0132 | −1.04 | 1.006±0.008 | 1.013±0.014 | 1.011±0.005 | 1.005±0.005 | 1.013±0.009 |
+
+On the four objects (photos, default providers) scanner F1 changes by +0.0013
+to +0.0030 over the whole surface and by -0.0012 to +0.0014 above the
+support; the tops (Bunny's back, Armadillo's shell, Lucy's wings and torch)
+look the same on the sheets.
+
 ### Camera providers through the dense stages
 
 A provider is judged by the reconstruction it leads to. `colmap` against
