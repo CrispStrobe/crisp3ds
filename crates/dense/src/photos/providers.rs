@@ -26,13 +26,14 @@ pub const MASKS_THRESHOLD: Provider = Provider {
     module: "masks",
     name: "threshold",
     selector: "--masks threshold",
-    summary: "Dark object on a light backdrop: grey threshold (fixed or Otsu), largest dark region, dark-hole cleanup",
+    summary:
+        "Dark object on a light backdrop: grey threshold (Otsu or fixed), largest dark region, contact shadow taken out, dark-hole cleanup",
     desktop: true,
     mobile: true,
     wasm: true,
     external: &[],
     license: "this crate (AGPL-3.0-only)",
-    default: false,
+    default: true,
 };
 
 pub const MASKS_IMPORT: Provider = Provider {
@@ -58,7 +59,7 @@ pub const MASKS_EXTERNAL_SAM: Provider = Provider {
     wasm: false,
     external: &["Python interpreter with PyTorch", "SAM 2 source checkout", "SAM 2.1 checkpoint"],
     license: "SAM 2 code and checkpoints Apache-2.0; PyTorch BSD-3-Clause",
-    default: true,
+    default: false,
 };
 
 pub const CAMERAS_COLMAP: Provider = Provider {

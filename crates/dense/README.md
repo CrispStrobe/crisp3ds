@@ -4,7 +4,9 @@ The reconstruction from turntable photos to a checked STL in Rust, without
 Python: GPU stages as WebGPU compute shaders through `wgpu` (Metal, Vulkan,
 DirectX 12, and WebGPU in browsers), the rest as plain Rust. It runs as one
 command (`run`), as a library call, through a C interface and, for the dense
-stages, in a browser; every stage is also a subcommand.
+stages, in a browser; every stage is also a subcommand. With the default
+providers (threshold masks, our own turntable solver) the whole way from
+photos to the STL starts no other program.
 
 This crate began as a port of `scripts/turntable_mesh` and is now the primary
 implementation. New behaviour is developed here and judged by the scanner
@@ -15,10 +17,10 @@ reference for what was ported, and is not extended.
 | --- | --- |
 | Photos to scene (`photos`): capture order, threshold masks, hole cleanup, contrast images, lens handling, audit and gates, undistortion, scene | this crate |
 | Camera providers `turntable` (our own solver, the default), `markers` (printed mat), `import` | this crate |
-| Mask providers `threshold`, `import` | this crate |
+| Mask providers `threshold` (the default), `import` | this crate |
 | Camera provider `colmap` | external program: COLMAP (BSD-3-Clause), started as a child process |
 | Camera provider `alicevision` | external programs: AliceVision (MPL-2.0), started as child processes |
-| Mask provider `external-sam` (default) | external program: SAM 2.1 in Python with PyTorch (Apache-2.0, BSD-3-Clause) |
+| Mask provider `external-sam` | external program: SAM 2.1 in Python with PyTorch (Apache-2.0, BSD-3-Clause) |
 | Inputs from a scene (`inputs`), dense stereo (`stereo`, GPU), surface (`mesh`), photo check (`check`) | this crate |
 | Run driver, events, cancellation, settings schema, start points and provider description | this crate |
 | In a browser (`web/`) | this crate as WebAssembly: the dense stages from an inputs folder; no external programs |
@@ -346,8 +348,46 @@ keeps beside and under the raised soles and between the Dragon's claws, joined
 to the feet, so it is neither thin nor separate. Removing thin unmeasured hull
 lying on the support was tried (columns on the support plane, runs no taller
 than 4 to 16 voxels): it changed no score by more than 0.001 on the Bunny or
-the Armadillo and is not in the crate. `external-sam` therefore remains the
-default mask provider and `threshold` (Otsu) is the provider without a network.
+the Armadillo and is not in the crate.
+
+**Contact shadow taken out of the masks (`--threshold-shadow`).** With the
+turntable cameras the remaining defect was flat flakes on the support around
+and between the feet: contact shadow in the masks. The shadow is darker than
+the level but lighter than the object's material, and it lies on the
+turntable, so in an upright photo there is turntable below it, not object.
+The threshold provider now keeps a mask pixel only when object core (darker
+than `--threshold-shadow` of the way from the mask's median grey to the level,
+0.25 by default) lies at or below it in its column, then keeps the largest
+part. Against SAM masks on every sixth photo the extra area falls from 3.8 to
+5.7 % of the object to 2.3 to 3.6 %, and the missing area rises from 0.04 to
+1.3 % to 0.2 to 1.5 %. One command from the photos, turntable cameras, scanner
+F1 at 0.5 % / 1 % / 2 %:
+
+| | threshold, before | threshold, shadow taken out | SAM masks | after minus SAM, `all` |
+| --- | --- | --- | --- | --- |
+| Bunny `all` | 0.905 / 0.938 / 0.953 | 0.904 / 0.939 / 0.956 | 0.908 / 0.942 / 0.956 | -0.0049 / -0.0031 / -0.0003 |
+| Bunny `above_margin` | 0.967 / 0.997 / 1.000 | 0.964 / 0.995 / 1.000 | 0.966 / 0.996 / 1.000 | |
+| Armadillo `all` | 0.913 / 0.960 / 0.975 | 0.924 / 0.972 / 0.987 | 0.926 / 0.971 / 0.987 | -0.0017 / +0.0004 / 0.0000 |
+| Armadillo `above_margin` | 0.950 / 0.996 / 1.000 | 0.952 / 0.997 / 1.000 | 0.953 / 0.996 / 1.000 | |
+| Dragon `all` | 0.784 / 0.913 / 0.973 | 0.802 / 0.933 / 0.982 | 0.794 / 0.930 / 0.982 | +0.0076 / +0.0026 / -0.0006 |
+| Dragon `above_margin` | 0.849 / 0.964 / 0.994 | 0.847 / 0.965 / 0.995 | 0.838 / 0.961 / 0.994 | |
+| Lucy `all` | 0.819 / 0.937 / 0.963 | 0.822 / 0.940 / 0.965 | 0.824 / 0.943 / 0.968 | -0.0020 / -0.0023 / -0.0022 |
+| Lucy `above_margin` | 0.862 / 0.985 / 0.999 | 0.861 / 0.985 / 0.999 | 0.860 / 0.983 / 1.000 | |
+
+`above_margin` drops by at most 0.0029 (Bunny at 0.5 %, 0.9665 to 0.9636). The
+flakes are gone on the preview sheets of the Armadillo and the Dragon, and the
+feet, claws and Lucy's base are intact. Because of this `threshold` is the
+default mask provider: the default command needs no external program. One run
+per variant and object; the Bunny's whole-surface margin at 0.5 % (0.0049) is
+the closest to the 0.005 limit.
+A core share of 0.35 was tried as well: closer on the Bunny (-0.0026 at
+0.5 %), worse on Lucy (-0.0040 / -0.0050 / -0.0029), so 0.25 stays.
+
+With the turntable solver's sparse points (Bunny 6 733, Armadillo 7 853,
+Dragon 5 062, Lucy 2 663, counted in the runs with threshold masks)
+`support_from_sparse` engages with threshold masks on the Bunny (support
+raised by 3.2 voxels), the Dragon (3.2) and the Armadillo (0.6), not on Lucy;
+with SAM masks only on the Dragon (0.8).
 
 ### Camera providers through the dense stages
 

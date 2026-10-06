@@ -13,17 +13,16 @@ contrast images, gates, sheets, events) and is described in the second half.
 crisp3ds-dense photos --photos data/bunny/rgb \
   --calibration scripts/turntable_mesh/calibrations/3dlf-pro.json \
   --output runs/bunny-front \
-  --masks threshold                             # cameras: turntable unless --cameras says otherwise
+                                                # masks: threshold, cameras: turntable, unless given
 crisp3ds-dense run --inputs runs/bunny-front/inputs --output runs/bunny-dense
 crisp3ds-dense photos --list-providers      # the table below, as JSON
 ```
 
-With `--masks threshold` and the default cameras no other program is started:
-photos and a lens calibration go in, masks, cameras and undistorted photos
-come out, on any platform. `--masks` still defaults to `external-sam` (see
-below for why), so the flag has to be given. `crisp3ds-dense run --photos DIR
---calibration JSON --masks threshold --output RUN` does this step and the
-dense stages in one command.
+With the default providers (`--masks threshold`, `--cameras turntable`) no
+other program is started: photos and a lens calibration go in, masks, cameras
+and undistorted photos come out, on any platform. `crisp3ds-dense run --photos
+DIR --calibration JSON --output RUN` does this step and the dense stages in
+one command.
 
 ```
 masks    stage photos, coarse masks -> MASK PROVIDER -> dark-hole cleanup -> masks/, contact sheet
@@ -44,23 +43,22 @@ follow for every provider.
 
 | `--masks` | What it does | Needs | License | Desktop / phone / browser |
 | --- | --- | --- | --- | --- |
-| `threshold` | grey threshold (`--threshold-level`: Otsu per photo by default, or a level), largest dark region inside `--threshold-envelope` | nothing | this crate | yes / yes / yes |
+| `threshold` (default) | grey threshold (`--threshold-level`: Otsu per photo by default, or a level), largest dark region inside `--threshold-envelope`, contact shadow taken out (`--threshold-shadow`) | nothing | this crate | yes / yes / yes |
 | `import:DIR` | masks made elsewhere: 8-bit PNG, object above 127, named `capture_NNNN.png` in capture order or like the photo (`name.png`, `name.ext.png`) | nothing | this crate | yes / yes / yes |
-| `external-sam` (default) | SAM 2.1 prompted by the threshold masks (level 70), through `scripts/turntable_mesh/segment.py` | an interpreter with PyTorch (`--sam-python`), a SAM 2 checkout (`--sam-source`), a checkpoint (`--sam-checkpoint`), this repository (`--sam-repository`) | SAM 2 Apache-2.0, PyTorch BSD-3-Clause | yes / no / no |
+| `external-sam` | SAM 2.1 prompted by the threshold masks (level 70), through `scripts/turntable_mesh/segment.py` | an interpreter with PyTorch (`--sam-python`), a SAM 2 checkout (`--sam-source`), a checkpoint (`--sam-checkpoint`), this repository (`--sam-repository`) | SAM 2 Apache-2.0, PyTorch BSD-3-Clause | yes / no / no |
 
-Which one to use was measured on the four test objects with the native dense
-stages, the same cameras for both mask sets, and the scanner evaluator
-(`crates/dense/README.md` has the table). Above the support the Otsu threshold
-masks give the same scanner F1 as SAM on the Bunny and the Armadillo (within
-0.002) and a higher one on the Dragon and Lucy. Over the whole surface they are
-lower where the contact shadow under the object is dark and enters the mask:
-0.003 on the Bunny, 0.005 to 0.013 on the Dragon and 0.015 on the Armadillo
-(after the fusion stage stopped placing the support below the sparse points,
-which removed most of the loss on the Bunny and the Dragon). A fixed level of
-70 keeps most of the shadow out but cuts lit upward faces off (the top of the
-Armadillo's shell). Because of the base, `external-sam` stays the default;
-`--masks threshold` is the choice when no network can run, and it is no worse
-above the support.
+Which one to use was measured on the four test objects, from the photos in one
+command with the turntable cameras, against SAM masks imported through
+`import:DIR`, with the scanner evaluator (`crates/dense/README.md` has the
+table). A plain threshold also takes the contact shadow on the turntable,
+which ends as flat flakes around the feet. The provider therefore takes it
+out: a mask pixel stays only when object core (darker than a quarter of the
+way from the object's median grey to the level) lies at or below it in its
+column. Lit upward faces have the object under them; shadow beside or in
+front of the object has turntable under it. With that, the whole-surface
+scores are within 0.005 of SAM on all four objects and above it on the
+Dragon, and `threshold` is the default. `external-sam` remains for objects
+that are not dark on a light backdrop.
 
 ### Camera providers
 

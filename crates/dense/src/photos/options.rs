@@ -231,10 +231,11 @@ cameras come from interchangeable providers; undistortion, gates and the scene
 are this program's. Exit code 0: complete; 2: cameras rejected by a gate (or a
 usage error); 1: a step failed. See docs/PHOTOS-TO-INPUTS.md.
 
---masks threshold               dark object on a light backdrop: threshold, largest dark region, hole cleanup; no network
+--masks threshold               dark object on a light backdrop: threshold, largest dark region, contact shadow taken
+                                out, hole cleanup; no network, no external program (default)
         import:DIR              masks made elsewhere: one 8-bit PNG per photo, white object, named capture_NNNN.png in
                                 capture order or like the photo; the hole cleanup still runs
-        external-sam            SAM 2.1 through scripts/turntable_mesh/segment.py in an external Python interpreter (default)
+        external-sam            SAM 2.1 through scripts/turntable_mesh/segment.py in an external Python interpreter
 --cameras colmap                external COLMAP executable, incremental mapper with the declared lens fixed
           alicevision           external AliceVision executables, global SfM with the declared lens locked
           turntable             our own solver for one turn of ordered photos; no external program (default)
@@ -679,16 +680,17 @@ pub(crate) mod tests {
     fn defaults_and_provider_choices() {
         let folder = scratch("choices");
         let options = resolve(&arguments(&folder, &[]), &none).unwrap();
-        assert_eq!((options.photo_count, options.dark_threshold, options.envelope.as_str()), (3, Threshold::Level(70), "auto"));
-        assert_eq!((&options.masks, &options.cameras), (&MaskChoice::ExternalSam, &CameraChoice::Turntable));
-        assert_eq!(resolve(&arguments(&folder, &["--masks", "threshold"]), &none).unwrap().dark_threshold, Threshold::Otsu);
+        assert_eq!((options.photo_count, options.dark_threshold, options.envelope.as_str()), (3, Threshold::Otsu, "auto"));
+        assert_eq!((&options.masks, &options.cameras, options.threshold_shadow), (&MaskChoice::Threshold, &CameraChoice::Turntable, 0.25));
+        let prompted = resolve(&arguments(&folder, &["--masks", "external-sam"]), &none).unwrap();
+        assert_eq!((prompted.dark_threshold, prompted.threshold_shadow), (Threshold::Level(70), 0.0));
         assert_eq!((options.colmap.matching.as_str(), options.colmap.use_masks, options.colmap.cli), ("exhaustive", true, 0));
         let record = options.to_json();
         assert_eq!(record["schema"], SCHEMA);
-        assert_eq!((record["masks_provider"].as_str(), record["cameras_provider"].as_str()), (Some("external-sam"), Some("turntable")));
+        assert_eq!((record["masks_provider"].as_str(), record["cameras_provider"].as_str()), (Some("threshold"), Some("turntable")));
         assert_eq!(
-            (record["dark_threshold"].as_u64(), record["gates"]["minimum_positive_depth_fraction"].as_f64()),
-            (Some(70), Some(0.999))
+            (record["dark_threshold"].as_str(), record["gates"]["minimum_positive_depth_fraction"].as_f64()),
+            (Some("otsu"), Some(0.999))
         );
         assert_eq!(record["timeouts"]["sfm"], 900);
         std::fs::create_dir_all(folder.join("given")).unwrap();

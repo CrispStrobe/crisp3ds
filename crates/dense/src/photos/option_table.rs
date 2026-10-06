@@ -68,7 +68,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         flag: "masks",
         scope: "run",
         kind: "provider",
-        default: Some("external-sam"),
+        default: Some("threshold"),
         choices: &[],
         variable: Some("CRISP3DS_MASKS"),
         repeated: false,
