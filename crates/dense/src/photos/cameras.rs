@@ -412,6 +412,10 @@ pub fn colmap_commands(options: &Options, lens: &Lens) -> anyhow::Result<Vec<Ext
         ),
         _ => ("matches_importer", words(&["--match_list_path", &text(work.join("pairs.txt")), "--match_type", "pairs"])),
     };
+    // The mapper refuses to register photos whose camera has a distortion coefficient above
+    // `max_extra_param` (1 by default), taking it for a diverged estimate. A declared lens is not
+    // one: the 3DLF lens has k3 = -3.7.
+    let extra_bound = lens.k.iter().fold(1f64, |bound, k| bound.max(2.0 * k.abs())).ceil();
     let mapper = words(&[
         "--database_path",
         &database,
@@ -427,6 +431,8 @@ pub fn colmap_commands(options: &Options, lens: &Lens) -> anyhow::Result<Vec<Ext
         "0",
         "--Mapper.multiple_models",
         "0",
+        "--Mapper.max_extra_param",
+        &util::python_float(extra_bound),
         "--Mapper.num_threads",
         &threads,
     ]);
@@ -729,6 +735,7 @@ mod tests {
             assert_eq!(after(mapper, flag), "0", "{flag}");
         }
         assert_eq!(after(mapper, "--output_path"), text(out.join("sfm/colmap/sparse")));
+        assert_eq!(after(mapper, "--Mapper.max_extra_param"), "8.0"); // twice the largest coefficient, 3.7, rounded up
         let wrapper = folder.join("av.py").to_string_lossy().to_string();
         let more = [
             "--cameras",
