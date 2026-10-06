@@ -458,16 +458,24 @@ rest of the session and a hidden web view does not run its timers):
   synthetic sphere reconstructed inside the sandbox in 8 s, with runs and data
   in the app's container.
 
+Afterwards, with the screen unlocked, that finished Bunny run was opened in
+the app: five surfaces in the step strip, the newest preview (260 708
+triangles) shown by itself, the final mesh behind its "Load final surface
+(52 MB)" button and on screen 0.7 s after the click (1 047 200 triangles,
+longest page pause 34 ms), 9 of 9 sheets, photo check and mesh report. The
+runs list, the New run form with both start points, the Folders screen and
+the Connection screen were looked at in window captures.
+
+| The Bunny reconstructed by the built-in engine | Connection screen of the app |
+| --- | --- |
+| ![](docs/native-run.jpg) | ![](docs/native-connection.jpg) |
+
 Not verified:
 
-- **The Bunny in the window**: that previews, sheets and the final mesh appear
-  live for a real object, and that the window stays responsive meanwhile. The
-  same views were verified against the recorded Bunny run (see Large runs) and
-  live on the sphere, but not live on the Bunny.
-- **New screenshots** of the app with the built-in engine: window capture is
-  impossible while the screen is locked. `docs/native-run.jpg` and
-  `docs/native-settings.jpg` are from the Python-engine version; the layout of
-  the run view is the same, the settings screen has changed.
+- **The Bunny live in the window**: that its previews and sheets appear while
+  it runs, and that the window stays responsive meanwhile. Live progress in
+  the window was verified on the sphere only (the Bunny was to be run once,
+  and that run happened while the screen was locked).
 - **Clicking**: the native pickers (and with them the absolute-path grant in a
   real session), the Folders screen, switching engines on the Connection
   screen, the "camera solution, images and masks" start, and the external
