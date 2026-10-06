@@ -226,6 +226,8 @@ function rustCrates() {
           linked: [],
           build: [],
           folder: dirname(p.manifest_path),
+          // No registry source: a crate of this repository (crates/dense), the project's own code.
+          own: p.source === null,
         };
         row[role].push(platform);
         rows.set(key, row);
@@ -233,7 +235,12 @@ function rustCrates() {
     }
   }
   const sorted = [...rows.values()].sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
-  return { linked: sorted.filter((row) => row.linked.length > 0), build: sorted.filter((row) => row.linked.length === 0) };
+  const third = sorted.filter((row) => !row.own);
+  return {
+    linked: third.filter((row) => row.linked.length > 0),
+    build: third.filter((row) => row.linked.length === 0),
+    own: sorted.filter((row) => row.own).map(({ name, version, license, linked }) => ({ name, version, license, linked })),
+  };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -248,7 +255,7 @@ function tally(rows, key = "chosen") {
 function audit() {
   const npm = npmPackages();
   const rust = rustCrates();
-  const strip = ({ path, folder, ...row }) => row;
+  const strip = ({ path, folder, own, ...row }) => row;
   const shipped = [...npm.shipped, ...rust.linked];
   const appStore = [...npm.shipped, ...rust.linked.filter((row) => row.linked.includes("macos") || row.linked.includes("ios"))];
   const worst = (rows) => CATEGORIES[Math.max(0, ...rows.map((row) => rank(row.category)))];
@@ -275,7 +282,7 @@ function audit() {
     },
     targets: TARGETS,
     npm: { shipped: npm.shipped.map(strip), dev: npm.dev.map(strip) },
-    rust: { linked: rust.linked.map(strip), build: rust.build.map(strip) },
+    rust: { own: rust.own, linked: rust.linked.map(strip), build: rust.build.map(strip) },
     assets: ASSETS,
   };
   return { data, npm, rust };
@@ -322,15 +329,21 @@ function markdown(data) {
     "",
     "What the Studio apps contain and do not contain:",
     "",
-    "- They contain the web front end (this package's runtime npm dependencies) and the Tauri shell (the Rust crates below).",
+    "- They contain the web front end (this package's runtime npm dependencies), the Tauri shell, and the project's own",
+    "  reconstruction engine (`crates/dense`, Rust, WebGPU through `wgpu`) with the crates it depends on, all listed below.",
     "- They contain **no Python, no PyTorch, no NumPy/SciPy/OpenCV, no AliceVision, no SAM, no OpenMVS, no COLMAP** and no",
-    "  other reconstruction engine. The desktop app starts an engine that the user installed separately; the phone apps",
-    "  and the App Store variant of the Mac app are clients only. The pipeline's own dependencies are therefore outside",
-    "  this audit and outside the store builds.",
+    "  other third-party engine. The optional \"External Python engine\" of the desktop app runs software the user installed",
+    "  separately; it is not part of any build, and the App Store variant cannot start it at all.",
     "- The system web view (WKWebView, WebView2, WebKitGTK) is part of the operating system, not of the app.",
     "- One exception outside the App Store: the Linux AppImage, as Tauri's bundler builds it, carries the build machine's",
     "  WebKitGTK and GTK libraries (LGPL) as separate shared libraries inside the image, where they can be replaced. The",
     "  `.deb` depends on the system's libraries instead. This audit does not list those system libraries.",
+    "",
+    "## The project's own crates",
+    "",
+    "Linked into the app and not third-party: Crisp3DS's own code, AGPL-3.0-only, covered by the basis above.",
+    "",
+    table(["Crate", "Version", "License", "Linked on"], data.rust.own.map((row) => [row.name, row.version, row.license, row.linked.join(", ")])),
     "",
     "## Assets",
     "",

@@ -37,39 +37,46 @@
       "Apache-2.0": 1
     },
     "rust_linked_macos_or_ios": {
-      "MIT": 159,
-      "Apache-2.0": 25,
-      "Zlib": 18,
+      "MIT": 193,
+      "Apache-2.0": 31,
+      "Zlib": 20,
       "Unicode-3.0": 15,
-      "MPL-2.0": 4,
-      "BSD-3-Clause": 3,
-      "0BSD": 1,
-      "Apache-2.0 AND MIT": 1,
-      "BSD-3-Clause AND MIT": 1,
-      "CC0-1.0": 1,
-      "MIT AND Unicode-3.0": 1
-    },
-    "rust_linked_any_platform": {
-      "MIT": 230,
-      "Apache-2.0": 30,
-      "Zlib": 18,
-      "Unicode-3.0": 15,
-      "BSD-3-Clause": 4,
+      "BSD-3-Clause": 5,
       "MPL-2.0": 4,
       "0BSD": 1,
       "Apache-2.0 AND MIT": 1,
+      "Apache-2.0 WITH LLVM-exception": 1,
+      "BSD-2-Clause": 1,
       "BSD-3-Clause AND MIT": 1,
       "CC0-1.0": 1,
       "ISC": 1,
       "MIT AND Unicode-3.0": 1
     },
+    "rust_linked_any_platform": {
+      "MIT": 274,
+      "Apache-2.0": 36,
+      "Zlib": 20,
+      "Unicode-3.0": 15,
+      "BSD-3-Clause": 6,
+      "MPL-2.0": 4,
+      "Apache-2.0 WITH LLVM-exception": 2,
+      "ISC": 2,
+      "0BSD": 1,
+      "Apache-2.0 AND MIT": 1,
+      "BSD-2-Clause": 1,
+      "BSD-3-Clause AND MIT": 1,
+      "CC0-1.0": 1,
+      "MIT AND Unicode-3.0": 1
+    },
     "rust_build_only": {
-      "MIT": 70,
+      "MIT": 73,
       "Apache-2.0": 9,
       "Unicode-3.0": 3,
       "Apache-2.0 WITH LLVM-exception": 1,
+      "BSD-2-Clause": 1,
       "BSD-3-Clause": 1,
-      "MPL-2.0": 1
+      "MPL-2.0": 1,
+      "Zlib": 1
     },
     "npm_dev_only": {
       "MIT": 52,
@@ -842,6 +849,20 @@
     ]
   },
   "rust": {
+    "own": [
+      {
+        "name": "crisp3ds-dense",
+        "version": "0.1.0",
+        "license": "AGPL-3.0-only",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ]
+      }
+    ],
     "linked": [
       {
         "name": "adler2",
@@ -852,13 +873,12 @@
         "repository": "https://github.com/oyvindln/adler2",
         "linked": [
           "macos",
-          "linux"
-        ],
-        "build": [
           "ios",
           "windows",
+          "linux",
           "android"
-        ]
+        ],
+        "build": []
       },
       {
         "name": "aho-corasick",
@@ -909,6 +929,22 @@
         "build": []
       },
       {
+        "name": "allocator-api2",
+        "version": "0.2.21",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/zakarumych/allocator-api2",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
         "name": "android_system_properties",
         "version": "0.1.6",
         "license": "MIT OR Apache-2.0",
@@ -927,6 +963,38 @@
         "category": "permissive",
         "chosen": "MIT",
         "repository": "https://github.com/dtolnay/anyhow",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "arrayvec",
+        "version": "0.7.8",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/bluss/arrayvec",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "ash",
+        "version": "0.38.0+1.3.281",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/ash-rs/ash",
         "linked": [
           "macos",
           "ios",
@@ -1021,6 +1089,22 @@
       },
       {
         "name": "bit-set",
+        "version": "0.10.0",
+        "license": "Apache-2.0 OR MIT",
+        "category": "permissive",
+        "chosen": "Apache-2.0",
+        "repository": "https://github.com/contain-rs/bit-set",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "bit-set",
         "version": "0.8.0",
         "license": "Apache-2.0 OR MIT",
         "category": "permissive",
@@ -1038,6 +1122,22 @@
       {
         "name": "bit-vec",
         "version": "0.8.0",
+        "license": "Apache-2.0 OR MIT",
+        "category": "permissive",
+        "chosen": "Apache-2.0",
+        "repository": "https://github.com/contain-rs/bit-vec",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "bit-vec",
+        "version": "0.9.1",
         "license": "Apache-2.0 OR MIT",
         "category": "permissive",
         "chosen": "Apache-2.0",
@@ -1162,12 +1262,44 @@
         "build": []
       },
       {
+        "name": "bytemuck",
+        "version": "1.25.2",
+        "license": "Zlib OR Apache-2.0 OR MIT",
+        "category": "permissive",
+        "chosen": "Zlib",
+        "repository": "https://github.com/Lokathor/bytemuck",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
         "name": "byteorder",
         "version": "1.5.0",
         "license": "Unlicense OR MIT",
         "category": "permissive",
         "chosen": "MIT",
         "repository": "https://github.com/BurntSushi/byteorder",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "byteorder-lite",
+        "version": "0.1.0",
+        "license": "Unlicense OR MIT",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/image-rs/byteorder-lite",
         "linked": [
           "macos",
           "ios",
@@ -1326,6 +1458,22 @@
         "build": []
       },
       {
+        "name": "codespan-reporting",
+        "version": "0.13.1",
+        "license": "Apache-2.0",
+        "category": "permissive",
+        "chosen": "Apache-2.0",
+        "repository": "https://github.com/brendanzab/codespan",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
         "name": "combine",
         "version": "4.6.8",
         "license": "MIT",
@@ -1428,17 +1576,48 @@
         "repository": "https://github.com/srijs/rust-crc32fast",
         "linked": [
           "macos",
-          "linux"
-        ],
-        "build": [
           "ios",
           "windows",
+          "linux",
           "android"
-        ]
+        ],
+        "build": []
       },
       {
         "name": "crossbeam-channel",
         "version": "0.5.17",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/crossbeam-rs/crossbeam",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "crossbeam-deque",
+        "version": "0.8.8",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/crossbeam-rs/crossbeam",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "crossbeam-epoch",
+        "version": "0.9.21",
         "license": "MIT OR Apache-2.0",
         "category": "permissive",
         "chosen": "MIT",
@@ -1764,6 +1943,22 @@
         "build": []
       },
       {
+        "name": "either",
+        "version": "1.18.0",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/rayon-rs/either",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
         "name": "embed_plist",
         "version": "1.2.2",
         "license": "MIT OR Apache-2.0",
@@ -1808,6 +2003,21 @@
         "build": []
       },
       {
+        "name": "errno",
+        "version": "0.3.14",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/lambda-fairy/rust-errno",
+        "linked": [
+          "macos",
+          "ios",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
         "name": "fdeflate",
         "version": "0.3.7",
         "license": "MIT OR Apache-2.0",
@@ -1816,13 +2026,12 @@
         "repository": "https://github.com/image-rs/fdeflate",
         "linked": [
           "macos",
-          "linux"
-        ],
-        "build": [
           "ios",
           "windows",
+          "linux",
           "android"
-        ]
+        ],
+        "build": []
       },
       {
         "name": "field-offset",
@@ -1845,13 +2054,12 @@
         "repository": "https://github.com/rust-lang/flate2-rs",
         "linked": [
           "macos",
-          "linux"
-        ],
-        "build": [
           "ios",
           "windows",
+          "linux",
           "android"
-        ]
+        ],
+        "build": []
       },
       {
         "name": "fnv",
@@ -1916,6 +2124,22 @@
         "category": "permissive",
         "chosen": "MIT",
         "repository": "https://github.com/servo/rust-url",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "fs4",
+        "version": "1.1.0",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/al8n/fs4",
         "linked": [
           "macos",
           "ios",
@@ -2231,6 +2455,22 @@
         "build": []
       },
       {
+        "name": "gpu-allocator",
+        "version": "0.28.0",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/Traverse-Research/gpu-allocator",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
         "name": "gtk",
         "version": "0.18.2",
         "license": "MIT",
@@ -2255,8 +2495,40 @@
         "build": []
       },
       {
+        "name": "half",
+        "version": "2.7.1",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/VoidStarKat/half-rs",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
         "name": "hashbrown",
         "version": "0.12.3",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/rust-lang/hashbrown",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "hashbrown",
+        "version": "0.16.1",
         "license": "MIT OR Apache-2.0",
         "category": "permissive",
         "chosen": "MIT",
@@ -2575,6 +2847,22 @@
         "build": []
       },
       {
+        "name": "image",
+        "version": "0.25.10",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/image-rs/image",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
         "name": "indexmap",
         "version": "1.9.3",
         "license": "Apache-2.0 OR MIT",
@@ -2878,6 +3166,51 @@
         "build": []
       },
       {
+        "name": "libloading",
+        "version": "0.8.9",
+        "license": "ISC",
+        "category": "permissive",
+        "chosen": "ISC",
+        "repository": "https://github.com/nagisa/rust_libloading/",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "libm",
+        "version": "0.2.16",
+        "license": "MIT",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/rust-lang/compiler-builtins",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "linux-raw-sys",
+        "version": "0.12.1",
+        "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+        "category": "permissive",
+        "chosen": "Apache-2.0 WITH LLVM-exception",
+        "repository": "https://github.com/sunfishcode/linux-raw-sys",
+        "linked": [
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
         "name": "litemap",
         "version": "0.8.3",
         "license": "Unicode-3.0",
@@ -2994,13 +3327,12 @@
         "repository": "https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide",
         "linked": [
           "macos",
-          "linux"
-        ],
-        "build": [
           "ios",
           "windows",
+          "linux",
           "android"
-        ]
+        ],
+        "build": []
       },
       {
         "name": "miniz_oxide",
@@ -3011,13 +3343,12 @@
         "repository": "https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide",
         "linked": [
           "macos",
-          "linux"
-        ],
-        "build": [
           "ios",
           "windows",
+          "linux",
           "android"
-        ]
+        ],
+        "build": []
       },
       {
         "name": "mio",
@@ -3026,6 +3357,22 @@
         "category": "permissive",
         "chosen": "MIT",
         "repository": "https://github.com/tokio-rs/mio",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "moxcms",
+        "version": "0.8.1",
+        "license": "BSD-3-Clause OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "BSD-3-Clause",
+        "repository": "https://github.com/awxkee/moxcms.git",
         "linked": [
           "macos",
           "ios",
@@ -3046,6 +3393,38 @@
           "macos",
           "windows",
           "linux"
+        ],
+        "build": []
+      },
+      {
+        "name": "naga",
+        "version": "30.0.1",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/gfx-rs/wgpu",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "naga-types",
+        "version": "30.0.1",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/gfx-rs/wgpu",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
         ],
         "build": []
       },
@@ -3297,6 +3676,19 @@
         "build": []
       },
       {
+        "name": "objc2-metal",
+        "version": "0.3.2",
+        "license": "Zlib OR Apache-2.0 OR MIT",
+        "category": "permissive",
+        "chosen": "Zlib",
+        "repository": "https://github.com/madsmtm/objc2",
+        "linked": [
+          "macos",
+          "ios"
+        ],
+        "build": []
+      },
+      {
         "name": "objc2-quartz-core",
         "version": "0.3.2",
         "license": "Zlib OR Apache-2.0 OR MIT",
@@ -3304,6 +3696,7 @@
         "chosen": "Zlib",
         "repository": "https://github.com/madsmtm/objc2",
         "linked": [
+          "macos",
           "ios"
         ],
         "build": []
@@ -3368,6 +3761,22 @@
         "category": "notice",
         "chosen": "MPL-2.0",
         "repository": "https://github.com/soc/option-ext.git",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "ordered-float",
+        "version": "5.5.0",
+        "license": "MIT",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/reem/rust-ordered-float",
         "linked": [
           "macos",
           "ios",
@@ -3522,7 +3931,26 @@
         "repository": "https://github.com/image-rs/image-png",
         "linked": [
           "macos",
-          "linux"
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "pollster",
+        "version": "1.0.1",
+        "license": "Apache-2.0/MIT",
+        "category": "permissive",
+        "chosen": "Apache-2.0",
+        "repository": "https://github.com/zesterer/pollster",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
         ],
         "build": []
       },
@@ -3575,12 +4003,60 @@
         "build": []
       },
       {
+        "name": "presser",
+        "version": "0.3.1",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/EmbarkStudios/presser",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
         "name": "proc-macro2",
         "version": "1.0.107",
         "license": "MIT OR Apache-2.0",
         "category": "permissive",
         "chosen": "MIT",
         "repository": "https://github.com/dtolnay/proc-macro2",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "profiling",
+        "version": "1.0.18",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/aclysma/profiling",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "pxfm",
+        "version": "0.1.30",
+        "license": "BSD-3-Clause OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "BSD-3-Clause",
+        "repository": "https://github.com/awxkee/pxfm",
         "linked": [
           "macos",
           "ios",
@@ -3623,12 +4099,69 @@
         "build": []
       },
       {
+        "name": "range-alloc",
+        "version": "0.1.5",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/gfx-rs/range-alloc",
+        "linked": [
+          "windows"
+        ],
+        "build": []
+      },
+      {
         "name": "raw-window-handle",
         "version": "0.6.2",
         "license": "MIT OR Apache-2.0 OR Zlib",
         "category": "permissive",
         "chosen": "MIT",
         "repository": "https://github.com/rust-windowing/raw-window-handle",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "raw-window-metal",
+        "version": "1.1.0",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/rust-windowing/raw-window-metal",
+        "linked": [
+          "macos",
+          "ios"
+        ],
+        "build": []
+      },
+      {
+        "name": "rayon",
+        "version": "1.12.0",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/rayon-rs/rayon",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "rayon-core",
+        "version": "1.13.0",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/rayon-rs/rayon",
         "linked": [
           "macos",
           "ios",
@@ -3703,6 +4236,22 @@
         "build": []
       },
       {
+        "name": "renderdoc-sys",
+        "version": "1.1.0",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/ebkalderon/renderdoc-rs",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
         "name": "reqwest",
         "version": "0.13.5",
         "license": "MIT OR Apache-2.0",
@@ -3731,6 +4280,22 @@
       },
       {
         "name": "rustc-hash",
+        "version": "1.1.0",
+        "license": "Apache-2.0/MIT",
+        "category": "permissive",
+        "chosen": "Apache-2.0",
+        "repository": "https://github.com/rust-lang-nursery/rustc-hash",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "rustc-hash",
         "version": "2.1.3",
         "license": "Apache-2.0 OR MIT",
         "category": "permissive",
@@ -3740,6 +4305,21 @@
           "macos",
           "ios",
           "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "rustix",
+        "version": "1.1.5",
+        "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+        "category": "permissive",
+        "chosen": "Apache-2.0 WITH LLVM-exception",
+        "repository": "https://github.com/bytecodealliance/rustix",
+        "linked": [
+          "macos",
+          "ios",
           "linux",
           "android"
         ],
@@ -4011,13 +4591,12 @@
         "repository": "https://github.com/mcountryman/simd-adler32",
         "linked": [
           "macos",
-          "linux"
-        ],
-        "build": [
           "ios",
           "windows",
+          "linux",
           "android"
-        ]
+        ],
+        "build": []
       },
       {
         "name": "siphasher",
@@ -4118,12 +4697,44 @@
         "build": []
       },
       {
+        "name": "spirv",
+        "version": "0.4.0+sdk-1.4.341.0",
+        "license": "Apache-2.0",
+        "category": "permissive",
+        "chosen": "Apache-2.0",
+        "repository": "https://github.com/gfx-rs/rspirv",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
         "name": "stable_deref_trait",
         "version": "1.2.1",
         "license": "MIT OR Apache-2.0",
         "category": "permissive",
         "chosen": "MIT",
         "repository": "https://github.com/storyyeller/stable_deref_trait",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "static_assertions",
+        "version": "1.1.0",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/nvzqz/static-assertions-rs",
         "linked": [
           "macos",
           "ios",
@@ -4290,6 +4901,22 @@
         "category": "permissive",
         "chosen": "MIT",
         "repository": "https://github.com/servo/html5ever",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "termcolor",
+        "version": "1.4.1",
+        "license": "Unlicense OR MIT",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/BurntSushi/termcolor",
         "linked": [
           "macos",
           "ios",
@@ -4739,6 +5366,22 @@
         "build": []
       },
       {
+        "name": "unicode-width",
+        "version": "0.2.2",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/unicode-rs/unicode-width",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
         "name": "url",
         "version": "2.5.8",
         "license": "MIT OR Apache-2.0",
@@ -4896,6 +5539,113 @@
         "build": []
       },
       {
+        "name": "wgpu",
+        "version": "30.0.1",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/gfx-rs/wgpu",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "wgpu-core",
+        "version": "30.0.1",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/gfx-rs/wgpu",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "wgpu-core-deps-apple",
+        "version": "30.0.1",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/gfx-rs/wgpu",
+        "linked": [
+          "macos",
+          "ios"
+        ],
+        "build": []
+      },
+      {
+        "name": "wgpu-core-deps-windows-linux-android",
+        "version": "30.0.1",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/gfx-rs/wgpu",
+        "linked": [
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "wgpu-hal",
+        "version": "30.0.1",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/gfx-rs/wgpu",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "wgpu-naga-bridge",
+        "version": "30.0.1",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/gfx-rs/wgpu",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "wgpu-types",
+        "version": "30.0.1",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/gfx-rs/wgpu",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
         "name": "winapi-util",
         "version": "0.1.11",
         "license": "Unlicense OR MIT",
@@ -4923,6 +5673,18 @@
       {
         "name": "windows",
         "version": "0.61.3",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/microsoft/windows-rs",
+        "linked": [
+          "windows"
+        ],
+        "build": []
+      },
+      {
+        "name": "windows",
+        "version": "0.62.2",
         "license": "MIT OR Apache-2.0",
         "category": "permissive",
         "chosen": "MIT",
@@ -4969,6 +5731,18 @@
         "build": []
       },
       {
+        "name": "windows-collections",
+        "version": "0.3.2",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/microsoft/windows-rs",
+        "linked": [
+          "windows"
+        ],
+        "build": []
+      },
+      {
         "name": "windows-core",
         "version": "0.61.2",
         "license": "MIT OR Apache-2.0",
@@ -4981,8 +5755,32 @@
         "build": []
       },
       {
+        "name": "windows-core",
+        "version": "0.62.2",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/microsoft/windows-rs",
+        "linked": [
+          "windows"
+        ],
+        "build": []
+      },
+      {
         "name": "windows-future",
         "version": "0.2.1",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/microsoft/windows-rs",
+        "linked": [
+          "windows"
+        ],
+        "build": []
+      },
+      {
+        "name": "windows-future",
+        "version": "0.3.2",
         "license": "MIT OR Apache-2.0",
         "category": "permissive",
         "chosen": "MIT",
@@ -5029,6 +5827,18 @@
         "build": []
       },
       {
+        "name": "windows-numerics",
+        "version": "0.3.1",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/microsoft/windows-rs",
+        "linked": [
+          "windows"
+        ],
+        "build": []
+      },
+      {
         "name": "windows-result",
         "version": "0.3.4",
         "license": "MIT OR Apache-2.0",
@@ -5041,8 +5851,32 @@
         "build": []
       },
       {
+        "name": "windows-result",
+        "version": "0.4.1",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/microsoft/windows-rs",
+        "linked": [
+          "windows"
+        ],
+        "build": []
+      },
+      {
         "name": "windows-strings",
         "version": "0.4.2",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/microsoft/windows-rs",
+        "linked": [
+          "windows"
+        ],
+        "build": []
+      },
+      {
+        "name": "windows-strings",
+        "version": "0.5.1",
         "license": "MIT OR Apache-2.0",
         "category": "permissive",
         "chosen": "MIT",
@@ -5115,6 +5949,18 @@
       {
         "name": "windows-threading",
         "version": "0.1.0",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/microsoft/windows-rs",
+        "linked": [
+          "windows"
+        ],
+        "build": []
+      },
+      {
+        "name": "windows-threading",
+        "version": "0.2.1",
         "license": "MIT OR Apache-2.0",
         "category": "permissive",
         "chosen": "MIT",
@@ -5225,6 +6071,22 @@
         "build": []
       },
       {
+        "name": "zerocopy",
+        "version": "0.8.60",
+        "license": "BSD-2-Clause OR Apache-2.0 OR MIT",
+        "category": "permissive",
+        "chosen": "BSD-2-Clause",
+        "repository": "https://github.com/google/zerocopy",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
         "name": "zerofrom",
         "version": "0.1.8",
         "license": "Unicode-3.0",
@@ -5281,13 +6143,12 @@
         "repository": "https://github.com/trifectatechfoundation/zlib-rs",
         "linked": [
           "macos",
-          "linux"
-        ],
-        "build": [
           "ios",
           "windows",
+          "linux",
           "android"
-        ]
+        ],
+        "build": []
       },
       {
         "name": "zmij",
@@ -5296,6 +6157,38 @@
         "category": "permissive",
         "chosen": "MIT",
         "repository": "https://github.com/dtolnay/zmij",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "zune-core",
+        "version": "0.5.3",
+        "license": "MIT OR Apache-2.0 OR Zlib",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/etemesi254/zune-image",
+        "linked": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ],
+        "build": []
+      },
+      {
+        "name": "zune-jpeg",
+        "version": "0.5.15",
+        "license": "MIT OR Apache-2.0 OR Zlib",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/etemesi254/zune-image/tree/dev/crates/zune-jpeg",
         "linked": [
           "macos",
           "ios",
@@ -5314,6 +6207,22 @@
         "category": "permissive",
         "chosen": "Apache-2.0",
         "repository": "https://github.com/cuviper/autocfg",
+        "linked": [],
+        "build": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ]
+      },
+      {
+        "name": "bytemuck_derive",
+        "version": "1.12.1",
+        "license": "Zlib OR Apache-2.0 OR MIT",
+        "category": "permissive",
+        "chosen": "Zlib",
+        "repository": "https://github.com/Lokathor/bytemuck",
         "linked": [],
         "build": [
           "macos",
@@ -5346,6 +6255,22 @@
         "category": "permissive",
         "chosen": "MIT",
         "repository": "https://github.com/rust-lang/cc-rs",
+        "linked": [],
+        "build": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ]
+      },
+      {
+        "name": "cfg_aliases",
+        "version": "0.2.2",
+        "license": "MIT",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/katharostech/cfg_aliases",
         "linked": [],
         "build": [
           "macos",
@@ -5524,6 +6449,22 @@
         ]
       },
       {
+        "name": "document-features",
+        "version": "0.2.12",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/slint-ui/document-features",
+        "linked": [],
+        "build": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ]
+      },
+      {
         "name": "dtor-proc-macro",
         "version": "0.0.6",
         "license": "Apache-2.0 OR MIT",
@@ -5690,6 +6631,22 @@
         "repository": "https://github.com/jni-rs/jni-sys",
         "linked": [],
         "build": [
+          "android"
+        ]
+      },
+      {
+        "name": "litrs",
+        "version": "1.0.0",
+        "license": "MIT OR Apache-2.0",
+        "category": "permissive",
+        "chosen": "MIT",
+        "repository": "https://github.com/LukasKalbertodt/litrs",
+        "linked": [],
+        "build": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
           "android"
         ]
       },
@@ -6490,6 +7447,22 @@
         "category": "permissive",
         "chosen": "Unicode-3.0",
         "repository": "https://github.com/unicode-org/icu4x",
+        "linked": [],
+        "build": [
+          "macos",
+          "ios",
+          "windows",
+          "linux",
+          "android"
+        ]
+      },
+      {
+        "name": "zerocopy-derive",
+        "version": "0.8.60",
+        "license": "BSD-2-Clause OR Apache-2.0 OR MIT",
+        "category": "permissive",
+        "chosen": "BSD-2-Clause",
+        "repository": "https://github.com/google/zerocopy",
         "linked": [],
         "build": [
           "macos",

@@ -29,15 +29,23 @@ checks. Contributions by others to Crisp3DS's own code would need the same right
 
 What the Studio apps contain and do not contain:
 
-- They contain the web front end (this package's runtime npm dependencies) and the Tauri shell (the Rust crates below).
+- They contain the web front end (this package's runtime npm dependencies), the Tauri shell, and the project's own
+  reconstruction engine (`crates/dense`, Rust, WebGPU through `wgpu`) with the crates it depends on, all listed below.
 - They contain **no Python, no PyTorch, no NumPy/SciPy/OpenCV, no AliceVision, no SAM, no OpenMVS, no COLMAP** and no
-  other reconstruction engine. The desktop app starts an engine that the user installed separately; the phone apps
-  and the App Store variant of the Mac app are clients only. The pipeline's own dependencies are therefore outside
-  this audit and outside the store builds.
+  other third-party engine. The optional "External Python engine" of the desktop app runs software the user installed
+  separately; it is not part of any build, and the App Store variant cannot start it at all.
 - The system web view (WKWebView, WebView2, WebKitGTK) is part of the operating system, not of the app.
 - One exception outside the App Store: the Linux AppImage, as Tauri's bundler builds it, carries the build machine's
   WebKitGTK and GTK libraries (LGPL) as separate shared libraries inside the image, where they can be replaced. The
   `.deb` depends on the system's libraries instead. This audit does not list those system libraries.
+
+## The project's own crates
+
+Linked into the app and not third-party: Crisp3DS's own code, AGPL-3.0-only, covered by the basis above.
+
+| Crate | Version | License | Linked on |
+| --- | --- | --- | --- |
+| crisp3ds-dense | 0.1.0 | AGPL-3.0-only | macos, ios, windows, linux, android |
 
 ## Assets
 
@@ -61,33 +69,38 @@ What the Studio apps contain and do not contain:
 
 | License relied on | Packages |
 | --- | --- |
-| MIT | 159 |
-| Apache-2.0 | 25 |
-| Zlib | 18 |
+| MIT | 193 |
+| Apache-2.0 | 31 |
+| Zlib | 20 |
 | Unicode-3.0 | 15 |
+| BSD-3-Clause | 5 |
 | MPL-2.0 | 4 |
-| BSD-3-Clause | 3 |
 | 0BSD | 1 |
 | Apache-2.0 AND MIT | 1 |
+| Apache-2.0 WITH LLVM-exception | 1 |
+| BSD-2-Clause | 1 |
 | BSD-3-Clause AND MIT | 1 |
 | CC0-1.0 | 1 |
+| ISC | 1 |
 | MIT AND Unicode-3.0 | 1 |
 
 ### Rust crates linked on any platform (macOS, iOS, Windows, Linux, Android)
 
 | License relied on | Packages |
 | --- | --- |
-| MIT | 230 |
-| Apache-2.0 | 30 |
-| Zlib | 18 |
+| MIT | 274 |
+| Apache-2.0 | 36 |
+| Zlib | 20 |
 | Unicode-3.0 | 15 |
-| BSD-3-Clause | 4 |
+| BSD-3-Clause | 6 |
 | MPL-2.0 | 4 |
+| Apache-2.0 WITH LLVM-exception | 2 |
+| ISC | 2 |
 | 0BSD | 1 |
 | Apache-2.0 AND MIT | 1 |
+| BSD-2-Clause | 1 |
 | BSD-3-Clause AND MIT | 1 |
 | CC0-1.0 | 1 |
-| ISC | 1 |
 | MIT AND Unicode-3.0 | 1 |
 
 Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option is the one relied on.
@@ -113,20 +126,25 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 
 | Crate | Version | License | Linked on |
 | --- | --- | --- | --- |
-| adler2 | 2.0.1 | 0BSD OR MIT OR Apache-2.0 | macos, linux |
+| adler2 | 2.0.1 | 0BSD OR MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | aho-corasick | 1.1.5 | Unlicense OR MIT | macos, ios, windows, linux, android |
 | alloc-no-stdlib | 2.0.4 | BSD-3-Clause | macos, ios, windows, linux, android |
 | alloc-stdlib | 0.2.4 | BSD-3-Clause | macos, ios, windows, linux, android |
+| allocator-api2 | 0.2.21 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | android_system_properties | 0.1.6 | MIT OR Apache-2.0 | android |
 | anyhow | 1.0.104 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| arrayvec | 0.7.8 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| ash | 0.38.0+1.3.281 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | atk | 0.18.2 | MIT | linux |
 | atk-sys | 0.18.2 | MIT | linux |
 | atomic-waker | 1.1.2 | Apache-2.0 OR MIT | ios, android |
 | base64 | 0.21.7 | MIT OR Apache-2.0 | macos, ios |
 | base64 | 0.22.1 | MIT OR Apache-2.0 | android |
 | base64 | 0.23.1 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| bit-set | 0.10.0 | Apache-2.0 OR MIT | macos, ios, windows, linux, android |
 | bit-set | 0.8.0 | Apache-2.0 OR MIT | macos, ios, windows, linux, android |
 | bit-vec | 0.8.0 | Apache-2.0 OR MIT | macos, ios, windows, linux, android |
+| bit-vec | 0.9.1 | Apache-2.0 OR MIT | macos, ios, windows, linux, android |
 | bitflags | 1.3.2 | MIT/Apache-2.0 | macos, ios, windows, linux, android |
 | bitflags | 2.13.2 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | block-buffer | 0.10.4 | MIT OR Apache-2.0 | android |
@@ -134,7 +152,9 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | brotli | 8.0.4 | BSD-3-Clause AND MIT | macos, ios, windows, linux, android |
 | brotli-decompressor | 5.0.3 | BSD-3-Clause/MIT | macos, ios, windows, linux, android |
 | bs58 | 0.5.1 | MIT/Apache-2.0 | macos, ios, windows, linux, android |
+| bytemuck | 1.25.2 | Zlib OR Apache-2.0 OR MIT | macos, ios, windows, linux, android |
 | byteorder | 1.5.0 | Unlicense OR MIT | macos, ios, windows, linux, android |
+| byteorder-lite | 0.1.0 | Unlicense OR MIT | macos, ios, windows, linux, android |
 | bytes | 1.12.1 | MIT | macos, ios, windows, linux, android |
 | cairo-rs | 0.18.5 | MIT | linux |
 | cairo-sys-rs | 0.18.2 | MIT | linux |
@@ -145,6 +165,7 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | cfb | 0.7.3 | MIT | macos, ios, windows, linux, android |
 | cfg-if | 1.0.5 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | chrono | 0.4.45 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| codespan-reporting | 0.13.1 | Apache-2.0 | macos, ios, windows, linux, android |
 | combine | 4.6.8 | MIT | android |
 | cookie | 0.18.2 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | core-foundation | 0.10.1 | MIT OR Apache-2.0 | macos |
@@ -152,8 +173,10 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | core-graphics | 0.25.0 | MIT OR Apache-2.0 | macos |
 | core-graphics-types | 0.2.0 | MIT OR Apache-2.0 | macos |
 | cpufeatures | 0.2.17 | MIT OR Apache-2.0 | android |
-| crc32fast | 1.5.2 | MIT OR Apache-2.0 | macos, linux |
+| crc32fast | 1.5.2 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | crossbeam-channel | 0.5.17 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| crossbeam-deque | 0.8.8 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| crossbeam-epoch | 0.9.21 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | crossbeam-utils | 0.8.23 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | crypto-common | 0.1.7 | MIT OR Apache-2.0 | android |
 | cssparser | 0.36.0 | MPL-2.0 | macos, ios, windows, linux, android |
@@ -174,17 +197,20 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | dtor | 0.3.0 | Apache-2.0 OR MIT | macos, ios, windows, linux, android |
 | dunce | 1.0.5 | CC0-1.0 OR MIT-0 OR Apache-2.0 | macos, ios, windows, linux, android |
 | dyn-clone | 1.0.20 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| either | 1.18.0 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | embed_plist | 1.2.2 | MIT OR Apache-2.0 | macos |
 | equivalent | 1.0.2 | Apache-2.0 OR MIT | macos, ios, windows, linux, android |
 | erased-serde | 0.4.10 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
-| fdeflate | 0.3.7 | MIT OR Apache-2.0 | macos, linux |
+| errno | 0.3.14 | MIT OR Apache-2.0 | macos, ios, linux, android |
+| fdeflate | 0.3.7 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | field-offset | 0.3.6 | MIT OR Apache-2.0 | linux |
-| flate2 | 1.1.10 | MIT OR Apache-2.0 | macos, linux |
+| flate2 | 1.1.10 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | fnv | 1.0.7 | Apache-2.0 / MIT | macos, ios, windows, linux, android |
 | foldhash | 0.2.0 | Zlib | macos, ios, windows, linux, android |
 | foreign-types | 0.5.0 | MIT/Apache-2.0 | macos |
 | foreign-types-shared | 0.3.1 | MIT/Apache-2.0 | macos |
 | form_urlencoded | 1.2.2 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| fs4 | 1.1.0 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | futures-channel | 0.3.34 | MIT OR Apache-2.0 | ios, linux, android |
 | futures-core | 0.3.34 | MIT OR Apache-2.0 | ios, linux, android |
 | futures-executor | 0.3.34 | MIT OR Apache-2.0 | linux |
@@ -208,9 +234,12 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | glib-sys | 0.18.1 | MIT | linux |
 | glob | 0.3.4 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | gobject-sys | 0.18.0 | MIT | linux |
+| gpu-allocator | 0.28.0 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | gtk | 0.18.2 | MIT | linux |
 | gtk-sys | 0.18.2 | MIT | linux |
+| half | 2.7.1 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | hashbrown | 0.12.3 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| hashbrown | 0.16.1 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | hashbrown | 0.17.1 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | heck | 0.5.0 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | hex | 0.4.3 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
@@ -231,6 +260,7 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | icu_provider | 2.3.1 | Unicode-3.0 | macos, ios, windows, linux, android |
 | idna | 1.1.0 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | idna_adapter | 1.2.2 | Apache-2.0 OR MIT | macos, ios, windows, linux, android |
+| image | 0.25.10 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | indexmap | 1.9.3 | Apache-2.0 OR MIT | macos, ios, windows, linux, android |
 | indexmap | 2.14.2 | Apache-2.0 OR MIT | macos, ios, windows, linux, android |
 | infer | 0.19.0 | MIT | macos, ios, windows, linux, android |
@@ -253,6 +283,9 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | libc | 0.2.189 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | libdbus-sys | 0.2.7 | Apache-2.0/MIT | linux |
 | libloading | 0.7.4 | ISC | linux |
+| libloading | 0.8.9 | ISC | macos, ios, windows, linux, android |
+| libm | 0.2.16 | MIT | macos, ios, windows, linux, android |
+| linux-raw-sys | 0.12.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | linux, android |
 | litemap | 0.8.3 | Unicode-3.0 | macos, ios, windows, linux, android |
 | lock_api | 0.4.14 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | log | 0.4.34 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
@@ -260,10 +293,13 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | memchr | 2.8.3 | Unlicense OR MIT | macos, ios, windows, linux, android |
 | memoffset | 0.9.1 | MIT | linux |
 | mime | 0.3.17 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
-| miniz_oxide | 0.8.9 | MIT OR Zlib OR Apache-2.0 | macos, linux |
-| miniz_oxide | 0.9.1 | MIT OR Zlib OR Apache-2.0 | macos, linux |
+| miniz_oxide | 0.8.9 | MIT OR Zlib OR Apache-2.0 | macos, ios, windows, linux, android |
+| miniz_oxide | 0.9.1 | MIT OR Zlib OR Apache-2.0 | macos, ios, windows, linux, android |
 | mio | 1.2.3 | MIT | macos, ios, windows, linux, android |
+| moxcms | 0.8.1 | BSD-3-Clause OR Apache-2.0 | macos, ios, windows, linux, android |
 | muda | 0.19.3 | Apache-2.0 OR MIT | macos, windows, linux |
+| naga | 30.0.1 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| naga-types | 30.0.1 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | ndk | 0.9.0 | MIT OR Apache-2.0 | android |
 | ndk-sys | 0.6.0+11769913 | MIT OR Apache-2.0 | android |
 | new_debug_unreachable | 1.0.6 | MIT | macos, ios, windows, linux, android |
@@ -283,12 +319,14 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | objc2-exception-helper | 0.1.1 | Zlib OR Apache-2.0 OR MIT | macos, ios |
 | objc2-foundation | 0.3.2 | MIT | macos, ios |
 | objc2-io-surface | 0.3.2 | Zlib OR Apache-2.0 OR MIT | macos, ios |
-| objc2-quartz-core | 0.3.2 | Zlib OR Apache-2.0 OR MIT | ios |
+| objc2-metal | 0.3.2 | Zlib OR Apache-2.0 OR MIT | macos, ios |
+| objc2-quartz-core | 0.3.2 | Zlib OR Apache-2.0 OR MIT | macos, ios |
 | objc2-ui-kit | 0.3.2 | Zlib OR Apache-2.0 OR MIT | ios |
 | objc2-user-notifications | 0.3.2 | Zlib OR Apache-2.0 OR MIT | ios |
 | objc2-web-kit | 0.3.2 | Zlib OR Apache-2.0 OR MIT | macos, ios |
 | once_cell | 1.21.4 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | option-ext | 0.2.0 | MPL-2.0 | macos, ios, windows, linux, android |
+| ordered-float | 5.5.0 | MIT | macos, ios, windows, linux, android |
 | pango | 0.18.3 | MIT | linux |
 | pango-sys | 0.18.0 | MIT | linux |
 | parking_lot | 0.12.5 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
@@ -298,21 +336,32 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | phf_shared | 0.13.1 | MIT | macos, ios, windows, linux, android |
 | pin-project-lite | 0.2.17 | Apache-2.0 OR MIT | macos, ios, windows, linux, android |
 | plist | 1.10.1 | MIT | macos, ios, windows, linux, android |
-| png | 0.18.1 | MIT OR Apache-2.0 | macos, linux |
+| png | 0.18.1 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| pollster | 1.0.1 | Apache-2.0/MIT | macos, ios, windows, linux, android |
 | potential_utf | 0.1.6 | Unicode-3.0 | macos, ios, windows, linux, android |
 | powerfmt | 0.2.0 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | precomputed-hash | 0.1.1 | MIT | macos, ios, windows, linux, android |
+| presser | 0.3.1 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | proc-macro2 | 1.0.107 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| profiling | 1.0.18 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| pxfm | 0.1.30 | BSD-3-Clause OR Apache-2.0 | macos, ios, windows, linux, android |
 | quick-xml | 0.42.0 | MIT | macos, ios, windows, linux, android |
 | quote | 1.0.47 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| range-alloc | 0.1.5 | MIT OR Apache-2.0 | windows |
 | raw-window-handle | 0.6.2 | MIT OR Apache-2.0 OR Zlib | macos, ios, windows, linux, android |
+| raw-window-metal | 1.1.0 | MIT OR Apache-2.0 | macos, ios |
+| rayon | 1.12.0 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| rayon-core | 1.13.0 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | ref-cast | 1.0.27 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | regex | 1.13.1 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | regex-automata | 0.4.18 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | regex-syntax | 0.8.11 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| renderdoc-sys | 1.1.0 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | reqwest | 0.13.5 | MIT OR Apache-2.0 | ios, android |
 | rfd | 0.16.0 | MIT | macos, windows, linux |
+| rustc-hash | 1.1.0 | Apache-2.0/MIT | macos, ios, windows, linux, android |
 | rustc-hash | 2.1.3 | Apache-2.0 OR MIT | macos, ios, windows, linux, android |
+| rustix | 1.1.5 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | macos, ios, linux, android |
 | same-file | 1.0.6 | Unlicense/MIT | macos, ios, windows, linux, android |
 | schemars | 0.8.22 | MIT | macos, ios, windows, linux, android |
 | schemars | 0.9.0 | MIT | macos, ios, windows, linux, android |
@@ -329,7 +378,7 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | serialize-to-javascript | 0.1.2 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | servo_arc | 0.4.3 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | sha2 | 0.10.9 | MIT OR Apache-2.0 | android |
-| simd-adler32 | 0.3.10 | MIT | macos, linux |
+| simd-adler32 | 0.3.10 | MIT | macos, ios, windows, linux, android |
 | siphasher | 1.0.4 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | slab | 0.4.12 | MIT | ios, linux, android |
 | smallvec | 1.16.2 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
@@ -337,7 +386,9 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | softbuffer | 0.4.8 | MIT OR Apache-2.0 | windows |
 | soup3 | 0.5.0 | MIT | linux |
 | soup3-sys | 0.5.0 | MIT | linux |
+| spirv | 0.4.0+sdk-1.4.341.0 | Apache-2.0 | macos, ios, windows, linux, android |
 | stable_deref_trait | 1.2.1 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| static_assertions | 1.1.0 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | string_cache | 0.9.0 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | swift-rs | 1.0.8 | MIT OR Apache-2.0 | macos, ios |
 | sync_wrapper | 1.0.2 | Apache-2.0 | ios, android |
@@ -349,6 +400,7 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | tauri-runtime-wry | 2.11.4 | Apache-2.0 OR MIT | macos, ios, windows, linux, android |
 | tauri-utils | 2.9.3 | Apache-2.0 OR MIT | macos, ios, windows, linux, android |
 | tendril | 0.5.1 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| termcolor | 1.4.1 | Unlicense OR MIT | macos, ios, windows, linux, android |
 | thiserror | 1.0.69 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | thiserror | 2.0.21 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | time | 0.3.55 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
@@ -378,6 +430,7 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | unic-ucd-version | 0.9.0 | MIT/Apache-2.0 | macos, ios, windows, linux, android |
 | unicode-ident | 1.0.26 | (MIT OR Apache-2.0) AND Unicode-3.0 | macos, ios, windows, linux, android |
 | unicode-segmentation | 1.13.3 | MIT OR Apache-2.0 | macos, windows, linux |
+| unicode-width | 0.2.2 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | url | 2.5.8 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | urlpattern | 0.3.0 | MIT | macos, ios, windows, linux, android |
 | utf8_iter | 1.0.4 | Apache-2.0 OR MIT | macos, ios, windows, linux, android |
@@ -389,25 +442,40 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | webkit2gtk-sys | 2.0.2 | MIT | linux |
 | webview2-com | 0.38.2 | MIT | windows |
 | webview2-com-sys | 0.38.2 | MIT | windows |
+| wgpu | 30.0.1 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| wgpu-core | 30.0.1 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| wgpu-core-deps-apple | 30.0.1 | MIT OR Apache-2.0 | macos, ios |
+| wgpu-core-deps-windows-linux-android | 30.0.1 | MIT OR Apache-2.0 | windows, linux, android |
+| wgpu-hal | 30.0.1 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| wgpu-naga-bridge | 30.0.1 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| wgpu-types | 30.0.1 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | winapi-util | 0.1.11 | Unlicense OR MIT | windows |
 | window-vibrancy | 0.6.0 | Apache-2.0 OR MIT | macos, windows |
 | windows | 0.61.3 | MIT OR Apache-2.0 | windows |
+| windows | 0.62.2 | MIT OR Apache-2.0 | windows |
 | windows_x86_64_msvc | 0.52.6 | MIT OR Apache-2.0 | windows |
 | windows_x86_64_msvc | 0.53.1 | MIT OR Apache-2.0 | windows |
 | windows-collections | 0.2.0 | MIT OR Apache-2.0 | windows |
+| windows-collections | 0.3.2 | MIT OR Apache-2.0 | windows |
 | windows-core | 0.61.2 | MIT OR Apache-2.0 | windows |
+| windows-core | 0.62.2 | MIT OR Apache-2.0 | windows |
 | windows-future | 0.2.1 | MIT OR Apache-2.0 | windows |
+| windows-future | 0.3.2 | MIT OR Apache-2.0 | windows |
 | windows-link | 0.1.3 | MIT OR Apache-2.0 | windows |
 | windows-link | 0.2.1 | MIT OR Apache-2.0 | windows |
 | windows-numerics | 0.2.0 | MIT OR Apache-2.0 | windows |
+| windows-numerics | 0.3.1 | MIT OR Apache-2.0 | windows |
 | windows-result | 0.3.4 | MIT OR Apache-2.0 | windows |
+| windows-result | 0.4.1 | MIT OR Apache-2.0 | windows |
 | windows-strings | 0.4.2 | MIT OR Apache-2.0 | windows |
+| windows-strings | 0.5.1 | MIT OR Apache-2.0 | windows |
 | windows-sys | 0.59.0 | MIT OR Apache-2.0 | windows |
 | windows-sys | 0.60.2 | MIT OR Apache-2.0 | windows |
 | windows-sys | 0.61.2 | MIT OR Apache-2.0 | windows |
 | windows-targets | 0.52.6 | MIT OR Apache-2.0 | windows |
 | windows-targets | 0.53.5 | MIT OR Apache-2.0 | windows |
 | windows-threading | 0.1.0 | MIT OR Apache-2.0 | windows |
+| windows-threading | 0.2.1 | MIT OR Apache-2.0 | windows |
 | windows-version | 0.1.7 | MIT OR Apache-2.0 | windows |
 | winnow | 1.0.4 | MIT | macos, ios, windows, linux, android |
 | writeable | 0.6.4 | Unicode-3.0 | macos, ios, windows, linux, android |
@@ -415,24 +483,29 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | x11 | 2.21.0 | MIT | linux |
 | x11-dl | 2.21.0 | MIT | linux |
 | yoke | 0.8.3 | Unicode-3.0 | macos, ios, windows, linux, android |
+| zerocopy | 0.8.60 | BSD-2-Clause OR Apache-2.0 OR MIT | macos, ios, windows, linux, android |
 | zerofrom | 0.1.8 | Unicode-3.0 | macos, ios, windows, linux, android |
 | zerotrie | 0.2.5 | Unicode-3.0 | macos, ios, windows, linux, android |
 | zerovec | 0.11.8 | Unicode-3.0 | macos, ios, windows, linux, android |
-| zlib-rs | 0.6.8 | Zlib | macos, linux |
+| zlib-rs | 0.6.8 | Zlib | macos, ios, windows, linux, android |
 | zmij | 1.0.23 | MIT | macos, ios, windows, linux, android |
+| zune-core | 0.5.3 | MIT OR Apache-2.0 OR Zlib | macos, ios, windows, linux, android |
+| zune-jpeg | 0.5.15 | MIT OR Apache-2.0 OR Zlib | macos, ios, windows, linux, android |
 
 ## Not shipped: build-time only
 
-Rust crates used only while compiling (build scripts, proc macros and what only they need): 85.
+Rust crates used only while compiling (build scripts, proc macros and what only they need): 90.
 
 | License relied on | Packages |
 | --- | --- |
-| MIT | 70 |
+| MIT | 73 |
 | Apache-2.0 | 9 |
 | Unicode-3.0 | 3 |
 | Apache-2.0 WITH LLVM-exception | 1 |
+| BSD-2-Clause | 1 |
 | BSD-3-Clause | 1 |
 | MPL-2.0 | 1 |
+| Zlib | 1 |
 
 npm development tools (Vite, TypeScript, Vitest, Playwright, the Tauri CLI and their dependencies): 104.
 
