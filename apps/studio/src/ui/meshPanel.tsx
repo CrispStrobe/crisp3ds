@@ -61,6 +61,8 @@ export function MeshPanel({ source, meshes, runStatus, themeTick }: Props) {
           return;
         }
         viewer.current = new module.Viewer(canvas.current, host.current);
+        // For automated checks of the apps: whether the surface is actually drawn.
+        (window as unknown as { __crisp3dsProbe?: () => unknown }).__crisp3dsProbe = () => viewer.current?.probe();
         setReady(true);
       })
       .catch((problem) => {

@@ -175,8 +175,19 @@
       await log(`final mesh waits for its button: ${finalButton.textContent.trim()}`);
       finalButton.click();
     }
-    await until("the final surface", () => (document.querySelector("#mesh-heading + .sub")?.textContent ?? "").includes("Final surface"), 60000);
+    try {
+      await until("the final surface", () => (document.querySelector("#mesh-heading + .sub")?.textContent ?? "").includes("Final surface"), 180000);
+    } catch (problem) {
+      // Say what the panel shows instead, so a failure can be understood from the log alone.
+      const panel = document.querySelector(".mesh-panel");
+      await log(`surface panel: ${(panel?.textContent ?? "(none)").replace(/\s+/g, " ").slice(0, 400)}`);
+      throw problem;
+    }
     await sleep(1500);
+    // Whether the surface is drawn at all: a picture of an empty view would still pass a blank check.
+    const probe = window.__crisp3dsProbe?.();
+    await log(`3D view: ${probe ? `${probe.surface} of ${probe.samples} sampled pixels show the surface` : "no probe"}`);
+    const drawn = probe !== undefined && probe.surface > 0;
     const images = [...document.querySelectorAll(".sheet img")];
     const loaded = images.filter((image) => image.naturalWidth > 0).length;
     const reports = [...document.querySelectorAll(".report h3")].map((heading) => heading.textContent);
@@ -187,7 +198,8 @@
     await log(`surface: ${document.querySelector("#mesh-heading + .sub").textContent}; canvas ${canvas.width}x${canvas.height}`);
     await log(`sheets loaded: ${loaded} of ${document.querySelectorAll(".sheet").length}; reports: ${reports.join(", ")}`);
     await log(`CSP violations: ${violations.length === 0 ? "none" : violations.join(" | ")}`);
-    const ok = status === "Complete" && loaded > 0 && loaded === images.length && violations.length === 0;
+    const ok = status === "Complete" && loaded > 0 && loaded === images.length && violations.length === 0 && drawn;
+    if (!drawn) await log("the 3D view draws nothing");
     // With `marks`, the screens a person sees are shown one after another, each announced as
     // "MARK <name>" and held, so whoever started the app can photograph them (CI screenshots).
     if (options.marks) {

@@ -259,6 +259,30 @@ export class Viewer {
     });
   }
 
+  /**
+   * Renders now and samples the picture on a 24 x 24 grid: how many samples differ from the
+   * background. Zero with a mesh loaded means the surface is not being drawn (a GPU or driver
+   * that renders nothing), which a screenshot alone would not tell.
+   */
+  probe(): { samples: number; surface: number } {
+    this.renderer.render(this.scene, this.camera);
+    const gl = this.renderer.getContext();
+    const width = gl.drawingBufferWidth;
+    const height = gl.drawingBufferHeight;
+    const pixel = new Uint8Array(4);
+    const background = new Uint8Array(4);
+    gl.readPixels(1, 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, background);
+    let surface = 0;
+    const steps = 24;
+    for (let i = 1; i < steps; i++) {
+      for (let j = 1; j < steps; j++) {
+        gl.readPixels(Math.floor((width * i) / steps), Math.floor((height * j) / steps), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        if (Math.abs(pixel[0]! - background[0]!) + Math.abs(pixel[1]! - background[1]!) + Math.abs(pixel[2]! - background[2]!) > 12) surface += 1;
+      }
+    }
+    return { samples: (steps - 1) * (steps - 1), surface };
+  }
+
   private render(): void {
     if (this.disposed) return;
     this.renderer.render(this.scene, this.camera);
