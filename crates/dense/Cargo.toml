@@ -30,6 +30,10 @@ wgpu = { version = "30", default-features = false, features = ["std", "parking_l
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 fs4 = "1.1"
 
+# Signalling the process group of an external tool (src/photos/process.rs).
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [features]
 # The C interface of the run driver (src/capi.rs, include/crisp3ds_dense.h).
 capi = []

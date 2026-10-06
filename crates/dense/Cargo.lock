@@ -153,6 +153,7 @@ dependencies = [
  "crc32fast",
  "fs4",
  "image",
+ "libc",
  "miniz_oxide 0.8.9",
  "pollster",
  "rayon",
