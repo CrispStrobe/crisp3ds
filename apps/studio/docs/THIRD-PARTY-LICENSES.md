@@ -69,7 +69,7 @@ Linked into the app and not third-party: Crisp3DS's own code, AGPL-3.0-only, cov
 
 | License relied on | Packages |
 | --- | --- |
-| MIT | 193 |
+| MIT | 194 |
 | Apache-2.0 | 31 |
 | Zlib | 20 |
 | Unicode-3.0 | 15 |
@@ -88,7 +88,7 @@ Linked into the app and not third-party: Crisp3DS's own code, AGPL-3.0-only, cov
 
 | License relied on | Packages |
 | --- | --- |
-| MIT | 274 |
+| MIT | 275 |
 | Apache-2.0 | 36 |
 | Zlib | 20 |
 | Unicode-3.0 | 15 |
@@ -438,6 +438,7 @@ Where a crate offers a choice (`MIT OR Apache-2.0`), the first permissive option
 | walkdir | 2.5.0 | Unlicense/MIT | macos, ios, windows, linux, android |
 | want | 0.3.1 | MIT | ios, android |
 | web_atoms | 0.2.6 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
+| web-time | 1.1.0 | MIT OR Apache-2.0 | macos, ios, windows, linux, android |
 | webkit2gtk | 2.0.2 | MIT | linux |
 | webkit2gtk-sys | 2.0.2 | MIT | linux |
 | webview2-com | 0.38.2 | MIT | windows |

@@ -204,7 +204,7 @@ Development only (not shipped):
 | `@tauri-apps/cli` 2.11.5 | building the shell | Apache-2.0 OR MIT |
 | `playwright` 1.63 | screenshot and performance scripts only | Apache-2.0 |
 
-Transitive dependencies (365 crates are linked across all platforms) are
+Transitive dependencies (about 365 crates are linked across all platforms) are
 audited by `npm run licenses`, which writes
 [`docs/THIRD-PARTY-LICENSES.md`](docs/THIRD-PARTY-LICENSES.md) and
 `docs/licenses.json`; CI fails on a license outside the policy. Current
