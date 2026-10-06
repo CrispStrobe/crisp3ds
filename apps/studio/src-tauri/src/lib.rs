@@ -82,7 +82,10 @@ fn config_file(app: &AppHandle) -> Result<std::path::PathBuf, String> {
 fn settings(app: &AppHandle) -> Result<Settings, String> {
     let file = config_file(app)?;
     let saved = config::load(&file);
-    let around = app.path().app_data_dir().map(Surroundings::real).map_err(|error| error.to_string())?;
+    // On an iPhone or iPad the folders are in the app's Documents, which the Files app shows
+    // ("On My iPhone"): that is how photos get in and how models get out.
+    let base = if cfg!(target_os = "ios") { app.path().document_dir() } else { app.path().app_data_dir() };
+    let around = base.map(Surroundings::real).map_err(|error| error.to_string())?;
     let resolved = config::resolve(&saved, &around);
     let problem = config::problems(&resolved);
     let tools = config::resolve_tools(&saved, &around);
@@ -207,6 +210,11 @@ async fn native_health(app: AppHandle) -> Result<Value, String> {
             "data_dir": data.to_string_lossy(),
             "start_points": built_in(&app).start_points(),
             "sandboxed": tools::contained(),
+            "note": if cfg!(target_os = "ios") {
+                serde_json::json!("Photos get in and models get out through the Files app: under On My iPhone (or iPad), Crisp 3D Studio has a folder \"data\" for a folder of photos and the lens calibration, and a folder \"runs\" where each run leaves its STL.")
+            } else {
+                Value::Null
+            },
         }))
     }
     #[cfg(not(native_engine))]

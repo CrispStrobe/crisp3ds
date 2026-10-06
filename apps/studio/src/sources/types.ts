@@ -92,6 +92,8 @@ export interface EngineHealth {
   dataFolder?: string;
   /** The engine runs in the App Sandbox: it cannot start other programs or read folders the user did not pick. */
   sandboxed?: boolean;
+  /** A sentence the engine wants shown on the "New run" form: how data gets to it. */
+  note?: string;
 }
 
 export interface RunSummary {

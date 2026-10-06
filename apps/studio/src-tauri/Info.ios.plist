@@ -8,6 +8,11 @@
 	<false/>
 	<!-- An engine on the same network is reached over plain HTTP by address. This allows exactly
 	     that (local addresses) and nothing on the internet; remote engines must use HTTPS. -->
+	<!-- The app's Documents (data and runs) are shown by the Files app: photos get in and models get out there. -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

@@ -83,6 +83,7 @@ export class LocalEngine implements Engine {
       scoresReference: false,
       dataFolder: typeof body?.data_dir === "string" ? body.data_dir : undefined,
       sandboxed: body?.sandboxed === true,
+      note: typeof body?.note === "string" && body.note !== "" ? body.note : undefined,
     };
   }
 

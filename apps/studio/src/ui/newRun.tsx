@@ -146,6 +146,7 @@ export function NewRun({ engine, prefs, onChange }: Props) {
         <Icon name="back" size={16} /> Runs
       </a>
       <h1>New run</h1>
+      {health?.note !== undefined && <p class="notice">{health.note}</p>}
       <p class="sub" hidden={engine.kind === "browser"}>
         Runs start from data that is already on the engine's computer: turntable photos with a lens calibration, or
         recovered cameras and one mask per photo.
