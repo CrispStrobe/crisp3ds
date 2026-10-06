@@ -106,7 +106,7 @@ pub struct Field {
     pub report: FieldReport,
 }
 
-pub fn field(volume: &Volume, config: &DenseConfig) -> Result<Field> {
+pub fn field(volume: &Volume, config: &DenseConfig, check: &dyn Fn() -> Result<()>) -> Result<Field> {
     let dims = volume.shape.map(|s| s + 2 * PAD);
     let total_voxels = count(dims);
     ensure!(total_voxels < u32::MAX as usize, "volume grid is too large");
@@ -136,6 +136,7 @@ pub fn field(volume: &Volume, config: &DenseConfig) -> Result<Field> {
     let prior = |signed: f64| ((signed + if signed > 0.0 { -0.5 } else { 0.5 }) / truncation).clamp(-1.0, 1.0) as f32;
     let mut value = vec![0f32; total_voxels];
     for inside in [false, true] {
+        check()?;
         let squared = edt::squared_distance(|i| hull[i] != inside, dims);
         value.par_iter_mut().zip(&squared).zip(&hull).for_each(|((v, &d), &h)| {
             if h == inside {
@@ -166,6 +167,7 @@ pub fn field(volume: &Volume, config: &DenseConfig) -> Result<Field> {
         for (i, &p) in place.iter().enumerate() {
             work[p as usize] = weighted(i);
         }
+        check()?;
         gaussian_filter(&mut work, dims, sigma);
         for (slot, &p) in numerator.iter_mut().zip(&place) {
             *slot = work[p as usize];
@@ -174,6 +176,7 @@ pub fn field(volume: &Volume, config: &DenseConfig) -> Result<Field> {
         for (&c, &p) in confidence.iter().zip(&place) {
             work[p as usize] = c;
         }
+        check()?;
         gaussian_filter(&mut work, dims, sigma);
         for (i, &p) in place.iter().enumerate() {
             let denominator = work[p as usize];
@@ -223,6 +226,7 @@ pub fn field(volume: &Volume, config: &DenseConfig) -> Result<Field> {
 
     // The maximum leaves creases that would give ambiguous cells.
     if config.mesh_final_smooth != 0.0 {
+        check()?;
         gaussian_filter(&mut value, dims, config.mesh_final_smooth);
     }
     Ok(Field { value, dims, report })

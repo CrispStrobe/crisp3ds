@@ -189,6 +189,20 @@ fn spaced(count: usize, wanted: usize) -> Vec<usize> {
 
 /// Runs the check into a fresh directory and returns its report.
 pub fn run(options: &Options, events: &EventLog) -> anyhow::Result<Value> {
+    run_with(options, events, &crate::control::Control::none())
+}
+
+/// [`run`] that can be stopped: `control` is checked before every view is scored
+/// and before each sheet. A stopped check returns `control::Stopped` and leaves no output directory.
+pub fn run_with(options: &Options, events: &EventLog, control: &crate::control::Control) -> anyhow::Result<Value> {
+    let result = checked(options, events, control);
+    if result.as_ref().is_err_and(|error| error.downcast_ref::<crate::control::Stopped>().is_some()) {
+        let _ = crate::storage::remove_dir_all(options.output);
+    }
+    result
+}
+
+fn checked(options: &Options, events: &EventLog, control: &crate::control::Control) -> anyhow::Result<Value> {
     let output = options.output;
     if crate::storage::exists(output) {
         bail!("output directory exists: {}", output.display());
@@ -213,9 +227,12 @@ pub fn run(options: &Options, events: &EventLog) -> anyhow::Result<Value> {
         }
     }
     let overlay = options.preview_views > 0;
-    let scored: Vec<anyhow::Result<Scored>> =
-        parallel_map(checked.len(), |n| score_view(&triangles, &rows[checked[n]], &sets, overlay && named.contains(&checked[n])));
+    let scored: Vec<anyhow::Result<Scored>> = parallel_map(checked.len(), |n| {
+        control.check()?;
+        score_view(&triangles, &rows[checked[n]], &sets, overlay && named.contains(&checked[n]))
+    });
     let scored: Vec<Scored> = scored.into_iter().collect::<anyhow::Result<_>>()?;
+    control.check()?;
     if overlay {
         let tiles: Vec<&Rgb> = scored.iter().filter_map(|s| s.tile.as_ref()).collect();
         let height = tiles.iter().map(|t| t.height).max().unwrap_or(1);
@@ -244,6 +261,7 @@ pub fn run(options: &Options, events: &EventLog) -> anyhow::Result<Value> {
             "Mesh outline against masks (green: both, red: mask only, blue: mesh only)",
             json!({}),
         )?;
+        control.check()?;
         let picked: Vec<&ViewRow> = named.iter().map(|&n| &rows[n]).collect();
         preview(&picked, &triangles, "Reconstruction", &output.join("preview.png"))?;
         report["preview"] = json!(output.join("preview.png").display().to_string());

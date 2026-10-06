@@ -69,6 +69,24 @@ pub fn run(
     label: Option<&str>,
     threads: usize,
 ) -> Result<Report> {
+    run_with(volume_path, output, config, step, events, label, threads, &crate::control::Control::none())
+}
+
+/// [`run`] that can be stopped: `control` is checked before every pass over the
+/// volume (distance transform, each blur), before the iso-surface, before every
+/// smoothing cycle and before the mesh is written. A stopped stage returns
+/// `control::Stopped` and leaves no output directory.
+#[allow(clippy::too_many_arguments)]
+pub fn run_with(
+    volume_path: &Path,
+    output: &Path,
+    config: &DenseConfig,
+    step: usize,
+    events: &EventLog,
+    label: Option<&str>,
+    threads: usize,
+    control: &crate::control::Control,
+) -> Result<Report> {
     settings::validate(config)?;
     ensure!(step >= 1, "step must be at least 1");
     ensure!(!crate::storage::exists(output), "output directory already exists: {}", output.display());
@@ -80,20 +98,39 @@ pub fn run(
     #[cfg(target_arch = "wasm32")]
     {
         let _ = threads;
-        extract(volume_path, output, config, step, events, label)
+        finish(output, extract(volume_path, output, config, step, events, label, control))
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
         let pool = rayon::ThreadPoolBuilder::new().num_threads(threads.max(1)).build()?;
-        pool.install(|| extract(volume_path, output, config, step, events, label))
+        finish(output, pool.install(|| extract(volume_path, output, config, step, events, label, control)))
     }
 }
 
-fn extract(volume_path: &Path, output: &Path, config: &DenseConfig, step: usize, events: &EventLog, label: Option<&str>) -> Result<Report> {
+/// A stopped stage leaves nothing behind.
+fn finish(output: &Path, result: Result<Report>) -> Result<Report> {
+    if result.as_ref().is_err_and(|error| error.downcast_ref::<crate::control::Stopped>().is_some()) {
+        let _ = crate::storage::remove_dir_all(output);
+    }
+    result
+}
+
+fn extract(
+    volume_path: &Path,
+    output: &Path,
+    config: &DenseConfig,
+    step: usize,
+    events: &EventLog,
+    label: Option<&str>,
+    control: &crate::control::Control,
+) -> Result<Report> {
     let started = Instant::now();
     let volume = Volume::read(volume_path)?;
-    let field = field::field(&volume, config)?;
+    control.check()?;
+    let field = field::field(&volume, config, &|| control.check())?;
+    control.check()?;
     let grid_mesh = cubes::extract(&field.value, field.dims, step);
+    control.check()?;
     let field_report = field.report;
     drop(field.value);
 
@@ -121,13 +158,18 @@ fn extract(volume_path: &Path, output: &Path, config: &DenseConfig, step: usize,
     drop((vertices, grid_mesh));
     let (mut vertices, mut faces) = (part.vertices, part.faces);
     if config.mesh_taubin_cycles > 0 && step == 1 {
-        surface::taubin(&mut vertices, &faces, config.mesh_taubin_cycles as usize, TAUBIN_LAMBDA, TAUBIN_MU);
+        // One cycle at a time (a cycle depends only on the vertices before it), so that a stop takes effect between them.
+        for _ in 0..config.mesh_taubin_cycles {
+            control.check()?;
+            surface::taubin(&mut vertices, &faces, 1, TAUBIN_LAMBDA, TAUBIN_MU);
+        }
     }
     let mut info = surface::topology(&vertices, &faces);
     if info.signed_volume < 0.0 {
         faces.iter_mut().for_each(|f| f.swap(0, 2));
         info = surface::topology(&vertices, &faces);
     }
+    control.check()?;
     let mesh_path = output.join("mesh.stl");
     stl::write_binary(&mesh_path, STL_HEADER, &vertices, &faces)?;
     let report = Report {
@@ -393,6 +435,34 @@ mod tests {
         assert_eq!(report.extrapolated_hull_fraction, 0.0);
         let radii = radii(&scratch.0.join("mesh/mesh.stl"));
         assert!((radii[radii.len() / 2] - 1.15).abs() < 0.05, "median radius {}", radii[radii.len() / 2]);
+    }
+
+    #[test]
+    fn a_stopped_stage_leaves_no_output() {
+        use std::sync::atomic::AtomicBool;
+        use std::sync::Arc;
+        let scratch = Scratch::new("stopped");
+        sphere_volume(&scratch.0.join("v.npz"), true, None);
+        let flag = Arc::new(AtomicBool::new(true));
+        let control = crate::control::Control::new(Some(flag), None, None, None).unwrap();
+        let error =
+            run_with(&scratch.0.join("v.npz"), &scratch.0.join("mesh"), &DenseConfig::default(), 1, &EventLog::none(), None, 2, &control)
+                .unwrap_err();
+        assert_eq!(error.downcast_ref::<crate::control::Stopped>(), Some(&crate::control::Stopped::Cancelled));
+        assert!(!scratch.0.join("mesh").exists());
+        // The same volume meshes when nothing stops it.
+        run_with(
+            &scratch.0.join("v.npz"),
+            &scratch.0.join("mesh"),
+            &DenseConfig::default(),
+            1,
+            &EventLog::none(),
+            None,
+            2,
+            &crate::control::Control::none(),
+        )
+        .unwrap();
+        assert!(scratch.0.join("mesh/mesh.stl").is_file());
     }
 
     #[test]

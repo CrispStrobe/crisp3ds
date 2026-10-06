@@ -633,8 +633,7 @@ async fn stages(
     let command = ["crisp3ds-dense", "mesh", "--volume", &text(&volume)].map(String::from).to_vec();
     let threads = options.threads.max(1);
     let stage = driver.begin("mesh", command, Some(900.0))?;
-    let result =
-        stage.control.check().and_then(|_| crate::mesh::run(&volume, &output.join("mesh"), config, 1, &stage.events, None, threads));
+    let result = crate::mesh::run_with(&volume, &output.join("mesh"), config, 1, &stage.events, None, threads, &stage.control);
     if let Ok(report) = &result {
         stage.control.log(serde_json::to_string_pretty(report)?);
     }
@@ -653,7 +652,7 @@ async fn stages(
             preview_views: if options.preview { 3 } else { 0 },
             check_views: 24,
         };
-        let result = stage.control.check().and_then(|_| check::run(&check_options, &stage.events));
+        let result = check::run_with(&check_options, &stage.events, &stage.control);
         if let Ok(report) = &result {
             stage.control.log(serde_json::to_string_pretty(report)?);
         }
