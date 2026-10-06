@@ -139,18 +139,27 @@ The scale of the recovered orbit was within 0.03 % of the truth in every row
   lens calibration error will add to them. A real capture is the next test.
 - **Masks.** The markers are dark, like the object. With `--masks threshold`
   the provider's own detection and pose are therefore used once more during
-  the masks stage: every marker is compared with the photo cell by cell, and
+  the masks stage. Every marker is compared with the photo cell by cell, and
   the cells that look as printed (with all their neighbours) are taken out of
-  the dark region before the object is picked. Cells the object covers stay,
-  so the object is not cut; a marker half hidden by the object keeps a few
-  cells at the object's outline. On the base rendering, against the rendered
-  masks: 0.8 % of extra pixels in the median and 1.3 % at most (2.9 % and
-  5.9 % without the step), 0.7 % missing either way, and the object comes out
-  of the dense stages with the same radius (31.97 mm) and height (89.99 mm) as
-  with the rendered masks. Use a fixed level there (`--threshold-level 70`):
-  Otsu's level, the default of `--masks threshold`, separates the white paper
-  from a darker table instead of the object from the paper and takes the
-  table for the object.
+  the dark region before the object is picked; cells the object covers stay,
+  so the object is not cut, and a marker half hidden by the object keeps a few
+  cells at the object's outline. The grey level is Otsu's level of the pixels
+  that look at the mat's object zone, where there is only paper and object, so
+  the surface the mat lies on does not decide it. No option is needed.
+  Rendered captures against the rendered masks:
+
+  | Surface around the mat | Level used | Mask IoU, median (min) | Extra pixels, median (max) | Missing, median (max) | Object from the dense stages |
+  | --- | --- | --- | --- | --- | --- |
+  | white (0.9) | 109 to 110 | 0.985 (0.980) | 1.3 % (1.7 %) | 0.2 % (0.8 %) | radius -0.08 %, height -0.01 % |
+  | grey (0.66) | 109 to 110 | 0.986 (0.981) | 1.3 % (1.7 %) | 0.1 % (0.7 %) | radius -0.08 %, height -0.03 % |
+  | dark (0.15) | none | refused | | | |
+
+  A surface as dark as the object cannot be separated from it by a threshold
+  wherever the object is seen against it. This is refused with a message that
+  says so ("the surface around the mat is as dark as the object ...") instead
+  of taking the table for the object; use a light surface, `external-sam` or
+  `import` there. Without the marker step the same level gives 2.9 % extra
+  pixels in the median and 5.9 % at most.
 - **The lens is taken as given.** A wrong calibration tilts and shifts the
   poses and does not show as a failed gate until it is gross.
 - **A marker that is partly hidden is not used**, and nothing outside the mat
@@ -161,6 +170,45 @@ The scale of the recovered orbit was within 0.03 % of the truth in every row
   border), so other layouts can be described by hand.
 - The dense stages do not read `scale` yet; it is in the scene for whatever
   writes the mesh out with units.
+
+## The first real print: a checklist
+
+No printed mat has been photographed yet, so the first capture is a test of
+this provider as much as a scan.
+
+1. Print `crisp3ds-marker-mat-a4.pdf` at 100 %. Measure the bar: 80 mm. Note
+   the measured length, and the page's long edge between the outer marker
+   edges (262 mm on A4) if a ruler allows.
+2. Tape the sheet flat on the turntable, centre cross on the axis as well as
+   the eye can tell. A light surface around it.
+3. First **without an object**: 24 or more photos of one turn from the height
+   the scan will use, the whole sheet in view. Then **with the object** in
+   the circle, the same way.
+4. Run both sets with `--cameras markers --markers-mat ...json --masks
+   threshold` and the camera's lens file.
+
+What should come out, from the renderings: every photo registered;
+`provider_notes.markers` in `frontend.json` with 15 or more markers per photo
+without an object and `rms_pixels_median` well below 1 (0.06 in the base
+rendering; a real print and lens will be higher, and up to about 0.5 would not
+worry); `print_aspect.estimate` within 0.3 % of 1; ring radius spread and
+out-of-plane both below 1 %; steps as even as the turntable.
+
+What the gates say when it fails:
+
+| Message | Likely cause |
+| --- | --- |
+| `no pose from the mat for N photos: ... (K markers decoded; 5 needed)` | markers too small in the photo, out of focus, glare on the toner, or hidden; photograph from higher or closer, or use the larger mat |
+| `... marker corners reproject with X px RMS; limit 2` | the sheet is not flat, or the lens file does not belong to this camera or zoom |
+| `the photos fit a print whose height is X % off against its width` (warning) | the printer scaled one axis; pass `--markers-aspect auto` or the measured ratio |
+| `per-view reprojection exceeds declared bound`, `ring radius spread ...` | as above: flatness or lens; a mat that slipped on the turntable shows as uneven steps |
+| `the surface around the mat is as dark as the object ...` | see Masks under Limits |
+| `the turn does not close ...` | the photos are not one full turn: `--open-turn` |
+
+If it fails or looks wrong, send back: the photos of the empty mat (they are
+enough to find the cause), the lens file, the measured bar length,
+`frontend.json`, and `sfm/markers/report.json` and `detections.json` from the
+run's output.
 
 ## The description file
 
