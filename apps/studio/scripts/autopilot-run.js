@@ -224,7 +224,8 @@
           image.className = "autopilot-still";
           image.alt = "";
           image.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none";
-          canvas.parentElement.append(image);
+          // Right after the canvas, so the label of the surface stays on top of it.
+          canvas.after(image);
         }
         image.src = shot.picture;
       };
