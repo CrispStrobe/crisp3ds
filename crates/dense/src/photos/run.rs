@@ -274,7 +274,9 @@ impl Run<'_> {
         let photos = list_photos(&options.photos)?;
         let photo_map =
             self.internal("masks", "coarse", small, 0.0, coarse_end, "Reading photos, coarse dark-object masks", count, |watch| {
-                staging::step_coarse(out, &photos, &options.envelope, options.dark_threshold, threads, watch)
+                // With a marker mat the dark markers are hidden first (markers/provider.rs).
+                let hide = super::markers::provider::mask_preparation(options)?;
+                staging::step_coarse_with(out, &photos, &options.envelope, options.dark_threshold, threads, hide.as_deref(), watch)
             })?;
         let touching: Vec<&str> = photo_map["photos"]
             .as_array()

@@ -472,3 +472,98 @@ pub fn report(names: &[String], results: &[ViewResult]) -> Value {
 pub fn compare(a: &[Pose], b: &[Pose]) -> Vec<(f64, f64)> {
     a.iter().zip(b).map(|(p, q)| (super::linalg::rotation_angle_deg(&p.rotation, &q.rotation), norm(sub(p.centre(), q.centre())))).collect()
 }
+
+/// Paints the visible parts of the mat's markers white in a grey photo, so that a dark-object
+/// threshold does not take them for part of the object. Every marker is projected with the photo's
+/// pose and compared with the photo cell by cell (its 6 x 6 cells and the ring of white paper around
+/// them). A cell is painted only where it and all its neighbours look as printed: where the object
+/// covers part of a marker, the covered cells and those next to them stay as they are, and the
+/// object is not cut. Returns the number of markers painted at least in part.
+pub fn hide_markers(gray: &mut crate::inputs::Plane<u8>, mat: &Mat, camera: &Camera, pose: &Pose) -> usize {
+    let cells = mat.bits + 2;
+    let grid = cells + 2; // with the ring of paper
+    let (w, h) = (gray.width as f64, gray.height as f64);
+    let project = |x: f64, y: f64| camera.project(add(apply(&pose.rotation, [x, y, 0.0]), pose.translation));
+    let to_mat = transpose(&pose.rotation);
+    let origin = pose.centre();
+    let size = mat.marker_size;
+    let cell = size / cells as f64;
+    let mut painted = 0;
+    for marker in &mat.markers {
+        let [left, top] = marker.corners[0];
+        // Grid cell (row, column), ring included, to mat coordinates of its centre.
+        let centre_of = |row: usize, column: usize| (left + (column as f64 - 0.5) * cell, top - (row as f64 - 0.5) * cell);
+        let white = |row: usize, column: usize| -> bool {
+            let ring = row == 0 || column == 0 || row == grid - 1 || column == grid - 1;
+            let code = (2..=mat.bits + 1).contains(&row) && (2..=mat.bits + 1).contains(&column);
+            ring || (code && mat.white(marker, row - 2, column - 2))
+        };
+        let mut values = vec![f64::NAN; grid * grid];
+        for row in 0..grid {
+            for column in 0..grid {
+                let (x, y) = centre_of(row, column);
+                if let Some(p) = project(x, y).filter(|p| p[0] >= 0.0 && p[1] >= 0.0 && p[0] <= w - 1.0 && p[1] <= h - 1.0) {
+                    values[row * grid + column] = gray.data[p[1].round() as usize * gray.width + p[0].round() as usize] as f64;
+                }
+            }
+        }
+        let seen: Vec<f64> = values.iter().copied().filter(|v| v.is_finite()).collect();
+        if seen.len() < grid * grid / 2 {
+            continue;
+        }
+        let (low, high) = seen.iter().fold((f64::MAX, f64::MIN), |(lo, hi), v| (lo.min(*v), hi.max(*v)));
+        if high - low < 30.0 {
+            continue;
+        }
+        let agrees: Vec<bool> =
+            (0..grid * grid).map(|i| values[i].is_finite() && (values[i] > (low + high) / 2.0) == white(i / grid, i % grid)).collect();
+        let paintable: Vec<bool> = (0..grid * grid)
+            .map(|i| {
+                let (row, column) = ((i / grid) as i64, (i % grid) as i64);
+                (-1..=1).all(|dr| {
+                    (-1..=1).all(|dc| {
+                        let (r, c) = (row + dr, column + dc);
+                        r < 0 || c < 0 || r >= grid as i64 || c >= grid as i64 || agrees[r as usize * grid + c as usize]
+                    })
+                })
+            })
+            .collect();
+        if !paintable.iter().any(|&p| p) {
+            continue;
+        }
+        painted += 1;
+        let corners = [centre_of(0, 0), centre_of(0, grid - 1), centre_of(grid - 1, grid - 1), centre_of(grid - 1, 0)];
+        let outline: Vec<[f64; 2]> = corners.iter().filter_map(|c| project(c.0, c.1)).collect();
+        if outline.len() < 4 {
+            continue;
+        }
+        let bound = |axis: usize, limit: f64| -> (usize, usize) {
+            let low = outline.iter().map(|p| p[axis]).fold(f64::MAX, f64::min).floor().clamp(0.0, limit);
+            let high = outline.iter().map(|p| p[axis]).fold(f64::MIN, f64::max).ceil().clamp(0.0, limit);
+            (low as usize, high as usize)
+        };
+        let ((x0, x1), (y0, y1)) = (bound(0, w - 1.0), bound(1, h - 1.0));
+        for y in y0..=y1 {
+            for x in x0..=x1 {
+                // The pixel's ray, met with the mat's plane.
+                let n = camera.undistort([x as f64, y as f64]);
+                let direction = apply(&to_mat, [n[0], n[1], 1.0]);
+                if direction[2].abs() < 1e-12 {
+                    continue;
+                }
+                let t = -origin[2] / direction[2];
+                let (column, row) = ((origin[0] + t * direction[0] - left) / cell + 1.0, (top - origin[1] - t * direction[1]) / cell + 1.0);
+                if t > 0.0
+                    && column >= 0.0
+                    && row >= 0.0
+                    && (column as usize) < grid
+                    && (row as usize) < grid
+                    && paintable[row as usize * grid + column as usize]
+                {
+                    gray.data[y * gray.width + x] = 255;
+                }
+            }
+        }
+    }
+    painted
+}

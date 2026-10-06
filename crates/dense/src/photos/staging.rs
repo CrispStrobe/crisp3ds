@@ -159,6 +159,22 @@ pub fn step_coarse(
     threads: usize,
     watch: &mut dyn FnMut(usize) -> anyhow::Result<()>,
 ) -> anyhow::Result<Value> {
+    step_coarse_with(out, photos, envelope, threshold, threads, None, watch)
+}
+
+/// What may be done to a photo's grey values before its dark region is taken (the photo itself is not changed).
+pub type Preparation = dyn Fn(&mut Plane<u8>) + Send + Sync;
+
+/// [`step_coarse`] with a preparation of the grey image, e.g. hiding the dark markers of a mat.
+pub fn step_coarse_with(
+    out: &Path,
+    photos: &[PathBuf],
+    envelope: &str,
+    threshold: Threshold,
+    threads: usize,
+    prepare: Option<&Preparation>,
+    watch: &mut dyn FnMut(usize) -> anyhow::Result<()>,
+) -> anyhow::Result<Value> {
     let (staged, masks) = (out.join("work/photos"), out.join("work/coarse-masks"));
     std::fs::create_dir_all(&staged)?;
     std::fs::create_dir_all(&masks)?;
@@ -177,7 +193,11 @@ pub fn step_coarse(
             }
             let (width, height) = (photo.width(), photo.height());
             let window = resolve_envelope(envelope, width, height)?;
-            let (mask, info) = coarse_mask(&photo.gray(), threshold, window).map_err(|e| anyhow!("{}: {e}", file_name(source)))?;
+            let mut gray = photo.gray();
+            if let Some(prepare) = prepare {
+                prepare(&mut gray);
+            }
+            let (mask, info) = coarse_mask(&gray, threshold, window).map_err(|e| anyhow!("{}: {e}", file_name(source)))?;
             save_mask(&masks.join(format!("{name}.png")), &mask)?;
             let row = json!({
                 "capture": name, "source": file_name(source), "byte_exact_copy": byte_exact,

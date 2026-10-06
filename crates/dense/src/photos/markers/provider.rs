@@ -119,3 +119,26 @@ impl CameraProvider for Markers {
         &[]
     }
 }
+
+/// For `--masks threshold` with `--cameras markers`: hides the mat's visible markers in a photo's grey
+/// values before the dark region is taken. Each photo's pose comes from its own markers, so this
+/// needs nothing from the cameras stage. `None` for every other combination of providers.
+pub fn mask_preparation(options: &Options) -> anyhow::Result<Option<Box<crate::photos::staging::Preparation>>> {
+    use crate::photos::options::{CameraChoice, MaskChoice};
+    if options.cameras != CameraChoice::Markers || options.masks != MaskChoice::Threshold {
+        return Ok(None);
+    }
+    let (Some(mat), Some(calibration)) = (&options.markers.mat, &options.calibration) else { return Ok(None) };
+    let mat = Mat::load(mat)?;
+    let calibration = crate::photos::calibration::load_calibration(calibration)?;
+    Ok(Some(Box::new(move |gray: &mut crate::inputs::Plane<u8>| {
+        let (width, height) = (gray.width as u32, gray.height as u32);
+        let Ok(scaled) = crate::photos::calibration::scale_calibration(&calibration, width, height) else { return };
+        let camera = Camera::from_lens(&scaled.lens(width, height));
+        let found = detect::detect(gray, &mat, Some(&camera), &detect::Settings::default());
+        let solved = pose::solve_view(&camera, &mat, &found, &pose::Settings::default());
+        if let Some(pose) = solved.pose {
+            pose::hide_markers(gray, &mat, &camera, &pose);
+        }
+    })))
+}
