@@ -659,9 +659,9 @@ mod tests {
         );
         let listing = &named(&commands, "cameraInit-uncalibrated").command;
         assert_eq!(listing[..3], ["/sci/python".to_string(), wrapper.clone(), "cameraInit".to_string()]);
-        assert_eq!(after(listing, "--imageFolder"), text(out.join("work/contrast")));
+        assert_eq!(PathBuf::from(after(listing, "--imageFolder")), out.join("work/contrast"));
         assert_eq!(after(listing, "--defaultFieldOfView"), "45.0");
-        assert_eq!(after(listing, "--sensorDatabase"), text(folder.join("prefix/share/aliceVision/cameraSensors.db")));
+        assert_eq!(PathBuf::from(after(listing, "--sensorDatabase")), folder.join("prefix/share/aliceVision/cameraSensors.db"));
         let features = &named(&commands, "featureExtraction").command;
         for (flag, value) in [
             ("--describerTypes", "sift".to_string()),
@@ -675,13 +675,13 @@ mod tests {
         ] {
             assert_eq!(after(features, flag), value, "{flag}");
         }
-        assert_eq!(after(&named(&commands, "cameraInit").command, "--input"), text(out.join("sfm/calibrated-input.sfm")));
+        assert_eq!(PathBuf::from(after(&named(&commands, "cameraInit").command, "--input")), out.join("sfm/calibrated-input.sfm"));
         assert_eq!(after(&named(&commands, "imageMatching").command, "--method"), "Exhaustive");
-        assert_eq!(after(&named(&commands, "featureMatching").command, "--imagePairsList"), text(out.join("sfm/pairs.txt")));
+        assert_eq!(PathBuf::from(after(&named(&commands, "featureMatching").command, "--imagePairsList")), out.join("sfm/pairs.txt"));
         assert_eq!(after(&named(&commands, "featureMatching").command, "--randomSeed"), "7");
         let sfm = &named(&commands, "globalSfM").command;
         assert_eq!((after(sfm, "--lockAllIntrinsics"), after(sfm, "--randomSeed")), ("true", "7"));
-        assert_eq!(after(sfm, "--output"), text(out.join("sfm/final.sfm")));
+        assert_eq!(PathBuf::from(after(sfm, "--output")), out.join("sfm/final.sfm"));
         assert_eq!(sfm[sfm.len() - 6..sfm.len() - 4], ["--a", "b"]);
         let blas = named(&commands, "globalSfM").environment.iter().find(|(k, _)| k == "OPENBLAS_NUM_THREADS").unwrap();
         assert_eq!(blas.1, "1");
@@ -714,27 +714,28 @@ mod tests {
         let folder = scratch("colmap");
         let out = folder.join("out");
         let lens = Lens { width: 1749, height: 1155, pixels: [2328.25, 2329.5, 874.125, 555.75], k: [-0.17, 0.41, -3.7] };
-        let options = resolve(&arguments(&folder, &["--cameras", "colmap", "--colmap", "/opt/colmap", "--threads", "4"]), &none).unwrap();
+        let program = text(std::path::absolute("/opt/colmap").unwrap());
+        let options = resolve(&arguments(&folder, &["--cameras", "colmap", "--colmap", &program, "--threads", "4"]), &none).unwrap();
         let commands = colmap_commands(&options, &lens).unwrap();
         assert_eq!(
             commands.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(),
             ["colmap-feature_extractor", "colmap-exhaustive_matcher", "colmap-mapper"]
         );
         let extractor = &commands[0].command;
-        assert_eq!(extractor[..2], ["/opt/colmap", "feature_extractor"]);
-        assert_eq!(after(extractor, "--database_path"), text(out.join("sfm/colmap/database.db")));
-        assert_eq!(after(extractor, "--image_path"), text(out.join("work/contrast")));
+        assert_eq!(extractor[..2], [program.as_str(), "feature_extractor"]);
+        assert_eq!(PathBuf::from(after(extractor, "--database_path")), out.join("sfm/colmap/database.db"));
+        assert_eq!(PathBuf::from(after(extractor, "--image_path")), out.join("work/contrast"));
         assert_eq!((after(extractor, "--ImageReader.single_camera"), after(extractor, "--ImageReader.camera_model")), ("1", "FULL_OPENCV"));
         // fx, fy, cx + 0.5, cy + 0.5, k1, k2, p1, p2, k3, k4, k5, k6
         assert_eq!(after(extractor, "--ImageReader.camera_params"), "2328.25,2329.5,874.625,556.25,-0.17,0.41,0.0,0.0,-3.7,0.0,0.0,0.0");
-        assert_eq!(after(extractor, "--ImageReader.mask_path"), text(out.join("work/mask-cleanup/masks")));
+        assert_eq!(PathBuf::from(after(extractor, "--ImageReader.mask_path")), out.join("work/mask-cleanup/masks"));
         assert_eq!((after(extractor, "--SiftExtraction.use_gpu"), after(extractor, "--SiftExtraction.num_threads")), ("0", "4"));
         assert_eq!(after(&commands[1].command, "--SiftMatching.use_gpu"), "0");
         let mapper = &commands[2].command;
         for flag in ["--Mapper.ba_refine_focal_length", "--Mapper.ba_refine_principal_point", "--Mapper.ba_refine_extra_params"] {
             assert_eq!(after(mapper, flag), "0", "{flag}");
         }
-        assert_eq!(after(mapper, "--output_path"), text(out.join("sfm/colmap/sparse")));
+        assert_eq!(PathBuf::from(after(mapper, "--output_path")), out.join("sfm/colmap/sparse"));
         assert_eq!(after(mapper, "--Mapper.max_extra_param"), "8.0"); // twice the largest coefficient, 3.7, rounded up
         let wrapper = folder.join("av.py").to_string_lossy().to_string();
         let more = [
@@ -761,10 +762,8 @@ mod tests {
         assert!(!commands[0].command.contains(&"--ImageReader.mask_path".to_string()));
         assert_eq!(after(&commands[0].command, "--FeatureExtraction.use_gpu"), "0");
         assert_eq!(commands[1].name, "colmap-matches_importer");
-        assert_eq!(
-            (after(&commands[1].command, "--match_type"), after(&commands[1].command, "--match_list_path")),
-            ("pairs", &*text(out.join("sfm/colmap/pairs.txt")))
-        );
+        assert_eq!(after(&commands[1].command, "--match_type"), "pairs");
+        assert_eq!(PathBuf::from(after(&commands[1].command, "--match_list_path")), out.join("sfm/colmap/pairs.txt"));
         assert_eq!(commands[2].command[commands[2].command.len() - 2..], ["--Mapper.min_num_matches", "10"]);
         std::fs::remove_dir_all(&folder).unwrap();
     }

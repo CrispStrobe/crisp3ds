@@ -672,7 +672,7 @@ pub(crate) mod tests {
         let more = ["--masks", &format!("import:{given}"), "--colmap-matching", "ring", "--colmap-masks=off"];
         let options = resolve(&arguments(&folder, &more), &variables).unwrap();
         assert_eq!((&options.masks, &options.cameras), (&MaskChoice::Import(PathBuf::from(&given)), &CameraChoice::Colmap));
-        assert_eq!(options.colmap.location, Some(PathBuf::from("/opt/colmap")));
+        assert_eq!(options.colmap.location, Some(std::path::absolute("/opt/colmap").unwrap()));
         assert_eq!((options.colmap.matching.as_str(), options.colmap.use_masks), ("ring", false));
         let options = resolve(&arguments(&folder, &["--cameras", &format!("import:{given}"), "--masks", "external-sam"]), &none).unwrap();
         assert_eq!((&options.masks, &options.cameras), (&MaskChoice::ExternalSam, &CameraChoice::Import(PathBuf::from(&given))));

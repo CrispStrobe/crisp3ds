@@ -243,7 +243,7 @@ mod tests {
             (after("--device").as_str(), after("--views").as_str(), after("--model-config").as_str()),
             ("cpu", "3", "configs/x.yaml")
         );
-        assert_eq!(after("--coarse-masks"), folder.join("out/work/coarse-masks").to_string_lossy());
+        assert_eq!(PathBuf::from(after("--coarse-masks")), folder.join("out/work/coarse-masks"));
         assert_eq!(sam.command[sam.command.len() - 2..], ["--preserve-holes", "--automatic-cues"]);
         if cfg!(unix) {
             assert_eq!(sam.environment[0], ("PYTHONPATH".to_string(), "/repo:/a:/b".to_string()));
