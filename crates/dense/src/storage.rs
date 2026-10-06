@@ -43,6 +43,23 @@ fn from_source(key: &str, probe: bool) -> Option<Vec<u8>> {
     SOURCE.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref().and_then(|source| source(key, probe))
 }
 
+/// Lists a directory outside the tree: `key` returns the names of the entries
+/// directly inside it, or `None` when the source has no such directory.
+pub type Lister = Box<dyn Fn(&str) -> Option<Vec<String>> + Send + Sync>;
+
+static LISTER: Mutex<Option<Lister>> = Mutex::new(None);
+
+/// Registers how directories of the memory source are listed (a folder of
+/// photos handed over lazily is read by name, so it has to be listable).
+/// `None` removes it.
+pub fn set_memory_lister(lister: Option<Lister>) {
+    *LISTER.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = lister;
+}
+
+fn from_lister(key: &str) -> Option<Vec<String>> {
+    LISTER.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref().and_then(|lister| lister(key))
+}
+
 static TREE: Mutex<Tree> = Mutex::new(Tree { files: BTreeMap::new(), directories: BTreeSet::new() });
 
 fn tree() -> MutexGuard<'static, Tree> {
@@ -145,7 +162,7 @@ pub fn exists(path: impl AsRef<Path>) -> bool {
         let tree = tree();
         tree.files.contains_key(&key) || tree.is_dir(&key)
     };
-    stored || from_source(&key, true).is_some()
+    stored || from_source(&key, true).is_some() || from_lister(&key).is_some()
 }
 
 pub fn is_file(path: impl AsRef<Path>) -> bool {
@@ -163,7 +180,9 @@ pub fn is_dir(path: impl AsRef<Path>) -> bool {
     if !is_memory(path) {
         return path.is_dir();
     }
-    tree().is_dir(&key(path))
+    let key = key(path);
+    let stored = tree().is_dir(&key);
+    stored || from_lister(&key).is_some()
 }
 
 /// Fails when the directory exists, like `std::fs::create_dir`.
@@ -227,9 +246,10 @@ pub fn list(directory: impl AsRef<Path>) -> Result<Vec<PathBuf>> {
         entries.sort();
         return Ok(entries);
     }
-    let (tree, key) = (tree(), key(directory));
+    let key = key(directory);
+    let mut names: BTreeSet<String> = from_lister(&key).unwrap_or_default().into_iter().collect();
+    let tree = tree();
     let prefix = format!("{key}/");
-    let mut names = BTreeSet::new();
     for path in tree.files.keys().chain(tree.directories.iter()).filter(|k| k.starts_with(&prefix)) {
         names.insert(path[prefix.len()..].split('/').next().unwrap_or_default().to_string());
     }
@@ -337,8 +357,17 @@ mod tests {
         write(path, [1]).unwrap();
         assert_eq!(read(path).unwrap(), vec![1], "a stored file wins");
         remove_file(path).unwrap();
+        // A lister makes the source's folder a directory with its entries, next to stored ones.
+        set_memory_lister(Some(Box::new(|key| (key == "mem:/source-test").then(|| vec!["photo.png".to_string()]))));
+        write("mem:/source-test/stored.png", [2]).unwrap();
+        assert!(is_dir("mem:/source-test") && exists("mem:/source-test"));
+        let names: Vec<String> =
+            list("mem:/source-test").unwrap().iter().map(|p| p.file_name().unwrap().to_string_lossy().to_string()).collect();
+        assert_eq!(names, ["photo.png", "stored.png"]);
+        remove_file("mem:/source-test/stored.png").unwrap();
+        set_memory_lister(None);
         set_memory_source(None);
-        assert!(!exists(path));
+        assert!(!exists(path) && !is_dir("mem:/source-test"));
     }
 
     #[test]

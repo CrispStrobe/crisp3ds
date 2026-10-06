@@ -24,7 +24,7 @@ reference for what was ported, and is not extended.
 | Mask provider `sam` (feature `sam-onnx`, off by default) | this crate (`src/photos/sam/`); the network runs in ONNX Runtime (MIT), loaded as a shared library at run time through the `ort` crate; the model (SAM 2.1 Hiera-tiny, Apache-2.0) from `--sam-model DIR` or fetched once from Hugging Face |
 | Inputs from a scene (`inputs`), dense stereo (`stereo`, GPU), surface (`mesh`), photo check (`check`) | this crate |
 | Run driver, events, cancellation, settings schema, start points and provider description | this crate |
-| In a browser (`web/`) | this crate as WebAssembly: the dense stages from an inputs folder; no external programs |
+| In a browser (`web/`) | this crate as WebAssembly: from photos with the providers that start no program (threshold or imported masks; turntable, markers or imported cameras), or from an inputs folder |
 | Scanner evaluator (`scan_evaluate.py`) | Python, a development tool; never an input of any stage |
 
 Where the stages sit among the providers and which platforms run what is
@@ -98,6 +98,17 @@ crisp3ds-dense run --output RUN --photos DIR --calibration lens.json           #
 crisp3ds-dense run --describe [tool locations]      # start points, providers, their options and availability, as JSON
 crisp3ds-dense settings --schema                    # every setting with group, kind, default and meaning, as JSON
 ```
+
+The photos stage reads and writes through `crate::storage`, so the run
+directory, the photos and the lens file may all be in the in-memory tree
+(`mem:` paths, natively too; every path in a browser). There, and in a
+browser, a run whose mask or camera provider starts an external program is
+refused before anything runs (the provider table says which do). The Bunny's
+photos to STL with the default providers entirely in `mem:` gave the same
+mesh and cameras, byte for byte, as the same run on disk (1 046 448
+triangles, 484 files in both). A host that hands photos over lazily
+(`storage::set_memory_source`) also registers `storage::set_memory_lister`,
+so that the photo folder can be listed.
 
 From photos the photos stage runs first (its `masks` and `cameras` stages, in
 `RUN/photos/`) and its scene is the inputs directory; there is no `inputs`
