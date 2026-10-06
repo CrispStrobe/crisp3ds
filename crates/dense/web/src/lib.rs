@@ -25,6 +25,8 @@ thread_local! {
     /// Event callbacks of the runs in progress, by run number.
     static CALLBACKS: RefCell<BTreeMap<u32, js_sys::Function>> = const { RefCell::new(BTreeMap::new()) };
     static NEXT: RefCell<u32> = const { RefCell::new(1) };
+    /// Supplies files the host keeps in JavaScript memory.
+    static SOURCE: RefCell<Option<js_sys::Function>> = const { RefCell::new(None) };
 }
 
 #[wasm_bindgen(start)]
@@ -66,6 +68,27 @@ pub fn get_file(path: &str) -> Option<Vec<u8>> {
 #[wasm_bindgen(js_name = listFiles)]
 pub fn list_files(directory: &str) -> String {
     serde_json::to_string(&storage::memory_files(directory)).unwrap_or_default()
+}
+
+/// Registers `source(path, probe)`: called for files that are not in the tree.
+/// It returns a `Uint8Array` with the file (or, when `probe` is true, any
+/// truthy value if the file exists) and `undefined` otherwise. Large inputs can
+/// then stay in JavaScript memory instead of WebAssembly memory. `undefined`
+/// or `null` removes the source.
+#[wasm_bindgen(js_name = setFileSource)]
+pub fn set_file_source(source: Option<js_sys::Function>) {
+    let present = source.is_some();
+    SOURCE.with(|slot| *slot.borrow_mut() = source);
+    storage::set_memory_source(present.then(|| {
+        Box::new(|path: &str, probe: bool| {
+            let function = SOURCE.with(|slot| slot.borrow().clone())?;
+            let value = function.call2(&JsValue::NULL, &JsValue::from_str(path), &JsValue::from_bool(probe)).ok()?;
+            if probe {
+                return value.is_truthy().then(Vec::new);
+            }
+            value.is_instance_of::<js_sys::Uint8Array>().then(|| js_sys::Uint8Array::from(value).to_vec())
+        }) as storage::Source
+    }));
 }
 
 /// Removes a directory of the tree with everything in it.

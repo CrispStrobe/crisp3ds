@@ -46,10 +46,9 @@ self.onmessage = async ({ data }) => {
       options: data.options ?? {},
       onEvent: (event) => {
         peak = Math.max(peak, memory().wasm);
-        self.postMessage({ type: "event", event });
+        self.postMessage({ type: "event", event, wasmBytes: memory().wasm });
       },
     });
-    files.clear();
     const report = await run.finished;
     peak = Math.max(peak, memory().wasm);
     for (const path of data.keep ?? []) {

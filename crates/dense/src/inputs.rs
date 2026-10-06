@@ -92,6 +92,8 @@ pub struct Inputs {
     pub cameras: Vec<Camera>,
     /// Contrast-normalised grey per view, native size.
     pub gray: Vec<Plane<f32>>,
+    /// Position of each grey plane's first pixel in its photo: (0, 0) until [`Inputs::crop_gray`].
+    pub gray_origin: Vec<[i64; 2]>,
     /// Object mask per view (0 or 1), native size. Mask repair rewrites these.
     pub masks: Vec<Plane<u8>>,
     /// Common-canvas crop per view: `[x0, y0, x1, y1]`, may leave the image.
@@ -340,7 +342,30 @@ impl Inputs {
             .iter()
             .map(|a| rays.iter().map(|b| (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]).clamp(-1.0, 1.0).acos().to_degrees()).collect())
             .collect();
-        Ok(Inputs { rows, cameras, gray, masks, boxes, longest: cw.max(ch), sparse, angles, repair_loose })
+        let gray_origin = vec![[0, 0]; gray.len()];
+        Ok(Inputs { rows, cameras, gray, gray_origin, masks, boxes, longest: cw.max(ch), sparse, angles, repair_loose })
+    }
+
+    /// Keeps of every grey image only the part inside its canvas box. The
+    /// pyramid levels read nothing else, and megapixel photos of a small
+    /// object are mostly backdrop; mask repair and the sheets, which look at
+    /// whole photos, must have run before.
+    pub fn crop_gray(&mut self) {
+        for n in 0..self.gray.len() {
+            let (plane, b) = (&self.gray[n], self.boxes[n]);
+            if self.gray_origin[n] != [0, 0] {
+                continue;
+            }
+            let (x0, y0) = (b[0].clamp(0, plane.width as i64) as usize, b[1].clamp(0, plane.height as i64) as usize);
+            let (x1, y1) = (b[2].clamp(0, plane.width as i64) as usize, b[3].clamp(0, plane.height as i64) as usize);
+            let (width, height) = (x1.saturating_sub(x0), y1.saturating_sub(y0));
+            let mut data = Vec::with_capacity(width * height);
+            for y in y0..y0 + height {
+                data.extend_from_slice(&plane.data[y * plane.width + x0..y * plane.width + x0 + width]);
+            }
+            self.gray[n] = Plane { width, height, data };
+            self.gray_origin[n] = [x0 as i64, y0 as i64];
+        }
     }
 
     pub fn count(&self) -> usize {

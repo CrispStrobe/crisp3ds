@@ -179,7 +179,10 @@ pub fn build_level(inputs: &Inputs, size: i64) -> Vec<LevelView> {
         let (bw, bh) = (bounds[2] - bounds[0], bounds[3] - bounds[1]);
         let width = (round_half_even(bw as f64 * factor) as i64).max(8) as usize;
         let height = (round_half_even(bh as f64 * factor) as i64).max(8) as usize;
-        let gray = resize(&crop(&inputs.gray[n], bounds), width, height, Filter::Bilinear);
+        // The grey plane may hold only the canvas part of the photo; outside it and outside the photo is zero.
+        let [ox, oy] = inputs.gray_origin[n];
+        let within = [bounds[0] - ox, bounds[1] - oy, bounds[2] - ox, bounds[3] - oy];
+        let gray = resize(&crop(&inputs.gray[n], within), width, height, Filter::Bilinear);
         let mask_crop = crop(&inputs.masks[n], bounds);
         let mask_float =
             Plane { width: mask_crop.width, height: mask_crop.height, data: mask_crop.data.iter().map(|&m| m as f32).collect() };

@@ -19,6 +19,17 @@ import init, * as engine from "./pkg/crisp3ds_dense_web.js";
 let ready;
 let wasm;
 let counter = 0;
+const sources = new Map();
+
+function lookup(path, probe) {
+  for (const [prefix, inputs] of sources) {
+    if (path.startsWith(prefix)) {
+      const bytes = inputs.get(path.slice(prefix.length));
+      return probe ? bytes !== undefined : bytes;
+    }
+  }
+  return undefined;
+}
 
 /** Loads the WebAssembly module once. */
 export async function load() {
@@ -48,10 +59,10 @@ export function memory() {
 export async function createRun({ files, options = {}, onEvent } = {}) {
   await load();
   const root = `run-${++counter}`;
-  const entries = files instanceof Map ? files.entries() : Object.entries(files ?? {});
-  for (const [path, bytes] of entries) {
-    engine.putFile(`${root}/inputs/${path}`, bytes);
-  }
+  // The input files stay here, in JavaScript memory; the engine asks for one at a time.
+  const inputs = files instanceof Map ? files : new Map(Object.entries(files ?? {}));
+  sources.set(`${root}/inputs/`, inputs);
+  engine.setFileSource(lookup);
   const handle = new engine.Run();
   const text = JSON.stringify({ ...options, output: `${root}/run`, inputs: `${root}/inputs` });
   const finished = handle.start(text, onEvent ?? null).then((report) => JSON.parse(report));
@@ -63,6 +74,7 @@ export async function createRun({ files, options = {}, onEvent } = {}) {
     /** [[path, bytes], ...] of everything the run wrote. */
     files: () => JSON.parse(engine.listFiles(`${root}/run`)).map(([path, size]) => [path.slice(`${root}/run/`.length), size]),
     dispose: () => {
+      sources.delete(`${root}/inputs/`);
       engine.removeTree(root);
       handle.free();
     },

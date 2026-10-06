@@ -260,6 +260,8 @@ pub async fn run_with(
     }
     events.progress(0.08, "Masks and hull ready")?;
     control.check()?;
+    // From here on only the canvas part of each photo is read.
+    inputs.crop_gray();
 
     let sizes = level_sizes(&config.sizes, inputs.longest);
     if arguments.only.as_deref() == Some("levels") {
@@ -278,7 +280,7 @@ pub async fn run_with(
         report["level_checks"] = json!(levels);
         return finish(report, output, started);
     }
-    let (level, depths) = match &arguments.reuse_depths {
+    let (mut level, depths) = match &arguments.reuse_depths {
         Some(path) => (build_level(&inputs, *sizes.last().unwrap()), read_depths(path, count)?),
         None => {
             if config.fused_passes != 0 {
@@ -290,6 +292,11 @@ pub async fn run_with(
         }
     };
 
+    // Fusion reads masks, cameras and depth; the grey images are done.
+    inputs.gray = Vec::new();
+    for view in &mut level {
+        view.gray = Plane::new(0, 0);
+    }
     let t = Instant::now();
     let rim = round_half_even(config.rim_fraction * DenseConfig::level(&config.windows, sizes.len() - 1) as f64) as usize;
     let fused: Fused = tsdf(gpu, &state.hull, &inputs.cameras, &level, &depths, rim, config).await?;

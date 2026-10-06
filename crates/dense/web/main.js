@@ -10,7 +10,7 @@ const upload = query.get("upload");
 const element = (id) => document.getElementById(id);
 element("base").textContent = base;
 
-const state = { status: "starting", events: [], kept: {}, uploading: 0, report: null, error: null };
+const state = { status: "starting", events: [], memoryAtEvents: [], kept: {}, uploading: 0, report: null, error: null };
 window.crisp3ds = state;
 
 const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
@@ -21,6 +21,10 @@ worker.onmessage = ({ data }) => {
     element("status").textContent = data.text;
   } else if (data.type === "event") {
     state.events.push(data.event);
+    state.wasmBytes = Math.max(state.wasmBytes ?? 0, data.wasmBytes ?? 0);
+    if (data.event.type !== "progress" && data.event.type !== "metric") {
+      state.memoryAtEvents.push([data.event.stage, data.event.kind ?? data.event.type, data.wasmBytes ?? 0]);
+    }
     const event = data.event;
     if (event.type === "progress") {
       element("status").textContent = `${event.stage}: ${event.message} (${Math.round(100 * event.fraction)} %)`;

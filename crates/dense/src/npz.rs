@@ -386,22 +386,24 @@ pub fn write(path: &Path, arrays: &[(&str, &Array)], compress: bool) -> Result<(
     let mut directory = Vec::new();
     for (name, array) in arrays {
         let content = npy_bytes(array);
-        let stored = if compress { deflate(&content) } else { content.clone() };
         let member = format!("{name}.npy");
         ensure!(
             content.len() < u32::MAX as usize && out.len() < u32::MAX as usize && arrays.len() < 0xFFFF,
             "archives of 4 GiB or more are not supported"
         );
         let method: u16 = if compress { 8 } else { 0 };
+        // A stored member is the array's bytes themselves; they are moved, not copied.
+        let (checksum, length) = (crc32fast::hash(&content), content.len());
+        let stored = if compress { deflate(&content) } else { content };
         let mut fields = Vec::new();
         fields.extend_from_slice(&20u16.to_le_bytes()); // version needed
         fields.extend_from_slice(&0u16.to_le_bytes()); // flags
         fields.extend_from_slice(&method.to_le_bytes());
         fields.extend_from_slice(&0u16.to_le_bytes()); // time
         fields.extend_from_slice(&0x21u16.to_le_bytes()); // date: 1980-01-01
-        fields.extend_from_slice(&crc32fast::hash(&content).to_le_bytes());
+        fields.extend_from_slice(&checksum.to_le_bytes());
         fields.extend_from_slice(&(stored.len() as u32).to_le_bytes());
-        fields.extend_from_slice(&(content.len() as u32).to_le_bytes());
+        fields.extend_from_slice(&(length as u32).to_le_bytes());
         fields.extend_from_slice(&(member.len() as u16).to_le_bytes());
         fields.extend_from_slice(&0u16.to_le_bytes()); // extra length
         let offset = out.len() as u32;

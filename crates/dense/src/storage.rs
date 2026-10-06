@@ -25,6 +25,24 @@ struct Tree {
     directories: BTreeSet<String>,
 }
 
+/// Looks a file up outside the tree: `(key, probe)` returns its bytes, or with
+/// `probe` any `Some` when it exists.
+pub type Source = Box<dyn Fn(&str, bool) -> Option<Vec<u8>> + Send + Sync>;
+
+static SOURCE: Mutex<Option<Source>> = Mutex::new(None);
+
+/// Registers where files that are not in the in-memory tree come from. A
+/// browser host keeps large inputs (photos) in JavaScript memory and hands
+/// them over one at a time, so that they do not occupy WebAssembly memory for
+/// the length of a run. `None` removes the source.
+pub fn set_memory_source(source: Option<Source>) {
+    *SOURCE.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = source;
+}
+
+fn from_source(key: &str, probe: bool) -> Option<Vec<u8>> {
+    SOURCE.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref().and_then(|source| source(key, probe))
+}
+
 static TREE: Mutex<Tree> = Mutex::new(Tree { files: BTreeMap::new(), directories: BTreeSet::new() });
 
 fn tree() -> MutexGuard<'static, Tree> {
@@ -61,7 +79,9 @@ pub fn read(path: impl AsRef<Path>) -> Result<Vec<u8>> {
     if !is_memory(path) {
         return std::fs::read(path);
     }
-    tree().files.get(&key(path)).cloned().ok_or_else(|| missing(path))
+    let key = key(path);
+    let stored = tree().files.get(&key).cloned();
+    stored.or_else(|| from_source(&key, false)).ok_or_else(|| missing(path))
 }
 
 pub fn read_to_string(path: impl AsRef<Path>) -> Result<String> {
@@ -120,8 +140,12 @@ pub fn exists(path: impl AsRef<Path>) -> bool {
     if !is_memory(path) {
         return path.exists();
     }
-    let (tree, key) = (tree(), key(path));
-    tree.files.contains_key(&key) || tree.is_dir(&key)
+    let key = key(path);
+    let stored = {
+        let tree = tree();
+        tree.files.contains_key(&key) || tree.is_dir(&key)
+    };
+    stored || from_source(&key, true).is_some()
 }
 
 pub fn is_file(path: impl AsRef<Path>) -> bool {
@@ -129,7 +153,9 @@ pub fn is_file(path: impl AsRef<Path>) -> bool {
     if !is_memory(path) {
         return path.is_file();
     }
-    tree().files.contains_key(&key(path))
+    let key = key(path);
+    let stored = tree().files.contains_key(&key);
+    stored || from_source(&key, true).is_some()
 }
 
 pub fn is_dir(path: impl AsRef<Path>) -> bool {
@@ -296,6 +322,23 @@ mod tests {
         assert!(remove_file(root.join("run/config.json")).is_err());
         remove_dir_all(&root).unwrap();
         assert!(!exists(&root) && memory_files(&root).is_empty());
+    }
+
+    #[test]
+    fn a_source_supplies_files_that_are_not_stored() {
+        // One process-wide source: this is the only test that sets it.
+        set_memory_source(Some(Box::new(|key, probe| {
+            (key == "mem:/source-test/photo.png").then(|| if probe { Vec::new() } else { vec![7, 8, 9] })
+        })));
+        let path = Path::new("mem:/source-test/photo.png");
+        assert!(exists(path) && is_file(path));
+        assert_eq!(read(path).unwrap(), vec![7, 8, 9]);
+        assert!(!exists("mem:/source-test/other.png") && read("mem:/source-test/other.png").is_err());
+        write(path, [1]).unwrap();
+        assert_eq!(read(path).unwrap(), vec![1], "a stored file wins");
+        remove_file(path).unwrap();
+        set_memory_source(None);
+        assert!(!exists(path));
     }
 
     #[test]

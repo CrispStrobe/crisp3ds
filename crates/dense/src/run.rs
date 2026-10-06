@@ -191,6 +191,8 @@ impl PreviewMesher {
             Err(error) => format!("{error:#}"),
         };
         let _ = crate::storage::write(volume.with_extension("log"), log + "\n");
+        // The volume has served its purpose; it is large, and without a disk it occupies memory.
+        let _ = crate::storage::remove_file(volume);
     }
 
     /// The worker: meshes volumes until the queue is closed and empty.
@@ -386,9 +388,19 @@ pub async fn run_async(options: &RunOptions, observer: Option<Observer>, cancel:
     // Preview volumes announced by the stereo stage are queued for coarse meshing.
     let queue = Arc::new(PreviewQueue::default());
     let (announced, run_directory) = (queue.clone(), output.clone());
+    // Without a second thread a volume is meshed as soon as it is announced, so that it does not stay in memory.
+    let inline: Arc<std::sync::OnceLock<Arc<PreviewMesher>>> = Arc::new(std::sync::OnceLock::new());
+    let meshing_inline = inline.clone();
     let watching: Observer = Arc::new(move |event: &Value| {
         if event["type"] == "artifact" && event["kind"] == "preview_volume" {
             if let (Some(path), Some(label)) = (event["path"].as_str(), event["label"].as_str()) {
+                if let Some(mesher) = meshing_inline.get() {
+                    if let Some(observer) = &observer {
+                        observer(event);
+                    }
+                    mesher.mesh(&run_directory.join(path), label);
+                    return;
+                }
                 let mut state = announced.state.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
                 if !state.abandoned {
                     state.waiting.push_back((run_directory.join(path), label.to_string()));
@@ -409,6 +421,9 @@ pub async fn run_async(options: &RunOptions, observer: Option<Observer>, cancel:
         step: options.preview_step.max(1),
         threads: options.threads.max(1),
     });
+    if cfg!(target_arch = "wasm32") {
+        let _ = inline.set(mesher.clone());
+    }
     let mut driver = Driver {
         output: output.clone(),
         events: events.clone(),

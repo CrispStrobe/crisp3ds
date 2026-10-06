@@ -79,6 +79,7 @@ const page = await browser.newPage();
 const consoleLines = [];
 page.on("console", (message) => consoleLines.push(`${message.type()}: ${message.text()}`));
 page.on("pageerror", (error) => consoleLines.push(`pageerror: ${error.message}`));
+page.on("worker", (worker) => worker.on?.("console", (message) => consoleLines.push(`worker ${message.type()}: ${message.text()}`)));
 
 // Peak resident memory of Chromium's processes by kind, sampled once a second.
 const executable = dirname(chromium.executablePath());
@@ -113,7 +114,7 @@ try {
     return { ...rest, jsHeapBytes: performance.memory?.usedJSHeapSize ?? null };
   });
 } catch (error) {
-  state = await page.evaluate(() => ({ status: window.crisp3ds?.status ?? "no page state", events: window.crisp3ds?.events ?? [], error: "timeout" })).catch(() => ({ status: "crashed", events: [], error: String(error) }));
+  state = await page.evaluate(() => ({ status: window.crisp3ds?.status ?? "no page state", events: window.crisp3ds?.events ?? [], wasmBytes: window.crisp3ds?.wasmBytes, error: "timeout" })).catch(() => ({ status: "crashed", events: [], error: String(error) }));
 }
 clearInterval(sampler);
 sampleMemory();
@@ -133,6 +134,7 @@ const result = {
   peak_wasm_bytes: state.peakWasmBytes ?? state.wasmBytes ?? null,
   page_js_heap_bytes: state.jsHeapBytes ?? null,
   peak_process_resident_bytes: peaks,
+  wasm_bytes_at_events: state.memoryAtEvents ?? null,
   events: events.length,
   triangles: state.report?.triangles ?? null,
   closed: state.report?.closed ?? null,

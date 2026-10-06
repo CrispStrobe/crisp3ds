@@ -2,3 +2,5 @@ pkg/
 node_modules/
 target/
 package-lock.json
+scene/
+browser-run/
