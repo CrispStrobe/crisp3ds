@@ -92,6 +92,19 @@ extraction and the check are not interrupted; they take seconds). The run then
 ends with status `cancelled`. `stereo/volume.npz` is deleted at the end unless
 `--keep-volume`. `scripts/turntable_mesh/export_replay.py` accepts the result.
 
+Against the Python driver (all stages in Python, Torch on MPS) on the same
+machine: on the synthetic sphere and on the Bunny started from its scene, the
+event logs have the same stage sequence, the same artifact kinds and counts per
+stage (Bunny: 4 depth sheets, 4 preview volumes, 4 preview meshes, 3 reports,
+one of each other kind) and the same metric names, and `pipeline.json` has the
+same keys. Synthetic: 33 792 triangles from both, 21.0 s / 1.3 s. Bunny:
+1 046 354 / 1 047 200 triangles, both closed, silhouette IoU median 0.9667 /
+0.9667, scanner F1 `all` 0.905 / 0.941 / 0.955 against 0.905 / 0.941 / 0.956 and
+`above_margin` 0.964 / 0.995 / 1.000 against 0.963 / 0.995 / 1.000 (largest
+difference 0.0011), 1006 s / 193 s with both measured while other jobs loaded
+the machine; a native run from the inputs directory alone took 95 s (stereo 78,
+surface 12, check 5) under similar load.
+
 As a library:
 
 ```rust
@@ -389,8 +402,13 @@ Time per step on the Bunny, seconds, Python / native: hull
 level 512 second pass 41.6 / 5.2; level 876 121.9 / 17.8 (of which 4.5 on the
 CPU for the initial surfaces and 0.9 for agreement); fusion 20.8 / 0.9;
 everything else (loading, sheets, writing the files) 27.8 / 23.2, of which the
-native stage spends 0.8 on loading and 21.8 on writing `volume.npz` and
-`depths.npz` with single-threaded deflate.
+native stage spent 0.8 on loading and 21.8 on writing `volume.npz` and
+`depths.npz` with single-threaded deflate. Members are now deflated in 4 MiB
+pieces on four threads (same level, files a few bytes per piece larger, read by
+NumPy and any inflater); writing took 12.8 s in a later run on a machine loaded
+by other jobs. Storing without compression was not chosen: `depths.npz` and
+`volume.npz` would grow from about 150 MB to about 480 MB on the Bunny, and the
+depth file is kept with every run.
 
 ## Dependencies
 
