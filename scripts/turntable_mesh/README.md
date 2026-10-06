@@ -98,6 +98,21 @@ export CRISP3DS_TORCH_PYTHON=$PWD/.local-tools/sam21-m1-local-cache-001/venv/bin
 (`PYTORCH_ENABLE_MPS_FALLBACK=0`); `--device cuda` uses an NVIDIA GPU and
 likewise refuses if none is available; `--device cpu` runs the same code on CPU.
 
+### Native stages
+
+The pipeline is being ported to Rust and WebGPU so it can run without Python
+(`crates/dense`). Stages that are ported and at parity can be used already:
+
+```sh
+(cd crates/dense && cargo build --release)
+python -m scripts.turntable_mesh.dense_pipeline ... --native path/to/crisp3ds-dense
+```
+
+Currently that is surface extraction, including the live preview meshes: same
+files, scanner scores within 0.002 of the Python stage on four objects, about
+four times faster and a third of the memory. The parity table is in
+[`crates/dense/README.md`](../../crates/dense/README.md).
+
 ### Running stages separately
 
 ```sh

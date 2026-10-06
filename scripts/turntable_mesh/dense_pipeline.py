@@ -187,6 +187,12 @@ def stages(args, config, output, python, torch_python, environment, events, even
     if input_sheet(inputs, output / "input-sheet.png"):
         events.artifact("input_sheet", output / "input-sheet.png", "Photos with mask outlines", stage="inputs")
 
+    # The surface stage exists twice: the Python reference and the native port
+    # (crates/dense), which reads and writes the same files.
+    native = args.native or os.environ.get("CRISP3DS_NATIVE")
+    mesher = [str(native), "mesh", "--threads", str(args.threads)] if native else [str(python), "-m", "scripts.turntable_mesh.tsdf_hull_mesh"]
+    report["native_stages"] = ["mesh"] if native else []
+
     # Preview volumes appear while matching runs; mesh them coarsely one at a time.
     meshing = {"process": None, "done": set()}
 
@@ -204,7 +210,7 @@ def stages(args, config, output, python, torch_python, environment, events, even
             label = names[volume.stem] if volume.stem in names else "Surface after level " + str(int(volume.stem.split("-")[-1]) + 1)
             log = open(output / "stereo" / "preview" / f"{volume.stem}.log", "w")
             meshing["process"] = subprocess.Popen(
-                [str(python), "-m", "scripts.turntable_mesh.tsdf_hull_mesh", "--volume", str(volume),
+                [*mesher, "--volume", str(volume),
                  "--output", str(volume.with_suffix("")), "--config", str(output / "config.json"),
                  "--step", str(args.preview_step), "--events", str(events_path), "--label", label],
                 stdout=log, stderr=subprocess.STDOUT, cwd=REPOSITORY, env=environment)
@@ -215,7 +221,7 @@ def stages(args, config, output, python, torch_python, environment, events, even
                      "--events", events_path, *([] if args.no_live_previews else ["--previews"]),
                      *(["--reuse-depths", Path(args.reuse_depths).absolute()] if args.reuse_depths else [])],
           args.stereo_timeout, mesh_previews)
-    stage("mesh", [python, "-m", "scripts.turntable_mesh.tsdf_hull_mesh", "--volume", output / "stereo/volume.npz",
+    stage("mesh", [*mesher, "--volume", output / "stereo/volume.npz",
                    "--output", output / "mesh", "--config", output / "config.json", "--events", events_path], 900,
           mesh_previews)
     while not args.no_live_previews:  # let outstanding previews finish; they are small
@@ -265,6 +271,8 @@ def main():
     parser.add_argument("--device", choices=("mps", "cuda", "cpu"), default="mps")
     parser.add_argument("--python", help="interpreter with NumPy, SciPy, scikit-image, OpenCV, Pillow")
     parser.add_argument("--torch-python", help="interpreter with Torch, NumPy, Pillow")
+    parser.add_argument("--native", type=Path, help="crisp3ds-dense binary; stages it has ported (currently: mesh) "
+                        "run natively instead of in Python [CRISP3DS_NATIVE]")
     parser.add_argument("--threads", type=int, default=2)
     parser.add_argument("--stereo-timeout", type=int, default=3600, help="seconds")
     parser.add_argument("--minimum-free-gib", type=float, default=2.0)

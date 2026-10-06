@@ -534,7 +534,9 @@ class Stereo:
             heights = ((points[surface] - middle) @ down).sort().values
             support = float(heights[int(0.998 * (len(heights) - 1))])
         self.support = {"point": middle.cpu().numpy(), "down": down.cpu().numpy(), "height": support}
-        return index.cpu().numpy().astype(np.int32), total.cpu().numpy(), weight.cpu().numpy(), trunc
+        # C order explicitly: on CPU the index tensor comes back column-major,
+        # and the files must be readable by the native stages too.
+        return np.ascontiguousarray(index.cpu().numpy().astype(np.int32)), total.cpu().numpy(), weight.cpu().numpy(), trunc
 
 
 def fused_field(stereo, index, total, weight):
@@ -657,7 +659,7 @@ def run(inputs, output, *, device="mps", config=None, reuse_depths=None, log=pri
 
     def hull_preview(name, label):
         if previews:
-            index = stereo.hull.flat.reshape(stereo.hull.shape).nonzero().cpu().numpy().astype(np.int32)
+            index = np.ascontiguousarray(stereo.hull.flat.reshape(stereo.hull.shape).nonzero().cpu().numpy().astype(np.int32))
             write_preview(name, label, index, np.zeros(len(index)), np.zeros(len(index)))
 
     def sync():
