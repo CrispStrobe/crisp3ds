@@ -116,21 +116,60 @@ jobs:
       - name: GPU tests
         run: cargo test --locked --release -- gpu_ --test-threads 1
 
-  # What a browser build of the library still needs. Does not block.
+  # The library for wasm32, the browser package, and the test page in headless
+  # Chromium on a software WebGPU adapter (SwiftShader). Does not block: WebGPU
+  # in headless Chromium on a runner without a GPU is not dependable.
   wasm:
-    name: wasm32 library check
+    name: wasm32 library check and browser test
     runs-on: ubuntu-latest
     continue-on-error: true
-    timeout-minutes: 30
+    timeout-minutes: 45
     defaults:
       run:
         shell: bash
         working-directory: crates/dense
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: '0'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Rust toolchain
         run: |
-          rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown --no-self-update
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy --target wasm32-unknown-unknown --no-self-update
           rustup default stable
-      - name: Check
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            ~/.cargo/bin/wasm-bindgen
+            crates/dense/target
+            crates/dense/web/target
+          key: dense-wasm-${{ runner.os }}-${{ hashFiles('crates/dense/Cargo.lock', 'crates/dense/web/Cargo.lock') }}
+          restore-keys: |
+            dense-wasm-${{ runner.os }}-
+      - name: Library check
         run: cargo check --locked --lib --target wasm32-unknown-unknown
+      - name: Bindings lint
+        working-directory: crates/dense/web
+        run: |
+          cargo fmt --check
+          cargo clippy --locked --release --target wasm32-unknown-unknown -- -D warnings
+      - name: wasm-bindgen
+        run: command -v wasm-bindgen || cargo install wasm-bindgen-cli --version 0.2.129 --locked
+      - name: Package
+        working-directory: crates/dense/web
+        run: sh build.sh
+      - name: Synthetic scene
+        run: cargo run --locked --quiet -- synthetic --output web/scene
+      - name: Chromium
+        working-directory: crates/dense/web
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Browser test (software WebGPU)
+        working-directory: crates/dense/web
+        run: >
+          node test/run.mjs --scene scene --output browser-run --software --timeout 900
+          --options '{"overrides":["sizes=64,128","grid=96","planes=48","neighbours=4","best_of=2","vote_neighbours=4","min_votes=2,2","crop_padding=6","hull_dilate=1","windows=5,7","aggregates=1,1"]}'

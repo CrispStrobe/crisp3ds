@@ -43,6 +43,8 @@ undistortion) and which platforms run what is described in
 | `src/npz.rs`, `src/stl.rs` | Array and mesh file formats |
 | `src/mesh/` | Surface extraction (port of `tsdf_hull_mesh.py`) |
 | `src/gpu/`, `src/shaders/` | `wgpu` device handling and WGSL kernels |
+| `src/storage.rs` | Files on disk or in an in-memory tree (`mem:` paths; everything in a browser) |
+| `web/` | Browser package: `wasm-bindgen` bindings, JavaScript wrapper, worker, test page and its headless test |
 | `src/run.rs`, `src/control.rs` | The run driver (port of `dense_pipeline.py`): library API and `run` command; cancel flag, deadlines, stage logs |
 | `src/capi.rs`, `include/crisp3ds_dense.h` | C interface of the run driver (feature `capi`) |
 | `src/scene.rs` | Inputs directory from an AliceVision scene (port of `dense_all_views_inputs.py`) |
@@ -125,6 +127,7 @@ let report = run(&options, Some(observer), Some(cancel))?;   // blocks; call it 
 
 `RunOptions` deserialises from JSON with the same field names (unknown fields
 are an error); `settings` takes values by name as a settings form produces them.
+`run_async` is the same as a future, for hosts that must not block.
 `run` returns the content of `pipeline.json`, or the error that stopped the run
 (`crisp3ds_dense::control::Stopped` when cancelled or past a deadline). The
 observer is called from the run's thread and from the preview thread, so it must
@@ -599,6 +602,12 @@ by other jobs. Storing without compression was not chosen: `depths.npz` and
 `volume.npz` would grow from about 150 MB to about 480 MB on the Bunny, and the
 depth file is kept with every run.
 
+A later native run of the whole pipeline on the Bunny without live previews
+(load average of the shared machine 6 to 7) took 51.8 s: loading 0.5, hull 1.1,
+repair with its hulls 6.0, level 256 4.5, level 512 first pass 10.0, second pass
+3.1, level 876 10.3, fusion 0.8, writing the files 7.3, the rest of the stereo
+stage (sheets) 0.8, surface 4.8, check 2.4.
+
 ## Portability
 
 Measured parity is from Metal on an Apple M1. Beyond that, the CI workflow runs
@@ -611,14 +620,119 @@ non-blocking because software rasterisers on shared runners can be missing or
 slow. No real Vulkan or DirectX GPU and no browser has run the kernels yet, and
 no real object has been reconstructed on anything but Metal.
 
-`cargo check --lib --target wasm32-unknown-unknown` passes in CI (the free-space
-query is excluded on that target). That is a compile check only. A browser build
-still needs: device creation, buffer readback and the stage loops made
-asynchronous (they block on `pollster` and `device.poll`, which a browser's main
-thread cannot do); inputs and outputs through memory or the origin-private file
-system instead of `std::fs`; no `std::thread` (the CPU passes, the preview
-mesher and the run thread use it) or a worker-based thread pool; and a
-replacement for `std::time::Instant`, which is not available there.
+The same code runs in a browser; see the next section.
+
+## In the browser: `crates/dense/web`
+
+The dense stages (`stereo`, `mesh`, `check`, and `inputs` from a scene) as
+WebAssembly with the kernels on WebGPU. Nothing in the library blocks or needs a
+disk there:
+
+- **Storage** (`src/storage.rs`). Every stage reads and writes through one
+  module. A path whose first component is `mem:` names a file in an in-memory
+  tree on any platform; in a browser every path does. The layout of a run
+  directory and the events are the same. A host can also register a source that
+  hands over files it keeps elsewhere (the browser package keeps the photos in
+  JavaScript memory and passes them in one at a time).
+- **GPU** (`src/gpu/`). Device creation, kernel compilation, dispatch and
+  readback are `async`. Native callers drive them with a blocking executor
+  (`run`, `stereo::run::run`); a browser awaits `run_async`. In a browser,
+  errors of dispatches are collected by the device's error callback and
+  reported at the next readback, because awaiting an error scope per dispatch
+  costs a round trip through the event loop each time.
+- **Threads and time.** On wasm32 the CPU passes are plain loops, preview
+  volumes are meshed on the spot instead of on a second thread, and time comes
+  from `web-time`. The thread returns to its event loop at every readback, once
+  per view while matching, so events are delivered and a cancel takes effect
+  there; the CPU passes in between do not yield. Run the engine in a worker.
+
+Build and test (the native build has no wasm dependencies; the bindings are a
+crate of their own):
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.129 --locked
+sh crates/dense/web/build.sh                       # writes web/pkg (2.5 MB of WebAssembly)
+cargo run --release -- synthetic --output web/scene # from crates/dense: a small test scene
+cd crates/dense/web && npm install && npx playwright install chromium
+node test/run.mjs --scene scene --output browser-run \
+    --options '{"overrides":["sizes=64,128","grid=96","planes=48","neighbours=4","best_of=2","vote_neighbours=4","min_votes=2,2","crop_padding=6","hull_dilate=1","windows=5,7","aggregates=1,1"]}'
+```
+
+`index.html` with `main.js` and `worker.js` is a test page without a framework:
+it fetches `files.json` and the files it lists, runs them in a worker and shows
+status text and the final triangle count. `test/run.mjs` serves an inputs
+directory to that page in headless Chromium and writes the events, the kept
+output files, the adapter, the limits and memory figures; `--software` asks
+Chromium for its software adapter (SwiftShader).
+
+```js
+import { createRun, settingsSchema } from "./crisp3ds-dense.js";
+const run = await createRun({
+  files,                                  // Map: path in the inputs directory -> Uint8Array
+  options: { settings: { grid: 320 } },   // fields of RunOptions; output and inputs are filled in
+  onEvent: (event) => { /* the objects of events.jsonl */ },
+});
+const report = await run.finished;        // pipeline.json; rejects on failure or cancel
+const stl = run.file("mesh/mesh.stl");    // any file of the run directory, e.g. an artifact's path
+run.cancel(); run.dispose();
+```
+
+The bindings underneath (`web/src/lib.rs`): `Run` with `start(options, onEvent)`
+and `cancel()`, `putFile`, `getFile`, `listFiles`, `removeTree`,
+`setFileSource`, `settingsSchema`, `defaultSettings`, `version`.
+
+Measured in headless Chromium 153 with WebGPU on an Apple M1. The adapter
+reports vendor `apple`, architecture `metal-3`, not a fallback adapter. The
+device is created with the default limits (128 MiB per storage binding, 256 MiB
+per buffer, 8 storage buffers per stage); the largest binding was 110.6 MiB and
+no limit had to be raised. Native numbers are from the same machine.
+
+| | Synthetic sphere (small settings) | Bunny, 73 photos, default settings, no live previews |
+| --- | --- | --- |
+| Completes | yes | yes |
+| Stage sequence, artifact kinds and counts, metric names against native | same | same |
+| Triangles, native / browser | 33 792 / 33 792 | 1 047 200 / 1 047 356 |
+| Closed, genus | yes, 0 | yes, 11 (native 11) |
+| Consistent coverage per pass, largest difference | 0 | 0.0005 |
+| Depth valid in both, of valid in either, per view: median / minimum | 100 % / 99.8 % | 99.6 % / 99.0 % |
+| Relative depth difference where both valid: median / p95 / p99 | 0 / 4.7e-7 / 1.8e-6 | 2.9e-7 / 1.8e-5 / 2.6e-4 |
+| Silhouette IoU median, native / browser | 0.92617 / 0.92617 | 0.9667 / 0.9668 |
+| Run time, native / browser | 1.7 s / 2.5 s | 52 s / 143 s |
+| Peak WebAssembly memory | 47 MiB | 1921 MiB |
+| Peak resident memory: renderer / GPU process | 277 / 198 MiB | 2649 / 841 MiB |
+
+Scanner F1 of the browser's Bunny mesh (Python evaluator, evaluation only):
+`above_margin` 0.963 / 0.995 / 1.000, the same as native; `all` 0.905 / 0.941 /
+0.956. With live previews the Bunny also completes (186 s) but peaks at 2539 MiB
+of WebAssembly memory, because each preview volume is written and meshed while
+the matching data is held; for megapixel sets in a browser pass
+`live_previews: false`. Where the browser's time goes on the Bunny (seconds,
+native / browser): hull 1.1 / 3.8, repair with its hulls 6.0 / 13.1, the four
+matching passes 4.5, 10.0, 3.1, 10.3 / 7.4, 23.0, 8.6, 36.5 (of the last, 23.5
+are the single-threaded initial surfaces), writing the compressed files 7.3 /
+19.8, surface 4.8 / 12.3, check 2.4 / 7.7. The synthetic scene also completes on
+Chromium's software adapter (vendor `google`, architecture `swiftshader`,
+fallback) in 7.9 s with the same mesh.
+
+What a production browser build still lacks:
+
+- **Threads.** Everything on the CPU is single-threaded (initial surfaces,
+  agreement, deflate, the surface stage); a thread pool on shared memory needs
+  cross-origin isolation and was left out of the default build.
+- **Memory.** WebAssembly memory is limited to 4 GiB and never shrinks. The
+  Bunny (73 photos of 2 megapixels, hull grid 400) peaks at 1.9 GiB without
+  live previews and 2.5 GiB with them; before the inputs were left with the
+  host, the grey images cropped to the canvas after mask repair and released
+  before fusion, it was 2.9 and 3.2 GiB. Larger sets need streamed fusion
+  output and views decoded on demand. A level whose cost volume exceeds 112 MiB
+  is refused (see above), as natively.
+- **Persistence.** Outputs live in memory until the host takes them; nothing is
+  written to the origin-private file system, and a run cannot be resumed.
+- **Photo front end.** Masks and cameras from plain photos are not part of the
+  browser build (`src/photos` drives external programs and is excluded there).
+- **Coverage.** One browser engine (Chromium), one GPU (Apple M1 through
+  Metal) and SwiftShader; no Firefox or Safari, no Windows or Linux GPU.
 
 ## Dependencies
 
@@ -636,5 +750,12 @@ licenses are listed here as they are added.
 | bytemuck | Zlib OR Apache-2.0 OR MIT | plain-data casts for GPU buffers |
 | pollster | Apache-2.0 OR MIT | blocking on `wgpu` futures |
 | image (png, jpeg only) | MIT OR Apache-2.0 | photo and mask decoding, PNG writing |
-| fs4 | MIT OR Apache-2.0 | free disk space before a run |
+| fs4 | MIT OR Apache-2.0 | free disk space before a run (not on wasm32) |
+| web-time | MIT OR Apache-2.0 | clock that also works in a browser |
 | libc (Unix only) | MIT OR Apache-2.0 | signalling the process group of an external tool (`src/photos/process.rs`) |
+
+Browser package only (`web/`): wasm-bindgen, wasm-bindgen-futures and js-sys
+(MIT OR Apache-2.0) for the bindings, console_error_panic_hook (Apache-2.0 OR
+MIT) to show panics in the console; tools wasm-bindgen-cli (MIT OR Apache-2.0)
+to generate the package and, for the test page only, Playwright (Apache-2.0)
+with its Chromium build.

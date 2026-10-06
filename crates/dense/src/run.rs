@@ -125,14 +125,14 @@ pub fn input_sheet(inputs: &Path, path: &Path) -> anyhow::Result<()> {
         if (mask.width, mask.height) != (photo.width, photo.height) {
             bail!("photo and mask sizes differ for {}", row.name);
         }
-        // Mask pixels with a background neighbour, drawn about two pixels wide.
+        // Mask pixels with a background neighbour, drawn wide enough to survive the reduction to the tile.
         let (w, h) = (mask.width, mask.height);
         let inside = |x: i64, y: i64| x >= 0 && y >= 0 && x < w as i64 && y < h as i64 && mask.data[y as usize * w + x as usize] > 127;
         for y in 0..h as i64 {
             for x in 0..w as i64 {
                 if inside(x, y) && !(inside(x - 1, y) && inside(x + 1, y) && inside(x, y - 1) && inside(x, y + 1)) {
-                    for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-                        if x + dx < w as i64 && y + dy < h as i64 {
+                    for (dx, dy) in (-1..=2).flat_map(|dy| (-1..=2).map(move |dx| (dx, dy))) {
+                        if x + dx >= 0 && y + dy >= 0 && x + dx < w as i64 && y + dy < h as i64 {
                             photo.set((x + dx) as usize, (y + dy) as usize, [60, 220, 60]);
                         }
                     }
