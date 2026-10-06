@@ -151,6 +151,13 @@ export function Connection({ prefs, onChange, localEngine, browser }: Props) {
               <span class="mono">crisp3ds-dense inputs --pack</span> writes it). It is read on this device and nothing is
               uploaded. The model can be downloaded as STL when the run is done; runs are kept until this page is closed.
             </p>
+            {browser.built && browser.webgpu && (
+              <p class="help" role="note">
+                {globalThis.crossOriginIsolated
+                  ? `This page can compute with up to ${Math.min(4, navigator.hardwareConcurrency || 1)} threads.`
+                  : "This page computes single-threaded: it is not cross-origin isolated, so it cannot share memory between threads."}
+              </p>
+            )}
             {!browser.built ? (
               <p class="field-error">This build of Studio does not include the engine for browsers.</p>
             ) : !browser.webgpu ? (

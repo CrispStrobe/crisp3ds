@@ -60,7 +60,7 @@ describe("the engine in this browser", () => {
     const { engine } = engineWith(worker);
     const health = await engine.health();
     expect(worker.sent[0]).toEqual({ type: "load", module: "https://host/app/engine/crisp3ds-dense.js" });
-    expect(health).toMatchObject({ device: "WebGPU: apple metal-3", canStartRuns: true, choosesDevice: false, scoresReference: false });
+    expect(health).toMatchObject({ device: "WebGPU: apple metal-3 · single-threaded", canStartRuns: true, choosesDevice: false, scoresReference: false });
     expect(health.startPoints?.map((point) => point.id)).toEqual(["inputs", "photos"]);
     expect((await engine.settings())[0]?.name).toBe("grid");
     expect(worker.sent).toHaveLength(1); // loaded once

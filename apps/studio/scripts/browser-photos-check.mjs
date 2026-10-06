@@ -30,8 +30,14 @@ const shot = async (name) => out !== "" && page.screenshot({ path: resolve(out, 
 
 try {
   await page.goto(base + "#/");
+  // On the first visit the isolation service worker reloads the page once.
+  await page.waitForFunction(() => globalThis.crossOriginIsolated, null, { timeout: 15000 }).catch(() => undefined);
+  await page.waitForLoadState("load");
+  console.log("cross-origin isolated:", await page.evaluate(() => globalThis.crossOriginIsolated), "|", (await page.locator("section.card.featured [role=note]").innerText().catch(() => "(no note)")).trim());
   await page.getByRole("link", { name: /Start in this browser|Use this browser|Open runs/ }).first().click();
   await page.getByRole("heading", { name: "Runs", level: 1 }).waitFor();
+  await page.locator(".page-head .sub", { hasText: "default device" }).waitFor({ timeout: 60000 }).catch(() => undefined);
+  console.log("engine:", (await page.locator(".page-head .sub").innerText()).replace(/\s+/g, " "));
   await page.getByRole("link", { name: /New run|Start the first run/ }).first().click();
   await page.locator("#s-sizes").waitFor({ timeout: 60000 });
   await page.locator(".segmented button", { hasText: "Turntable photos" }).click();

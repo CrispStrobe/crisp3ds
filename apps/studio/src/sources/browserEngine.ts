@@ -261,8 +261,8 @@ export class BrowserEngine implements Engine {
   readonly kind = "browser" as const;
   readonly label = "this browser";
   private worker: WorkerLike | null = null;
-  private loaded: Promise<{ settings: unknown; adapter: string | null; described?: unknown }> | null = null;
-  private resolveLoaded: ((value: { settings: unknown; adapter: string | null; described?: unknown }) => void) | null = null;
+  private loaded: Promise<{ settings: unknown; adapter: string | null; described?: unknown; threads?: number }> | null = null;
+  private resolveLoaded: ((value: { settings: unknown; adapter: string | null; described?: unknown; threads?: number }) => void) | null = null;
   /** The start points this browser offers, from the package's describe() once loaded. */
   private startPoints: StartPoint[] = BROWSER_START;
   private rejectLoaded: ((problem: Error) => void) | null = null;
@@ -334,7 +334,7 @@ export class BrowserEngine implements Engine {
     return this.runs.get(id)?.peak ?? 0;
   }
 
-  private load(): Promise<{ settings: unknown; adapter: string | null; described?: unknown }> {
+  private load(): Promise<{ settings: unknown; adapter: string | null; described?: unknown; threads?: number }> {
     if (this.loaded === null) {
       this.loaded = new Promise((resolve, reject) => {
         this.resolveLoaded = resolve;
@@ -358,7 +358,7 @@ export class BrowserEngine implements Engine {
       if (message.ok) {
         const points = browserStartPoints(message.described);
         if (points.length > 0) this.startPoints = points;
-        this.resolveLoaded?.({ settings: message.settings, adapter: message.adapter, described: message.described });
+        this.resolveLoaded?.({ settings: message.settings, adapter: message.adapter, described: message.described, threads: message.threads });
       }
       else this.rejectLoaded?.(new EngineError(message.message, 0));
     } else if (message.type === "event") {
@@ -401,10 +401,11 @@ export class BrowserEngine implements Engine {
   }
 
   async health(): Promise<EngineHealth> {
-    const { adapter } = await this.load();
+    const { adapter, threads } = await this.load();
+    const lanes = (threads ?? 1) > 1 ? `${threads} threads` : "single-threaded";
     return {
       schema: "crisp3ds_dense_events_v1",
-      device: adapter === null ? "WebGPU" : `WebGPU: ${adapter}`,
+      device: `${adapter === null ? "WebGPU" : `WebGPU: ${adapter}`} · ${lanes}`,
       canStartRuns: true,
       startPoints: this.startPoints,
       choosesDevice: false,

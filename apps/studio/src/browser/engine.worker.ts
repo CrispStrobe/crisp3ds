@@ -27,6 +27,7 @@ interface EnginePackage {
   settingsSchema(): Promise<unknown>;
   describe?(): Promise<unknown>;
   memory(): { wasm: number; files: number };
+  threadCount?(): number;
 }
 
 // Typed by hand: the WebWorker lib collides with the DOM lib in one program.
@@ -77,7 +78,7 @@ async function load(module: string): Promise<void> {
     const parts = [info.vendor, info.architecture, info.description].filter((part): part is string => typeof part === "string" && part !== "");
     const name = [...new Set(parts)].join(" ");
     const described = engine.describe === undefined ? null : await engine.describe().catch(() => null);
-    scope.postMessage({ type: "loaded", ok: true, settings: { settings }, adapter: name === "" ? null : name, described });
+    scope.postMessage({ type: "loaded", ok: true, settings: { settings }, adapter: name === "" ? null : name, described, threads: engine.threadCount?.() ?? 1 });
   } catch (problem) {
     scope.postMessage({ type: "loaded", ok: false, message: problem instanceof Error ? problem.message : String(problem) });
   }

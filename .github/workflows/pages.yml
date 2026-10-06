@@ -45,18 +45,25 @@ jobs:
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             crates/dense/web/target
+            crates/dense/web/target-wasm-threads
           key: studio-wasm-${{ hashFiles('crates/dense/web/Cargo.lock') }}
       - name: Engine for browsers (WebAssembly)
         working-directory: crates/dense/web
         run: |
           rustup target add wasm32-unknown-unknown
+          # The threaded package rebuilds the standard library with shared memory: it needs its source.
+          rustup component add rust-src
           wasm-bindgen --version 2>/dev/null | grep -q ' 0\.2\.129$' || cargo install wasm-bindgen-cli --version 0.2.129 --locked
           sh build.sh
+          sh build.sh threads
       # The release build also writes THIRD-PARTY-NOTICES.txt for the Licenses screen.
       - run: npm run build:release
       - name: The site carries the engine, the demo and only relative URLs
         run: |
           test -s dist/engine/pkg/crisp3ds_dense_web_bg.wasm
+          test -s dist/engine/pkg-threads/crisp3ds_dense_web_bg.wasm
+          test -s dist/coi-worker.js
+          grep -q '<script src="./coi-worker.js"></script>' dist/index.html
           test -s dist/demo/events.jsonl
           test -s dist/THIRD-PARTY-NOTICES.txt
           ! grep -E '(src|href)="/' dist/index.html

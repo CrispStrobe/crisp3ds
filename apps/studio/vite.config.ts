@@ -10,8 +10,23 @@ const fixture = resolve(here, "../../tests/fixtures/dense-run-sphere");
 // crates/dense/web/build.sh into pkg/. When it has not been built, the app still builds
 // and that mode says it is not included.
 const enginePackage = resolve(here, "../../crates/dense/web");
-const engineFiles = ["crisp3ds-dense.js", "pkg/crisp3ds_dense_web.js", "pkg/crisp3ds_dense_web_bg.wasm"];
-const engineBuilt = engineFiles.every((name) => existsSync(join(enginePackage, name)));
+const engineCore = ["crisp3ds-dense.js", "pkg/crisp3ds_dense_web.js", "pkg/crisp3ds_dense_web_bg.wasm"];
+const engineBuilt = engineCore.every((name) => existsSync(join(enginePackage, name)));
+/** Every file under `folder` (relative to the package), recursively. */
+function filesUnder(folder: string): string[] {
+  const start = join(enginePackage, folder);
+  if (!existsSync(start)) return [];
+  return readdirSync(start, { recursive: true })
+    .map((name) => join(folder, String(name)).split(sep).join("/"))
+    .filter((name) => statSync(join(enginePackage, name)).isFile() && !name.endsWith(".d.ts"));
+}
+// The threaded package (build.sh threads) runs where the page is cross-origin isolated; on hosts
+// that cannot send the headers (GitHub Pages) coi-worker.js isolates the page with a service worker.
+const threadFiles = existsSync(join(enginePackage, "pkg-threads/crisp3ds_dense_web_bg.wasm")) ? filesUnder("pkg-threads") : [];
+const isolation = threadFiles.length > 0 && existsSync(join(enginePackage, "coi-worker.js")) ? ["coi-worker.js"] : [];
+const engineFiles = [...engineCore, ...threadFiles];
+// Inside the app (Tauri sets TAURI_ENV_PLATFORM for its build) the engine is native: no service worker there.
+const webBuild = process.env.TAURI_ENV_PLATFORM === undefined;
 
 const types: Record<string, string> = {
   ".png": "image/png",
@@ -107,6 +122,27 @@ export default defineConfig({
     mounted("crisp3ds-demo-bundle", "demo", fixture, null, true),
     calibrationsPlugin,
     ...(engineBuilt ? [mounted("crisp3ds-browser-engine", "engine", enginePackage, engineFiles, false)] : []),
+    ...(engineBuilt && webBuild && isolation.length > 0
+      ? [
+          {
+            name: "crisp3ds-cross-origin-isolation",
+            // First thing on the page: it registers the service worker and reloads once if needed.
+            // It sits next to index.html, because a service worker controls only pages at or below
+            // its own folder.
+            transformIndexHtml: () => [{ tag: "script", attrs: { src: "./coi-worker.js" }, injectTo: "head-prepend" as const }],
+            configureServer(server) {
+              server.middlewares.use((request, response, next) => {
+                if (!(request.url ?? "").split("?")[0]!.endsWith("/coi-worker.js")) return next();
+                response.setHeader("Content-Type", "text/javascript");
+                createReadStream(join(enginePackage, "coi-worker.js")).pipe(response);
+              });
+            },
+            closeBundle() {
+              if (existsSync(resolve(here, "dist"))) cpSync(join(enginePackage, "coi-worker.js"), resolve(here, "dist/coi-worker.js"));
+            },
+          } satisfies Plugin,
+        ]
+      : []),
   ],
   server: { host: "127.0.0.1", port: 1430, strictPort: true },
   preview: { host: "127.0.0.1", port: 1431, strictPort: true },

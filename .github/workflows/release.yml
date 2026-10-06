@@ -137,13 +137,17 @@ jobs:
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             crates/dense/web/target
+            crates/dense/web/target-wasm-threads
           key: studio-wasm-${{ hashFiles('crates/dense/web/Cargo.lock') }}
       - name: Engine for browsers (WebAssembly)
         working-directory: crates/dense/web
         run: |
           rustup target add wasm32-unknown-unknown
+          # The threaded package rebuilds the standard library with shared memory: it needs its source.
+          rustup component add rust-src
           wasm-bindgen --version 2>/dev/null | grep -q ' 0\.2\.129$' || cargo install wasm-bindgen-cli --version 0.2.129 --locked
           sh build.sh
+          sh build.sh threads
       # Build with the third-party notices inside (needs cargo, which the runner image has).
       - run: npm run build:release
       - name: Zip (one top-level folder, demo recording inside)
