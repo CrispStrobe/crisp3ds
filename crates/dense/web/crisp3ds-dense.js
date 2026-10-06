@@ -17,10 +17,10 @@
 // The engine works on the thread that calls it and holds it during the CPU
 // passes; use it from a worker (see worker.js) to keep a page responsive.
 
-import init, * as engine from "./pkg/crisp3ds_dense_web.js";
-
 let ready;
 let wasm;
+let engine;
+let threads = 1;
 let counter = 0;
 const sources = new Map();
 
@@ -51,11 +51,43 @@ function list(directory) {
 }
 
 /** Loads the WebAssembly module once. */
-export async function load() {
-  ready ??= init().then((exports) => {
-    wasm = exports;
-  });
+/**
+ * Loads the WebAssembly module once. Where the page is cross-origin isolated (shared memory is
+ * allowed) and the threaded package was built (`build.sh threads`, in `pkg-threads/`), that one is
+ * loaded and its pool of `threads` Web Workers started (default: the number of cores, at most 4);
+ * otherwise the single-threaded package in `pkg/`. `{ threads: 1 }` forces the single-threaded one.
+ */
+export async function load({ threads: wanted } = {}) {
+  ready ??= (async () => {
+    const cores = Math.min(4, globalThis.navigator?.hardwareConcurrency ?? 1);
+    const count = wanted ?? cores;
+    if (globalThis.crossOriginIsolated && count > 1) {
+      try {
+        const module = await import("./pkg-threads/crisp3ds_dense_web.js");
+        wasm = await module.default();
+        // A pool whose workers cannot load never reports back: give up after 30 s.
+        let timer;
+        const late = new Promise((_, reject) => (timer = setTimeout(() => reject(new Error("the thread pool did not start within 30 s")), 30000)));
+        await Promise.race([module.initThreadPool(count), late]).finally(() => clearTimeout(timer));
+        engine = module;
+        threads = count;
+        return;
+      } catch (error) {
+        // No threaded package next to this file, or the pool could not start: single-threaded.
+        console.warn(`crisp3ds-dense: threaded package not used (${error?.message ?? error})`);
+      }
+    }
+    const module = await import("./pkg/crisp3ds_dense_web.js");
+    wasm = await module.default();
+    engine = module;
+    threads = 1;
+  })();
   await ready;
+}
+
+/** Worker threads of the loaded package: 1 for the single-threaded one. */
+export function threadCount() {
+  return threads;
 }
 
 /**
@@ -130,12 +162,19 @@ function startFromPhotos(root, photos, calibration, options, onEvent) {
   for (const [name] of entries) {
     if (name.includes("/")) throw new Error(`photo names are file names, not paths: ${name}`);
   }
-  // The photos stay here, in JavaScript memory; the engine lists the folder and asks for one photo at a time.
   const prefix = `${root}/photos/`;
-  sources.set(prefix, new Map(entries));
-  listed.add(prefix);
-  engine.setFileSource(lookup);
-  engine.setFileLister(list);
+  // Single-threaded, the photos stay here, in JavaScript memory; the engine lists the folder and
+  // asks for one photo at a time. With threads the photos are read on the pool's workers, which
+  // cannot call back into this thread's JavaScript, so they go into the engine's tree instead.
+  const lazy = threads === 1;
+  if (lazy) {
+    sources.set(prefix, new Map(entries));
+    listed.add(prefix);
+    engine.setFileSource(lookup);
+    engine.setFileLister(list);
+  } else {
+    for (const [name, bytes] of entries) engine.putFile(`${prefix}${name}`, bytes);
+  }
   const lens = calibration instanceof Uint8Array ? calibration
     : new TextEncoder().encode(typeof calibration === "string" ? calibration : JSON.stringify(calibration));
   engine.putFile(`${root}/calibration.json`, lens);
@@ -144,14 +183,18 @@ function startFromPhotos(root, photos, calibration, options, onEvent) {
     ...options,
     output: `${root}/run`,
     photos: `${root}/photos`,
-    photo_options: ["--calibration", `${root}/calibration.json`, ...(options.photo_options ?? [])],
+    photo_options: [
+      "--calibration", `${root}/calibration.json`,
+      ...(threads > 1 && !(options.photo_options ?? []).some((word) => word.startsWith("--threads")) ? ["--threads", String(threads)] : []),
+      ...(options.photo_options ?? []),
+    ],
   });
   // Once the photos stage has written the scene, its files leave WebAssembly memory for this
   // side, like the inputs of a run from an inputs directory: the dense stages then start with
   // the engine's memory nearly empty instead of holding the scene behind their own buffers.
   const scene = `${root}/run/frontend/inputs`;
   const relay = (event) => {
-    if (event.type === "stage_finished" && event.stage === "cameras") {
+    if (lazy && event.type === "stage_finished" && event.stage === "cameras") {
       const files = new Map();
       for (const [path] of JSON.parse(engine.listFiles(scene))) files.set(path.slice(scene.length + 1), engine.getFile(path));
       engine.removeTree(scene);

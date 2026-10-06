@@ -139,6 +139,23 @@ pub fn parallel<T: Send>(
     work: impl Fn(usize) -> anyhow::Result<T> + Sync,
     watch: &mut dyn FnMut(usize) -> anyhow::Result<()>,
 ) -> anyhow::Result<Vec<T>> {
+    // A browser build with shared memory (`+atomics`) whose host started rayon's pool of Web
+    // Workers: batches of `threads` items on the pool, `watch` on the calling thread between them.
+    #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
+    if threads > 1 && rayon::current_num_threads() > 1 {
+        use rayon::prelude::*;
+        let mut out = Vec::with_capacity(count);
+        let batch = threads.min(rayon::current_num_threads());
+        for start in (0..count).step_by(batch) {
+            let end = (start + batch).min(count);
+            let done: Vec<anyhow::Result<T>> = (start..end).into_par_iter().map(&work).collect();
+            for result in done {
+                out.push(result?);
+            }
+            watch(end)?;
+        }
+        return Ok(out);
+    }
     // Without threads (a browser): one item after the other on the calling thread.
     if cfg!(target_arch = "wasm32") {
         let mut out = Vec::with_capacity(count);

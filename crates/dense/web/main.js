@@ -57,7 +57,11 @@ worker.onmessage = ({ data }) => {
     fail(data.message, data);
   }
 };
-worker.postMessage({ type: "run", base: new URL(base, location.href).href.replace(/\/$/, ""), options, keep, mode: query.get("mode") ?? "inputs" });
+const start = () =>
+  worker.postMessage({ type: "run", base: new URL(base, location.href).href.replace(/\/$/, ""), options, keep, mode: query.get("mode") ?? "inputs", threads: query.get("threads") ? Number(query.get("threads")) : undefined });
+// coi-worker.js may be about to reload the page under its service worker (cross-origin isolation).
+if (window.crisp3dsReloading) window.addEventListener("crisp3ds-coi-settled", start, { once: true });
+else start();
 
 function fail(message, data = {}) {
   Object.assign(state, data, { status: "error", error: message });

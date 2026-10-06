@@ -4,6 +4,8 @@
 //                     [--software] [--headed] [--expect-triangles]
 //   node test/run.mjs --photos PHOTOS_DIR --calibration LENS_JSON --output DIR [...]
 //   [--channel chrome]   an installed Google Chrome instead of Playwright's Chromium
+//   [--isolated]         cross-origin isolation headers: the threaded package is used if built
+//   [--threads N]        workers of the threaded package (default: cores, at most 4; 1 forces single-threaded)
 //
 // INPUTS_DIR is an inputs directory (cameras.json, masks, sparse_points.npy; photos may
 // lie elsewhere, as absolute paths in cameras.json). The server hands the page a copy
@@ -57,7 +59,12 @@ if (photosDir) {
 }
 const types = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".wasm": "application/wasm", ".json": "application/json" };
 
+// --isolated serves every response with the headers of cross-origin isolation, so that the page
+// may use shared memory and loads the threaded package (pkg-threads) when it was built.
+const isolation = flag("--isolated") ? { "cross-origin-opener-policy": "same-origin", "cross-origin-embedder-policy": "require-corp" } : {};
+
 const server = createServer((request, response) => {
+  for (const [name, value] of Object.entries(isolation)) response.setHeader(name, value);
   const path = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
   if (request.method === "POST" && path.startsWith("/upload/")) {
     const target = join(output, path.slice("/upload/".length));
@@ -122,6 +129,7 @@ function sampleMemory() {
 const sampler = setInterval(sampleMemory, 1000);
 
 const query = new URLSearchParams({ base: "scene", options, keep, upload: "upload", mode: photosDir ? "photos" : "inputs" });
+if (args.includes("--threads")) query.set("threads", value("--threads"));
 const started = Date.now();
 await page.goto(`${origin}/index.html?${query}`);
 let state;
@@ -147,6 +155,8 @@ const result = {
   error: state.error ?? null,
   wall_seconds: (Date.now() - started) / 1000,
   run_seconds: state.seconds ?? null,
+  threads: state.threads ?? null,
+  cross_origin_isolated: Boolean(flag("--isolated")),
   adapter: state.adapter ?? null,
   limits: state.limits ?? null,
   peak_wasm_bytes: state.peakWasmBytes ?? state.wasmBytes ?? null,

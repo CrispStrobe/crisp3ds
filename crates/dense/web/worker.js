@@ -6,7 +6,7 @@
 //   { type: "done", report, files, seconds, adapter, limits }, { type: "error", message },
 //   { type: "file", path, bytes } for every path in `keep` (transferred).
 
-import { createRun, memory } from "./crisp3ds-dense.js";
+import { createRun, load, memory, threadCount } from "./crisp3ds-dense.js";
 
 let run;
 
@@ -39,7 +39,8 @@ self.onmessage = async ({ data }) => {
       if (!response.ok) throw new Error(`cannot fetch ${path}: ${response.status}`);
       files.set(path, new Uint8Array(await response.arrayBuffer()));
     }
-    self.postMessage({ type: "status", text: `Running on ${files.size} files` });
+    await load(data.threads ? { threads: data.threads } : {});
+    self.postMessage({ type: "status", text: `Running on ${files.size} files with ${threadCount()} thread(s)` });
     const started = performance.now();
     let peak = 0;
     // From photos: files.json lists calibration.json and photos/<name>.
@@ -66,7 +67,7 @@ self.onmessage = async ({ data }) => {
       const bytes = run.file(path);
       if (bytes) self.postMessage({ type: "file", path, bytes }, [bytes.buffer]);
     }
-    self.postMessage({ type: "done", report, files: run.files(), seconds: (performance.now() - started) / 1000, peakWasmBytes: peak, ...gpu });
+    self.postMessage({ type: "done", report, files: run.files(), seconds: (performance.now() - started) / 1000, peakWasmBytes: peak, threads: threadCount(), ...gpu });
     run.dispose();
   } catch (error) {
     self.postMessage({ type: "error", message: String(error?.message ?? error), wasmBytes: memory().wasm });

@@ -36,6 +36,17 @@ fn start() {
     console_error_panic_hook::set_once();
 }
 
+/// `initThreadPool(n)` (threaded package only): starts rayon's pool of `n` Web Workers; await it
+/// once before the first run. Needs cross-origin isolation (`self.crossOriginIsolated`).
+#[cfg(feature = "threads")]
+pub use wasm_bindgen_rayon::init_thread_pool;
+
+/// Whether this package was built with threads (shared memory and a worker pool).
+#[wasm_bindgen]
+pub fn threaded() -> bool {
+    cfg!(feature = "threads")
+}
+
 /// Version of the engine.
 #[wasm_bindgen]
 pub fn version() -> String {

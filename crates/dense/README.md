@@ -1131,11 +1131,67 @@ Bunny well under 2 GiB therefore needs the volume handed to the surface stage
 without encoding it (or a streamed encoder), not more work in the photos
 stage.
 
+### Threads in the browser: a second package
+
+`sh build.sh threads` writes `pkg-threads/`: the same crate with WebAssembly
+threads (shared memory) and `--features threads`, which exports
+`initThreadPool(n)` from `wasm-bindgen-rayon` (a rayon pool on Web Workers).
+`crisp3ds-dense.js` loads it when the page is cross-origin isolated
+(`crossOriginIsolated`) and the files are there, starts `min(cores, 4)`
+workers (`load({ threads })`; `threads: 1` forces the default package), and
+otherwise, or when the pool does not start within 30 s, loads `pkg/`.
+`threadCount()` says which. `util::parallel` of the photos stage runs on the
+pool in batches with progress between them; rayon's own passes (the surface
+stage) use it as they are.
+
+What it costs to build: stable rustc with `RUSTC_BOOTSTRAP=1`, the `rust-src`
+component, `-Z build-std=panic_abort,std`, the target features `+atomics`,
+`+bulk-memory`, `+mutable-globals` and linker arguments for shared, imported
+memory of at most 4 GiB and the thread-local exports; a target directory of its
+own (std and every crate compiled again, about 2.5 minutes here); and the
+crates `wasm-bindgen-rayon` (with `no-bundler`, for pages without a bundler),
+`wasm_sync` and `crossbeam-channel`. No nightly toolchain. wgpu compiled with
+atomics without changes.
+
+Where it runs: only cross-origin isolated. A server that can send
+`Cross-Origin-Opener-Policy: same-origin` and
+`Cross-Origin-Embedder-Policy: require-corp` does that directly
+(`test/run.mjs --isolated`). Where headers cannot be set (GitHub Pages),
+`coi-worker.js`, loaded first by the page as a classic script, registers itself
+as a service worker that adds the headers and reloads the page once (the
+approach of coi-serviceworker, MIT, written here in a few lines; it uses
+`credentialless` where the browser has it). Every cross-origin resource the
+page loads must then allow embedding. Verified in headless Chrome: without
+headers the test page reloads once and runs with 4 threads; with `--threads 1`
+it runs single-threaded.
+
+What threads cannot do: JavaScript callbacks belong to the thread that
+registered them, so a pool worker cannot read a file that the host hands over
+lazily. The threaded package therefore copies the photos into the tree and
+keeps the scene there (`createRun` does this by itself), and events emitted on
+a pool worker, if any, would not reach `onEvent`.
+
+Measured on the Bunny from its 73 photos in Chrome (headless, WebGPU on
+Metal), the two packages back to back while the machine was shared with
+other work (load average 15 to 23 on 8 cores), so absolute times are high:
+
+| | Default package | Threaded package, 4 workers |
+| --- | --- | --- |
+| Whole run | 635 s | 466 s |
+| Photos stage | 285 s (features 104 s, matching 80 s) | 150 s (features 39 s, matching 28 s) |
+| Stereo | 274 s | 270 s |
+| Mesh | 55 s | 19 s |
+| Peak WebAssembly memory | 2038 MiB | 2458 MiB (photos and scene in the tree) |
+| Triangles | 1 045 330 | 1 045 330 |
+
+Threads take 27 % off the whole run here, and stereo, single-threaded in both,
+is now the larger part. On an idle machine the default package took 250 s.
+
 What a production browser build still lacks:
 
-- **Threads.** Everything on the CPU is single-threaded (initial surfaces,
-  agreement, deflate, the surface stage); a thread pool on shared memory needs
-  cross-origin isolation and was left out of the default build.
+- **Threads.** The default package is single-threaded. The threaded package
+  (below) parallelises the photos stage and the surface stage, not stereo's
+  CPU passes (initial surfaces, agreement, deflate).
 - **Memory.** WebAssembly memory is limited to 4 GiB and never shrinks. The
   Bunny (73 photos of 2 megapixels, hull grid 400) peaks at 1.9 GiB without
   live previews and 2.5 GiB with them; before the inputs were left with the
@@ -1168,6 +1224,7 @@ licenses are listed here as they are added.
 | image (png, jpeg only) | MIT OR Apache-2.0 | photo and mask decoding, PNG writing |
 | fs4 | MIT OR Apache-2.0 | free disk space before a run (not on wasm32) |
 | web-time | MIT OR Apache-2.0 | clock that also works in a browser |
+| wasm-bindgen-rayon 1.3 with `no-bundler` (browser package `web/`, feature `threads` only) | Apache-2.0 | rayon's pool on Web Workers for the threaded browser package; brings wasm_sync (MIT OR Apache-2.0) and crossbeam-channel (MIT OR Apache-2.0) |
 | libc (Unix only) | MIT OR Apache-2.0 | signalling the process group of an external tool (`src/photos/process.rs`) |
 | ort 2.0.0-rc.13 (feature `sam-onnx` only, not on wasm32) | MIT OR Apache-2.0 | binding to ONNX Runtime for the `sam` mask provider; loads the runtime library at run time (`load-dynamic`), links nothing at build time |
 | ureq 3 with rustls, ring, webpki-roots (feature `sam-onnx` only, not on wasm32) | MIT OR Apache-2.0; rustls Apache-2.0 OR ISC OR MIT; ring Apache-2.0 AND ISC; webpki-roots CDLA-Permissive-2.0 | fetching the default SAM model on first use (`src/photos/sam/fetch.rs`) |
