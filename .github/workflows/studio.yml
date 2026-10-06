@@ -53,9 +53,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: studio-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.sha || 'branch' }}
+  group: studio-${{ github.event_name }}-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.sha || 'branch' }}
   # On main every commit keeps its own run: pushes to crates/dense arrive often, and a
-  # cancelled run reads like a failure.
+  # cancelled run reads like a failure. The event is in the group so that a manual run
+  # (for the mobile builds) does not cancel the push's run of the same commit.
   cancel-in-progress: true
 
 env:
