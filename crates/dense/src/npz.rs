@@ -85,6 +85,14 @@ impl Array {
         }
     }
 
+    /// Like `to_f32`, without copying when the elements already are `float32`.
+    pub fn into_f32(self) -> Vec<f32> {
+        match self.data {
+            Data::F32(v) => v,
+            _ => self.to_f32(),
+        }
+    }
+
     /// Integer values; fails for floating-point arrays.
     pub fn to_i64(&self) -> Result<Vec<i64>> {
         match &self.data {
@@ -138,6 +146,11 @@ impl Npz {
 
     pub fn get(&self, name: &str) -> Result<&Array> {
         self.arrays.get(name).ok_or_else(|| anyhow!("array {name:?} is missing"))
+    }
+
+    /// Removes an array from the archive and returns it, so that a large one is not copied.
+    pub fn take(&mut self, name: &str) -> Result<Array> {
+        self.arrays.remove(name).ok_or_else(|| anyhow!("array {name:?} is missing"))
     }
 }
 

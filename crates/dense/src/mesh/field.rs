@@ -6,14 +6,14 @@
 
 use std::path::Path;
 
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{bail, ensure, Result};
 use rayon::prelude::*;
 
 use super::edt;
 use super::gaussian::gaussian_filter;
 use super::grid::{count, Dims};
 use crate::config::DenseConfig;
-use crate::npz::{Array, Npz};
+use crate::npz::{Array, Data, Npz};
 
 /// Voxels of padding around the hull grid on every side.
 pub const PAD: usize = 3;
@@ -28,8 +28,8 @@ pub struct Support {
 /// Content of `volume.npz`: fused evidence at the voxels of the silhouette hull.
 pub struct Volume {
     pub shape: Dims,
-    /// Voxel indices of the hull voxels, three per voxel.
-    pub index: Vec<i64>,
+    /// Voxel indices (x, y, z) of the hull voxels.
+    pub index: Vec<[u16; 3]>,
     pub total: Vec<f32>,
     pub weight: Vec<f32>,
     pub origin: Array,
@@ -41,14 +41,33 @@ pub struct Volume {
 
 impl Volume {
     pub fn read(path: &Path) -> Result<Self> {
-        let npz = Npz::read(path)?;
+        let mut npz = Npz::read(path)?;
         let shape = npz.get("shape")?.to_f64();
-        ensure!(shape.len() == 3 && shape.iter().all(|&s| s >= 1.0 && s.fract() == 0.0), "volume shape must be three positive integers");
-        let index = npz.get("index")?;
-        ensure!(index.shape.len() == 2 && index.shape[1] == 3, "volume index must be N x 3, found {:?}", index.shape);
-        let total = npz.get("total")?.to_f32();
-        let weight = npz.get("weight")?.to_f32();
-        ensure!(total.len() == index.shape[0] && weight.len() == index.shape[0], "total and weight must have one entry per index row");
+        ensure!(
+            shape.len() == 3 && shape.iter().all(|&s| (1.0..=60000.0).contains(&s) && s.fract() == 0.0),
+            "volume shape must be three positive integers"
+        );
+        let shape = [shape[0] as usize, shape[1] as usize, shape[2] as usize];
+        // The large arrays are taken out of the archive one at a time, to hold each only once.
+        let index = {
+            let rows = npz.take("index")?;
+            ensure!(rows.shape.len() == 2 && rows.shape[1] == 3, "volume index must be N x 3, found {:?}", rows.shape);
+            let inside = |voxel: [i64; 3]| -> Result<[u16; 3]> {
+                ensure!(
+                    (0..3).all(|a| voxel[a] >= 0 && voxel[a] < shape[a] as i64),
+                    "hull voxel {voxel:?} lies outside the volume shape {shape:?}"
+                );
+                Ok(voxel.map(|v| v as u16))
+            };
+            match &rows.data {
+                Data::I32(values) => values.as_chunks::<3>().0.iter().map(|v| inside(v.map(i64::from))).collect::<Result<Vec<_>>>()?,
+                Data::I64(values) => values.as_chunks::<3>().0.iter().map(|v| inside(*v)).collect::<Result<Vec<_>>>()?,
+                _ => bail!("volume index must be an integer array, found {}", rows.descr()),
+            }
+        };
+        let total = npz.take("total")?.into_f32();
+        let weight = npz.take("weight")?.into_f32();
+        ensure!(total.len() == index.len() && weight.len() == index.len(), "total and weight must have one entry per index row");
         let origin = npz.get("origin")?.clone();
         ensure!(origin.len() == 3, "volume origin must have three entries");
         let support = if npz.contains("support_height") {
@@ -59,8 +78,8 @@ impl Volume {
             None
         };
         Ok(Volume {
-            shape: [shape[0] as usize, shape[1] as usize, shape[2] as usize],
-            index: index.to_i64().context("volume index")?,
+            shape,
+            index,
             total,
             weight,
             origin,
@@ -93,53 +112,47 @@ pub fn field(volume: &Volume, config: &DenseConfig) -> Result<Field> {
     ensure!(total_voxels < u32::MAX as usize, "volume grid is too large");
     let truncation = volume.truncation / volume.voxel;
     ensure!(truncation.is_finite() && truncation > 0.0, "volume truncation and voxel size must be positive");
-    let hull_count = volume.index.len() / 3;
+    let hull_count = volume.index.len();
     ensure!(hull_count > 0, "the volume has no hull voxels");
+    ensure!(volume.total.len() == hull_count && volume.weight.len() == hull_count, "total and weight must have one entry per hull voxel");
     let mut place = Vec::with_capacity(hull_count);
-    for voxel in volume.index.as_chunks::<3>().0 {
-        for axis in 0..3 {
-            if voxel[axis] < 0 || voxel[axis] >= volume.shape[axis] as i64 {
-                bail!("hull voxel {voxel:?} lies outside the volume shape {:?}", volume.shape);
-            }
-        }
-        let [x, y, z] = [voxel[0] as usize + PAD, voxel[1] as usize + PAD, voxel[2] as usize + PAD];
+    for voxel in &volume.index {
+        let [x, y, z] = voxel.map(|v| usize::from(v) + PAD);
+        ensure!(
+            x < dims[0] - PAD && y < dims[1] - PAD && z < dims[2] - PAD,
+            "hull voxel {voxel:?} lies outside the volume shape {:?}",
+            volume.shape
+        );
         place.push(((x * dims[1] + y) * dims[2] + z) as u32);
     }
 
-    // Silhouette prior: signed distance to the hull boundary in truncation units. A voxel
-    // centre is half a voxel from the boundary between it and its neighbour.
+    // Silhouette prior: signed distance to the hull boundary in truncation units, positive
+    // outside. A voxel centre is half a voxel from the boundary between it and its neighbour.
+    // The two distance transforms run one after the other so that only one is in memory.
     let mut hull = vec![false; total_voxels];
     for &p in &place {
         hull[p as usize] = true;
     }
-    let mut value: Vec<f32> = {
-        let outside = edt::squared_distance(|i| hull[i], dims);
-        let inside = edt::squared_distance(|i| !hull[i], dims);
-        outside
-            .par_iter()
-            .zip(&inside)
-            .map(|(&out, &ins)| {
-                let signed = f64::from(out).sqrt() - f64::from(ins).sqrt();
-                ((signed + if signed > 0.0 { -0.5 } else { 0.5 }) / truncation).clamp(-1.0, 1.0) as f32
-            })
-            .collect()
-    };
+    let prior = |signed: f64| ((signed + if signed > 0.0 { -0.5 } else { 0.5 }) / truncation).clamp(-1.0, 1.0) as f32;
+    let mut value = vec![0f32; total_voxels];
+    for inside in [false, true] {
+        let squared = edt::squared_distance(|i| hull[i] != inside, dims);
+        value.par_iter_mut().zip(&squared).zip(&hull).for_each(|((v, &d), &h)| {
+            if h == inside {
+                let distance = f64::from(d).sqrt();
+                *v = prior(if inside { -distance } else { distance });
+            }
+        });
+    }
     drop(hull);
 
-    // Averaged signed distance and a confidence that saturates at a few views.
+    // Averaged signed distance times a confidence that saturates at a few views, and that
+    // confidence, at the observed hull voxels (zero elsewhere).
     let minimum = config.mesh_minimum_weight as f32;
     let cap = config.mesh_confidence_cap as f32;
     let observed: Vec<bool> = volume.weight.iter().map(|&w| w >= minimum).collect();
-    let mut weighted = vec![0f32; total_voxels];
-    let mut confidence = vec![0f32; total_voxels];
-    for (i, &p) in place.iter().enumerate() {
-        if observed[i] {
-            let average = volume.total[i] / volume.weight[i].max(1e-6);
-            let c = volume.weight[i].min(cap) / cap;
-            weighted[p as usize] = average * c;
-            confidence[p as usize] = c;
-        }
-    }
+    let confidence: Vec<f32> = volume.weight.iter().zip(&observed).map(|(&w, &o)| if o { w.min(cap) / cap } else { 0.0 }).collect();
+    let weighted = |i: usize| if observed[i] { volume.total[i] / volume.weight[i].max(1e-6) * confidence[i] } else { 0.0 };
 
     // Confidence-weighted smoothing where observed, then bounded extrapolation into nearby
     // unobserved hull voxels; what stays unfilled keeps the prior. A filled voxel never drops
@@ -149,12 +162,18 @@ pub fn field(volume: &Volume, config: &DenseConfig) -> Result<Field> {
     let mut work = vec![0f32; total_voxels];
     let mut numerator = vec![0f32; hull_count];
     for &sigma in std::iter::once(&config.mesh_smooth).chain(&config.mesh_fill_sigmas) {
-        work.copy_from_slice(&weighted);
+        work.fill(0.0);
+        for (i, &p) in place.iter().enumerate() {
+            work[p as usize] = weighted(i);
+        }
         gaussian_filter(&mut work, dims, sigma);
         for (slot, &p) in numerator.iter_mut().zip(&place) {
             *slot = work[p as usize];
         }
-        work.copy_from_slice(&confidence);
+        work.fill(0.0);
+        for (&c, &p) in confidence.iter().zip(&place) {
+            work[p as usize] = c;
+        }
         gaussian_filter(&mut work, dims, sigma);
         for (i, &p) in place.iter().enumerate() {
             let denominator = work[p as usize];
@@ -165,7 +184,7 @@ pub fn field(volume: &Volume, config: &DenseConfig) -> Result<Field> {
             }
         }
     }
-    drop((weighted, confidence, work, numerator));
+    drop((confidence, work, numerator, place));
 
     let mut report = FieldReport {
         flat_base_applied: false,
@@ -189,8 +208,8 @@ pub fn field(volume: &Volume, config: &DenseConfig) -> Result<Field> {
         let (voxel, margin, truncation) = (voxel as f32, config.mesh_base_margin as f32, truncation as f32);
         let plane = |x: usize, y: usize, z: usize| ((axes[0][x] + axes[1][y] + axes[2][z] + offset) / voxel - margin) / truncation;
         let plane = |x: usize, y: usize, z: usize| plane(x, y, z).clamp(-1.0, 1.0);
-        let voxels = volume.index.as_chunks::<3>().0.iter();
-        let below = voxels.filter(|v| plane(v[0] as usize + PAD, v[1] as usize + PAD, v[2] as usize + PAD) > 0.0).count();
+        let below =
+            volume.index.iter().filter(|v| plane(usize::from(v[0]) + PAD, usize::from(v[1]) + PAD, usize::from(v[2]) + PAD) > 0.0).count();
         report.flat_base_applied = true;
         report.hull_fraction_below_support = Some(below as f64 / hull_count as f64);
         value.par_chunks_mut(dims[1] * dims[2]).enumerate().for_each(|(x, slab)| {
