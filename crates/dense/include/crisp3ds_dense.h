@@ -10,7 +10,10 @@
  * Options (all but "output" and a starting point are optional):
  *   {
  *     "output": "/path/to/fresh/run/directory",
- *     "inputs": "/path/to/inputs",                 // or "scene", "prepared" and "raw_masks"
+ *     "inputs": "/path/to/inputs",                 // or "scene", "prepared" and "raw_masks",
+ *                                                  // or "photos": "/path/to/photos" with
+ *     "photo_options": ["--calibration", "lens.json", "--masks", "threshold"],
+ *                                                  // (words of `crisp3ds-dense photos`)
  *     "config": "/path/to/config.json",
  *     "overrides": ["grid=320"],
  *     "settings": {"sizes": [256, 512]},           // names as in the settings list

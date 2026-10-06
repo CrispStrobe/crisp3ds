@@ -1,37 +1,49 @@
 # crisp3ds-dense: the native dense pipeline
 
-A Rust port of `scripts/turntable_mesh`, so the reconstruction runs without
+The reconstruction from turntable photos to a checked STL in Rust, without
 Python: GPU stages as WebGPU compute shaders through `wgpu` (Metal, Vulkan,
-DirectX 12, and WebGPU in browsers), the rest as plain Rust. The Python package
-stays the reference implementation until every stage here reproduces it.
+DirectX 12, and WebGPU in browsers), the rest as plain Rust. It runs as one
+command (`run`), as a library call, through a C interface and, for the dense
+stages, in a browser; every stage is also a subcommand.
 
-Status: the whole pipeline from recovered cameras to a checked STL runs
-natively, as one command (`run`), as a library call, or through a C interface.
-Each stage is also a subcommand (`inputs`, `stereo`, `mesh`, `check`) that reads
-and writes the files of its Python counterpart; measured parity is listed per
-stage below. The step before it, from plain photos to the scene, is native too
-(`photos`): its providers start AliceVision or COLMAP as external programs,
-and SAM 2.1 remains an external PyTorch program. Not ported: the scan
-evaluator, a development tool that stays in Python.
+This crate began as a port of `scripts/turntable_mesh` and is now the primary
+implementation. New behaviour is developed here and judged by the scanner
+evaluator on the four test objects. The Python package remains as the
+reference for what was ported, and is not extended.
 
-Where this crate sits among the provider-based stages (masks, cameras,
-undistortion) and which platforms run what is described in
-[`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md).
+| Part | Where it runs |
+| --- | --- |
+| Photos to scene (`photos`): capture order, threshold masks, hole cleanup, contrast images, lens handling, audit and gates, undistortion, scene | this crate |
+| Camera providers `turntable` (our own solver), `markers` (printed mat), `import` | this crate |
+| Mask providers `threshold`, `import` | this crate |
+| Camera provider `colmap` (default) | external program: COLMAP (BSD-3-Clause), started as a child process |
+| Camera provider `alicevision` | external programs: AliceVision (MPL-2.0), started as child processes |
+| Mask provider `external-sam` (default) | external program: SAM 2.1 in Python with PyTorch (Apache-2.0, BSD-3-Clause) |
+| Inputs from a scene (`inputs`), dense stereo (`stereo`, GPU), surface (`mesh`), photo check (`check`) | this crate |
+| Run driver, events, cancellation, settings schema, start points and provider description | this crate |
+| In a browser (`web/`) | this crate as WebAssembly: the dense stages from an inputs folder; no external programs |
+| Scanner evaluator (`scan_evaluate.py`) | Python, a development tool; never an input of any stage |
 
-## Rules of the port
+Where the stages sit among the providers and which platforms run what is
+described in [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md).
 
-- **Same files.** Every stage reads and writes what its Python counterpart
-  does: the inputs directory (`cameras.json`, masks, `sparse_points.npy`),
-  `depths.npz`, `volume.npz`, `mesh/mesh.stl`, `result.json`, `events.jsonl`,
-  `config.json`. A run may therefore mix Python and native stages, which is
-  how each native stage is checked.
-- **Same settings.** `DenseConfig` mirrors `dense_config.py`; a test fails when
-  the defaults drift (`tests/fixtures/dense-config-defaults.json`).
-- **Same events.** `docs/ENGINE-CONTRACT.md` is binding for the native stages.
-- **Parity before promotion.** A native stage replaces the Python one only
-  when, on the synthetic scene and on real objects, its output matches within
-  stated tolerances and the scanner scores (`scan_evaluate.py`) are unchanged
-  within 0.003.
+## Rules
+
+- **Native first.** New behaviour is written here. It gets a setting when it
+  changes results, the setting is listed in `config::NATIVE_ONLY`
+  (`support_from_sparse` so far), and it is kept only when the scanner scores
+  (`scan_evaluate.py`) on the four objects say so; the numbers are in this file.
+- **What was ported stays comparable.** A ported stage reads and writes the
+  files of its Python counterpart (the inputs directory with `cameras.json`,
+  masks and `sparse_points.npy`; `depths.npz`, `volume.npz`, `mesh/mesh.stl`,
+  `result.json`, `events.jsonl`, `config.json`), so a run may mix Python and
+  native stages; that is how each stage was checked, and the measured parity is
+  listed per stage below.
+- **Same settings.** `DenseConfig` has the settings of `dense_config.py` with
+  the same defaults; a test fails when they drift
+  (`tests/fixtures/dense-config-defaults.json`). Native-only settings are the
+  stated exception.
+- **Same events.** `docs/ENGINE-CONTRACT.md` is binding.
 - **No reference geometry** is ever read by a stage.
 
 ## Layout
@@ -69,21 +81,55 @@ runs both and the tests on Linux, macOS and Windows. Needs Rust 1.88 or newer.
 
 ## A whole run: `crisp3ds-dense run`, `crisp3ds_dense::run`, C interface
 
-Port of `scripts/turntable_mesh/dense_pipeline.py` for two of its three
-starting points, in one process and without Python:
+The driver (it began as a port of `scripts/turntable_mesh/dense_pipeline.py`)
+for three starting points, in one process:
 
 ```sh
 crisp3ds-dense run --output RUN --inputs DIR                                   # an inputs directory
 crisp3ds-dense run --output RUN --scene final.sfm --prepared DIR --raw-masks DIR
+crisp3ds-dense run --output RUN --photos DIR --calibration lens.json           # plain photos
+    [--masks PROVIDER] [--cameras PROVIDER] [options of `crisp3ds-dense photos`]
     [--config FILE] [--set key=value ...] [--threads N] [--stereo-timeout S]
     [--minimum-free-gib G] [--reuse-depths depths.npz] [--no-live-previews]
     [--preview-step N] [--skip-check] [--no-preview] [--keep-volume]
+crisp3ds-dense run --describe [tool locations]      # start points, providers, their options and availability, as JSON
+crisp3ds-dense settings --schema                    # every setting with group, kind, default and meaning, as JSON
 ```
 
-`--photos`/`--calibration` (masks and cameras from plain photos) and
-`--reference` (scoring against a scan) are refused with a pointer to the Python
-tools. `--device`, `--python`, `--torch-python` and `--native` are accepted and
-ignored, so a command line written for the Python driver works.
+From photos the photos stage runs first (its `masks` and `cameras` stages, in
+`RUN/photos/`) and its scene is the inputs directory; there is no `inputs`
+stage in such a run, because the `cameras` stage writes the scene. A gate that
+rejects the cameras ends the run as failed. `--reference` (scoring against a
+scan) is refused with a pointer to the Python tool. `--device`, `--python`,
+`--torch-python` and `--native` are accepted and ignored, so a command line
+written for the Python driver works.
+
+The Bunny from its 73 photos in one command (`--masks threshold --cameras
+alicevision`, AliceVision 3.4 local build, 4 threads, other jobs on the
+machine): complete, 73 of 73 photos registered, 608 s (photos stage 555, stereo
+45, surface 5.4, check 2.4), scanner F1 `above_margin` 0.959 / 0.993 / 1.000
+and `all` 0.890 / 0.926 / 0.947 (before `support_from_sparse`, see "Masks
+without a network").
+
+**For a host application.** `crisp3ds_dense::run::describe()` (and
+`describe_with(photo_options)`, which takes the tool locations as words of the
+photos command line) returns what `run --describe` prints: per start point its
+fields, the `stages` a run goes through, and for the photos start the provider
+choices of each module. Every provider carries `available`, `reason` and
+`version` (COLMAP is asked with `colmap help`; AliceVision has no version
+option, so the version is read from the names of its libraries; SAM is checked
+for its interpreter, source, checkpoint and script without starting Python;
+providers in this crate report the crate's version) and its options as
+`settings` rows (`name`, `flag`, `kind` among `switch`, `integer`, `number`,
+`text`, `choice`, `provider`, `path`, `directory`, `executable`, `path_list`;
+`default`, `choices`, `variable`, `repeated`, `meaning`). Options shared by a
+module are in the module's `settings`; tools, machine, deadlines and gates are
+in the start point's `option_groups`. The rows come from the table the
+command-line parser itself reads (`src/photos/option_table.rs`;
+`crisp3ds-dense photos --list-options` prints all of it), so a form built from
+them cannot drift from the parser. `crisp3ds_dense::photos::availability::check`
+is the same check as a function. `config::settings_schema()` is what
+`settings --schema` prints.
 
 The run directory is the one `docs/ENGINE-CONTRACT.md` describes: `config.json`,
 `events.jsonl` (`run_started`, stage events, artifacts, `run_finished`; once
@@ -92,10 +138,13 @@ The run directory is the one `docs/ENGINE-CONTRACT.md` describes: `config.json`,
 `input-sheet.png`, `stereo/`, `mesh/`, `check/`, one `<stage>.log` per stage.
 Stages run on the calling thread; preview volumes are meshed on a worker thread
 while matching continues, and their `preview_mesh` events arrive when they are
-done. Creating a file named `cancel` in the run directory stops the run: while
-matching at the next view, otherwise at the next stage boundary (surface
-extraction and the check are not interrupted; they take seconds). The run then
-ends with status `cancelled`. `stereo/volume.npz` is deleted at the end unless
+done. Creating a file named `cancel` in the run directory (or setting the
+cancel flag of the library call) stops the run: the stereo stage at the next
+view of mask repair or matching, surface extraction before each pass over the
+grid, the check before each view, and a preview mesh in progress likewise, so
+the call returns without waiting for it. Measured on the Bunny, cancelling at
+seven moments between the first preview volume and the last: 0.2 to 1.1 s until
+the process had ended. The run then ends with status `cancelled`. `stereo/volume.npz` is deleted at the end unless
 `--keep-volume`. `scripts/turntable_mesh/export_replay.py` accepts the result.
 
 Against the Python driver (all stages in Python, Torch on MPS) on the same
@@ -127,6 +176,9 @@ let report = run(&options, Some(observer), Some(cancel))?;   // blocks; call it 
 
 `RunOptions` deserialises from JSON with the same field names (unknown fields
 are an error); `settings` takes values by name as a settings form produces them.
+For a run from photos set `photos` and put the photos stage's options into
+`photo_options`, one word per element (`["--calibration", "lens.json",
+"--masks", "threshold"]`).
 `run_async` is the same as a future, for hosts that must not block.
 `run` returns the content of `pipeline.json`, or the error that stopped the run
 (`crisp3ds_dense::control::Stopped` when cancelled or past a deadline). The
@@ -421,8 +473,20 @@ test that starts the real `cameraInit`.
 ## Inputs from a scene: `crisp3ds-dense inputs`
 
 ```sh
-crisp3ds-dense inputs --scene final.sfm --prepared DIR --raw-masks DIR --output DIR
+crisp3ds-dense inputs --scene final.sfm --prepared DIR --raw-masks DIR --output DIR [--self-contained [--link]]
+crisp3ds-dense inputs --pack DIR [--output DIR] [--link]
 ```
+
+An inputs directory is self-contained when its photos and masks lie inside it
+and `cameras.json` names them by relative path; such a folder can be moved,
+archived, or picked in a browser. The scene that `photos` writes is always
+self-contained (`images/`, `masks/`). `inputs` by default is not: as in the
+reference, `cameras.json` holds the absolute paths of the prepared images and
+only the masks are inside. `--self-contained` copies the photos in as well;
+`--pack DIR` does the same for an existing inputs directory, in place or as a
+copy in `--output`; `--link` makes hard links instead of copies where the file
+system allows (the Bunny's 146 files: linked in well under a second, 565 MB
+that occupy no further space). `crisp3ds_dense::scene::pack` is the function.
 
 Port of `dense_all_views_inputs.py`: one camera table for all registered views
 of an AliceVision scene with one shared `radialk3` intrinsic, pointing at the
@@ -610,7 +674,23 @@ Deliberate differences from the reference:
 
 Kept as in the reference although probably unintended there: all views of the
 finer levels search with the inverse-depth step of the last view swept at the
-coarsest level (`step` is overwritten per view in the level-0 loop).
+coarsest level (`step` is overwritten per view in the level-0 loop). Giving
+every view its own step was measured natively (`CRISP3DS_OWN_STEP=1`, SAM
+masks, same cameras; scanner F1 at 0.5 % / 1 % / 2 %, own step minus shared
+step):
+
+| | `all`, shared step | `all`, own step | difference | `above_margin`, difference |
+| --- | --- | --- | --- | --- |
+| Bunny | 0.9049 / 0.9412 / 0.9560 | 0.9066 / 0.9419 / 0.9566 | +0.0017 / +0.0007 / +0.0006 | +0.0018 / +0.0005 / 0.0000 |
+| Armadillo | 0.9226 / 0.9705 / 0.9867 | 0.9224 / 0.9708 / 0.9868 | -0.0002 / +0.0003 / +0.0001 | +0.0001 / +0.0003 / 0.0000 |
+| Dragon | 0.7853 / 0.9284 / 0.9812 | 0.7760 / 0.9264 / 0.9809 | -0.0093 / -0.0020 / -0.0003 | -0.0110 / -0.0032 / -0.0009 |
+| Lucy | 0.7899 / 0.9041 / 0.9379 | 0.7991 / 0.9064 / 0.9377 | +0.0092 / +0.0023 / -0.0002 | +0.0104 / +0.0027 / 0.0000 |
+
+The Dragon loses about as much as Lucy gains, both only at the tightest
+threshold, so the fix is not a general improvement and the shared step stays
+the default (the rule was: keep it only if no score drops by more than 0.002).
+The switch remains as an environment variable for further work; one run per
+object, and the stage is deterministic on one machine.
 
 Parity with the Python stage (Torch 2.7 on MPS, Apple M1; native on the same
 GPU through Metal; default settings unless noted; 73 or 71 photos of
@@ -693,8 +773,17 @@ two software WebGPU adapters, with the same default limits: Mesa llvmpipe
 through Vulkan on Linux (12 s) and the Microsoft Basic Render Driver (WARP)
 through DirectX 12 on Windows (62 s). Both pass. The jobs are marked
 non-blocking because software rasterisers on shared runners can be missing or
-slow. No real Vulkan or DirectX GPU and no browser has run the kernels yet, and
-no real object has been reconstructed on anything but Metal.
+slow. No real Vulkan or DirectX GPU has run the kernels yet, and no real object
+has been reconstructed natively on anything but Metal (in a browser: Chromium's
+WebGPU on the same Mac, next section).
+
+The whole crate, the photos stage included, is formatted, linted and tested
+(`cargo test --features capi`) on Linux, macOS and Windows in the same
+workflow, and each of the three runs the command-line smoke tests. A further
+job installs the distribution's COLMAP on Ubuntu and runs `run --photos ...
+--cameras colmap` on a synthetic capture (`docs/PHOTOS-TO-INPUTS.md` has the
+numbers); it is non-blocking as well, for the same reason and because the
+package may change under it.
 
 The same code runs in a browser; see the next section.
 
@@ -835,3 +924,12 @@ Browser package only (`web/`): wasm-bindgen, wasm-bindgen-futures and js-sys
 MIT) to show panics in the console; tools wasm-bindgen-cli (MIT OR Apache-2.0)
 to generate the package and, for the test page only, Playwright (Apache-2.0)
 with its Chromium build.
+
+External programs, started as child processes and never linked: COLMAP
+(BSD-3-Clause), AliceVision (MPL-2.0, parts derived from libmv, MIT), and for
+`--masks external-sam` a Python interpreter with SAM 2.1 (Apache-2.0) and
+PyTorch (BSD-3-Clause). Development aids that are not part of any build:
+`tools/colmap_pycolmap.py` uses the PyCOLMAP wheel (BSD-3-Clause), the scanner
+evaluator and the parity scripts use NumPy, SciPy (BSD-3-Clause), Pillow
+(MIT-CMU) and OpenCV (Apache-2.0). The CI jobs install Mesa (MIT) for the
+software Vulkan adapter and the Ubuntu `colmap` package.
