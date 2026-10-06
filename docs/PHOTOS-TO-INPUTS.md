@@ -65,6 +65,7 @@ it used. It does not undistort anything.
 | --- | --- | --- | --- | --- |
 | `alicevision` (default) | `cameraInit`, `featureExtraction` inside the masks, `imageMatching`, `featureMatching`, `globalSfM --lockAllIntrinsics true`: the commands of the reference | AliceVision executables (`--alicevision`) | MPL-2.0 (parts derived from libmv MIT); dependencies carry their own | yes / no / no |
 | `colmap` | `feature_extractor` with one shared `FULL_OPENCV` camera fixed to the declared lens and the masks as COLMAP masks, `exhaustive_matcher` (or `sequential_matcher`, or `matches_importer` on a closed ring of pairs), `mapper` with focal length, principal point and distortion not refined | a COLMAP executable (`--colmap`, or `colmap` on the `PATH`) | BSD-3-Clause; dependencies carry their own | yes / no / no |
+| `markers` | a printed mat of ArUco markers under the object ([`MARKER-MAT.md`](MARKER-MAT.md)): markers detected in every photo, a pose per photo from all visible corners, the scene in the mat's millimetres and handedness. Verified on rendered photos only | the mat's description (`--markers-mat`, written by `crisp3ds-dense mat`) | this crate; marker codes of OpenCV's `DICT_4X4_50` | yes / yes / yes |
 | `import:PATH` | reads an existing solution: an AliceVision `.sfm` file, or a COLMAP model directory (`cameras`, `images`, `points3D` as `.bin` or `.txt`, also below `sparse/0`). Its photos may be named like the originals or `capture_NNNN.png` | nothing | this crate | yes / yes / yes |
 
 AliceVision is given as an install prefix or as a wrapper:

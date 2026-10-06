@@ -34,12 +34,13 @@ A directory, the same one `dense_pipeline --inputs` and `crisp3ds-dense run
 
 | File | Content |
 | --- | --- |
-| `cameras.json` | `{"views": [{name, source, image, mask, width, height, k, rotation, translation}]}`. `rotation`, `translation` are world-to-camera. `k = [fx, fy, cx, cy]` with half-pixel-centre principal point. Images are undistorted pinhole images. Paths are absolute or relative to the directory |
+| `cameras.json` | `{"views": [{name, source, image, mask, width, height, k, rotation, translation}], "scale": {"unit": "mm", "source": "markers"}}`; `scale` is optional and absent for a scene of arbitrary scale. `rotation`, `translation` are world-to-camera. `k = [fx, fy, cx, cy]` with half-pixel-centre principal point. Images are undistorted pinhole images. Paths are absolute or relative to the directory |
 | `masks/` | 8-bit masks, object above 127, in the undistorted frame |
 | `sparse_points.npy` | N×3 points; used only to locate the object |
 
-The scene has no physical scale unless a provider says so (planned field
-`scale: {"unit": "mm", "source": ...}`; today none sets it). Handedness is that
+The scene has no physical scale unless a provider says so with the `scale`
+field; today the `markers` provider does (millimetres). The dense stages do not
+read it yet. Handedness is that
 of the photos.
 
 ### Module contracts
@@ -63,7 +64,7 @@ application offers only those. All providers write the same event log
 | `alicevision` | external executables: features, matching, global SfM with a fixed lens | yes | no | no | Works. Native orchestration (`crisp3ds-dense photos --cameras alicevision`), executables started directly from an install prefix or through a wrapper; verified on the Bunny (see `crates/dense/README.md`). The Python orchestration remains as reference |
 | `colmap` | external executable: feature extraction, sequential matching, mapper with fixed intrinsics; model converted to the scene | yes | no | no | Implemented (`--cameras colmap`). Verified on four objects through the PyCOLMAP 3.11 library with the provider's own command lines: 73 of 73 photos registered each time, scanner F1 equal to or above `alicevision`. The `colmap` executable itself has not been run (none on the development machine); COLMAP 4 option names and ring matching are untested |
 | `import` | read an existing solution (AliceVision `.sfm`, COLMAP text or binary model) | yes | yes | yes | Works on desktop (`--cameras import:PATH`): `.sfm`, COLMAP text and binary. Reproduces the existing inputs of four objects exactly. The readers build for every target; the `photos` command is not yet built for browsers |
-| `markers` | printed mat with fiducials on the turntable; pose from marker corners | yes | yes | yes | Planned. Also gives physical scale and settles handedness |
+| `markers` | printed mat with fiducials on the turntable; pose from marker corners | yes | yes | yes | Implemented (`--cameras markers`, `crisp3ds-dense mat`; `docs/MARKER-MAT.md`): pure Rust, builds for wasm32. Verified on rendered photos only (poses within 0.02 degrees and 0.25 mm of the truth down to 5 degrees elevation; an object reconstructed to 0.1 % of its size in millimetres). No printed mat has been photographed. Gives the scale (`scale` in `cameras.json`) and the handedness |
 | `turntable` | our own solver for ordered turntable photos with a known lens: features, tracks, bundle adjustment from a turntable initial guess | yes | yes | yes | Planned; prototype first, then Rust |
 | `device` | poses recorded by ARKit or ARCore during capture | no | yes | no | Later, with capture |
 

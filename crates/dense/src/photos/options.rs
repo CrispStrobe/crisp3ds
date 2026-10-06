@@ -245,7 +245,7 @@ cameras, colmap provider:
   --colmap-extractor-option ARG, --colmap-matcher-option ARG, --colmap-mapper-option ARG   extra tokens; repeat
 cameras, markers provider (a printed mat under the object; docs/MARKER-MAT.md):
   --markers-mat FILE              description of the printed mat, as `crisp3ds-dense mat` writes it [CRISP3DS_MARKERS_MAT]
-  --markers-minimum N (3)         a photo with fewer decoded markers gets no pose
+  --markers-minimum N (5)         a photo with fewer decoded markers gets no pose
   --markers-aspect auto|X         height over width of the print relative to the design (1); auto estimates it
 tools:
   --python EXE                    only for .py wrappers [CRISP3DS_PYTHON]
@@ -512,7 +512,7 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
     }
     let markers = MarkersOptions {
         mat: pick("markers-mat", "CRISP3DS_MARKERS_MAT").map(|p| absolute(&p)),
-        minimum_per_photo: integer("markers-minimum", 3)?.clamp(1, 1000) as usize,
+        minimum_per_photo: integer("markers-minimum", 5)?.clamp(1, 1000) as usize,
         aspect: match text("markers-aspect").as_deref() {
             None | Some("auto") => None,
             Some(value) => Some(

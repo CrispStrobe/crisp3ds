@@ -327,6 +327,25 @@ crisp3ds-dense photos --photos <bunny>/rgb --calibration scripts/turntable_mesh/
     --alicevision .local-tools/alicevision-local/prefix --alicevision-library-path /opt/homebrew/lib
 ```
 
+### Cameras from a printed mat: `--cameras markers`, `crisp3ds-dense mat`
+
+`crisp3ds-dense mat --size a4|letter|a3 --output DIR` writes a mat of ArUco
+markers (PDF, SVG, PNG, JSON); with it under the object,
+`--cameras markers --markers-mat FILE.json` gets every pose from the markers:
+no external program, repeatable, in millimetres, right-handed. Detection, pose
+and the mat are in `src/photos/markers/` (plain Rust, builds for wasm32; no
+crate added). `crisp3ds-dense mat --capture DIR` renders a synthetic capture
+with known poses and `mat --compare` measures a scene against it.
+
+Verified on rendered photos only; no printed mat has been photographed.
+Measured there (`docs/MARKER-MAT.md` has the table): all photos registered in
+24 captures from 5 to 60 degrees elevation, with blur up to 4 px, noise,
+under- and overexposure and a large object; rotation error at most 0.09
+degrees and position error at most 0.6 mm at 420 mm (0.004 degrees and
+0.03 mm in the base capture); 808 markers found where OpenCV's ArUco detector
+finds 800, corners 0.035 px from the truth in the median; the object
+reconstructed by the dense stages 0.08 % smaller than its true 64 mm width.
+
 ### Tests
 
 `cargo test` covers calibration scaling, envelope and threshold logic,
