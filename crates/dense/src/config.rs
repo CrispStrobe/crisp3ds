@@ -50,7 +50,7 @@ pub struct DenseConfig {
     pub behind_voxels: f64,
     pub behind_weight: f64,
     pub free_weight: f64,
-    pub skirt_voxels: f64,
+    pub support_from_sparse: bool,
     pub mesh_smooth: f64,
     pub mesh_fill_sigmas: Vec<f64>,
     pub mesh_final_smooth: f64,
@@ -103,7 +103,7 @@ impl Default for DenseConfig {
             behind_voxels: 12.0,
             behind_weight: 0.25,
             free_weight: 1.0,
-            skirt_voxels: 0.0,
+            support_from_sparse: true,
             mesh_smooth: 1.0,
             mesh_fill_sigmas: vec![2.0, 4.0],
             mesh_final_smooth: 0.6,
@@ -133,7 +133,7 @@ impl DenseConfig {
 
 /// Settings this crate has and the Python reference does not. The reference is
 /// no longer extended; new behaviour is developed here.
-pub const NATIVE_ONLY: [&str; 1] = ["skirt_voxels"];
+pub const NATIVE_ONLY: [&str; 1] = ["support_from_sparse"];
 
 /// Name, group, meaning, kind and default of every setting, as JSON
 /// (`{"settings": [...]}`), for generated settings forms. Written from the

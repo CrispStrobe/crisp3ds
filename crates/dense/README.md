@@ -260,9 +260,42 @@ brings the Bunny and the Armadillo to SAM's score above the support (within
 tips in runs of photos; the threshold keeps them). The price is at the base:
 the contact shadow is dark, belongs to the largest dark region and becomes a
 ragged skirt around the feet, which costs 0.014 to 0.019 in `all` on three
-objects. Thin parts are no worse than with SAM on any sheet. Because of the
-base, `external-sam` remains the default mask provider and `threshold` (Otsu)
-is the provider without a network.
+objects. Thin parts are no worse than with SAM on any sheet.
+
+**The base with threshold masks: `support_from_sparse`.** What the shadow costs
+was traced on the Bunny: it is not a thin skirt but the level of the flat base.
+The masks reach 14 to 17 pixels below the object, the hull follows, dense depth
+continues the wall of the object down through the featureless shadow, and the
+lowest measured surface, which is where the base is cut, lay 8 voxels (1.3 % of
+the diagonal) below the one from SAM masks. The sparse points do not go there:
+they are features matched across photos, and a soft shadow has none. The fusion
+stage therefore no longer places the support below the lowest sparse points
+(all but five, or one in a thousand, which may be wrong matches); a support
+above that level is left alone. This setting exists only here (default on; the
+Python reference does not have it). Scanner F1 `all` at 0.5 % / 1 % / 2 %,
+same cameras, before and after:
+
+| | SAM masks (unchanged by the setting) | threshold, before | threshold, with the setting | support raised by |
+| --- | --- | --- | --- | --- |
+| Bunny | 0.905 / 0.941 / 0.956 | 0.892 / 0.927 / 0.947 | 0.902 / 0.938 / 0.954 | 6.8 voxels |
+| Armadillo | 0.923 / 0.971 / 0.987 | 0.907 / 0.956 / 0.971 | 0.907 / 0.956 / 0.971 | 0 |
+| Dragon | 0.785 / 0.928 / 0.981 | 0.765 / 0.895 / 0.957 | 0.780 / 0.915 / 0.974 | 3.8 voxels |
+| Lucy | 0.790 / 0.904 / 0.938 | 0.819 / 0.937 / 0.962 | 0.819 / 0.937 / 0.962 | 0 |
+
+With SAM masks nothing changes on any object (the support is never below the
+sparse points; all eight numbers per object are identical). `above_margin`
+with threshold masks moves by at most 0.0022 (Dragon, 0.8468 to 0.8446 at
+0.5 %). The threshold masks are now within 0.0034 of SAM on the Bunny and
+above it on Lucy; they remain 0.005 / 0.013 / 0.007 below on the Dragon and
+0.015 on the Armadillo. What is left there is not the base level: on the
+Armadillo the support is the same for both mask sets (three small contact
+points, which the sparse points reach), and the loss is hull that the shadow
+keeps beside and under the raised soles and between the Dragon's claws, joined
+to the feet, so it is neither thin nor separate. Removing thin unmeasured hull
+lying on the support was tried (columns on the support plane, runs no taller
+than 4 to 16 voxels): it changed no score by more than 0.001 on the Bunny or
+the Armadillo and is not in the crate. `external-sam` therefore remains the
+default mask provider and `threshold` (Otsu) is the provider without a network.
 
 ### Camera providers through the dense stages
 

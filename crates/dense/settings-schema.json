@@ -305,11 +305,11 @@
       "default": 1.0
     },
     {
-      "name": "skirt_voxels",
+      "name": "support_from_sparse",
       "group": "Fusion",
-      "meaning": "Height in voxels of unmeasured hull lying flat on the support that is removed (contact shadow); 0 keeps it",
-      "kind": "number",
-      "default": 0.0
+      "meaning": "Do not place the support below the lowest matched features (contact shadow in the masks)",
+      "kind": "boolean",
+      "default": true
     },
     {
       "name": "mesh_smooth",
