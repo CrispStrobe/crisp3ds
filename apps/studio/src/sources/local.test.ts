@@ -45,6 +45,8 @@ describe("LocalEngine over a mocked command bridge", () => {
     const engine = new LocalEngine(bridge);
     await expect(engine.importFiles("x", [])).rejects.toThrow(/no import/);
     expect((await engine.health()).imports).toBe(true);
+    // On a phone there is no folder dialog of the app's own to offer.
+    expect(engine.pickPath).toBeUndefined();
     const progress: string[] = [];
     const files = [new File([new Uint8Array([1, 2])], "IMG 1.jpg"), new File([new Uint8Array([3])], "Bild_ä.jpg")];
     expect(await engine.importFiles("photos-1", files, (done, total) => progress.push(`${done}/${total}`))).toBe("photos-1/Bild_ä.jpg");
@@ -111,7 +113,7 @@ describe("LocalEngine over a mocked command bridge", () => {
         { name: "scan.ply", directory: false, inputs: false },
       ],
     });
-    expect(await engine.pickPath("folder", "Choose the inputs folder")).toBe("/Users/me/Desktop/bunny");
+    expect(await engine.pickPath!("folder", "Choose the inputs folder")).toBe("/Users/me/Desktop/bunny");
     expect(calls[1]).toEqual({ command: "pick_path", args: { kind: "folder", title: "Choose the inputs folder", start: null } });
   });
 });

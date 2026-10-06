@@ -77,6 +77,7 @@ export class LocalEngine implements Engine {
     });
     const startPoints = parseStartPoints(body?.start_points);
     this.imports = body?.imports === true;
+    if (this.imports) this.pickPath = undefined;
     return {
       schema: typeof body?.schema === "string" ? body.schema : undefined,
       device: typeof body?.device === "string" ? body.device : undefined,
@@ -171,9 +172,9 @@ export class LocalEngine implements Engine {
     return found;
   }
 
-  pickPath(kind: "folder" | "file", title: string): Promise<string | null> {
-    return this.bridge<string | null>("pick_path", { kind, title, start: null });
-  }
+  /** The shell's native folder and file dialogs; absent on phones (known after `health`), where files come in through `importFiles`. */
+  pickPath?: (kind: "folder" | "file", title: string) => Promise<string | null> = (kind, title) =>
+    this.bridge<string | null>("pick_path", { kind, title, start: null });
 
   openRun(id: string): RunSource {
     return new LocalRunSource(this.bridge, id, this.options);

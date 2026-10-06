@@ -192,26 +192,33 @@
     // "MARK <name>" and held, so whoever started the app can photograph them (CI screenshots).
     if (options.marks) {
       const hold = Number(options.hold ?? 5000);
+      // Scrolls so that `element` is just below the sticky top bar, whichever element scrolls.
+      const show = (element) => {
+        if (!element) return;
+        const bar = document.querySelector(".topbar")?.getBoundingClientRect().bottom ?? 0;
+        const scroller = document.scrollingElement ?? document.documentElement;
+        scroller.scrollTop += element.getBoundingClientRect().top - bar - 12;
+      };
       const mark = async (name) => {
-        await sleep(800);
+        await sleep(1200);
         await log(`MARK ${name}`);
         await sleep(hold);
       };
-      scrollTo(0, 0);
+      (document.scrollingElement ?? document.documentElement).scrollTop = 0;
       await mark("run");
-      document.querySelector(".viewer")?.scrollIntoView({ block: "center" });
+      show(document.querySelector(".mesh-panel"));
       await mark("surface");
-      document.querySelector(".gallery, .sheet")?.scrollIntoView({ block: "start" });
+      show(document.querySelector(".gallery"));
       await mark("sheets");
       location.hash = "#/engine";
       await until("the runs list", () => document.querySelector(".run-row"));
-      scrollTo(0, 0);
+      (document.scrollingElement ?? document.documentElement).scrollTop = 0;
       await mark("runs");
       location.hash = "#/engine/new";
       await until("the new run form", () => document.querySelector("#s-sizes"));
       one(".segmented button", "Turntable photos")?.click();
       await sleep(600);
-      scrollTo(0, 0);
+      show(document.querySelector("#f-photos")?.closest("fieldset") ?? document.querySelector("form"));
       await mark("new-run");
     }
     await log(ok ? "AUTOPILOT DONE ok" : "AUTOPILOT DONE with problems");

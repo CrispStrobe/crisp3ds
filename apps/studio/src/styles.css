@@ -1887,3 +1887,16 @@ fieldset.panel > legend {
   color: var(--text);
   font-weight: 600;
 }
+
+/* On macOS 26 the page scrolls on under the transparent title bar, above the sticky top bar.
+   An opaque band above the bar keeps scrolled content out of the title bar. */
+.topbar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 120px;
+  background: var(--panel);
+  pointer-events: none;
+}

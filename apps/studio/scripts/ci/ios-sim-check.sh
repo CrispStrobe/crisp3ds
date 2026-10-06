@@ -18,17 +18,25 @@ OUT=$4
 HERE=$(cd "$(dirname "$0")" && pwd)
 BUNDLE=com.crispstrobe.crisp3ds
 mkdir -p "$OUT"
-tag=$(printf '%s' "$DEVICE" | tr -c 'A-Za-z0-9' '-' | sed 's/-*$//')
+tag=$(printf '%s' "$DEVICE" | tr -c 'A-Za-z0-9' '-' | sed 's/--*/-/g; s/-*$//')
 
-udid=$(xcrun simctl list devices available -j | "${PYTHON:-python3}" -c "
+xcrun simctl list devices available -j > "$OUT/.devices.json"
+udid=$("${PYTHON:-python3}" -c "
 import json, sys
 name = sys.argv[1]
-for runtime, devices in json.load(sys.stdin)['devices'].items():
+for runtime, devices in json.load(open(sys.argv[2]))['devices'].items():
     if 'iOS' in runtime:
         for d in devices:
+            # An exact name, or else the first device whose name contains it (Pro Max).
             if d['name'] == name:
                 print(d['udid']); sys.exit()
-" "$DEVICE")
+for runtime, devices in sorted(json.load(open(sys.argv[2]))['devices'].items(), reverse=True):
+    if 'iOS' in runtime:
+        for d in devices:
+            if name in d['name']:
+                print(d['udid']); sys.exit()
+" "$DEVICE" "$OUT/.devices.json")
+rm -f "$OUT/.devices.json"
 test -n "$udid" || { echo "no available simulator named $DEVICE"; xcrun simctl list devices available | head -30; exit 1; }
 echo "== $DEVICE ($udid)"
 cleanup() { xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true; }
