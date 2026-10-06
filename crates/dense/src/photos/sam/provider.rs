@@ -198,7 +198,7 @@ impl MaskProvider for NativeSam {
             None => (fetched(run, low, high)?, low + 0.25 * (high - low)),
         };
         let model = ModelInfo::read(&directory)?;
-        let settings = Settings { multimask: options.sam.multimask, preserve_holes: options.sam.preserve_holes };
+        let settings = Settings { multimask: options.sam.several_candidates, preserve_holes: options.sam.preserve_holes };
         let report =
             run.internal("masks", "sam", options.timeouts.sam, low, high, "Segmenting with SAM 2.1", options.photo_count, |watch| {
                 run_into(&work, &target, &model, &backend_options(options), settings, options.sam.automatic_cues, watch)

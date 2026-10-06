@@ -132,7 +132,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         choices: &[],
         variable: None,
         repeated: false,
-        meaning: "Largest share of the foreground the dark-hole fill may add, for every mask provider",
+        meaning: "Largest share of the foreground the dark-hole fill may add, for every mask provider (default 0.02; 0.05 for sam and external-sam, whose masks hold rows of small dark holes)",
     },
     OptionSpec {
         flag: "sam-python",
@@ -212,7 +212,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         choices: &[],
         variable: None,
         repeated: false,
-        meaning: "Let SAM propose several masks and take the best (also for --masks sam)",
+        meaning: "Let SAM propose several masks and take the best",
     },
     OptionSpec {
         flag: "sam-preserve-holes",
@@ -253,6 +253,16 @@ pub const OPTIONS: &[OptionSpec] = &[
         variable: Some("CRISP3DS_SAM_RUNTIME"),
         repeated: false,
         meaning: "ONNX Runtime's shared library (default: the file ORT_DYLIB_PATH names)",
+    },
+    OptionSpec {
+        flag: "sam-candidates",
+        scope: "masks:sam",
+        kind: "choice",
+        default: Some("single"),
+        choices: &["single", "several"],
+        variable: None,
+        repeated: false,
+        meaning: "single: SAM's own single mask (it falls back to its best alternative when that mask is unstable); several: the best-scored of its three proposals that agrees with every point, as external-sam's --sam-multimask",
     },
     OptionSpec {
         flag: "sam-accelerator",
@@ -807,7 +817,7 @@ pub fn of_provider(module: &str, provider: &str) -> Vec<Value> {
 }
 
 /// Options of `external-sam` that the native `sam` provider reads as well.
-const SHARED_WITH_SAM: [&str; 3] = ["sam-multimask", "sam-preserve-holes", "sam-automatic-cues"];
+const SHARED_WITH_SAM: [&str; 2] = ["sam-preserve-holes", "sam-automatic-cues"];
 
 /// The options of a group that belong to no single provider (`masks`, `cameras`, `tools`, `machine`, `deadlines`, `gates`).
 pub fn of_group(group: &str) -> Vec<Value> {
@@ -852,6 +862,6 @@ mod tests {
         assert_eq!(of_group("cameras").iter().find(|row| row["name"] == "open-turn").unwrap()["default"], false);
         assert!(of_provider("masks", "import").is_empty());
         let sam: Vec<String> = of_provider("masks", "sam").iter().map(|row| row["name"].as_str().unwrap().to_string()).collect();
-        assert_eq!(sam, ["sam-multimask", "sam-preserve-holes", "sam-automatic-cues", "sam-model", "sam-runtime", "sam-accelerator"]);
+        assert_eq!(sam, ["sam-preserve-holes", "sam-automatic-cues", "sam-model", "sam-runtime", "sam-candidates", "sam-accelerator"]);
     }
 }

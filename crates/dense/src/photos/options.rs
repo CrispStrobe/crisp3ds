@@ -15,6 +15,9 @@ use super::staging::{list_photos, PHOTO_SUFFIXES};
 
 pub const SCHEMA: &str = "crisp3ds_photos_to_inputs_v1";
 
+/// Default dark-hole cleanup budget for the SAM mask providers (the others: the option table's 0.02).
+pub const SAM_HOLE_CLEANUP_BUDGET: f64 = 0.05;
+
 /// Where the object masks come from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MaskChoice {
@@ -191,6 +194,8 @@ pub struct SamOptions {
     pub runtime: Option<PathBuf>,
     /// `cpu` or an accelerator of the native provider's backend.
     pub accelerator: String,
+    /// The native provider chooses among SAM's three proposals (`--sam-candidates several`) instead of taking its single mask.
+    pub several_candidates: bool,
 }
 
 /// The resolved options: flags, then environment variables, then defaults.
@@ -260,19 +265,21 @@ masks, threshold provider (also makes the prompts of external-sam and the red ov
   --threshold-shadow F            takes the contact shadow out of threshold masks: a mask pixel stays only with object
                                   core (darker than this share of the way from the object's grey to the level) at or
                                   below it in its column (0.25; 0 disables)
-  --hole-cleanup-budget F         largest share of the foreground the dark-hole fill may add (0.02), every provider
+  --hole-cleanup-budget F         largest share of the foreground the dark-hole fill may add (0.02; 0.05 for sam and
+                                  external-sam), every provider
 masks, external-sam provider (flag, then environment variable):
   --sam-python EXE --sam-source DIR --sam-checkpoint FILE [--sam-config NAME] [--sam-pythonpath LIST] --sam-repository DIR
                                   [CRISP3DS_SAM_PYTHON, _SAM_SOURCE, _SAM_CHECKPOINT, _SAM_CONFIG, _SAM_PYTHONPATH,
                                   CRISP3DS_REPOSITORY: the checkout with scripts/turntable_mesh/segment.py]
   --sam-device mps|cpu|cuda (mps)   --[no-]sam-multimask --[no-]sam-preserve-holes --[no-]sam-automatic-cues (on)
-masks, sam provider (the three switches above apply to it too):
+masks, sam provider (--[no-]sam-preserve-holes and --[no-]sam-automatic-cues apply to it too):
   --sam-model DIR                 model.json with the ONNX graphs, as tools/sam2_export_onnx.py writes them [CRISP3DS_SAM_MODEL];
                                   default: fetched on first use from huggingface.co/cstr/sam2.1-hiera-tiny-ONNX into the
                                   cache (CRISP3DS_CACHE_DIR, else the platform's) and checked against pinned SHA-256
   --sam-runtime FILE              ONNX Runtime's shared library (libonnxruntime.dylib, .so, onnxruntime.dll)
                                   [CRISP3DS_SAM_RUNTIME, else ORT_DYLIB_PATH]
   --sam-accelerator cpu|coreml (cpu)
+  --sam-candidates single|several (single)   SAM's own single mask, or the best-scored of its three proposals
 cameras, every provider:
   --contrast-gamma G (0.5; 1 disables)   --clahe-clip C (2.0; 0 disables)   --clahe-grid N (8)
                                   the images features are detected in and that are undistorted into the scene
@@ -492,6 +499,7 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
         model: pick("sam-model", "CRISP3DS_SAM_MODEL").map(|p| absolute(&p)),
         runtime: pick("sam-runtime", "CRISP3DS_SAM_RUNTIME").map(|p| absolute(&p)),
         accelerator: word("sam-accelerator"),
+        several_candidates: word("sam-candidates") == "several",
     };
     if !["mps", "cpu", "cuda"].contains(&sam.device.as_str()) {
         bail!("--sam-device {}: expected mps, cpu or cuda", sam.device);
@@ -561,7 +569,12 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
             &text("threshold-level").unwrap_or_else(|| if masks == MaskChoice::Threshold { "otsu" } else { "70" }.into()),
         )?,
         threshold_shadow: if masks == MaskChoice::Threshold { number("threshold-shadow")?.clamp(0.0, 1.0) } else { 0.0 },
-        hole_cleanup_budget: super::cleanup::validate_budget(number("hole-cleanup-budget")?)?,
+        // SAM 2.1 leaves rows of small dark holes inside the object on some views (window-grid pattern, up to about
+        // 2.5 % of the mask on the test objects); they are object pixels, and the cleanup fills them.
+        hole_cleanup_budget: super::cleanup::validate_budget(match (text("hole-cleanup-budget"), &masks) {
+            (None, MaskChoice::Sam | MaskChoice::ExternalSam) => SAM_HOLE_CLEANUP_BUDGET,
+            _ => number("hole-cleanup-budget")?,
+        })?,
         sam,
         contrast_gamma: number("contrast-gamma")?,
         clahe_clip: number("clahe-clip")?,
@@ -634,7 +647,8 @@ impl Options {
             "sam": {"python": sam.python, "source": sam.source, "checkpoint": sam.checkpoint, "config": sam.config,
                     "pythonpath": sam.pythonpath, "repository": sam.repository, "device": sam.device, "multimask": sam.multimask,
                     "preserve_holes": sam.preserve_holes, "automatic_cues": sam.automatic_cues,
-                    "model": sam.model, "runtime": sam.runtime, "accelerator": sam.accelerator},
+                    "model": sam.model, "runtime": sam.runtime, "accelerator": sam.accelerator,
+                    "candidates": if sam.several_candidates { "several" } else { "single" }},
             "alicevision": {
                 "location": av.tools.as_ref().map(|t| t.location.clone()),
                 "library_path": av.tools.as_ref().map(|t| t.library_path.clone()),
@@ -707,6 +721,13 @@ pub(crate) mod tests {
         assert_eq!((&options.masks, &options.cameras, options.threshold_shadow), (&MaskChoice::Threshold, &CameraChoice::Turntable, 0.25));
         let prompted = resolve(&arguments(&folder, &["--masks", "external-sam"]), &none).unwrap();
         assert_eq!((prompted.dark_threshold, prompted.threshold_shadow), (Threshold::Level(70), 0.0));
+        // The SAM providers get a larger hole-cleanup budget unless one is given; the others keep 0.02.
+        let native = resolve(&arguments(&folder, &["--masks", "sam"]), &none).unwrap();
+        assert_eq!((options.hole_cleanup_budget, prompted.hole_cleanup_budget, native.hole_cleanup_budget), (0.02, 0.05, 0.05));
+        assert!(!native.sam.several_candidates);
+        let given =
+            resolve(&arguments(&folder, &["--masks", "sam", "--hole-cleanup-budget", "0.01", "--sam-candidates", "several"]), &none);
+        assert_eq!(given.as_ref().map(|o| (o.hole_cleanup_budget, o.sam.several_candidates)).unwrap(), (0.01, true));
         assert_eq!((options.colmap.matching.as_str(), options.colmap.use_masks, options.colmap.cli), ("exhaustive", true, 0));
         let record = options.to_json();
         assert_eq!(record["schema"], SCHEMA);
