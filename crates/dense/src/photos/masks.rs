@@ -34,6 +34,7 @@ pub fn mask_provider(options: &Options) -> Box<dyn MaskProvider> {
         MaskChoice::Threshold => Box::new(ThresholdMasks),
         MaskChoice::Import(folder) => Box::new(ImportMasks { folder: folder.clone() }),
         MaskChoice::ExternalSam => Box::new(ExternalSam),
+        MaskChoice::Sam => Box::new(super::sam::provider::NativeSam),
     }
 }
 

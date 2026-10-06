@@ -72,7 +72,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         choices: &[],
         variable: Some("CRISP3DS_MASKS"),
         repeated: false,
-        meaning: "Mask provider: threshold, import:DIR or external-sam",
+        meaning: "Mask provider: threshold, import:DIR, external-sam or sam",
     },
     OptionSpec {
         flag: "cameras",
@@ -212,7 +212,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         choices: &[],
         variable: None,
         repeated: false,
-        meaning: "Let SAM propose several masks and take the best",
+        meaning: "Let SAM propose several masks and take the best (also for --masks sam)",
     },
     OptionSpec {
         flag: "sam-preserve-holes",
@@ -222,7 +222,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         choices: &[],
         variable: None,
         repeated: false,
-        meaning: "Keep holes of the prompt mask",
+        meaning: "Keep holes of the prompt mask (also for --masks sam)",
     },
     OptionSpec {
         flag: "sam-automatic-cues",
@@ -232,7 +232,37 @@ pub const OPTIONS: &[OptionSpec] = &[
         choices: &[],
         variable: None,
         repeated: false,
-        meaning: "Derive point prompts from the threshold mask",
+        meaning: "Derive point prompts from the threshold mask (also for --masks sam)",
+    },
+    OptionSpec {
+        flag: "sam-model",
+        scope: "masks:sam",
+        kind: "directory",
+        default: None,
+        choices: &[],
+        variable: Some("CRISP3DS_SAM_MODEL"),
+        repeated: false,
+        meaning: "Model directory: model.json and the ONNX graphs, as crates/dense/tools/sam2_export_onnx.py writes them",
+    },
+    OptionSpec {
+        flag: "sam-runtime",
+        scope: "masks:sam",
+        kind: "path",
+        default: None,
+        choices: &[],
+        variable: Some("CRISP3DS_SAM_RUNTIME"),
+        repeated: false,
+        meaning: "ONNX Runtime's shared library (default: the file ORT_DYLIB_PATH names)",
+    },
+    OptionSpec {
+        flag: "sam-accelerator",
+        scope: "masks:sam",
+        kind: "choice",
+        default: Some("cpu"),
+        choices: &["cpu", "coreml"],
+        variable: None,
+        repeated: false,
+        meaning: "Where the network runs: the CPU, or Core ML on Apple devices (parts it cannot take stay on the CPU)",
     },
     OptionSpec {
         flag: "contrast-gamma",
@@ -772,8 +802,12 @@ pub fn listing() -> Value {
 /// The options of one provider (`module` is `masks` or `cameras`), as JSON rows.
 pub fn of_provider(module: &str, provider: &str) -> Vec<Value> {
     let scope = format!("{module}:{provider}");
-    OPTIONS.iter().filter(|option| option.scope == scope).map(row).collect()
+    let shared = |option: &OptionSpec| scope == "masks:sam" && SHARED_WITH_SAM.contains(&option.flag);
+    OPTIONS.iter().filter(|option| option.scope == scope || shared(option)).map(row).collect()
 }
+
+/// Options of `external-sam` that the native `sam` provider reads as well.
+const SHARED_WITH_SAM: [&str; 3] = ["sam-multimask", "sam-preserve-holes", "sam-automatic-cues"];
 
 /// The options of a group that belong to no single provider (`masks`, `cameras`, `tools`, `machine`, `deadlines`, `gates`).
 pub fn of_group(group: &str) -> Vec<Value> {
@@ -817,5 +851,7 @@ mod tests {
         assert_eq!(colmap.iter().find(|row| row["name"] == "colmap-overlap").unwrap()["default"], 10);
         assert_eq!(of_group("cameras").iter().find(|row| row["name"] == "open-turn").unwrap()["default"], false);
         assert!(of_provider("masks", "import").is_empty());
+        let sam: Vec<String> = of_provider("masks", "sam").iter().map(|row| row["name"].as_str().unwrap().to_string()).collect();
+        assert_eq!(sam, ["sam-multimask", "sam-preserve-holes", "sam-automatic-cues", "sam-model", "sam-runtime", "sam-accelerator"]);
     }
 }

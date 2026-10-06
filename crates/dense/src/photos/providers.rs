@@ -62,6 +62,19 @@ pub const MASKS_EXTERNAL_SAM: Provider = Provider {
     default: false,
 };
 
+pub const MASKS_SAM: Provider = Provider {
+    module: "masks",
+    name: "sam",
+    selector: "--masks sam --sam-model DIR",
+    summary: "SAM 2.1 prompted by the threshold masks, in this process: a model directory (ONNX graphs) and, in builds with the feature sam-onnx, ONNX Runtime as a shared library",
+    desktop: true,
+    mobile: false,
+    wasm: false,
+    external: &[],
+    license: "this crate (AGPL-3.0-only); SAM 2.1 model Apache-2.0; ONNX Runtime MIT; ort crate MIT OR Apache-2.0",
+    default: false,
+};
+
 pub const CAMERAS_COLMAP: Provider = Provider {
     module: "cameras",
     name: "colmap",
@@ -133,10 +146,11 @@ pub const CAMERAS_TURNTABLE: Provider = Provider {
     default: true,
 };
 
-pub const PROVIDERS: [Provider; 8] = [
+pub const PROVIDERS: [Provider; 9] = [
     MASKS_THRESHOLD,
     MASKS_IMPORT,
     MASKS_EXTERNAL_SAM,
+    MASKS_SAM,
     CAMERAS_TURNTABLE,
     CAMERAS_MARKERS,
     CAMERAS_COLMAP,
@@ -183,7 +197,7 @@ mod tests {
         let table = listing();
         assert_eq!(table["schema"], "crisp3ds_photo_providers_v1");
         let expected: [(&str, &[&str]); 2] = [
-            ("masks", &["threshold", "import", "external-sam"]),
+            ("masks", &["threshold", "import", "external-sam", "sam"]),
             ("cameras", &["turntable", "markers", "colmap", "alicevision", "import"]),
         ];
         for (module, names) in expected {

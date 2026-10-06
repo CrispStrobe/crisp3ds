@@ -32,6 +32,14 @@ fs4 = "1.1"
 # Drives the async GPU paths on a thread that may block.
 pollster = "1"
 
+# ONNX Runtime for the native SAM mask provider (src/photos/sam/onnx.rs), only with the feature `sam-onnx`.
+# The runtime is a shared library loaded at run time: nothing is downloaded or linked when this crate is built.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.ort]
+version = "=2.0.0-rc.13"
+optional = true
+default-features = false
+features = ["std", "load-dynamic", "api-20", "coreml"]
+
 # Signalling the process group of an external tool (src/photos/process.rs).
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -39,6 +47,8 @@ libc = "0.2"
 [features]
 # The C interface of the run driver (src/capi.rs, include/crisp3ds_dense.h).
 capi = []
+# The `sam` mask provider's ONNX backend: `--masks sam --sam-model DIR --sam-runtime libonnxruntime`.
+sam-onnx = ["dep:ort"]
 
 [profile.release]
 opt-level = 3

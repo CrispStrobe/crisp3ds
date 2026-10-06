@@ -23,6 +23,8 @@ pub enum MaskChoice {
     Import(PathBuf),
     /// SAM 2.1 through `scripts/turntable_mesh/segment.py` in an external interpreter, then the cleanup.
     ExternalSam,
+    /// SAM 2.1 in this process (`photos/sam`), then the cleanup.
+    Sam,
 }
 
 impl MaskChoice {
@@ -31,6 +33,7 @@ impl MaskChoice {
             MaskChoice::Threshold => "threshold",
             MaskChoice::Import(_) => "import",
             MaskChoice::ExternalSam => "external-sam",
+            MaskChoice::Sam => "sam",
         }
     }
 }
@@ -181,6 +184,12 @@ pub struct SamOptions {
     pub multimask: bool,
     pub preserve_holes: bool,
     pub automatic_cues: bool,
+    /// Model directory of the native provider (`model.json` and the graphs).
+    pub model: Option<PathBuf>,
+    /// ONNX Runtime's shared library, for the native provider's ONNX backend.
+    pub runtime: Option<PathBuf>,
+    /// `cpu` or an accelerator of the native provider's backend.
+    pub accelerator: String,
 }
 
 /// The resolved options: flags, then environment variables, then defaults.
@@ -236,6 +245,7 @@ usage error); 1: a step failed. See docs/PHOTOS-TO-INPUTS.md.
         import:DIR              masks made elsewhere: one 8-bit PNG per photo, white object, named capture_NNNN.png in
                                 capture order or like the photo; the hole cleanup still runs
         external-sam            SAM 2.1 through scripts/turntable_mesh/segment.py in an external Python interpreter
+        sam                     SAM 2.1 in this process, from a model directory (builds with the feature sam-onnx)
 --cameras colmap                external COLMAP executable, incremental mapper with the declared lens fixed
           alicevision           external AliceVision executables, global SfM with the declared lens locked
           turntable             our own solver for one turn of ordered photos; no external program (default)
@@ -255,6 +265,11 @@ masks, external-sam provider (flag, then environment variable):
                                   [CRISP3DS_SAM_PYTHON, _SAM_SOURCE, _SAM_CHECKPOINT, _SAM_CONFIG, _SAM_PYTHONPATH,
                                   CRISP3DS_REPOSITORY: the checkout with scripts/turntable_mesh/segment.py]
   --sam-device mps|cpu|cuda (mps)   --[no-]sam-multimask --[no-]sam-preserve-holes --[no-]sam-automatic-cues (on)
+masks, sam provider (the three switches above apply to it too):
+  --sam-model DIR                 model.json with the ONNX graphs, as tools/sam2_export_onnx.py writes them [CRISP3DS_SAM_MODEL]
+  --sam-runtime FILE              ONNX Runtime's shared library (libonnxruntime.dylib, .so, onnxruntime.dll)
+                                  [CRISP3DS_SAM_RUNTIME, else ORT_DYLIB_PATH]
+  --sam-accelerator cpu|coreml (cpu)
 cameras, every provider:
   --contrast-gamma G (0.5; 1 disables)   --clahe-clip C (2.0; 0 disables)   --clahe-grid N (8)
                                   the images features are detected in and that are undistorted into the scene
@@ -413,9 +428,10 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
     let masks = match choice("masks") {
         (name, None) if name == "threshold" => MaskChoice::Threshold,
         (name, None) if name == "external-sam" => MaskChoice::ExternalSam,
+        (name, None) if name == "sam" => MaskChoice::Sam,
         (name, Some(folder)) if name == "import" && !folder.is_empty() => MaskChoice::Import(absolute(&folder)),
         (name, _) if name == "import" => bail!("--masks import needs the folder: import:DIR"),
-        (name, _) => bail!("--masks {name}: expected threshold, import:DIR or external-sam (see --list-providers)"),
+        (name, _) => bail!("--masks {name}: expected threshold, import:DIR, external-sam or sam (see --list-providers)"),
     };
     if let MaskChoice::Import(folder) = &masks {
         if !folder.is_dir() {
@@ -470,6 +486,9 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
         multimask: switch("sam-multimask"),
         preserve_holes: switch("sam-preserve-holes"),
         automatic_cues: switch("sam-automatic-cues"),
+        model: pick("sam-model", "CRISP3DS_SAM_MODEL").map(|p| absolute(&p)),
+        runtime: pick("sam-runtime", "CRISP3DS_SAM_RUNTIME").map(|p| absolute(&p)),
+        accelerator: word("sam-accelerator"),
     };
     if !["mps", "cpu", "cuda"].contains(&sam.device.as_str()) {
         bail!("--sam-device {}: expected mps, cpu or cuda", sam.device);
@@ -611,7 +630,8 @@ impl Options {
         let more = json!({
             "sam": {"python": sam.python, "source": sam.source, "checkpoint": sam.checkpoint, "config": sam.config,
                     "pythonpath": sam.pythonpath, "repository": sam.repository, "device": sam.device, "multimask": sam.multimask,
-                    "preserve_holes": sam.preserve_holes, "automatic_cues": sam.automatic_cues},
+                    "preserve_holes": sam.preserve_holes, "automatic_cues": sam.automatic_cues,
+                    "model": sam.model, "runtime": sam.runtime, "accelerator": sam.accelerator},
             "alicevision": {
                 "location": av.tools.as_ref().map(|t| t.location.clone()),
                 "library_path": av.tools.as_ref().map(|t| t.library_path.clone()),
@@ -759,7 +779,7 @@ pub(crate) mod tests {
             (&["--dark-threshold", "300"][..], "--dark-threshold"),
             (&["--envelope", "1,2,3"][..], "envelope"),
             (&["--hole-cleanup-budget", "0.2"][..], "finite"),
-            (&["--masks", "magic"][..], "expected threshold, import:DIR or external-sam"),
+            (&["--masks", "magic"][..], "expected threshold, import:DIR, external-sam or sam"),
             (&["--masks", "import"][..], "needs the folder"),
             (&["--masks", "import:/no/such/masks"][..], "is not a directory"),
             (&["--cameras", "meshroom"][..], "expected alicevision, colmap, turntable, markers or import:PATH"),

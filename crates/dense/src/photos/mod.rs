@@ -11,6 +11,7 @@
 //! | `options`, `providers` | command line, resolved configuration, the provider table |
 //! | `staging`, `coarse` | capture order, `capture_NNNN.png` copies, coarse dark-object masks |
 //! | `masks` | mask providers: `threshold`, `import`, `external-sam` |
+//! | `sam` | mask provider `sam`: SAM 2.1 in this process (prompts, selection, backends) |
 //! | `cleanup`, `sheets` | dark-hole cleanup, published masks, contact sheet, sparse overlay |
 //! | `contrast` | gamma and CLAHE contrast images (OpenCV's 8-bit Lab and CLAHE) |
 //! | `calibration` | lens file, scaling, the locked AliceVision intrinsic |
@@ -22,8 +23,9 @@
 //! | `process`, `run` | bounded child processes; the two stages, events, `frontend.json` |
 //!
 //! Not ported: AliceVision and COLMAP (external programs, called as child
-//! processes) and SAM 2.1 (a PyTorch network; `--masks external-sam` runs the
-//! reference `segment.py` in an external interpreter).
+//! processes). SAM 2.1 runs either in this process (`--masks sam`, in builds
+//! with a backend feature such as `sam-onnx`) or through the reference
+//! `segment.py` in an external interpreter (`--masks external-sam`).
 
 pub mod audit;
 pub mod calibration;
@@ -35,6 +37,7 @@ pub mod option_table;
 pub mod options;
 pub mod providers;
 pub mod ring;
+pub mod sam;
 pub mod scene_writer;
 pub mod sheets;
 pub mod solution;

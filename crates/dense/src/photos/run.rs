@@ -269,7 +269,7 @@ impl Run<'_> {
         let stage_started = Instant::now();
         self.events.stage("masks").emit("stage_started", json!({"provider": provider.info().name}))?;
         // The share of the stage each step gets depends on whether the provider starts a network in between.
-        let slow = !provider.info().external.is_empty();
+        let slow = !provider.info().external.is_empty() || provider.info().name == "sam";
         let (coarse_end, cleanup_start, cleanup_end) = if slow { (0.08, 0.85, 0.92) } else { (0.45, 0.55, 0.85) };
         let photos = list_photos(&options.photos)?;
         let photo_map =

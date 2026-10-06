@@ -27,6 +27,10 @@ pub struct ToolLocations {
     pub sam_checkpoint: Option<PathBuf>,
     /// Checkout with `scripts/turntable_mesh/segment.py`.
     pub sam_repository: Option<PathBuf>,
+    /// Model directory of the native `sam` provider.
+    pub sam_model: Option<PathBuf>,
+    /// ONNX Runtime's shared library for it.
+    pub sam_runtime: Option<PathBuf>,
 }
 
 impl ToolLocations {
@@ -54,6 +58,8 @@ impl ToolLocations {
             sam_source: path("sam-source"),
             sam_checkpoint: path("sam-checkpoint"),
             sam_repository: path("sam-repository"),
+            sam_model: path("sam-model"),
+            sam_runtime: path("sam-runtime"),
         }
     }
 
@@ -250,6 +256,10 @@ pub fn check(module: &str, name: &str, tools: &ToolLocations) -> Availability {
         ("cameras", "alicevision") => alicevision(tools),
         ("cameras", "colmap") => colmap(tools),
         ("masks", "external-sam") => external_sam(tools),
+        ("masks", "sam") => match super::sam::provider::readiness(tools.sam_model.as_deref(), tools.sam_runtime.as_deref()) {
+            Ok(model) => Availability::yes(Some(model)),
+            Err(reason) => Availability::no(format!("SAM 2.1 in this process: {reason}")),
+        },
         _ if super::providers::PROVIDERS.iter().any(|p| p.module == module && p.name == name) => {
             Availability::yes(Some(env!("CARGO_PKG_VERSION").to_string()))
         }
