@@ -41,6 +41,8 @@ pub enum CameraChoice {
     Colmap,
     /// A printed marker mat under the object (`photos/markers`).
     Markers,
+    /// Our own solver for ordered turntable photos (`photos/turntable`).
+    Turntable,
     /// An existing solution: an AliceVision `.sfm` file or a COLMAP model directory.
     Import(PathBuf),
 }
@@ -51,6 +53,7 @@ impl CameraChoice {
             CameraChoice::AliceVision => "alicevision",
             CameraChoice::Colmap => "colmap",
             CameraChoice::Markers => "markers",
+            CameraChoice::Turntable => "turntable",
             CameraChoice::Import(_) => "import",
         }
     }
@@ -136,6 +139,17 @@ pub struct ColmapOptions {
     pub mapper_option: Vec<String>,
 }
 
+/// Options of the `turntable` camera provider.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TurntableOptions {
+    /// Most features kept per photo.
+    pub features: usize,
+    /// Every photo is matched with this many successors.
+    pub span: usize,
+    /// Debug input: features and matches made elsewhere (`crisp3ds_turntable_matches_v1`).
+    pub matches: Option<PathBuf>,
+}
+
 /// Options of the `markers` camera provider.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MarkersOptions {
@@ -188,6 +202,9 @@ pub struct Options {
     pub alicevision: AliceVisionOptions,
     pub colmap: ColmapOptions,
     pub markers: MarkersOptions,
+    pub turntable: TurntableOptions,
+    /// The photos do not close a full turn.
+    pub open_turn: bool,
     pub random_seed: i64,
     pub timeouts: Timeouts,
     pub gates: Gates,
@@ -210,6 +227,7 @@ usage error); 1: a step failed. See docs/PHOTOS-TO-INPUTS.md.
         external-sam            SAM 2.1 through scripts/turntable_mesh/segment.py in an external Python interpreter (default)
 --cameras alicevision           external AliceVision executables, global SfM with the declared lens locked (default)
           colmap                external COLMAP executable, incremental mapper with the declared lens fixed
+          turntable             our own solver for one turn of ordered photos; no external program
           markers               a printed marker mat under the object: exact poses in millimetres, no external program
           import:PATH           an existing solution: AliceVision .sfm file or COLMAP model directory (text or binary)
 
@@ -227,6 +245,7 @@ cameras, every provider:
   --contrast-gamma G (0.5; 1 disables)   --clahe-clip C (2.0; 0 disables)   --clahe-grid N (8)
                                   the images features are detected in and that are undistorted into the scene
   --random-seed N (0)
+  --open-turn                     the photos do not close a full turn (default: they do, and the closure gate applies)
 cameras, alicevision provider:
   --alicevision PATH              install prefix with bin/aliceVision_* (run directly), or a wrapper script called as
                                   `wrapper TOOL args` [CRISP3DS_ALICEVISION]
@@ -243,6 +262,9 @@ cameras, colmap provider:
   --colmap-overlap N (10)         --colmap-masks on|off (on: no features outside the masks)
   --colmap-max-features N (8192)  --colmap-cli auto|3|4 (auto: ask the executable; 3: SiftExtraction.* names; 4: FeatureExtraction.*)
   --colmap-extractor-option ARG, --colmap-matcher-option ARG, --colmap-mapper-option ARG   extra tokens; repeat
+cameras, turntable provider (our own solver for ordered turntable photos; docs/TURNTABLE-SOLVER.md):
+  --turntable-features N (6000)   most features kept per photo
+  --turntable-span N (4)          every photo is matched with this many successors
 cameras, markers provider (a printed mat under the object; docs/MARKER-MAT.md):
   --markers-mat FILE              description of the printed mat, as `crisp3ds-dense mat` writes it [CRISP3DS_MARKERS_MAT]
   --markers-minimum N (5)         a photo with fewer decoded markers gets no pose
@@ -260,7 +282,7 @@ quality gates (a failed gate means exit code 2 and no scene):
   --maximum-angular-gap-deg 30   --maximum-reversed-steps 0   --maximum-optical-axis-miss-percent 25
   --duplicate-step-deg 0.5 (warning only)";
 
-const SWITCHES: &[&str] = &["keep-intermediates", "sam-multimask", "sam-preserve-holes", "sam-automatic-cues"];
+const SWITCHES: &[&str] = &["open-turn", "keep-intermediates", "sam-multimask", "sam-preserve-holes", "sam-automatic-cues"];
 /// Options that may be given several times.
 const REPEATED: &[&str] =
     &["alicevision-sfm-option", "alicevision-env", "colmap-extractor-option", "colmap-matcher-option", "colmap-mapper-option"];
@@ -309,6 +331,9 @@ const VALUED: &[&str] = &[
     "colmap-matcher-option",
     "colmap-mapper-option",
     "markers-mat",
+    "turntable-features",
+    "turntable-span",
+    "turntable-matches",
     "markers-minimum",
     "markers-aspect",
     "sam-timeout",
@@ -458,9 +483,10 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
         (name, None) if name == "alicevision" => CameraChoice::AliceVision,
         (name, None) if name == "colmap" => CameraChoice::Colmap,
         (name, None) if name == "markers" => CameraChoice::Markers,
+        (name, None) if name == "turntable" => CameraChoice::Turntable,
         (name, Some(path)) if name == "import" && !path.is_empty() => CameraChoice::Import(absolute(&path)),
         (name, _) if name == "import" => bail!("--cameras import needs the solution: import:PATH (.sfm file or COLMAP model directory)"),
-        (name, _) => bail!("--cameras {name}: expected alicevision, colmap, markers or import:PATH (see --list-providers)"),
+        (name, _) => bail!("--cameras {name}: expected alicevision, colmap, turntable, markers or import:PATH (see --list-providers)"),
     };
     if let CameraChoice::Import(path) = &cameras {
         if !path.exists() {
@@ -510,6 +536,11 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
     if !(1..=256).contains(&threads) || !(1..=64).contains(&clahe_grid) {
         bail!("--threads must be 1..256 and --clahe-grid 1..64");
     }
+    let turntable = TurntableOptions {
+        features: integer("turntable-features", 6000)?.clamp(100, 100_000) as usize,
+        span: integer("turntable-span", 4)?.clamp(1, 32) as usize,
+        matches: text("turntable-matches").map(|p| absolute(&p)),
+    };
     let markers = MarkersOptions {
         mat: pick("markers-mat", "CRISP3DS_MARKERS_MAT").map(|p| absolute(&p)),
         minimum_per_photo: integer("markers-minimum", 5)?.clamp(1, 1000) as usize,
@@ -578,6 +609,8 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
         },
         colmap,
         markers,
+        turntable,
+        open_turn: switch("open-turn", false),
         random_seed: integer("random-seed", 0)?,
         timeouts: Timeouts {
             small: seconds("small-step-timeout", 600)?,
@@ -636,6 +669,8 @@ impl Options {
                 "sensor_database": av.sensor_database, "memory_gib": av.memory_gib, "initial_field_of_view": av.initial_field_of_view,
                 "describer_types": av.describer_types, "describer_preset": av.describer_preset, "matching_method": av.matching_method,
                 "sfm_option": av.sfm_option},
+            "turntable": {"features": self.turntable.features, "span": self.turntable.span, "matches": self.turntable.matches},
+            "open_turn": self.open_turn,
             "markers": {"mat": self.markers.mat, "minimum_per_photo": self.markers.minimum_per_photo, "aspect": self.markers.aspect,
                         "aspect_auto": self.markers.aspect_auto},
             "colmap": {"location": colmap.location, "cli": colmap.cli, "matching": colmap.matching, "overlap": colmap.overlap,
@@ -776,7 +811,7 @@ pub(crate) mod tests {
             (&["--masks", "magic"][..], "expected threshold, import:DIR or external-sam"),
             (&["--masks", "import"][..], "needs the folder"),
             (&["--masks", "import:/no/such/masks"][..], "is not a directory"),
-            (&["--cameras", "meshroom"][..], "expected alicevision, colmap, markers or import:PATH"),
+            (&["--cameras", "meshroom"][..], "expected alicevision, colmap, turntable, markers or import:PATH"),
             (&["--cameras", "import:/no/such.sfm"][..], "does not exist"),
             (&["--colmap-matching", "vocab"][..], "--colmap-matching"),
             (&["--threads", "two"][..], "needs an integer"),

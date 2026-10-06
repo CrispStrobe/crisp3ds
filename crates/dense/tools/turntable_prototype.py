@@ -69,6 +69,7 @@ def main():
     p.add_argument("--features", type=int, default=6000)
     p.add_argument("--span", type=int, default=4, help="match every photo with this many successors")
     p.add_argument("--contrast", type=float, default=0.01, help="SIFT contrast threshold")
+    p.add_argument("--export-matches", type=Path, help="write keypoints and matches as JSON (input of crisp3ds-dense photos --turntable-matches)")
     p.add_argument("--open-turn", action="store_true", help="the photos do not close a full turn: do not scale the steps to 360 degrees")
     args = p.parse_args()
     started = time.time()
@@ -102,6 +103,12 @@ def main():
             back = {m.queryIdx: m.trainIdx for m, q in matcher.knnMatch(descs[j], descs[i], k=2) if m.distance < 0.8 * q.distance}
             pairs[(i, j)] = np.array([(m.queryIdx, m.trainIdx) for m in fwd if back.get(m.trainIdx) == m.queryIdx], int).reshape(-1, 2)
     t_matching = time.time() - started - t_features
+
+    if args.export_matches:
+        args.export_matches.write_text(json.dumps({
+            "schema": "crisp3ds_turntable_matches_v1", "width": w, "height": h, "photos": names,
+            "keypoints": [np.round(k, 3).tolist() for k in keys],
+            "pairs": [{"first": i, "second": j, "matches": m.tolist()} for (i, j), m in pairs.items()]}, separators=(",", ":")))
 
     # One motion per step: essential matrix of each consecutive pair.
     axes, angles, centres, moved = [], [], [], []

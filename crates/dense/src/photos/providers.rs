@@ -119,8 +119,29 @@ pub const CAMERAS_MARKERS: Provider = Provider {
     default: false,
 };
 
-pub const PROVIDERS: [Provider; 7] =
-    [MASKS_THRESHOLD, MASKS_IMPORT, MASKS_EXTERNAL_SAM, CAMERAS_ALICEVISION, CAMERAS_COLMAP, CAMERAS_MARKERS, CAMERAS_IMPORT];
+pub const CAMERAS_TURNTABLE: Provider = Provider {
+    module: "cameras",
+    name: "turntable",
+    selector: "--cameras turntable",
+    summary: "Our own solver for one turn of ordered photos with a known lens: SIFT-class features, a repeated rotation as the start, bundle adjustment with free poses",
+    desktop: true,
+    mobile: true,
+    wasm: true,
+    external: &[],
+    license: "this crate (AGPL-3.0-only)",
+    default: false,
+};
+
+pub const PROVIDERS: [Provider; 8] = [
+    MASKS_THRESHOLD,
+    MASKS_IMPORT,
+    MASKS_EXTERNAL_SAM,
+    CAMERAS_ALICEVISION,
+    CAMERAS_COLMAP,
+    CAMERAS_TURNTABLE,
+    CAMERAS_MARKERS,
+    CAMERAS_IMPORT,
+];
 
 /// The provider table as JSON. `available` says whether this build can run the
 /// provider at all: external programs cannot be started from a browser build.
@@ -160,8 +181,10 @@ mod tests {
     fn the_table_lists_every_provider_once_with_one_default_per_module() {
         let table = listing();
         assert_eq!(table["schema"], "crisp3ds_photo_providers_v1");
-        let expected: [(&str, &[&str]); 2] =
-            [("masks", &["threshold", "import", "external-sam"]), ("cameras", &["alicevision", "colmap", "markers", "import"])];
+        let expected: [(&str, &[&str]); 2] = [
+            ("masks", &["threshold", "import", "external-sam"]),
+            ("cameras", &["alicevision", "colmap", "turntable", "markers", "import"]),
+        ];
         for (module, names) in expected {
             let rows = table[module].as_array().unwrap();
             assert_eq!(rows.iter().map(|r| r["name"].as_str().unwrap()).collect::<Vec<_>>(), names);

@@ -47,6 +47,7 @@ pub fn camera_provider(options: &Options) -> Box<dyn CameraProvider> {
         CameraChoice::AliceVision => Box::new(AliceVision),
         CameraChoice::Colmap => Box::new(Colmap),
         CameraChoice::Markers => Box::new(super::markers::provider::Markers),
+        CameraChoice::Turntable => Box::new(super::turntable::provider::Turntable),
         CameraChoice::Import(path) => Box::new(Import { path: path.clone() }),
     }
 }

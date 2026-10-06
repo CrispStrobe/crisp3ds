@@ -38,6 +38,7 @@ pub mod scene_writer;
 pub mod sheets;
 pub mod solution;
 pub mod staging;
+pub mod turntable;
 pub mod util;
 
 // Everything above is plain image processing and bookkeeping and builds for every target, the browser
