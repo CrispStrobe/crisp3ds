@@ -14,9 +14,9 @@ reference for what was ported, and is not extended.
 | Part | Where it runs |
 | --- | --- |
 | Photos to scene (`photos`): capture order, threshold masks, hole cleanup, contrast images, lens handling, audit and gates, undistortion, scene | this crate |
-| Camera providers `turntable` (our own solver), `markers` (printed mat), `import` | this crate |
+| Camera providers `turntable` (our own solver, the default), `markers` (printed mat), `import` | this crate |
 | Mask providers `threshold`, `import` | this crate |
-| Camera provider `colmap` (default) | external program: COLMAP (BSD-3-Clause), started as a child process |
+| Camera provider `colmap` | external program: COLMAP (BSD-3-Clause), started as a child process |
 | Camera provider `alicevision` | external programs: AliceVision (MPL-2.0), started as child processes |
 | Mask provider `external-sam` (default) | external program: SAM 2.1 in Python with PyTorch (Apache-2.0, BSD-3-Clause) |
 | Inputs from a scene (`inputs`), dense stereo (`stereo`, GPU), surface (`mesh`), photo check (`check`) | this crate |
@@ -435,6 +435,26 @@ Scanner F1 above the support at 0.5 %, same SAM masks, native dense stages:
 Every provider now also passes a closure gate: a capture is one closed turn
 unless `--open-turn` says otherwise, and what is left from the last photo to
 the first must be a step like the others.
+
+`turntable` is the default camera provider. With `--masks threshold` a run
+from photos therefore starts no other program (`--masks` itself still defaults
+to `external-sam`):
+
+```sh
+crisp3ds-dense run --photos data/bunny/rgb \
+  --calibration scripts/turntable_mesh/calibrations/3dlf-pro.json \
+  --masks threshold --output runs/bunny
+```
+
+One run per object, 73 photos, Apple M1 with 16 GB, scanner F1 at 0.5 %, 1 %
+and 2 % of the scan's diagonal:
+
+| Object | Whole run | Photos stage (cameras in it) | Stereo | Mesh | Check | F1, whole surface | F1, above the support |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Bunny | 93 s | 41 s (31 s) | 45 s | 5 s | 2 s | 0.905 / 0.938 / 0.953 | 0.967 / 0.997 / 1.000 |
+| Armadillo | 83 s | 42 s (32 s) | 35 s | 4 s | 2 s | 0.913 / 0.960 / 0.975 | 0.950 / 0.996 / 1.000 |
+| Dragon | 78 s | 33 s (23 s) | 39 s | 4 s | 2 s | 0.784 / 0.913 / 0.973 | 0.849 / 0.964 / 0.994 |
+| Lucy | 50 s | 23 s (13 s) | 25 s | 1 s | 1 s | 0.819 / 0.937 / 0.963 | 0.862 / 0.985 / 0.999 |
 
 ### Cameras from a printed mat: `--cameras markers`, `crisp3ds-dense mat`
 

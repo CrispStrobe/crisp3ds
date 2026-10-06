@@ -114,12 +114,33 @@ step, must not be below minus a quarter of the median step and not above
 first photo to the last, past a full turn"); the original files of that run
 were overwritten, so the gate was not run on them.
 
+## From photos to a scored STL in one command
+
+`crisp3ds-dense run --photos DIR --calibration scripts/turntable_mesh/calibrations/3dlf-pro.json
+--masks threshold --output RUN`, cameras left at the default: threshold masks,
+this solver, the dense stages, nothing else started. 73 photos each, Apple M1
+with 16 GB, one run per object; the scans are used for scoring only (F1 at
+0.5 %, 1 % and 2 % of the scan's diagonal).
+
+| Object | Whole run | Photos stage (cameras in it) | Stereo | Mesh | Check | F1, whole surface | F1, above the support |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Bunny | 93 s | 41 s (31 s) | 45 s | 5 s | 2 s | 0.905 / 0.938 / 0.953 | 0.967 / 0.997 / 1.000 |
+| Armadillo | 83 s | 42 s (32 s) | 35 s | 4 s | 2 s | 0.913 / 0.960 / 0.975 | 0.950 / 0.996 / 1.000 |
+| Dragon | 78 s | 33 s (23 s) | 39 s | 4 s | 2 s | 0.784 / 0.913 / 0.973 | 0.849 / 0.964 / 0.994 |
+| Lucy | 50 s | 23 s (13 s) | 25 s | 1 s | 1 s | 0.819 / 0.937 / 0.963 | 0.862 / 0.985 / 0.999 |
+
+All 73 photos registered every time and every gate passed. Above the support
+the scores equal those with SAM masks and the same cameras (0.966, 0.953,
+0.837, 0.860 at 0.5 %); over the whole surface the threshold masks keep the
+shadow at the base, as measured before. Sheets with the SAM-mask mesh beside
+each: `checkpoint-renders/photos-to-stl-native-<object>.png`.
+
 ## Limits and open points
 
 - **Turntables only.** A camera walking around an object at rest does not
   repeat one motion; that needs registration photo by photo, which is not
   written.
-- **Proposed as the default camera provider, not made it.** For: equal
+- **The default camera provider, on thin evidence.** For: equal
   scores, no external program, every platform, repeatable, three to ten times
   faster than COLMAP here. Against: it has been run on four objects from one
   camera, lens and turntable, all with 73 photos at 5 degree steps; the axis

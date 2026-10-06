@@ -61,11 +61,11 @@ application offers only those. All providers write the same event log
 
 | Provider | How | Desktop | Phone | Browser | Status |
 | --- | --- | --- | --- | --- | --- |
-| `alicevision` | external executables: features, matching, global SfM with a fixed lens | yes | no | no | Works. Native orchestration (`crisp3ds-dense photos --cameras alicevision`), executables started directly from an install prefix or through a wrapper; verified on the Bunny (see `crates/dense/README.md`). The Python orchestration remains as reference |
-| `colmap` | external executable: feature extraction, sequential matching, mapper with fixed intrinsics; model converted to the scene | yes | no | no | Implemented (`--cameras colmap`). Verified on four objects through the PyCOLMAP 3.11 library with the provider's own command lines: 73 of 73 photos registered each time, scanner F1 equal to or above `alicevision`. The `colmap` executable itself has not been run (none on the development machine); COLMAP 4 option names and ring matching are untested |
-| `import` | read an existing solution (AliceVision `.sfm`, COLMAP text or binary model) | yes | yes | yes | Works on desktop (`--cameras import:PATH`): `.sfm`, COLMAP text and binary. Reproduces the existing inputs of four objects exactly. The readers build for every target; the `photos` command is not yet built for browsers |
+| `turntable` | our own solver for ordered turntable photos with a known lens: features, tracks, bundle adjustment from a turntable initial guess | yes | yes | yes | Implemented (`--cameras turntable`; `docs/TURNTABLE-SOLVER.md`): pure Rust with its own SIFT, builds for wasm32, no random choice (two runs give identical files). Scanner F1 within 0.01 of `colmap` on four objects (+0.002, +0.001, -0.007, -0.005), above `alicevision` on all four, 13 to 24 s. Turntable captures only; verified on one camera and rig; not run in a browser. The default camera provider on every platform |
 | `markers` | printed mat with fiducials on the turntable; pose from marker corners | yes | yes | yes | Implemented (`--cameras markers`, `crisp3ds-dense mat`; `docs/MARKER-MAT.md`): pure Rust, builds for wasm32. Verified on rendered photos only (poses within 0.02 degrees and 0.25 mm of the truth down to 5 degrees elevation; an object reconstructed to 0.1 % of its size in millimetres). No printed mat has been photographed. Gives the scale (`scale` in `cameras.json`) and the handedness |
-| `turntable` | our own solver for ordered turntable photos with a known lens: features, tracks, bundle adjustment from a turntable initial guess | yes | yes | yes | Implemented (`--cameras turntable`; `docs/TURNTABLE-SOLVER.md`): pure Rust with its own SIFT, builds for wasm32, no random choice (two runs give identical files). Scanner F1 within 0.01 of `colmap` on four objects (+0.002, +0.001, -0.007, -0.005), above `alicevision` on all four, 13 to 24 s. Turntable captures only; verified on one camera and rig; not run in a browser. Proposed as default, not made it |
+| `colmap` | external executable: feature extraction, sequential matching, mapper with fixed intrinsics; model converted to the scene | yes | no | no | Implemented (`--cameras colmap`). Verified on four objects through the PyCOLMAP 3.11 library with the provider's own command lines: 73 of 73 photos registered each time, scanner F1 equal to or above `alicevision`. The `colmap` executable itself has not been run (none on the development machine); COLMAP 4 option names and ring matching are untested |
+| `alicevision` | external executables: features, matching, global SfM with a fixed lens | yes | no | no | Works. Native orchestration (`crisp3ds-dense photos --cameras alicevision`), executables started directly from an install prefix or through a wrapper; verified on the Bunny (see `crates/dense/README.md`). The Python orchestration remains as reference |
+| `import` | read an existing solution (AliceVision `.sfm`, COLMAP text or binary model) | yes | yes | yes | Works on desktop (`--cameras import:PATH`): `.sfm`, COLMAP text and binary. Reproduces the existing inputs of four objects exactly. The readers build for every target; the `photos` command is not yet built for browsers |
 | `device` | poses recorded by ARKit or ARCore during capture | no | yes | no | Later, with capture |
 
 Camera recovery by AliceVision's global SfM is not repeatable (about 0.7
@@ -128,7 +128,8 @@ process, in a local engine, or on another machine.
    test objects through the dense stages.
 4. Browser build of the dense stages.
 5. `markers` provider (mat design, detection, pose, scale).
-6. `turntable` provider: prototype against the test objects, then Rust.
+6. `turntable` provider: prototype against the test objects, then Rust; the
+   default camera provider since it matched `colmap` on four objects.
 7. Native SAM (ggml or ONNX), if step 2 shows masks need it.
 8. Photo upload and capture for phones; signed releases.
 

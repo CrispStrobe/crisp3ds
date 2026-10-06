@@ -30,6 +30,28 @@ that does, or play back recorded runs.
 
 ## From photos to a mesh
 
+The native program (`crates/dense`, Rust and WebGPU) goes from a folder of
+turntable photos and a lens calibration to a closed STL in one command, with
+no Python and no other program:
+
+```sh
+cargo build --release -p crisp3ds-dense
+crisp3ds-dense run --photos data/bunny/rgb \
+  --calibration scripts/turntable_mesh/calibrations/3dlf-pro.json \
+  --masks threshold --output runs/bunny
+```
+
+Cameras come from our own turntable solver (the default of `--cameras`).
+`--masks threshold` has to be given: the default mask provider is still
+`external-sam`, which starts SAM 2.1 in Python and is better at the object's
+base. On the 3DLF Bunny (73 photos, Apple M1 with 16 GB) the command takes
+93 seconds and the STL scores 0.967 / 0.997 / 1.000 above the support against
+an independent scan; the Armadillo, Dragon and Lucy take 83, 78 and 50
+seconds. Numbers per stage are in the [crate README](crates/dense/README.md)
+and the solver in [`docs/TURNTABLE-SOLVER.md`](docs/TURNTABLE-SOLVER.md).
+
+The Python package is the reference the native program was ported from:
+
 ```sh
 export PYTHONPATH=$PWD
 pip install -r scripts/turntable_mesh/requirements-dense.txt

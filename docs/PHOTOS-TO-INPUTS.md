@@ -13,10 +13,17 @@ contrast images, gates, sheets, events) and is described in the second half.
 crisp3ds-dense photos --photos data/bunny/rgb \
   --calibration scripts/turntable_mesh/calibrations/3dlf-pro.json \
   --output runs/bunny-front \
-  --masks threshold --cameras colmap            # or: --cameras alicevision --alicevision /opt/alicevision
+  --masks threshold                             # cameras: turntable unless --cameras says otherwise
 crisp3ds-dense run --inputs runs/bunny-front/inputs --output runs/bunny-dense
 crisp3ds-dense photos --list-providers      # the table below, as JSON
 ```
+
+With `--masks threshold` and the default cameras no other program is started:
+photos and a lens calibration go in, masks, cameras and undistorted photos
+come out, on any platform. `--masks` still defaults to `external-sam` (see
+below for why), so the flag has to be given. `crisp3ds-dense run --photos DIR
+--calibration JSON --masks threshold --output RUN` does this step and the
+dense stages in one command.
 
 ```
 masks    stage photos, coarse masks -> MASK PROVIDER -> dark-hole cleanup -> masks/, contact sheet
@@ -65,10 +72,10 @@ it used. It does not undistort anything.
 
 | `--cameras` | What it does | Needs | License | Desktop / phone / browser |
 | --- | --- | --- | --- | --- |
-| `colmap` (default) | `feature_extractor` with one shared `FULL_OPENCV` camera fixed to the declared lens and the masks as COLMAP masks, `exhaustive_matcher` (or `sequential_matcher`, or `matches_importer` on a closed ring of pairs), `mapper` with focal length, principal point and distortion not refined | a COLMAP executable (`--colmap`, or `colmap` on the `PATH`) | BSD-3-Clause; dependencies carry their own | yes / no / no |
-| `alicevision` | `cameraInit`, `featureExtraction` inside the masks, `imageMatching`, `featureMatching`, `globalSfM --lockAllIntrinsics true`: the commands of the reference | AliceVision executables (`--alicevision`) | MPL-2.0 (parts derived from libmv MIT); dependencies carry their own | yes / no / no |
-| `turntable` | our own solver for one turn of ordered turntable photos ([`TURNTABLE-SOLVER.md`](TURNTABLE-SOLVER.md)): SIFT features in the masks, one rotation about a fixed axis fitted to all consecutive pairs, tracks, bundle adjustment with free poses and the lens fixed. Repeatable; `--open-turn` for photos that do not close a turn | nothing | this crate | yes / yes / yes |
+| `turntable` (default) | our own solver for one turn of ordered turntable photos ([`TURNTABLE-SOLVER.md`](TURNTABLE-SOLVER.md)): SIFT features in the masks, one rotation about a fixed axis fitted to all consecutive pairs, tracks, bundle adjustment with free poses and the lens fixed. Repeatable; `--open-turn` for photos that do not close a turn | nothing | this crate | yes / yes / yes |
 | `markers` | a printed mat of ArUco markers under the object ([`MARKER-MAT.md`](MARKER-MAT.md)): markers detected in every photo, a pose per photo from all visible corners, the scene in the mat's millimetres and handedness. Verified on rendered photos only | the mat's description (`--markers-mat`, written by `crisp3ds-dense mat`) | this crate; marker codes of OpenCV's `DICT_4X4_50` | yes / yes / yes |
+| `colmap` | `feature_extractor` with one shared `FULL_OPENCV` camera fixed to the declared lens and the masks as COLMAP masks, `exhaustive_matcher` (or `sequential_matcher`, or `matches_importer` on a closed ring of pairs), `mapper` with focal length, principal point and distortion not refined | a COLMAP executable (`--colmap`, or `colmap` on the `PATH`) | BSD-3-Clause; dependencies carry their own | yes / no / no |
+| `alicevision` | `cameraInit`, `featureExtraction` inside the masks, `imageMatching`, `featureMatching`, `globalSfM --lockAllIntrinsics true`: the commands of the reference | AliceVision executables (`--alicevision`) | MPL-2.0 (parts derived from libmv MIT); dependencies carry their own | yes / no / no |
 | `import:PATH` | reads an existing solution: an AliceVision `.sfm` file, or a COLMAP model directory (`cameras`, `images`, `points3D` as `.bin` or `.txt`, also below `sparse/0`). Its photos may be named like the originals or `capture_NNNN.png` | nothing | this crate | yes / yes / yes |
 
 AliceVision is given as an install prefix or as a wrapper:
