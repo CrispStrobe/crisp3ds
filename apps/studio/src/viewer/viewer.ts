@@ -264,8 +264,10 @@ export class Viewer {
    * background. Zero with a mesh loaded means the surface is not being drawn (a GPU or driver
    * that renders nothing), which a screenshot alone would not tell.
    */
-  probe(): { samples: number; surface: number } {
+  probe(): { samples: number; surface: number; picture: string } {
     this.renderer.render(this.scene, this.camera);
+    // Read in the same task as the render, while the drawing buffer still holds the frame.
+    const picture = this.renderer.domElement.toDataURL("image/png");
     const gl = this.renderer.getContext();
     const width = gl.drawingBufferWidth;
     const height = gl.drawingBufferHeight;
@@ -280,7 +282,7 @@ export class Viewer {
         if (Math.abs(pixel[0]! - background[0]!) + Math.abs(pixel[1]! - background[1]!) + Math.abs(pixel[2]! - background[2]!) > 12) surface += 1;
       }
     }
-    return { samples: (steps - 1) * (steps - 1), surface };
+    return { samples: (steps - 1) * (steps - 1), surface, picture };
   }
 
   private render(): void {

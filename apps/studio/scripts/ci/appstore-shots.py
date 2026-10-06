@@ -7,8 +7,9 @@ project's own data): nothing is drawn, composited onto a device frame or retouch
 
 - iPhone and iPad: the simulator's own screenshots, kept as they are when they already have
   a size App Store Connect accepts (6.9"/6.7" iPhone, 13" iPad).
-- Mac: the app's window, scaled to fit 2880x1800 (the largest Mac size) and centred on the
-  app's own background colour, because a window capture has whatever size the window had.
+- Mac: the app's window, centred on the app's own background colour on the largest Mac size
+  it fills without being enlarged by more than a third (a window capture has whatever size
+  the window had, and a CI display is small).
 
 Writes <out>/<display type>/<nn>-<screen>.png and <out>/manifest.json, and fails when a
 picture has a size Apple does not take or a screen is missing.
@@ -24,7 +25,9 @@ SCREENS = ["run", "surface", "sheets", "runs", "new-run"]
 # Display types of App Store Connect and the sizes each accepts (portrait first).
 IPHONE = {"APP_IPHONE_67": [(1320, 2868), (1290, 2796)]}
 IPAD = {"APP_IPAD_PRO_3GEN_129": [(2064, 2752), (2048, 2732)]}
-MAC_SIZE = (2880, 1800)
+# Sizes App Store Connect takes for the Mac. The largest one the window fits without being
+# blown up by more than a third is used: a CI display is small, and a stretched window is blurry.
+MAC_SIZES = [(2880, 1800), (2560, 1600), (1440, 900), (1280, 800)]
 MAC_BACKGROUND = (0x16, 0x1A, 0x21)
 
 checks, out = Path(sys.argv[1]), Path(sys.argv[2])
@@ -64,7 +67,8 @@ for number, screen in enumerate(SCREENS, 1):
         problems.append(f"missing {source.name}")
         continue
     window = Image.open(source).convert("RGB")
-    scale = min(MAC_SIZE[0] * 0.94 / window.width, MAC_SIZE[1] * 0.94 / window.height, 1.0)
+    MAC_SIZE = next((size for size in MAC_SIZES if min(size[0] * 0.94 / window.width, size[1] * 0.94 / window.height) <= 1.34), MAC_SIZES[-1])
+    scale = min(MAC_SIZE[0] * 0.94 / window.width, MAC_SIZE[1] * 0.94 / window.height, 1.34)
     window = window.resize((round(window.width * scale), round(window.height * scale)), Image.LANCZOS)
     canvas = Image.new("RGB", MAC_SIZE, MAC_BACKGROUND)
     canvas.paste(window, ((MAC_SIZE[0] - window.width) // 2, (MAC_SIZE[1] - window.height) // 2))

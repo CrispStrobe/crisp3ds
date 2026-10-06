@@ -207,9 +207,26 @@
       // Scrolls so that `element` is just below the sticky top bar, whichever element scrolls.
       const show = (element) => {
         if (!element) return;
+        element.scrollIntoView({ block: "start" });
         const bar = document.querySelector(".topbar")?.getBoundingClientRect().bottom ?? 0;
-        const scroller = document.scrollingElement ?? document.documentElement;
-        scroller.scrollTop += element.getBoundingClientRect().top - bar - 12;
+        window.scrollBy(0, element.getBoundingClientRect().top - bar - 12);
+      };
+      // A window capture on a virtual GPU (CI runners) can miss the WebGL layer although the
+      // frame was drawn (the probe reads it back). The frame the GPU drew is laid over the
+      // canvas as a picture, so the screenshot shows it. Debug builds only, like this script.
+      const still = () => {
+        const canvas = document.querySelector(".viewer canvas");
+        const shot = window.__crisp3dsProbe?.();
+        if (!canvas || !shot?.picture || shot.surface === 0) return;
+        let image = document.querySelector("img.autopilot-still");
+        if (!image) {
+          image = document.createElement("img");
+          image.className = "autopilot-still";
+          image.alt = "";
+          image.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none";
+          canvas.parentElement.append(image);
+        }
+        image.src = shot.picture;
       };
       // Held until the driver says it has the picture (it creates ack-<name>), or `hold` passes.
       const mark = async (name) => {
@@ -219,8 +236,10 @@
         if (!acknowledged) await sleep(hold);
       };
       (document.scrollingElement ?? document.documentElement).scrollTop = 0;
+      still();
       await mark("run");
       show(document.querySelector(".mesh-panel"));
+      still();
       await mark("surface");
       show(document.querySelector(".gallery"));
       await mark("sheets");
