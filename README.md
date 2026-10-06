@@ -238,7 +238,7 @@ integration; see the [active roadmap](docs/SOTA-ROADMAP.md) and [actual status](
 
 ## License
 
-Original Crisp3DS project code is licensed under [GNU AGPL v3 only](LICENSE) (`AGPL-3.0-only`). Third-party code, assets, and datasets retain their own licenses and attribution requirements; the project license does not relicense them. The dependency-selection policy and exact shipped dependency/source-bundle audit remain separate release gates. Distribution through the Apple App Store or another store still requires a separate compatibility and compliance review. `apps/desktop/package.json` remains `private: true` because npm publication is unrelated to GitHub repository visibility.
+Original Crisp3DS project code is licensed under [GNU AGPL v3 only](LICENSE) (`AGPL-3.0-only`). Third-party code, assets, and datasets retain their own licenses and attribution requirements; the project license does not relicense them. The dependency-selection policy and exact shipped dependency/source-bundle audit remain separate release gates. As sole copyright holder, the author also distributes official store builds (App Store, Mac App Store, Google Play) under the stores' terms; this additional permission under AGPL-3.0 section 7 is stated in [NOTICE](NOTICE), applies only to binaries published by the copyright holder, and does not change the AGPL rights to the source. Store builds contain no third-party GPL, LGPL or AGPL code. `apps/desktop/package.json` remains `private: true` because npm publication is unrelated to GitHub repository visibility.
 
 Every library, engine and dataset the pipeline and the apps depend on is listed
 with its license in the [pipeline README](scripts/turntable_mesh/README.md#dependencies-and-licenses)

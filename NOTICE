@@ -1,0 +1,39 @@
+Crisp3DS (Crisp 3D Studio)
+Copyright (C) 2026 Christian Ströbele
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License, version 3 only
+(AGPL-3.0-only). See the LICENSE file for the full text, or
+<https://www.gnu.org/licenses/agpl-3.0.html>.
+
+
+App Store / Google Play additional permission (AGPL-3.0 section 7)
+------------------------------------------------------------------
+As the sole copyright holder of the original Crisp3DS source code, the author
+additionally distributes official binary builds of Crisp 3D Studio through app
+stores (e.g. the Apple App Store, the Mac App Store and Google Play) under
+those stores' standard distribution terms and end-user license agreements.
+
+This dual availability is permitted because the author owns the copyright to
+all AGPL-3.0-licensed code in this project. It does not restrict the rights
+granted to you for the source code under the AGPL-3.0: you remain free to use,
+study, modify, and redistribute the source under that license.
+
+This permission applies only to binaries published by the copyright holder.
+Third parties redistributing this software remain bound by the AGPL-3.0.
+
+
+Third-party components
+----------------------
+Third-party libraries keep their own licenses; this project does not relicense
+them. Store builds contain only permissively licensed third-party code (MIT,
+Apache-2.0, BSD-2/3-Clause, ISC, Zlib, Unicode-3.0, 0BSD, CC0-1.0, BSL-1.0,
+Unlicense) and four MPL-2.0 crates (cssparser, selectors, dtoa-short,
+option-ext), whose source is available from their published repositories. No
+third-party GPL, LGPL or AGPL code is linked into a store build. The exact list
+with versions and license texts is in apps/studio/docs/THIRD-PARTY-LICENSES.md
+and is viewable in the app under Licenses.
+
+External programs that the desktop app can optionally start (AliceVision,
+MPL-2.0; COLMAP, BSD-3-Clause; SAM 2.1 through PyTorch, Apache-2.0 and BSD) are
+not part of any store build.
