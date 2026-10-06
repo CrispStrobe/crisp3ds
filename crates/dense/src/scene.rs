@@ -222,7 +222,10 @@ pub fn pack(source: &Path, output: Option<&Path>, link: bool) -> anyhow::Result<
                     std::fs::hard_link(&from, &to).is_ok()
                 };
                 #[cfg(target_arch = "wasm32")]
-                let done = false;
+                let done = {
+                    let _ = link;
+                    false
+                };
                 if done {
                     linked += 1;
                 } else {
