@@ -1192,6 +1192,82 @@ other work (load average 15 to 23 on 8 cores), so absolute times are high:
 Threads take 27 % off the whole run here, and stereo, single-threaded in both,
 is now the larger part. On an idle machine the default package took 250 s.
 
+### Where stereo's time goes in a browser
+
+Profiled on the Bunny's scene (73 views), dense stages only, the threaded
+package in headless Chrome with a performance trace (`test/run.mjs --trace`),
+on a quiet machine (load average 2 to 6), against the native run of the same
+inputs with four threads:
+
+| | Native | Browser |
+| --- | --- | --- |
+| Dense stages | 51 s | 88 s |
+| Stereo | 43.9 s | 73.5 s |
+| Matching levels (sizes 256, 512 twice, 880) | 4.4, 13.3, 10.5 s | 6.5, 22.0, 20.8 s |
+| Silhouette hull | 1.1 s | 3.8 s |
+| Fusion | 0.7 s | 1.7 s |
+
+The earlier 270 s for stereo were measured while other jobs held the machine
+(load 15 to 40); the gap on a quiet machine is 1.7 times, not 6.
+
+The trace shows the engine's worker thread busy for 50.9 s of the 73.5 s and
+idle for 22.5 s, in 19 453 gaps, 19 329 of them shorter than 5 ms. The idle
+time is the wait for the GPU before each view's depth readback: the GPU
+process's own thread is busy for only 2.1 s, so the wait is GPU execution
+that nothing on the CPU overlaps. Inside the gaps run 12 732 command-buffer
+flushes and 12 037 IPC messages: one per `queue.submit`, and `Gpu::run`
+submits once per dispatch. Under load (the same runs side by side), the CPU
+passes between kernels take the rest: initial surfaces 38 s (native 4.3 s),
+cross-view agreement 12 s (native 1.1 s), mask repair with its hulls 25 s
+(native 6.1 s). They all go through `inputs::parallel_map`, which is a plain
+loop on wasm32 even in the threaded package, so threads did not shorten
+stereo at all (the threaded run's stereo took as long as the default one).
+
+Proposals, largest expected gain first:
+
+1. **`inputs::parallel_map` on rayon in the threaded package** (the same
+   `cfg(target_feature = "atomics")` branch as `photos::util::parallel`). It
+   covers initial surfaces, cross-view agreement, mask repair, hull dilation
+   and bounds, `.npz` deflate, the check and the scene, about 25 to 30 s of
+   the quiet browser run on one thread; with four workers about 18 to 22 s
+   less. One function in `src/inputs.rs`; the closures must not read files
+   the host hands over lazily (below).
+2. **CPU and GPU in parallel across views.** Today each view is dispatched,
+   read back and only then the next started, so the 22.5 s of GPU time and
+   the CPU work add up. Submitting view i+1 before reading view i back (two
+   sets of work buffers in the matcher), and computing the next group's
+   initial surfaces while the GPU runs, hides most of the shorter of the two:
+   up to 15 to 20 s. Larger change in `stereo/levels.rs` and
+   `stereo/matcher.rs`; GPU memory for a second set of work buffers.
+3. **One submit per view instead of one per dispatch.** `Gpu::run` creates a
+   command encoder and submits for every dispatch; a matcher pass encodes
+   tens of dispatches per view. Recording them into one encoder and
+   submitting once per view cuts about 12 700 flushes to about 400. Expected
+   a few seconds of the engine thread's busy time (each flush and its IPC
+   costs well under a millisecond), and less latency before the GPU starts.
+4. **Readbacks** are already one per view and pass (the depth map) plus one
+   per chunk in the hull and fusion; batching them further gains little
+   once 2 overlaps them with work.
+5. **`.npz` encoding** after fusion is the 470 MiB memory peak; the
+   in-memory hand-off of the volume to the surface stage (in progress)
+   removes the encoding from the browser path.
+
+**Pool workers and files handed over lazily.** A JavaScript callback can be
+called only on the thread that registered it, so a pool worker cannot read a
+photo kept in JavaScript, and the threaded package keeps photos and scene in
+WebAssembly memory instead. The smallest change that lifts this: read inputs
+on the calling thread and hand the bytes to the pool. In the photos stage only
+the `coarse` step reads the original photos (later steps read files the stage
+wrote itself, which are in the tree), so a variant
+`parallel_with_input(count, threads, load, work, watch)` of
+`photos::util::parallel`, where `load(index)` reads the bytes on the calling
+thread for the next batch and `work(index, bytes)` decodes them on the pool,
+used by `staging::step_coarse_with`, is enough for the photos; for the scene,
+the dense stages already load every view once in `inputs::load` on the
+calling thread, so with proposal 1 the closures of `parallel_map` must keep
+working on what was loaded and not open files themselves (the check stage's
+panels are the one place to look at).
+
 What a production browser build still lacks:
 
 - **Threads.** The default package is single-threaded. The threaded package

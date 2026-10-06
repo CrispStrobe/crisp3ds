@@ -6,6 +6,7 @@
 //   [--channel chrome]   an installed Google Chrome instead of Playwright's Chromium
 //   [--isolated]         cross-origin isolation headers: the threaded package is used if built
 //   [--threads N]        workers of the threaded package (default: cores, at most 4; 1 forces single-threaded)
+//   [--trace FILE]       a Chrome performance trace of the run
 //
 // INPUTS_DIR is an inputs directory (cameras.json, masks, sparse_points.npy; photos may
 // lie elsewhere, as absolute paths in cameras.json). The server hands the page a copy
@@ -131,6 +132,15 @@ const sampler = setInterval(sampleMemory, 1000);
 const query = new URLSearchParams({ base: "scene", options, keep, upload: "upload", mode: photosDir ? "photos" : "inputs" });
 if (args.includes("--threads")) query.set("threads", value("--threads"));
 const started = Date.now();
+// --trace FILE records a Chrome performance trace of the whole run (threads, tasks, GPU), for
+// chrome://tracing or the Performance panel. Large: about 1 MB per second of run.
+const tracePath = value("--trace", null);
+if (tracePath) {
+  await browser.startTracing(page, {
+    path: resolve(tracePath),
+    categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "v8", "v8.execute", "blink.user_timing", "gpu", "toplevel", "disabled-by-default-webgpu"],
+  });
+}
 await page.goto(`${origin}/index.html?${query}`);
 let state;
 try {
@@ -144,6 +154,7 @@ try {
 }
 clearInterval(sampler);
 sampleMemory();
+if (tracePath) await browser.stopTracing();
 await browser.close();
 server.close();
 

@@ -17,6 +17,9 @@ if (typeof window === "undefined") {
   self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
   self.addEventListener("fetch", (event) => {
     const request = event.request;
+    // Only documents, scripts and data the page loads need the headers; uploads (POST with a
+    // body stream) are left to the browser, which a re-issued fetch would break.
+    if (request.method !== "GET") return;
     if (request.cache === "only-if-cached" && request.mode !== "same-origin") return;
     event.respondWith(
       fetch(request).then((response) => {
