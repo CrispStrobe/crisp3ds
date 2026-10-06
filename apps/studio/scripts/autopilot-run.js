@@ -13,7 +13,8 @@
 (async () => {
   const internals = window.__TAURI_INTERNALS__;
   const log = (line) => internals.invoke("autopilot_log", { line: String(line) });
-  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  // Pauses are timed by the shell: a hidden web view slows or stops its own timers.
+  const sleep = (ms) => internals.invoke("autopilot_sleep", { ms });
   const violations = [];
   document.addEventListener("securitypolicyviolation", (event) => {
     violations.push(`${event.violatedDirective}: ${event.blockedURI}`);
@@ -37,9 +38,25 @@
     input.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
-  const SETTINGS = {
+  // A wrapper may set window.AUTOPILOT before this script: { settings: {...} or null for the
+  // defaults, cancel: true to cancel the run once its first surface shows, linger: ms }.
+  const options = window.AUTOPILOT ?? {};
+  const SMALL = {
     sizes: "64, 128", grid: "96", planes: "48", neighbours: "4", best_of: "2", vote_neighbours: "4",
     min_votes: "2, 2", crop_padding: "6", hull_dilate: "1", windows: "5, 7", aggregates: "1, 1",
+  };
+  const SETTINGS = options.settings === undefined ? SMALL : (options.settings ?? {});
+  // The longest stretch the page could not run a timer: a measure of responsiveness.
+  let stall = 0;
+  let tick = performance.now();
+  setInterval(() => {
+    const now = performance.now();
+    stall = Math.max(stall, now - tick - 100);
+    tick = now;
+  }, 100);
+  const memory = async () => {
+    const [, peak] = await internals.invoke("autopilot_memory");
+    return `${Math.round(peak / 1e6)} MB peak resident`;
   };
 
   try {
@@ -70,32 +87,68 @@
     for (const [name, value] of Object.entries(SETTINGS)) type(`#s-${name}`, value);
     type("#f-name", "native app check");
     const device = document.querySelector("#f-device");
-    device.value = "cpu";
-    device.dispatchEvent(new Event("change", { bubbles: true }));
+    if (device) {
+      device.value = "cpu";
+      device.dispatchEvent(new Event("change", { bubbles: true }));
+    }
     // Let the form re-render: the submit handler must see what was just typed.
     await sleep(500);
     const changed = one(".settings-head .sub").textContent.trim();
-    await log(`form: ${changed}, device ${document.querySelector("#f-device").value}`);
-    if (!changed.startsWith(String(Object.keys(SETTINGS).length))) throw new Error("the settings did not take");
+    await log(`form: ${changed}, device ${device ? device.value : "chosen by the engine"}`);
+    const expected = Object.keys(SETTINGS).length;
+    if (expected > 0 && !changed.startsWith(String(expected))) throw new Error("the settings did not take");
     one("button[type=submit]", "Start run").click();
 
     await until("the run view", () => location.hash.startsWith("#/engine/run/"), 30000);
     await log(`run started: ${decodeURIComponent(location.hash.split("/").pop())}`);
     let lastSurface = "";
+    let cancelled = false;
+    let firstSurface = true;
+    let worst = 0;
+    let sheets = 0;
+    const began = Date.now();
+    const seconds = () => `${Math.round((Date.now() - began) / 1000)} s`;
     await until(
       "the run to finish",
       () => {
         const surface = document.querySelector("#mesh-heading + .sub")?.textContent ?? "";
         if (surface && surface !== lastSurface) {
           lastSurface = surface;
-          log(`surface on screen: ${surface}`);
+          log(`surface on screen: ${surface} (${seconds()}; longest page stall since the last line ${Math.round(stall)} ms)`);
+          worst = Math.max(worst, firstSurface ? 0 : stall);
+          firstSurface = false;
+          stall = 0;
+          if (options.cancel && !cancelled && surface.includes("triangles")) {
+            cancelled = true;
+            one("button", "Cancel run")?.click();
+            log("cancel requested with the Cancel run button");
+          }
+        }
+        const shown = document.querySelectorAll(".sheet").length;
+        if (shown !== sheets) {
+          sheets = shown;
+          log(`sheets on screen: ${shown} (${seconds()})`);
         }
         const badge = document.querySelector(".run-meta .badge")?.textContent;
         return badge && badge !== "Running" && badge !== "Waiting";
       },
-      600000,
+      Number(options.timeout ?? 900000),
     );
     const status = document.querySelector(".run-meta .badge").textContent;
+    await log(`run ${status} after ${seconds()}; ${await memory()}; longest page stall while it ran ${Math.round(Math.max(worst, stall))} ms (after the first surface)`);
+    if (options.cancel) {
+      await sleep(500);
+      await log(`notice: ${one(".notice", "cancelled")?.textContent.trim().slice(0, 80)}`);
+      await log(`CSP violations: ${violations.length === 0 ? "none" : violations.join(" | ")}`);
+      await log(status === "Cancelled" ? "AUTOPILOT DONE ok" : "AUTOPILOT DONE with problems");
+      await internals.invoke("autopilot_quit", { afterMs: Number(options.linger ?? 6000) });
+      return;
+    }
+    const finalButton = one("button", "Load final");
+    if (finalButton) {
+      await log(`final mesh waits for its button: ${finalButton.textContent.trim()}`);
+      finalButton.click();
+    }
     await until("the final surface", () => (document.querySelector("#mesh-heading + .sub")?.textContent ?? "").includes("Final surface"), 60000);
     await sleep(1500);
     const images = [...document.querySelectorAll(".sheet img")];
@@ -112,7 +165,6 @@
     await log(`CSP violations: ${violations.length === 0 ? "none" : violations.join(" | ")}`);
     await log(`AUTOPILOT FAILED: ${problem.message}`);
   }
-  const linger = Number(new URLSearchParams(location.search).get("linger") ?? window.AUTOPILOT_LINGER ?? 15000);
-  await sleep(linger);
-  await internals.invoke("autopilot_quit");
+  const linger = Number(options.linger ?? 15000);
+  await internals.invoke("autopilot_quit", { afterMs: linger });
 })();

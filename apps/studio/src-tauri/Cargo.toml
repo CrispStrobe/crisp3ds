@@ -18,21 +18,43 @@ tauri-build = { version = "=2.6.3", features = [] }
 tauri = { version = "=2.11.6", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# The reconstruction itself, in this process: no Python, no child process.
+crisp3ds-dense = { path = "../../../crates/dense", optional = true }
+anyhow = { version = "1", optional = true }
 
-# The engine child process and the native pickers exist on desktop only.
+# Native pickers, and the token of the optional external Python engine, exist on desktop only.
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-tauri-plugin-dialog = { version = "2", optional = true }
+tauri-plugin-dialog = "2"
 getrandom = { version = "0.3", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
 [features]
-# The desktop app starts the engine as a child process. Mac App Store builds are sandboxed and
-# cannot do that: build them with --no-default-features to get the client-only variant
-# (the same as on phones: connect to an engine elsewhere, or play the demo).
-default = ["local-engine"]
-local-engine = ["dep:tauri-plugin-dialog", "dep:getrandom"]
+# native-engine: the reconstruction runs inside the app (crates/dense, WebGPU through wgpu).
+# local-engine:  desktop only; the app can also start the Python engine as a child process
+#                ("External Python engine": the photos start and comparisons). Not possible
+#                in the App Sandbox, so store builds use --no-default-features --features native-engine.
+# Without either the app is a client: an engine elsewhere, recorded runs, the demo.
+default = ["native-engine", "local-engine"]
+native-engine = ["dep:crisp3ds-dense", "dep:anyhow"]
+local-engine = ["dep:getrandom"]
+
+# The pipeline is far too slow unoptimised to try anything real in a debug build.
+[profile.dev.package.crisp3ds-dense]
+opt-level = 3
+[profile.dev.package.image]
+opt-level = 3
+[profile.dev.package.png]
+opt-level = 3
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+[profile.dev.package.fdeflate]
+opt-level = 3
+[profile.dev.package.rayon]
+opt-level = 3
+[profile.dev.package.rayon-core]
+opt-level = 3
 
 [profile.release]
 strip = true

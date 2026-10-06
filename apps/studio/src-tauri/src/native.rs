@@ -1,0 +1,904 @@
+//! The built-in engine: `crates/dense` running inside this process.
+//!
+//! This is the "Local (desktop shell)" row of `docs/ENGINE-CONTRACT.md`. A run is a
+//! directory under the runs folder; the pipeline runs on a worker thread through the
+//! crate's library API with a cancel flag; `events.jsonl` on disk is the only source of
+//! truth, and the web view reads it line by line exactly as it would from an HTTP engine.
+//! Nothing here starts a process.
+//!
+//! Everything the web view can name is a path *relative* to the runs folder or the data
+//! folder and is checked to stay inside it. The one exception is a path the user picked
+//! in a native dialog during this session, which is remembered as granted.
+
+use std::collections::{HashMap, HashSet};
+use std::io::Write;
+use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc, Mutex};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use crisp3ds_dense::run::RunOptions;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Map, Value};
+
+const EVENTS: &str = "events.jsonl";
+/// Written into a run directory by this process, so that a later start can tell a run it
+/// lost (app quit or crashed) from one that somebody else is still writing.
+const MARKER: &str = "studio-run.json";
+const SETTINGS_SCHEMA: &str = include_str!("../settings-schema.json");
+
+/// How a run may start, as data: the "New run" form is built from this list, so a start
+/// from plain photos with a choice of mask and camera providers can be added here later
+/// (`providers`, see docs/ARCHITECTURE.md) without touching the form.
+const START_POINTS: &str = r#"[
+  {"id": "inputs", "label": "Inputs folder",
+   "meaning": "A folder with cameras.json, the undistorted photos and their masks.",
+   "fields": [{"key": "inputs", "label": "Inputs folder", "kind": "inputs", "required": true,
+               "help": "A folder with cameras.json, the photos and their masks."}],
+   "providers": []},
+  {"id": "scene", "label": "Camera solution, images and masks",
+   "meaning": "An AliceVision solution with its prepared images and one raw mask per photo.",
+   "fields": [{"key": "scene", "label": "Camera solution (.sfm)", "kind": "file", "required": true,
+               "help": "AliceVision SfM file with poses and one radialk3 lens."},
+              {"key": "prepared", "label": "Prepared images", "kind": "folder", "required": true,
+               "help": "Undistorted images named <viewId>.png."},
+              {"key": "raw_masks", "label": "Raw masks", "kind": "folder", "required": true,
+               "help": "One 0/255 mask per source photo, named like the photo."}],
+   "providers": []}
+]"#;
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RunSummary {
+    pub id: String,
+    pub status: String,
+    pub started: Option<f64>,
+    pub stage: Option<String>,
+    pub stage_fraction: f64,
+    pub events: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DataEntry {
+    pub name: String,
+    pub directory: bool,
+    pub inputs: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DataListing {
+    pub path: String,
+    pub entries: Vec<DataEntry>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct EventPage {
+    pub events: Vec<Value>,
+    pub next: usize,
+}
+
+/// Body of a start request: the same shape as `POST /api/runs` of the HTTP engine.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct StartBody {
+    pub name: Option<String>,
+    pub inputs: Option<String>,
+    pub scene: Option<String>,
+    pub prepared: Option<String>,
+    pub raw_masks: Option<String>,
+    pub settings: Map<String, Value>,
+    pub reference: Option<String>,
+    /// Accepted and ignored: the built-in engine uses the system's GPU through wgpu.
+    pub device: Option<String>,
+}
+
+struct Active {
+    cancel: Arc<AtomicBool>,
+    done: Arc<AtomicBool>,
+}
+
+#[derive(Default)]
+struct Folders {
+    runs: PathBuf,
+    data: PathBuf,
+}
+
+#[derive(Default)]
+pub struct Native {
+    folders: Mutex<Folders>,
+    active: Mutex<HashMap<String, Active>>,
+    /// Paths the user picked in a native dialog during this session.
+    granted: Mutex<HashSet<PathBuf>>,
+}
+
+// ---------------------------------------------------------------------------------------------
+// Paths
+
+/// `relative` joined to `root`, refused unless it stays inside: no absolute paths, no `..`,
+/// no drive or root components, and (when it exists) no symbolic link leading out.
+pub fn contained(root: &Path, relative: &str) -> Result<PathBuf, String> {
+    let outside = || "that path is outside the folder".to_string();
+    if relative.contains('\\') || relative.contains('\0') {
+        return Err(outside());
+    }
+    let candidate = Path::new(relative);
+    let mut joined = root.to_path_buf();
+    for component in candidate.components() {
+        match component {
+            Component::Normal(part) => joined.push(part),
+            Component::CurDir => {}
+            _ => return Err(outside()),
+        }
+    }
+    if joined.exists() {
+        let real_root = std::fs::canonicalize(root).map_err(|error| format!("{}: {error}", root.display()))?;
+        let real = std::fs::canonicalize(&joined).map_err(|error| format!("{}: {error}", joined.display()))?;
+        if !real.starts_with(&real_root) {
+            return Err(outside());
+        }
+        return Ok(real);
+    }
+    Ok(joined)
+}
+
+/// Run ids are folder names made by this engine or the Python one: `[A-Za-z0-9][A-Za-z0-9._-]{0,80}`.
+pub fn valid_run_id(id: &str) -> bool {
+    let mut characters = id.chars();
+    let first_ok = characters.next().is_some_and(|c| c.is_ascii_alphanumeric());
+    first_ok && id.len() <= 81 && characters.all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+}
+
+/// `2026-10-05 16:13:37` UTC as `20261005-161337`, without a date library.
+pub fn timestamp(unix_seconds: u64) -> String {
+    let (days, rest) = (unix_seconds / 86_400, unix_seconds % 86_400);
+    // Civil date from days since 1970-01-01 (Howard Hinnant's algorithm).
+    let z = days as i64 + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    format!("{year:04}{month:02}{day:02}-{:02}{:02}{:02}", rest / 3600, rest % 3600 / 60, rest % 60)
+}
+
+/// The run's name as part of a folder name: letters, digits, `.`, `_`, `-`, at most 40.
+pub fn slug(name: &str) -> String {
+    let mut out = String::new();
+    for c in name.chars() {
+        if c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-') {
+            out.push(c);
+        } else if !out.ends_with('-') {
+            out.push('-');
+        }
+    }
+    let trimmed: String = out.trim_matches(|c| c == '-' || c == '.').chars().take(40).collect();
+    if trimmed.is_empty() {
+        "run".into()
+    } else {
+        trimmed
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Event log
+
+/// Events from line `since` on, each with its line number as `seq`. A last line without a
+/// newline is still being written and is not consumed; a damaged line stops the reader.
+pub fn read_events(path: &Path, since: usize) -> EventPage {
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return EventPage { events: Vec::new(), next: since };
+    };
+    let mut events = Vec::new();
+    let mut next = since;
+    let mut number = 0;
+    let mut rest = text.as_str();
+    while let Some(end) = rest.find('\n') {
+        let line = &rest[..end];
+        rest = &rest[end + 1..];
+        if number >= since {
+            let Ok(Value::Object(mut event)) = serde_json::from_str::<Value>(line) else { break };
+            event.insert("seq".into(), json!(number));
+            events.push(Value::Object(event));
+            next = number + 1;
+        }
+        number += 1;
+    }
+    if events.is_empty() {
+        next = since.min(number);
+    }
+    EventPage { events, next }
+}
+
+fn append(path: &Path, event_type: &str, stage: Option<&str>, fields: Value) {
+    let time = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs_f64()).unwrap_or(0.0);
+    let mut record = json!({"type": event_type, "time": time, "stage": stage});
+    if let (Value::Object(target), Value::Object(more)) = (&mut record, fields) {
+        target.extend(more);
+    }
+    if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        let _ = file.write_all(format!("{record}\n").as_bytes());
+        let _ = file.sync_all();
+    }
+}
+
+fn finished(path: &Path) -> bool {
+    read_events(path, 0).events.last().is_some_and(|event| event["type"] == "run_finished")
+}
+
+/// Closes a log that has `run_started` but no `run_finished`, saying why.
+fn close_log(folder: &Path, reason: &str, status: &str) {
+    let path = folder.join(EVENTS);
+    let page = read_events(&path, 0);
+    if page.events.is_empty() || page.events.last().is_some_and(|event| event["type"] == "run_finished") {
+        return;
+    }
+    let started = page.events[0]["time"].as_f64().unwrap_or(0.0);
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs_f64()).unwrap_or(started);
+    append(&path, "error", None, json!({"message": reason}));
+    append(&path, "run_finished", None, json!({"status": status, "seconds": (now - started).max(0.0)}));
+}
+
+/// What the runs list shows, computed from the log like the HTTP engine does.
+pub fn summarise(folder: &Path) -> RunSummary {
+    let page = read_events(&folder.join(EVENTS), 0);
+    let mut summary = RunSummary {
+        id: folder.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default(),
+        status: "unknown".into(),
+        started: None,
+        stage: None,
+        stage_fraction: 0.0,
+        events: page.events.len(),
+    };
+    for event in &page.events {
+        match event["type"].as_str() {
+            Some("run_started") => {
+                summary.status = "running".into();
+                summary.started = event["time"].as_f64();
+            }
+            Some("stage_started") => {
+                summary.stage = event["stage"].as_str().map(str::to_string);
+                summary.stage_fraction = 0.0;
+            }
+            Some("progress") => summary.stage_fraction = event["fraction"].as_f64().unwrap_or(summary.stage_fraction),
+            Some("run_finished") => {
+                summary.status = event["status"].as_str().unwrap_or("failed").to_string();
+                if summary.status == "complete" {
+                    summary.stage = None;
+                }
+            }
+            _ => {}
+        }
+    }
+    summary
+}
+
+// ---------------------------------------------------------------------------------------------
+// The engine
+
+impl Native {
+    /// Sets the folders (at start and whenever the settings change) and closes the logs of
+    /// runs that an earlier instance of the app left unfinished.
+    pub fn configure(&self, runs: &Path, data: &Path) -> Result<(), String> {
+        for folder in [runs, data] {
+            std::fs::create_dir_all(folder).map_err(|error| format!("Could not create the folder {}: {error}", folder.display()))?;
+        }
+        *self.folders.lock().unwrap() = Folders { runs: runs.to_path_buf(), data: data.to_path_buf() };
+        self.close_lost_runs();
+        Ok(())
+    }
+
+    fn runs(&self) -> PathBuf {
+        self.folders.lock().unwrap().runs.clone()
+    }
+
+    fn data(&self) -> PathBuf {
+        self.folders.lock().unwrap().data.clone()
+    }
+
+    pub fn folders(&self) -> (PathBuf, PathBuf) {
+        (self.runs(), self.data())
+    }
+
+    /// Remembers a path picked in a native dialog; it may then be used as a run's input.
+    pub fn grant(&self, path: &Path) {
+        let real = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        self.granted.lock().unwrap().insert(real);
+    }
+
+    fn close_lost_runs(&self) {
+        let Ok(entries) = std::fs::read_dir(self.runs()) else { return };
+        let active = self.active.lock().unwrap();
+        for entry in entries.flatten() {
+            let folder = entry.path();
+            let id = entry.file_name().to_string_lossy().into_owned();
+            // Only runs this app started (they carry the marker), and not ones running right now.
+            if active.contains_key(&id) || !folder.join(MARKER).is_file() {
+                continue;
+            }
+            close_log(&folder, "The application stopped while this run was in progress.", "failed");
+        }
+    }
+
+    pub fn run_folder(&self, id: &str) -> Result<PathBuf, String> {
+        if !valid_run_id(id) {
+            return Err("unknown run".into());
+        }
+        let folder = self.runs().join(id);
+        if folder.join(EVENTS).is_file() {
+            Ok(folder)
+        } else {
+            Err("unknown run".into())
+        }
+    }
+
+    pub fn list_runs(&self) -> Vec<RunSummary> {
+        let mut runs: Vec<RunSummary> = std::fs::read_dir(self.runs())
+            .map(|entries| {
+                entries
+                    .flatten()
+                    .filter(|entry| valid_run_id(&entry.file_name().to_string_lossy()) && entry.path().join(EVENTS).is_file())
+                    .map(|entry| summarise(&entry.path()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        runs.sort_by(|a, b| b.started.unwrap_or(0.0).total_cmp(&a.started.unwrap_or(0.0)).then_with(|| b.id.cmp(&a.id)));
+        runs
+    }
+
+    pub fn events(&self, id: &str, since: usize) -> Result<EventPage, String> {
+        Ok(read_events(&self.run_folder(id)?.join(EVENTS), since))
+    }
+
+    /// A file of a run, by its path relative to the run directory.
+    pub fn file(&self, id: &str, relative: &str) -> Result<PathBuf, String> {
+        let path = contained(&self.run_folder(id)?, relative).map_err(|_| "not found".to_string())?;
+        if path.is_file() {
+            Ok(path)
+        } else {
+            Err("not found".into())
+        }
+    }
+
+    /// Folders and files under the data folder; `inputs` marks folders a run can start from.
+    pub fn list_data(&self, relative: &str) -> Result<DataListing, String> {
+        let root = self.data();
+        let folder = contained(&root, relative).ok().filter(|path| path.is_dir()).ok_or("no such folder under the data folder")?;
+        let mut entries: Vec<DataEntry> = std::fs::read_dir(&folder)
+            .map_err(|error| error.to_string())?
+            .flatten()
+            .filter_map(|entry| {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                if name.starts_with('.') {
+                    return None;
+                }
+                let path = entry.path();
+                let directory = path.is_dir();
+                Some(DataEntry { inputs: directory && path.join("cameras.json").is_file(), name, directory })
+            })
+            .collect();
+        entries.sort_by(|a, b| a.name.cmp(&b.name));
+        entries.truncate(500);
+        let clean: Vec<&str> = relative.split('/').filter(|part| !part.is_empty() && *part != ".").collect();
+        Ok(DataListing { path: clean.join("/"), entries })
+    }
+
+    /// Where a path named in a start request really is: relative paths under the data
+    /// folder, absolute ones only inside it or inside something picked in a dialog.
+    fn resolve_source(&self, key: &str, text: &str) -> Result<PathBuf, String> {
+        let missing = || format!("{key} must be an existing path under the data folder");
+        let candidate = Path::new(text.trim());
+        if candidate.as_os_str().is_empty() {
+            return Err(missing());
+        }
+        if !candidate.is_absolute() {
+            let path = contained(&self.data(), text.trim()).map_err(|_| missing())?;
+            return if path.exists() { Ok(path) } else { Err(missing()) };
+        }
+        let real = std::fs::canonicalize(candidate).map_err(|_| format!("{key}: {} does not exist", candidate.display()))?;
+        let data = std::fs::canonicalize(self.data()).unwrap_or_else(|_| self.data());
+        let granted = self.granted.lock().unwrap();
+        if real.starts_with(&data) || granted.iter().any(|allowed| real.starts_with(allowed)) {
+            Ok(real)
+        } else {
+            Err(format!("{key}: choose this folder with the Choose button first, or put it under the data folder"))
+        }
+    }
+
+    /// Checks a start request and turns it into the crate's options. Nothing is started.
+    pub fn options(&self, body: &StartBody, id: &str) -> Result<RunOptions, String> {
+        if body.reference.as_deref().is_some_and(|text| !text.trim().is_empty()) {
+            return Err("reference: the built-in engine cannot score against a reference scan; leave it empty".into());
+        }
+        let mut options = RunOptions { output: self.runs().join(id), settings: body.settings.clone(), ..RunOptions::default() };
+        let given = |text: &Option<String>| text.as_deref().map(str::trim).filter(|text| !text.is_empty()).map(str::to_string);
+        if let Some(inputs) = given(&body.inputs) {
+            let folder = self.resolve_source("inputs", &inputs)?;
+            if !folder.join("cameras.json").is_file() {
+                return Err("inputs: this folder has no cameras.json; it is not an inputs folder".into());
+            }
+            options.inputs = Some(folder);
+        } else {
+            let (Some(scene), Some(prepared), Some(raw_masks)) = (given(&body.scene), given(&body.prepared), given(&body.raw_masks)) else {
+                return Err("inputs: give an inputs folder, or all of scene, prepared and raw_masks".into());
+            };
+            options.scene = Some(self.resolve_source("scene", &scene)?);
+            options.prepared = Some(self.resolve_source("prepared", &prepared)?);
+            options.raw_masks = Some(self.resolve_source("raw_masks", &raw_masks)?);
+        }
+        // The crate words these like the Python reference does ("dense configuration: ...").
+        options.configuration().map_err(|error| format!("{error:#}"))?;
+        Ok(options)
+    }
+
+    fn new_id(&self, name: Option<&str>) -> String {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+        let base = format!("{}-{}", timestamp(now), slug(name.unwrap_or("run")));
+        let runs = self.runs();
+        let mut id = base.clone();
+        let mut counter = 2;
+        while runs.join(&id).exists() {
+            id = format!("{base}-{counter}");
+            counter += 1;
+        }
+        id
+    }
+
+    /// Starts a run on a worker thread and returns its id once its event log exists.
+    pub fn start(self: &Arc<Self>, body: StartBody) -> Result<String, String> {
+        let id = self.new_id(body.name.as_deref());
+        let options = self.options(&body, &id)?;
+        self.start_with(id, options, crisp3ds_dense::run::run)
+    }
+
+    /// The same with the pipeline passed in, so tests can run without a GPU.
+    pub fn start_with<F>(self: &Arc<Self>, id: String, options: RunOptions, pipeline: F) -> Result<String, String>
+    where
+        F: FnOnce(&RunOptions, Option<crisp3ds_dense::events::Observer>, Option<Arc<AtomicBool>>) -> anyhow::Result<Value> + Send + 'static,
+    {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let done = Arc::new(AtomicBool::new(false));
+        self.active.lock().unwrap().insert(id.clone(), Active { cancel: Arc::clone(&cancel), done: Arc::clone(&done) });
+        let (first, started) = mpsc::channel::<Result<(), String>>();
+        let folder = options.output.clone();
+        let engine = Arc::clone(self);
+        let thread_id = id.clone();
+        let spawned = std::thread::Builder::new().name(format!("run-{id}")).spawn(move || {
+            let marker = folder.join(MARKER);
+            let announced = AtomicBool::new(false);
+            let first_event = Mutex::new(first.clone());
+            let observer: crisp3ds_dense::events::Observer = Arc::new(move |_event: &Value| {
+                if !announced.swap(true, Ordering::SeqCst) {
+                    let _ = std::fs::write(&marker, format!("{{\"pid\": {}}}\n", std::process::id()));
+                    let _ = first_event.lock().unwrap().send(Ok(()));
+                }
+            });
+            let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline(&options, Some(observer), Some(cancel))));
+            let log = folder.join(EVENTS);
+            match outcome {
+                // Refused before anything was written (bad output folder, full disk).
+                Ok(Err(error)) if !log.is_file() => {
+                    let _ = first.send(Err(format!("{error:#}")));
+                }
+                Ok(_) => {}
+                Err(_) => close_log(&folder, "The engine stopped unexpectedly (internal error).", "failed"),
+            }
+            // Whatever happened, a log that was started is closed.
+            if log.is_file() && !finished(&log) {
+                close_log(&folder, "The engine stopped without finishing the run.", "failed");
+            }
+            done.store(true, Ordering::SeqCst);
+            engine.active.lock().unwrap().remove(&thread_id);
+        });
+        if let Err(error) = spawned {
+            self.active.lock().unwrap().remove(&id);
+            return Err(format!("could not start a thread for the run: {error}"));
+        }
+        match started.recv_timeout(Duration::from_secs(30)) {
+            Ok(Ok(())) => Ok(id),
+            Ok(Err(message)) => Err(format!("run did not start: {message}")),
+            Err(_) => Err("run did not start: the engine did not write its first event".into()),
+        }
+    }
+
+    /// Asks a run to stop: the cancel flag if it runs in this process, and the `cancel`
+    /// file of the contract either way.
+    pub fn cancel(&self, id: &str) -> Result<bool, String> {
+        let folder = self.run_folder(id)?;
+        let _ = std::fs::write(folder.join("cancel"), "");
+        let active = self.active.lock().unwrap();
+        Ok(active.get(id).map(|run| run.cancel.store(true, Ordering::SeqCst)).is_some())
+    }
+
+    pub fn running(&self) -> usize {
+        self.active.lock().unwrap().values().filter(|run| !run.done.load(Ordering::SeqCst)).count()
+    }
+
+    /// Called when the app quits: asks every run to stop and waits for them, up to `grace`.
+    /// A run that is still busy then gets its log closed here, because the process ends next.
+    pub fn shutdown(&self, grace: Duration) {
+        let ids: Vec<String> = {
+            let active = self.active.lock().unwrap();
+            for run in active.values() {
+                run.cancel.store(true, Ordering::SeqCst);
+            }
+            active.keys().cloned().collect()
+        };
+        let deadline = Instant::now() + grace;
+        while self.running() > 0 && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let runs = self.runs();
+        for id in ids {
+            close_log(&runs.join(&id), "The application quit while this run was in progress.", "cancelled");
+        }
+    }
+}
+
+pub fn settings_schema() -> Value {
+    serde_json::from_str(SETTINGS_SCHEMA).expect("settings-schema.json is valid JSON")
+}
+
+pub fn start_points() -> Value {
+    serde_json::from_str(START_POINTS).expect("the start points are valid JSON")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scratch(name: &str) -> PathBuf {
+        let folder = std::env::temp_dir().join(format!("crisp3ds-studio-native-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&folder);
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::canonicalize(folder).unwrap()
+    }
+
+    fn engine(name: &str) -> (Arc<Native>, PathBuf) {
+        let root = scratch(name);
+        let engine = Arc::new(Native::default());
+        engine.configure(&root.join("runs"), &root.join("data")).unwrap();
+        (engine, root)
+    }
+
+    fn log(folder: &Path, lines: &[&str]) {
+        std::fs::create_dir_all(folder).unwrap();
+        std::fs::write(folder.join(EVENTS), lines.concat()).unwrap();
+    }
+
+    const STARTED: &str = "{\"type\":\"run_started\",\"time\":100.0,\"stage\":null}\n";
+    const STAGE: &str = "{\"type\":\"stage_started\",\"time\":101.0,\"stage\":\"stereo\"}\n";
+    const PROGRESS: &str = "{\"type\":\"progress\",\"time\":102.0,\"stage\":\"stereo\",\"fraction\":0.43,\"message\":\"m\"}\n";
+    const DONE: &str = "{\"type\":\"run_finished\",\"time\":110.0,\"stage\":null,\"status\":\"complete\",\"seconds\":10.0}\n";
+
+    #[test]
+    fn paths_stay_inside_their_folder() {
+        let root = scratch("contained");
+        std::fs::create_dir_all(root.join("run/mesh")).unwrap();
+        std::fs::write(root.join("run/mesh/mesh.stl"), "x").unwrap();
+        std::fs::write(root.join("secret.txt"), "x").unwrap();
+        assert_eq!(contained(&root.join("run"), "mesh/mesh.stl").unwrap(), root.join("run/mesh/mesh.stl"));
+        assert_eq!(contained(&root.join("run"), "./mesh/./mesh.stl").unwrap(), root.join("run/mesh/mesh.stl"));
+        assert_eq!(contained(&root.join("run"), "not/yet/there.png").unwrap(), root.join("run/not/yet/there.png"));
+        for bad in ["../secret.txt", "mesh/../../secret.txt", "/etc/passwd", "mesh\\..\\..\\secret.txt", "a/\0/b"] {
+            assert!(contained(&root.join("run"), bad).is_err(), "{bad} was accepted");
+        }
+        #[cfg(windows)]
+        assert!(contained(&root.join("run"), "C:/Windows/win.ini").is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_symbolic_link_does_not_lead_out() {
+        let root = scratch("symlink");
+        std::fs::create_dir_all(root.join("run")).unwrap();
+        std::fs::write(root.join("secret.txt"), "x").unwrap();
+        std::os::unix::fs::symlink(root.join("secret.txt"), root.join("run/link.txt")).unwrap();
+        std::os::unix::fs::symlink(&root, root.join("run/up")).unwrap();
+        assert!(contained(&root.join("run"), "link.txt").is_err());
+        assert!(contained(&root.join("run"), "up/secret.txt").is_err());
+    }
+
+    #[test]
+    fn run_ids_names_and_timestamps() {
+        assert!(valid_run_id("20261005-161337-studio-check"));
+        assert!(valid_run_id("a"));
+        for bad in ["", ".hidden", "-x", "a/b", "..", "a b", &"x".repeat(82)] {
+            assert!(!valid_run_id(bad), "{bad:?} was accepted");
+        }
+        assert_eq!(timestamp(0), "19700101-000000");
+        assert_eq!(timestamp(1_791_209_617), "20261005-141337");
+        assert_eq!(timestamp(951_782_400), "20000229-000000");
+        assert_eq!(slug("my dragon / take 2!"), "my-dragon-take-2");
+        assert_eq!(slug("../.."), "run");
+        assert_eq!(slug(&"x".repeat(60)).len(), 40);
+    }
+
+    #[test]
+    fn events_are_paged_by_line_and_a_half_written_line_waits() {
+        let root = scratch("events");
+        log(&root, &[STARTED, STAGE, PROGRESS, "{\"type\":\"progress\",\"time\":103"]);
+        let path = root.join(EVENTS);
+        let all = read_events(&path, 0);
+        assert_eq!(all.events.len(), 3);
+        assert_eq!(all.next, 3);
+        assert_eq!(all.events[2]["seq"], 2);
+        assert_eq!(all.events[2]["fraction"], 0.43);
+        let tail = read_events(&path, 2);
+        assert_eq!((tail.events.len(), tail.next), (1, 3));
+        assert_eq!(tail.events[0]["seq"], 2);
+        let nothing = read_events(&path, 3);
+        assert_eq!((nothing.events.len(), nothing.next), (0, 3));
+        // The cursor never runs ahead of the file, whatever the caller asks.
+        assert_eq!(read_events(&path, 99).next, 3);
+        // Once the line is complete it is delivered.
+        log(&root, &[STARTED, STAGE, PROGRESS, "{\"type\":\"progress\",\"time\":103}\n"]);
+        assert_eq!(read_events(&path, 3).events.len(), 1);
+        // A damaged line stops the reader there.
+        log(&root, &[STARTED, "not json\n", DONE]);
+        assert_eq!(read_events(&path, 0).next, 1);
+        assert_eq!(read_events(&root.join("missing.jsonl"), 4).next, 4);
+    }
+
+    #[test]
+    fn runs_are_listed_newest_first_with_their_state() {
+        let (engine, root) = engine("list");
+        log(&root.join("runs/20260101-000000-old"), &[STARTED, STAGE, PROGRESS, DONE]);
+        log(&root.join("runs/20260102-000000-busy"), &[&STARTED.replace("100.0", "200.0"), STAGE, PROGRESS]);
+        log(&root.join("runs/bad name"), &[STARTED]);
+        std::fs::create_dir_all(root.join("runs/20260103-000000-empty")).unwrap();
+        let runs = engine.list_runs();
+        assert_eq!(runs.iter().map(|run| run.id.as_str()).collect::<Vec<_>>(), ["20260102-000000-busy", "20260101-000000-old"]);
+        assert_eq!(runs[0].status, "running");
+        assert_eq!(runs[0].stage.as_deref(), Some("stereo"));
+        assert_eq!(runs[0].stage_fraction, 0.43);
+        assert_eq!(runs[0].events, 3);
+        assert_eq!((runs[1].status.as_str(), runs[1].stage.clone(), runs[1].started), ("complete", None, Some(100.0)));
+        assert!(engine.events("20260101-000000-old", 0).is_ok());
+        assert!(engine.events("../runs/20260101-000000-old", 0).is_err());
+        assert!(engine.events("20260103-000000-empty", 0).is_err());
+    }
+
+    #[test]
+    fn run_files_are_served_only_from_inside_the_run() {
+        let (engine, root) = engine("files");
+        let run = root.join("runs/r1");
+        log(&run, &[STARTED, DONE]);
+        std::fs::create_dir_all(run.join("mesh")).unwrap();
+        std::fs::write(run.join("mesh/mesh.stl"), "stl").unwrap();
+        log(&root.join("runs/r2"), &[STARTED]);
+        std::fs::write(root.join("runs/r2/private.txt"), "x").unwrap();
+        assert_eq!(engine.file("r1", "mesh/mesh.stl").unwrap(), run.join("mesh/mesh.stl"));
+        for bad in ["../r2/private.txt", "mesh", "mesh/none.stl", "/etc/hosts", ""] {
+            assert!(engine.file("r1", bad).is_err(), "{bad:?} was served");
+        }
+        assert!(engine.file("nope", "mesh/mesh.stl").is_err());
+    }
+
+    #[test]
+    fn the_data_folder_is_listed_with_inputs_marked() {
+        let (engine, root) = engine("data");
+        std::fs::create_dir_all(root.join("data/objects/sphere")).unwrap();
+        std::fs::write(root.join("data/objects/sphere/cameras.json"), "{}").unwrap();
+        std::fs::create_dir_all(root.join("data/objects/masks")).unwrap();
+        std::fs::write(root.join("data/objects/scan.ply"), "").unwrap();
+        std::fs::write(root.join("data/objects/.hidden"), "").unwrap();
+        let listing = engine.list_data("objects/").unwrap();
+        assert_eq!(listing.path, "objects");
+        let rows: Vec<(&str, bool, bool)> = listing.entries.iter().map(|e| (e.name.as_str(), e.directory, e.inputs)).collect();
+        assert_eq!(rows, [("masks", true, false), ("scan.ply", false, false), ("sphere", true, true)]);
+        assert_eq!(engine.list_data("").unwrap().path, "");
+        assert!(engine.list_data("../runs").is_err());
+        assert!(engine.list_data("objects/scan.ply").is_err());
+        assert!(engine.list_data("nowhere").is_err());
+    }
+
+    #[test]
+    fn start_requests_are_checked_before_anything_runs() {
+        let (engine, root) = engine("options");
+        std::fs::create_dir_all(root.join("data/sphere")).unwrap();
+        std::fs::create_dir_all(root.join("data/empty")).unwrap();
+        std::fs::write(root.join("data/sphere/cameras.json"), "{}").unwrap();
+        let body = |inputs: &str| StartBody { inputs: Some(inputs.into()), ..StartBody::default() };
+        let options = engine.options(&body("sphere"), "id").unwrap();
+        assert_eq!(options.inputs.as_deref(), Some(root.join("data/sphere").as_path()));
+        assert_eq!(options.output, root.join("runs/id"));
+        assert!(engine.options(&body("empty"), "id").unwrap_err().contains("no cameras.json"));
+        assert!(engine.options(&body("../runs"), "id").unwrap_err().starts_with("inputs must be an existing path"));
+        assert!(engine.options(&body("nowhere"), "id").unwrap_err().starts_with("inputs must be an existing path"));
+        assert!(engine.options(&StartBody::default(), "id").unwrap_err().starts_with("inputs:"));
+        // Settings are validated by the crate, with the reference's wording.
+        let mut wrong = body("sphere");
+        wrong.settings.insert("sizes".into(), json!([128, 64]));
+        let message = engine.options(&wrong, "id").unwrap_err();
+        assert!(message.contains("sizes must increase"), "{message}");
+        let mut unknown = body("sphere");
+        unknown.settings.insert("bogus".into(), json!(1));
+        assert!(engine.options(&unknown, "id").unwrap_err().contains("unknown setting"));
+        let mut scored = body("sphere");
+        scored.reference = Some("scan.ply".into());
+        assert!(engine.options(&scored, "id").unwrap_err().starts_with("reference:"));
+        // An absolute path is refused until the user picked it (or something above it) in a dialog.
+        let elsewhere = scratch("options-elsewhere");
+        std::fs::write(elsewhere.join("cameras.json"), "{}").unwrap();
+        let absolute = elsewhere.to_string_lossy().into_owned();
+        assert!(engine.options(&body(&absolute), "id").unwrap_err().contains("Choose"));
+        engine.grant(&elsewhere);
+        assert_eq!(engine.options(&body(&absolute), "id").unwrap().inputs, Some(elsewhere));
+        assert!(!root.join("runs/id").exists(), "checking must not create the run");
+    }
+
+    /// A stand-in pipeline: writes a log like the crate does, then waits to be cancelled.
+    fn waiting_pipeline(
+        options: &RunOptions,
+        observer: Option<crisp3ds_dense::events::Observer>,
+        cancel: Option<Arc<AtomicBool>>,
+    ) -> anyhow::Result<Value> {
+        std::fs::create_dir_all(&options.output)?;
+        let events = crisp3ds_dense::events::EventLog::for_run(&options.output, observer);
+        events.emit("run_started", json!({"schema": "crisp3ds_dense_events_v1"}))?;
+        events.stage("stereo").emit("stage_started", json!({}))?;
+        let cancel = cancel.expect("a cancel flag is always passed");
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while !cancel.load(Ordering::SeqCst) && !options.output.join("cancel").exists() {
+            anyhow::ensure!(Instant::now() < deadline, "nobody cancelled");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        events.stage("stereo").emit("error", json!({"message": "cancelled on request"}))?;
+        events.emit("run_finished", json!({"status": "cancelled", "seconds": 0.1}))?;
+        Ok(json!({}))
+    }
+
+    fn wait_until(what: &str, test: impl Fn() -> bool) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !test() {
+            assert!(Instant::now() < deadline, "timed out waiting for {what}");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    #[test]
+    fn a_run_starts_on_a_thread_and_cancelling_ends_it() {
+        let (engine, root) = engine("cancel");
+        let options = RunOptions { output: root.join("runs/r1"), ..RunOptions::default() };
+        let id = engine.start_with("r1".into(), options, waiting_pipeline).unwrap();
+        assert_eq!(id, "r1");
+        assert_eq!(engine.running(), 1);
+        assert!(root.join("runs/r1").join(MARKER).is_file());
+        assert_eq!(engine.list_runs()[0].status, "running");
+        assert_eq!(engine.cancel("r1"), Ok(true));
+        wait_until("the run to end", || engine.running() == 0);
+        let events = engine.events("r1", 0).unwrap().events;
+        assert_eq!(events.last().unwrap()["status"], "cancelled");
+        assert_eq!(engine.list_runs()[0].status, "cancelled");
+        // Cancelling a finished run only leaves the file; an unknown run is an error.
+        assert_eq!(engine.cancel("r1"), Ok(false));
+        assert!(engine.cancel("nope").is_err());
+    }
+
+    #[test]
+    fn a_pipeline_that_refuses_fails_the_start_with_its_message() {
+        let (engine, root) = engine("refuse");
+        let options = RunOptions { output: root.join("runs/r1"), ..RunOptions::default() };
+        let error = engine.start_with("r1".into(), options, |_, _, _| anyhow::bail!("only 0.3 GiB free; need 2")).unwrap_err();
+        assert!(error.contains("only 0.3 GiB free"), "{error}");
+        wait_until("the thread to end", || engine.running() == 0);
+        assert!(engine.list_runs().is_empty());
+    }
+
+    #[test]
+    fn a_log_is_always_closed_even_when_the_pipeline_dies_or_gives_up() {
+        let (engine, root) = engine("closed");
+        let dying = |options: &RunOptions, observer: Option<crisp3ds_dense::events::Observer>, _: Option<Arc<AtomicBool>>| {
+            std::fs::create_dir_all(&options.output).unwrap();
+            crisp3ds_dense::events::EventLog::for_run(&options.output, observer).emit("run_started", json!({})).unwrap();
+            if options.output.ends_with("panics") {
+                panic!("boom");
+            }
+            anyhow::bail!("gave up without closing the log")
+        };
+        for name in ["panics", "gives-up"] {
+            let options = RunOptions { output: root.join("runs").join(name), ..RunOptions::default() };
+            engine.start_with(name.into(), options, dying).unwrap();
+        }
+        wait_until("both threads to end", || engine.running() == 0);
+        for name in ["panics", "gives-up"] {
+            let events = engine.events(name, 0).unwrap().events;
+            assert_eq!(events[events.len() - 2]["type"], "error", "{name}");
+            assert_eq!(events.last().unwrap()["status"], "failed", "{name}");
+        }
+    }
+
+    #[test]
+    fn quitting_stops_runs_and_a_later_start_closes_what_was_lost() {
+        let (engine, root) = engine("shutdown");
+        let options = RunOptions { output: root.join("runs/r1"), ..RunOptions::default() };
+        engine.start_with("r1".into(), options, waiting_pipeline).unwrap();
+        engine.shutdown(Duration::from_secs(5));
+        assert_eq!(engine.running(), 0);
+        assert_eq!(engine.events("r1", 0).unwrap().events.last().unwrap()["status"], "cancelled");
+
+        // A run of an earlier app instance without an end, and one by another engine (no marker).
+        log(&root.join("runs/lost"), &[STARTED, STAGE]);
+        std::fs::write(root.join("runs/lost").join(MARKER), "{\"pid\": 1}").unwrap();
+        log(&root.join("runs/foreign"), &[STARTED, STAGE]);
+        let again = Native::default();
+        again.configure(&root.join("runs"), &root.join("data")).unwrap();
+        let lost = again.events("lost", 0).unwrap().events;
+        assert_eq!(lost.last().unwrap()["status"], "failed");
+        assert!(lost[lost.len() - 2]["message"].as_str().unwrap().contains("application stopped"));
+        assert_eq!(again.events("foreign", 0).unwrap().events.len(), 2);
+    }
+
+    #[test]
+    fn the_embedded_settings_schema_is_the_crates_own_configuration() {
+        let schema = settings_schema();
+        let rows = schema["settings"].as_array().unwrap();
+        let fixture = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../tests/fixtures/dense-config-defaults.json");
+        let reference: Value = serde_json::from_str(&std::fs::read_to_string(fixture).unwrap()).unwrap();
+        let native = serde_json::to_value(crisp3ds_dense::config::DenseConfig::default()).unwrap();
+        let from_schema: Map<String, Value> = rows.iter().map(|row| (row["name"].as_str().unwrap().to_string(), row["default"].clone())).collect();
+        // Same names, same defaults: the Python reference, its fixture and the native crate.
+        assert_eq!(Value::Object(from_schema.clone()), reference);
+        assert_eq!(Value::Object(from_schema), native);
+        for row in rows {
+            assert!(row["group"].as_str().is_some_and(|text| !text.is_empty()), "{row}");
+            assert!(row["meaning"].as_str().is_some_and(|text| !text.is_empty()), "{row}");
+            assert!(matches!(row["kind"].as_str(), Some("boolean" | "integer" | "number" | "integer_list" | "number_list")), "{row}");
+        }
+    }
+
+    /// The real pipeline on the crate's synthetic sphere, started the way the app starts it.
+    /// With a GPU it completes; without one (CI runners) it must fail cleanly: an `error`
+    /// event with the reason, then `run_finished`, and nothing left running.
+    #[test]
+    fn a_real_run_completes_or_fails_cleanly_without_a_gpu() {
+        let (engine, root) = engine("real");
+        crisp3ds_dense::stereo::synthetic::write(&root.join("data/sphere"), 24, 128).unwrap();
+        let mut body = StartBody { inputs: Some("sphere".into()), name: Some("ci sphere".into()), ..StartBody::default() };
+        for item in crisp3ds_dense::stereo::synthetic::SMALL {
+            let (key, value) = item.split_once('=').unwrap();
+            let numbers: Vec<Value> = value.split(',').map(|text| serde_json::from_str(text).unwrap()).collect();
+            body.settings.insert(key.into(), if numbers.len() == 1 { numbers[0].clone() } else { Value::Array(numbers) });
+        }
+        let id = engine.start(body).unwrap();
+        assert!(id.ends_with("-ci-sphere"), "{id}");
+        let deadline = Instant::now() + Duration::from_secs(600);
+        while engine.running() > 0 {
+            assert!(Instant::now() < deadline, "the run did not end");
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        let events = engine.events(&id, 0).unwrap().events;
+        assert_eq!(events[0]["type"], "run_started");
+        let last = events.last().unwrap();
+        assert_eq!(last["type"], "run_finished");
+        let summary = &engine.list_runs()[0];
+        match last["status"].as_str() {
+            Some("complete") => {
+                assert!(engine.file(&id, "mesh/mesh.stl").is_ok());
+                assert!(events.iter().any(|event| event["kind"] == "preview_mesh"));
+                eprintln!("real run: complete, {} events, device {}", events.len(), events[0]["device"]);
+            }
+            Some("failed") => {
+                let error = events.iter().rev().find(|event| event["type"] == "error").expect("a failed run says why");
+                let message = error["message"].as_str().unwrap_or_default();
+                assert!(!message.is_empty());
+                eprintln!("real run: failed cleanly: {message}");
+            }
+            other => panic!("unexpected end: {other:?}"),
+        }
+        assert_eq!(summary.status, last["status"].as_str().unwrap());
+    }
+
+    #[test]
+    fn start_points_are_well_formed() {
+        let points = start_points();
+        let ids: Vec<&str> = points.as_array().unwrap().iter().map(|point| point["id"].as_str().unwrap()).collect();
+        assert_eq!(ids, ["inputs", "scene"]);
+        for point in points.as_array().unwrap() {
+            assert!(point["providers"].is_array());
+            assert!(!point["fields"].as_array().unwrap().is_empty());
+        }
+    }
+}
