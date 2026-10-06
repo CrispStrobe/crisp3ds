@@ -81,6 +81,10 @@ impl CameraProvider for Turntable {
                 }
             }
         };
+        let counted: Vec<(usize, usize, usize)> = matches.pairs.iter().map(|p| (p.0, p.1, p.2.len())).collect();
+        let by_distance = matching::matches_by_distance(count, &counted);
+        run.note("turntable_order", json!({"median_matches_by_distance": by_distance}));
+        matching::check_order(&by_distance).map_err(|reason| anyhow!(reason))?;
         let settings = solver::Settings { open_turn: options.open_turn };
         let solved =
             run.internal("cameras", "turntable-solve", timeouts.sfm, 0.6, 0.82, "Recovering cameras (turntable solver)", 1, |_| {

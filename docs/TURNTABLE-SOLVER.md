@@ -23,6 +23,11 @@ default; `--open-turn` is for photos that do not close one.
 2. **Matches** (`matching.rs`) between every photo and its next
    `--turntable-span` (4) photos, around the closed turn: nearest neighbour by
    descriptor distance in both directions, ratio test at 0.8, both agreeing.
+   **Order check:** neighbours in name order must share at least 1.5 times as
+   many matches (median over the turn) as the farthest pairs matched;
+   otherwise the run is refused with a message to name the photos in capture
+   order or to choose `--cameras colmap`. Measured: 2.9 to 14 for ordered sets
+   (73, 37 and 25 photos), 0.93 to 1.08 for shuffled names.
 3. **One motion** (`solver.rs`). The axis direction, the direction from the
    camera to the axis (its distance is set to 1, which fixes the scale) and
    the angle of every step are fitted to the matches of all consecutive pairs
@@ -32,7 +37,12 @@ default; `--open-turn` is for photos that do not close one.
    every evaluation. A pair without image motion gets a step of zero (the
    Bunny's photos 13 and 14); a step far from the median is replaced by it.
 4. **The turn closes.** Unless `--open-turn`, the steps, the one from the last
-   photo back to the first included, are scaled to add up to 360 degrees.
+   photo back to the first included, are scaled to add up to 360 degrees,
+   when they add up to between 0.6 and 1.4 turns. The bound was 0.85 to 1.15
+   until the Happy Buddha's steps added up to 0.78 turn (its rotation is
+   poorly separated from translation; the adjustment then corrects the poses).
+   The sums of the other test sets lie between 0.97 and 1.07 turns, so their
+   cameras are unchanged.
 5. **Tracks.** Matches that agree with these poses are joined; tracks of at
    least three photos are triangulated.
 6. **Bundle adjustment** (`adjust.rs`) of all poses and points with the lens
@@ -140,6 +150,33 @@ the scores equal those with SAM masks and the same cameras (0.966, 0.953,
 0.837, 0.860 at 0.5 %). Sheets with the SAM-mask mesh beside
 each: `checkpoint-renders/photos-to-stl-native-<object>.png`.
 
+## Robustness
+
+Default command (`threshold` masks, these cameras): the Bunny and Dragon
+with 73 photos and the Thai statue at `ac36992`, the rest with the order check
+and the 0.6-turn bound (which leave those three unchanged); 3DLF photos, scanner F1 at 0.5 / 1 / 2 % of the scan's
+diagonal (evaluation only).
+
+| Set | Photos (step) | Registered, gates | F1, whole surface | F1, above the support |
+| --- | --- | --- | --- | --- |
+| Bunny | 73 (5 deg) | 73, pass | 0.904 / 0.939 / 0.956 | 0.964 / 0.995 / 1.000 |
+| Bunny, every 2nd | 37 (10 deg) | 37, pass | 0.902 / 0.938 / 0.956 | 0.961 / 0.995 / 1.000 |
+| Bunny, every 3rd | 25 (15 deg) | 25, pass | 0.869 / 0.924 / 0.949 | 0.926 / 0.977 / 0.992 |
+| Dragon | 73 (5 deg) | 73, pass | 0.802 / 0.933 / 0.982 | 0.847 / 0.965 / 0.995 |
+| Dragon, every 2nd | 37 (10 deg) | 37, pass | 0.791 / 0.920 / 0.978 | 0.838 / 0.953 / 0.991 |
+| Dragon, every 3rd | 25 (15 deg) | 25, **refused by the camera audit** (too few landmarks per view) | | |
+| Thai statue | 73 (5 deg) | 73, pass | 0.872 / 0.933 / 0.953 | 0.935 / 0.995 / 1.000 |
+| Happy Buddha | 73 (5 deg) | 73, pass (with the 0.6-turn bound; refused by the closure gate before) | 0.779 / 0.912 / 0.967 | 0.817 / 0.944 / 0.985 |
+| Asian dragon | 73 (5 deg) | 73, pass | mesh looks right; the scan evaluator cannot isolate the object from the platform in this scan | |
+| Bunny, Dragon, names shuffled | 73 | refused by the order check | | |
+
+Where it breaks: at 15 degree steps the Dragon keeps too few points per view
+for the audit (the Bunny still passes, 0.03 lower above the support); the
+Happy Buddha's face and the holes between its arms come out soft. Photos out
+of order are refused, not sorted. YCB turntable sets are not supported: their
+lens has tangential distortion, which the `radialk3` calibration cannot carry,
+and their backdrop is dark.
+
 ## Limits and open points
 
 - **Turntables only.** A camera walking around an object at rest does not
@@ -147,8 +184,8 @@ each: `checkpoint-renders/photos-to-stl-native-<object>.png`.
   written.
 - **The default camera provider, on thin evidence.** For: equal
   scores, no external program, every platform, repeatable, three to ten times
-  faster than COLMAP here. Against: it has been run on four objects from one
-  camera, lens and turntable, all with 73 photos at 5 degree steps; the axis
+  faster than COLMAP here. Against: it has been run on seven objects from one
+  camera, lens and turntable, at 5 to 15 degree steps; the axis
   search assumes an upright axis and a centred object; it does not handle
   captures that are not turntables, which `colmap` does; the Dragon and Lucy
   are a little below COLMAP.
@@ -159,5 +196,5 @@ each: `checkpoint-renders/photos-to-stl-native-<object>.png`.
   and six blurred copies of it per octave): about 8 s for 73 photos of
   1749 x 1155 with four threads here. Matching compares all descriptors of a
   pair: 1 to 11 s for 292 pairs.
-- Not tried: fewer photos or larger steps than 5 degrees, a strongly tilted
-  axis, photos out of order.
+- Not tried: steps larger than 15 degrees, a strongly tilted axis, a few
+  photos swapped (the order check looks at medians and lets that through).

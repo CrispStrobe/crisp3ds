@@ -309,7 +309,7 @@ pub fn solve(matches: &Matches, camera: &Camera, settings: &Settings) -> anyhow:
     let raw_sum: f64 = steps.iter().sum();
     let turns = raw_sum / (2.0 * std::f64::consts::PI);
     // A full turn closes: all steps, the one back to the first photo included, add up to 360 degrees.
-    let closed = !settings.open_turn && turns > 0.85 && turns < 1.15;
+    let closed = !settings.open_turn && turns > 0.6 && turns < 1.4;
     if closed {
         for step in &mut steps {
             *step /= turns;
