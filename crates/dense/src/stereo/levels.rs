@@ -4,7 +4,7 @@
 //! after every pass, and the fallback merge at the end.
 
 use std::path::Path;
-use std::time::Instant;
+use web_time::Instant;
 
 use serde_json::{json, Value};
 
@@ -38,14 +38,18 @@ pub struct LevelContext<'a> {
 
 /// Runs every level in `sizes`. Returns the finest level and its final depth
 /// maps; level rows and the fallback coverage are added to `report`.
-pub fn match_levels(context: &LevelContext, sizes: &[i64], report: &mut Value) -> anyhow::Result<(Vec<LevelView>, Vec<Plane<f32>>)> {
+pub async fn match_levels(
+    context: &LevelContext<'_>,
+    sizes: &[i64],
+    report: &mut Value,
+) -> anyhow::Result<(Vec<LevelView>, Vec<Plane<f32>>)> {
     let LevelContext { gpu, inputs, state, config, output, events, previews, picks, control } = *context;
     let count = inputs.count();
     let neighbours: Vec<Vec<usize>> =
         (0..count).map(|i| inputs.neighbours(i, config.neighbours as usize, config)).collect::<anyhow::Result<_>>()?;
     let voters: Vec<Vec<usize>> =
         (0..count).map(|i| inputs.neighbours(i, config.vote_neighbours as usize, config)).collect::<anyhow::Result<_>>()?;
-    let mut matcher = Matcher::new(gpu, config, &state.search)?;
+    let mut matcher = Matcher::new(gpu, config, &state.search).await?;
     let mut level: Vec<LevelView> = Vec::new();
     let mut depths: Vec<Plane<f32>> = Vec::new();
     let mut coarser: Option<Vec<Plane<f32>>> = None;
@@ -73,7 +77,7 @@ pub fn match_levels(context: &LevelContext, sizes: &[i64], report: &mut Value) -
                 control.check()?;
                 let mut d = if li == 0 {
                     let (d, view_step) =
-                        matcher.sweep(&buffers, &level, i, &neighbours[i], state.bounds[i], window, aggregate, config.min_score)?;
+                        matcher.sweep(&buffers, &level, i, &neighbours[i], state.bounds[i], window, aggregate, config.min_score).await?;
                     step = view_step;
                     d
                 } else {
@@ -86,18 +90,20 @@ pub fn match_levels(context: &LevelContext, sizes: &[i64], report: &mut Value) -
                     }
                     let fine = step / scale / if p == 0 { 1.0 } else { 2.0 };
                     let half = if p == 0 { DenseConfig::level(&config.band_first, li) } else { config.band_later };
-                    matcher.refine(
-                        &buffers,
-                        &level,
-                        i,
-                        &neighbours[i],
-                        &inits[i - inits_from],
-                        fine,
-                        half,
-                        window,
-                        aggregate,
-                        config.min_score,
-                    )?
+                    matcher
+                        .refine(
+                            &buffers,
+                            &level,
+                            i,
+                            &neighbours[i],
+                            &inits[i - inits_from],
+                            fine,
+                            half,
+                            window,
+                            aggregate,
+                            config.min_score,
+                        )
+                        .await?
                 };
                 if config.hull_front && li == (config.hull_front_level as usize).min(sizes.len() - 1) && p == 0 {
                     // Thin parts are narrower than the coarse window, so they inherit the
@@ -106,7 +112,8 @@ pub fn match_levels(context: &LevelContext, sizes: &[i64], report: &mut Value) -
                     let front = hull_front(&level[i], &state.hull, state.bounds[i], config.hull_front_stride as usize);
                     let half = DenseConfig::level(&config.band_first, li);
                     let minimum = config.min_score.max(config.hull_front_min_score);
-                    let d2 = matcher.refine(&buffers, &level, i, &neighbours[i], &front, step / scale, half, window, aggregate, minimum)?;
+                    let d2 =
+                        matcher.refine(&buffers, &level, i, &neighbours[i], &front, step / scale, half, window, aggregate, minimum).await?;
                     let margin = (1.0 - config.hull_front_margin) as f32;
                     for (value, &candidate) in d.data.iter_mut().zip(&d2.data) {
                         if candidate > 0.0 && (*value == 0.0 || candidate < *value * margin) {
@@ -148,7 +155,7 @@ pub fn match_levels(context: &LevelContext, sizes: &[i64], report: &mut Value) -
         events.metric(&format!("coverage_level_{li}"), rows.last().unwrap()["consistent_coverage"]["median"].as_f64().unwrap_or(0.0))?;
         if previews.enabled() && li + 1 < sizes.len() {
             let rim = round_half_even(config.rim_fraction * window as f64) as usize;
-            let fused = tsdf(gpu, &state.hull, &inputs.cameras, &level, &depths, rim, config)?;
+            let fused = tsdf(gpu, &state.hull, &inputs.cameras, &level, &depths, rim, config).await?;
             previews.write(
                 &format!("1{li}-level-{li}"),
                 &format!("Surface after level {}", li + 1),

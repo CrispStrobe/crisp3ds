@@ -87,7 +87,7 @@ pub fn without_rim(view: &LevelView, depth: &Plane<f32>, rim_pixels: usize) -> P
 }
 
 /// `Stereo.tsdf`: average truncated signed distance per hull voxel, plus the support height.
-pub fn tsdf(
+pub async fn tsdf(
     gpu: &Gpu,
     hull: &Hull,
     cameras: &[Camera],
@@ -96,7 +96,7 @@ pub fn tsdf(
     rim_pixels: usize,
     config: &DenseConfig,
 ) -> anyhow::Result<Fused> {
-    let kernel = gpu.kernel("fuse", include_str!("shaders/fuse.wgsl"), "main")?;
+    let kernel = gpu.kernel("fuse", include_str!("shaders/fuse.wgsl"), "main").await?;
     let indices = hull.indices();
     let list = VoxelList::new(gpu, hull, &indices);
     let truncation = config.truncation_voxels * hull.voxel;
@@ -159,10 +159,10 @@ pub fn tsdf(
                     free_weight: config.free_weight as f32,
                 },
             );
-            gpu.run(&kernel, &[&params, cameras, frames, values, &list.axes, voxels, &totals, &weights], *count as u64)?;
+            gpu.run(&kernel, &[&params, cameras, frames, values, &list.axes, voxels, &totals, &weights], *count as u64).await?;
         }
-        total.extend(gpu.read::<f32>(&totals, *count)?);
-        weight.extend(gpu.read::<f32>(&weights, *count)?);
+        total.extend(gpu.read::<f32>(&totals, *count).await?);
+        weight.extend(gpu.read::<f32>(&weights, *count).await?);
     }
 
     // Support height: silhouettes cannot tell a flat base from a cone under it,
@@ -204,13 +204,13 @@ mod tests {
         let overrides: Vec<String> = synthetic::SMALL.iter().map(|s| s.to_string()).collect();
         let config = options::build(None, &overrides).unwrap();
         let inputs = Inputs::load(&root.join("inputs"), &config).unwrap();
-        std::fs::remove_dir_all(&root).unwrap();
+        crate::storage::remove_dir_all(&root).unwrap();
         let gpu = Gpu::new().unwrap();
-        let state = build_hull(&gpu, &inputs, &config, &mut None).unwrap();
+        let state = crate::gpu::block_on(build_hull(&gpu, &inputs, &config, &mut None)).unwrap();
         let level = build_level(&inputs, 128);
         let depths: Vec<Plane<f32>> = level.iter().map(synthetic::sphere_depth).collect();
         let rim = 4;
-        let fused = tsdf(&gpu, &state.hull, &inputs.cameras, &level, &depths, rim, &config).unwrap();
+        let fused = crate::gpu::block_on(tsdf(&gpu, &state.hull, &inputs.cameras, &level, &depths, rim, &config)).unwrap();
         assert_eq!(fused.indices.len(), state.hull.count());
         let (truncation, behind) = (fused.truncation as f32, (config.behind_voxels * state.hull.voxel) as f32);
         let trimmed: Vec<Plane<f32>> = level.iter().zip(&depths).map(|(v, d)| without_rim(v, d, rim)).collect();

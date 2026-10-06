@@ -63,6 +63,7 @@ impl Arguments {
 }
 
 /// Entry point of the `stereo` subcommand.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn main(arguments: &[String]) -> anyhow::Result<()> {
     let arguments = Arguments::parse(arguments)?;
     let config = options::build(arguments.config.as_deref(), &arguments.overrides)?;

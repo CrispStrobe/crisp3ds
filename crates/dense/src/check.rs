@@ -73,7 +73,7 @@ fn score_view(triangles: &[Triangle], row: &ViewRow, sets: &[Option<&Path>], ove
     if let Ok(directory) = std::env::var("CRISP3DS_CHECK_DUMP") {
         // Diagnostic: the drawn silhouette of every checked view, for comparison with OpenCV.
         let path = Path::new(&directory).join(format!("{}.png", row.name));
-        image::GrayImage::from_raw(width as u32, height as u32, drawn.clone()).expect("mask size").save(path)?;
+        crate::storage::save_png(path, width, height, 1, &drawn)?;
     }
     let mut scores = Vec::new();
     let mut last = size;
@@ -143,7 +143,7 @@ pub fn preview(rows: &[&ViewRow], triangles: &[Triangle], label: &str, output: &
     const SIZE: (usize, usize) = (560, 430);
     const HEADER: usize = 34;
     const PAPER: [u8; 3] = [246, 247, 249];
-    if output.exists() {
+    if crate::storage::exists(output) {
         bail!("{} exists", output.display());
     }
     let panels: Vec<anyhow::Result<(Rgb, Rgb)>> = parallel_map(rows.len(), |n| {
@@ -190,10 +190,10 @@ fn spaced(count: usize, wanted: usize) -> Vec<usize> {
 /// Runs the check into a fresh directory and returns its report.
 pub fn run(options: &Options, events: &EventLog) -> anyhow::Result<Value> {
     let output = options.output;
-    if output.exists() {
+    if crate::storage::exists(output) {
         bail!("output directory exists: {}", output.display());
     }
-    std::fs::create_dir_all(output)?;
+    crate::storage::create_dir_all(output)?;
     let rows = load_views(options.inputs)?;
     if rows.is_empty() {
         bail!("no views in {}", options.inputs.display());
@@ -201,7 +201,7 @@ pub fn run(options: &Options, events: &EventLog) -> anyhow::Result<Value> {
     let (triangles, _) = crate::stl::read_binary(options.mesh)?;
     let mut checked = spaced(rows.len(), options.check_views);
     let mut sets: Vec<Option<&Path>> = vec![None];
-    if let Some(directory) = options.repaired_masks.filter(|d| d.is_dir()) {
+    if let Some(directory) = options.repaired_masks.filter(|d| crate::storage::is_dir(d)) {
         sets.push(Some(directory));
     }
     // np.linspace(0, len, views, endpoint=False, dtype=int)
@@ -249,7 +249,7 @@ pub fn run(options: &Options, events: &EventLog) -> anyhow::Result<Value> {
         report["preview"] = json!(output.join("preview.png").display().to_string());
         events.artifact("preview_render", &output.join("preview.png"), "Photos and shaded reconstruction", json!({}))?;
     }
-    std::fs::write(output.join("result.json"), serde_json::to_string_pretty(&report)? + "\n")?;
+    crate::storage::write(output.join("result.json"), serde_json::to_string_pretty(&report)? + "\n")?;
     events.artifact("report", &output.join("result.json"), "Photo check", json!({}))?;
     Ok(report)
 }

@@ -180,9 +180,9 @@ mod tests {
     #[test]
     fn a_result_file_configures_a_run() {
         let path = std::env::temp_dir().join(format!("crisp3ds-settings-{}.json", std::process::id()));
-        std::fs::write(&path, r#"{"closed": true, "configuration": {"mesh_smooth": 1.5, "mesh_fill_sigmas": [3.0]}}"#).unwrap();
+        crate::storage::write(&path, r#"{"closed": true, "configuration": {"mesh_smooth": 1.5, "mesh_fill_sigmas": [3.0]}}"#).unwrap();
         let c = build(Some(&path), &["mesh_smooth=1.25".to_string()]).unwrap();
-        std::fs::remove_file(&path).unwrap();
+        crate::storage::remove_file(&path).unwrap();
         assert_eq!((c.mesh_smooth, c.mesh_fill_sigmas.clone(), c.grid), (1.25, vec![3.0], 400));
     }
 

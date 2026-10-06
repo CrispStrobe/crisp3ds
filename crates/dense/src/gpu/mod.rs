@@ -6,6 +6,11 @@
 //! browser: at most 8 storage buffers per stage, 128 MiB per storage binding,
 //! 256 MiB per buffer, 65535 workgroups per dimension. Callers size their work
 //! from [`Gpu::binding_budget`] instead of assuming a large adapter.
+//!
+//! Device creation, kernel compilation, dispatch and readback are `async`: a
+//! browser resolves them through its event loop and nothing may block there.
+//! Native callers drive the same code with [`block_on`]; the readback then
+//! polls the device itself, so the futures are ready when first polled.
 
 use std::borrow::Cow;
 
@@ -32,24 +37,34 @@ pub struct Gpu {
 impl Gpu {
     /// The system's preferred adapter with default WebGPU limits.
     /// `CRISP3DS_GPU_FALLBACK=1` asks for a software adapter instead (for CI).
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn new() -> anyhow::Result<Self> {
+        block_on(Self::request())
+    }
+
+    /// [`Gpu::new`] without blocking; the only way to get a device in a browser.
+    pub async fn request() -> anyhow::Result<Self> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
         let fallback = std::env::var("CRISP3DS_GPU_FALLBACK").map(|v| v == "1").unwrap_or(false);
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            force_fallback_adapter: fallback,
-            compatible_surface: None,
-            ..Default::default()
-        }))
-        .map_err(|e| anyhow!("no GPU adapter: {e}"))?;
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                force_fallback_adapter: fallback,
+                compatible_surface: None,
+                ..Default::default()
+            })
+            .await
+            .map_err(|e| anyhow!("no GPU adapter: {e}"))?;
         let limits = wgpu::Limits::default();
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("crisp3ds-dense"),
-            required_features: wgpu::Features::empty(),
-            required_limits: limits.clone(),
-            ..Default::default()
-        }))
-        .context("GPU device with default WebGPU limits")?;
+        let (device, queue) = adapter
+            .request_device(&wgpu::DeviceDescriptor {
+                label: Some("crisp3ds-dense"),
+                required_features: wgpu::Features::empty(),
+                required_limits: limits.clone(),
+                ..Default::default()
+            })
+            .await
+            .context("GPU device with default WebGPU limits")?;
         Ok(Gpu { device, queue, info: adapter.get_info(), limits, peak: std::sync::atomic::AtomicU64::new(0) })
     }
 
@@ -111,7 +126,7 @@ impl Gpu {
     }
 
     /// Copies the first `count` elements of a storage buffer back to the CPU.
-    pub fn read<T: Pod>(&self, buffer: &wgpu::Buffer, count: usize) -> anyhow::Result<Vec<T>> {
+    pub async fn read<T: Pod>(&self, buffer: &wgpu::Buffer, count: usize) -> anyhow::Result<Vec<T>> {
         let bytes = (count * std::mem::size_of::<T>()) as u64;
         if bytes == 0 {
             return Ok(Vec::new());
@@ -126,12 +141,13 @@ impl Gpu {
         let mut encoder = self.device.create_command_encoder(&Default::default());
         encoder.copy_buffer_to_buffer(buffer, 0, &staging, 0, padded);
         self.queue.submit([encoder.finish()]);
-        let (sender, receiver) = std::sync::mpsc::channel();
-        staging.slice(..).map_async(wgpu::MapMode::Read, move |result| {
-            let _ = sender.send(result);
-        });
+        let mapped = Mapped::default();
+        let signal = mapped.clone();
+        staging.slice(..).map_async(wgpu::MapMode::Read, move |result| signal.complete(result));
+        // A native device completes the mapping while it is polled; a browser completes it from its event loop.
+        #[cfg(not(target_arch = "wasm32"))]
         self.device.poll(wgpu::PollType::wait_indefinitely()).map_err(|e| anyhow!("GPU poll: {e}"))?;
-        receiver.recv()?.map_err(|e| anyhow!("GPU readback: {e}"))?;
+        mapped.await.map_err(|e| anyhow!("GPU readback: {e}"))?;
         let view = staging.slice(..).get_mapped_range().map_err(|e| anyhow!("GPU readback: {e}"))?;
         let mut out = vec![T::zeroed(); count];
         bytemuck::cast_slice_mut::<T, u8>(&mut out).copy_from_slice(&view[..bytes as usize]);
@@ -140,14 +156,8 @@ impl Gpu {
         Ok(out)
     }
 
-    /// Blocks until everything submitted so far has run.
-    pub fn wait(&self) -> anyhow::Result<()> {
-        self.device.poll(wgpu::PollType::wait_indefinitely()).map_err(|e| anyhow!("GPU poll: {e}"))?;
-        Ok(())
-    }
-
     /// Compiles one compute entry point. Validation errors become `Err`.
-    pub fn kernel(&self, label: &str, source: &str, entry: &str) -> anyhow::Result<Kernel> {
+    pub async fn kernel(&self, label: &str, source: &str, entry: &str) -> anyhow::Result<Kernel> {
         let scope = self.device.push_error_scope(wgpu::ErrorFilter::Validation);
         let module = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(label),
@@ -161,7 +171,7 @@ impl Gpu {
             compilation_options: Default::default(),
             cache: None,
         });
-        if let Some(error) = pollster::block_on(scope.pop()) {
+        if let Some(error) = scope.pop().await {
             return Err(anyhow!("kernel {label}: {error}"));
         }
         Ok(Kernel { label: label.to_string(), pipeline })
@@ -169,7 +179,7 @@ impl Gpu {
 
     /// Runs `kernel` for at least `count` invocations with buffers bound at
     /// group 0, bindings 0, 1, 2, ... Kernels must ignore indices `>= count`.
-    pub fn run(&self, kernel: &Kernel, buffers: &[&wgpu::Buffer], count: u64) -> anyhow::Result<()> {
+    pub async fn run(&self, kernel: &Kernel, buffers: &[&wgpu::Buffer], count: u64) -> anyhow::Result<()> {
         if count == 0 {
             return Ok(());
         }
@@ -200,11 +210,52 @@ impl Gpu {
             pass.dispatch_workgroups(x, y, 1);
         }
         self.queue.submit([encoder.finish()]);
-        if let Some(error) = pollster::block_on(scope.pop()) {
+        if let Some(error) = scope.pop().await {
             return Err(anyhow!("kernel {}: {error}", kernel.label));
         }
         Ok(())
     }
+}
+
+/// Completion of a buffer mapping, as a future.
+#[derive(Clone, Default)]
+struct Mapped(std::sync::Arc<std::sync::Mutex<MappedState>>);
+
+#[derive(Default)]
+struct MappedState {
+    result: Option<Result<(), wgpu::BufferAsyncError>>,
+    waker: Option<std::task::Waker>,
+}
+
+impl Mapped {
+    fn complete(&self, result: Result<(), wgpu::BufferAsyncError>) {
+        let mut state = self.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        state.result = Some(result);
+        if let Some(waker) = state.waker.take() {
+            waker.wake();
+        }
+    }
+}
+
+impl std::future::Future for Mapped {
+    type Output = Result<(), wgpu::BufferAsyncError>;
+
+    fn poll(self: std::pin::Pin<&mut Self>, context: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
+        let mut state = self.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        match state.result.take() {
+            Some(result) => std::task::Poll::Ready(result),
+            None => {
+                state.waker = Some(context.waker().clone());
+                std::task::Poll::Pending
+            }
+        }
+    }
+}
+
+/// Runs a future of this crate to completion on the calling thread. Native only: a browser awaits instead.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn block_on<F: std::future::Future>(future: F) -> F::Output {
+    pollster::block_on(future)
 }
 
 pub struct Kernel {

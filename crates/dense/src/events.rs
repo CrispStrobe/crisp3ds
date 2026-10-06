@@ -5,11 +5,9 @@
 //! application), or to both. Stages hold a log with their stage name; the run
 //! driver hands each stage a view of one shared log.
 
-use std::fs::OpenOptions;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use web_time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{json, Map, Value};
 
@@ -65,9 +63,7 @@ impl EventLog {
         if let Some(path) = &self.path {
             let mut line = serde_json::to_string(&record)?;
             line.push('\n');
-            let mut file = OpenOptions::new().create(true).append(true).open(path)?;
-            file.write_all(line.as_bytes())?;
-            file.sync_all()?;
+            crate::storage::append(path, line.as_bytes())?;
         }
         if let Some(observer) = &self.observer {
             observer(&record);
@@ -104,13 +100,13 @@ mod tests {
     #[test]
     fn lines_are_json_with_stage_and_relative_paths() {
         let dir = std::env::temp_dir().join(format!("crisp3ds-events-{}", std::process::id()));
-        std::fs::create_dir_all(dir.join("mesh")).unwrap();
+        crate::storage::create_dir_all(dir.join("mesh")).unwrap();
         let log_path = dir.join("events.jsonl");
-        let _ = std::fs::remove_file(&log_path);
+        let _ = crate::storage::remove_file(&log_path);
         let log = EventLog::new(Some(&log_path), "mesh");
         log.progress(0.33333, "working").unwrap();
         log.artifact("final_mesh", &dir.join("mesh/mesh.stl"), "Final surface", json!({"triangles": 12})).unwrap();
-        let text = std::fs::read_to_string(&log_path).unwrap();
+        let text = crate::storage::read_to_string(&log_path).unwrap();
         let lines: Vec<Value> = text.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
         assert_eq!(lines.len(), 2);
         assert_eq!(lines[0]["stage"], "mesh");
@@ -118,14 +114,14 @@ mod tests {
         assert_eq!(lines[1]["path"], "mesh/mesh.stl");
         assert_eq!(lines[1]["triangles"], 12);
         EventLog::none().progress(0.5, "ignored").unwrap();
-        std::fs::remove_dir_all(&dir).unwrap();
+        crate::storage::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn a_run_log_reaches_the_file_and_the_observer_under_every_stage() {
         let dir = std::env::temp_dir().join(format!("crisp3ds-events-run-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
+        let _ = crate::storage::remove_dir_all(&dir);
+        crate::storage::create_dir_all(&dir).unwrap();
         let seen = Arc::new(std::sync::Mutex::new(Vec::<Value>::new()));
         let sink = seen.clone();
         let log = EventLog::for_run(&dir, Some(Arc::new(move |event: &Value| sink.lock().unwrap().push(event.clone()))));
@@ -135,7 +131,7 @@ mod tests {
         assert_eq!(seen.len(), 2);
         assert!(seen[0]["stage"].is_null());
         assert_eq!((seen[1]["stage"].as_str(), seen[1]["path"].as_str()), (Some("stereo"), Some("stereo/depth-level-0.png")));
-        assert_eq!(std::fs::read_to_string(dir.join("events.jsonl")).unwrap().lines().count(), 2);
-        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(crate::storage::read_to_string(dir.join("events.jsonl")).unwrap().lines().count(), 2);
+        crate::storage::remove_dir_all(&dir).unwrap();
     }
 }

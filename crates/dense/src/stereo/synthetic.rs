@@ -93,8 +93,8 @@ pub fn render(rotation: &Mat3, translation: &[f64; 3], k: &[f64; 4], width: usiz
 /// Writes the scene (`views` cameras, square images of `size` pixels) into a fresh directory.
 pub fn write(output: &Path, views: usize, size: usize) -> anyhow::Result<()> {
     let (distance, elevation, focal) = (6.0, 10.0, 227.0 * size as f64 / 128.0);
-    std::fs::create_dir_all(output.join("images")).with_context(|| output.display().to_string())?;
-    std::fs::create_dir_all(output.join("masks"))?;
+    crate::storage::create_dir_all(output.join("images")).with_context(|| output.display().to_string())?;
+    crate::storage::create_dir_all(output.join("masks"))?;
     let k = [focal, focal, size as f64 / 2.0, size as f64 / 2.0];
     let mut rows = Vec::new();
     let mut depths: Vec<(String, Array)> = Vec::new();
@@ -103,9 +103,9 @@ pub fn write(output: &Path, views: usize, size: usize) -> anyhow::Result<()> {
         let (gray, mask, depth) = render(&rotation, &translation, &k, size, size);
         let name = format!("view_{n:03}");
         let rgb: Vec<u8> = gray.iter().flat_map(|&g| [(255.0 * g.clamp(0.0, 1.0)) as u8; 3]).collect();
-        image::RgbImage::from_raw(size as u32, size as u32, rgb).expect("image size").save(output.join(format!("images/{name}.png")))?;
+        crate::storage::save_png(output.join(format!("images/{name}.png")), size, size, 3, &rgb)?;
         let luma: Vec<u8> = mask.iter().map(|&m| if m { 255 } else { 0 }).collect();
-        image::GrayImage::from_raw(size as u32, size as u32, luma).expect("mask size").save(output.join(format!("masks/{name}.png")))?;
+        crate::storage::save_png(output.join(format!("masks/{name}.png")), size, size, 1, &luma)?;
         rows.push(json!({
             "name": name, "source": format!("{name}.png"), "image": format!("images/{name}.png"),
             "mask": format!("masks/{name}.png"), "width": size, "height": size, "k": k,
@@ -122,10 +122,10 @@ pub fn write(output: &Path, views: usize, size: usize) -> anyhow::Result<()> {
         let r = (1.0 - z * z).sqrt();
         sparse.extend_from_slice(&[r * (golden * n as f64).cos(), r * (golden * n as f64).sin(), z]);
     }
-    std::fs::write(output.join("sparse_points.npy"), crate::npz::npy_f64(&[count, 3], &sparse))?;
+    crate::storage::write(output.join("sparse_points.npy"), crate::npz::npy_f64(&[count, 3], &sparse))?;
     let members: Vec<(&str, &Array)> = depths.iter().map(|(name, array)| (name.as_str(), array)).collect();
     npz::write(&output.join("exact_depths.npz"), &members, true)?;
-    std::fs::write(output.join("cameras.json"), serde_json::to_string_pretty(&json!({ "views": rows }))? + "\n")?;
+    crate::storage::write(output.join("cameras.json"), serde_json::to_string_pretty(&json!({ "views": rows }))? + "\n")?;
     Ok(())
 }
 
@@ -151,7 +151,7 @@ pub fn sphere_depth(view: &LevelView) -> Plane<f32> {
 /// A fresh scene in a temporary directory; the caller removes it.
 pub fn temporary(tag: &str, views: usize, size: usize) -> anyhow::Result<std::path::PathBuf> {
     let root = std::env::temp_dir().join(format!("crisp3ds-synthetic-{tag}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+    let _ = crate::storage::remove_dir_all(&root);
     write(&root.join("inputs"), views, size)?;
     Ok(root)
 }
@@ -184,6 +184,6 @@ mod tests {
         assert_eq!(neighbours.len(), 2);
         assert!(neighbours.contains(&1) && neighbours.contains(&11));
         assert!((inputs.angles[0][1] - 30.0).abs() < 1.0);
-        std::fs::remove_dir_all(&root).unwrap();
+        crate::storage::remove_dir_all(&root).unwrap();
     }
 }

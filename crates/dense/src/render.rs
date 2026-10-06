@@ -29,13 +29,12 @@ impl Rgb {
 
     /// A photo as 8-bit RGB (alpha dropped), like `cv2.imread` up to channel order.
     pub fn open(path: &Path) -> anyhow::Result<Self> {
-        let decoded = image::open(path).with_context(|| path.display().to_string())?.to_rgb8();
+        let decoded = crate::storage::open_image(path).with_context(|| path.display().to_string())?.to_rgb8();
         Ok(Rgb { width: decoded.width() as usize, height: decoded.height() as usize, data: decoded.into_raw() })
     }
 
     pub fn save(&self, path: &Path) -> anyhow::Result<()> {
-        image::RgbImage::from_raw(self.width as u32, self.height as u32, self.data.clone()).expect("image size").save(path)?;
-        Ok(())
+        crate::storage::save_png(path, self.width, self.height, 3, &self.data)
     }
 
     #[inline]

@@ -17,7 +17,7 @@ pub(crate) mod testdata;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::time::Instant;
+use web_time::Instant;
 
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use serde::Serialize;
@@ -71,13 +71,22 @@ pub fn run(
 ) -> Result<Report> {
     settings::validate(config)?;
     ensure!(step >= 1, "step must be at least 1");
-    ensure!(!output.exists(), "output directory already exists: {}", output.display());
+    ensure!(!crate::storage::exists(output), "output directory already exists: {}", output.display());
     if let Some(parent) = output.parent().filter(|p| !p.as_os_str().is_empty()) {
-        std::fs::create_dir_all(parent).with_context(|| format!("cannot create {}", parent.display()))?;
+        crate::storage::create_dir_all(parent).with_context(|| format!("cannot create {}", parent.display()))?;
     }
-    std::fs::create_dir(output).with_context(|| format!("cannot create output directory {}", output.display()))?;
-    let pool = rayon::ThreadPoolBuilder::new().num_threads(threads.max(1)).build()?;
-    pool.install(|| extract(volume_path, output, config, step, events, label))
+    crate::storage::create_dir(output).with_context(|| format!("cannot create output directory {}", output.display()))?;
+    // Without threads (wasm32) the passes run on the calling thread.
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = threads;
+        extract(volume_path, output, config, step, events, label)
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let pool = rayon::ThreadPoolBuilder::new().num_threads(threads.max(1)).build()?;
+        pool.install(|| extract(volume_path, output, config, step, events, label))
+    }
 }
 
 fn extract(volume_path: &Path, output: &Path, config: &DenseConfig, step: usize, events: &EventLog, label: Option<&str>) -> Result<Report> {
@@ -140,10 +149,10 @@ fn extract(volume_path: &Path, output: &Path, config: &DenseConfig, step: usize,
         physical_scale_established: false,
         seconds: started.elapsed().as_secs_f64(),
     };
-    std::fs::write(output.join("result.json"), serde_json::to_string_pretty(&report)? + "\n")?;
+    crate::storage::write(output.join("result.json"), serde_json::to_string_pretty(&report)? + "\n")?;
     let (kind, default_label) = if step == 1 { ("final_mesh", "Final surface") } else { ("preview_mesh", "Preview surface") };
     // Resolved, so that the event carries the path relative to the run directory.
-    let resolved = std::fs::canonicalize(&mesh_path).unwrap_or(mesh_path);
+    let resolved = crate::storage::canonicalize(&mesh_path).unwrap_or(mesh_path);
     events.artifact(kind, &resolved, label.unwrap_or(default_label), json!({"triangles": info.triangles}))?;
     Ok(report)
 }
@@ -231,7 +240,8 @@ pub fn command(arguments: &[String]) -> ExitCode {
         let log = match &parsed.events {
             Some(path) => {
                 let parent = path.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new("."));
-                let parent = std::fs::canonicalize(parent).with_context(|| format!("no directory for the event log {}", path.display()))?;
+                let parent =
+                    crate::storage::canonicalize(parent).with_context(|| format!("no directory for the event log {}", path.display()))?;
                 let name = path.file_name().ok_or_else(|| anyhow!("--events needs a file name"))?;
                 EventLog::new(Some(&parent.join(name)), stage)
             }
@@ -262,15 +272,15 @@ mod tests {
     impl Scratch {
         fn new(name: &str) -> Self {
             let path = std::env::temp_dir().join(format!("crisp3ds-mesh-{}-{name}", std::process::id()));
-            let _ = std::fs::remove_dir_all(&path);
-            std::fs::create_dir_all(&path).unwrap();
+            let _ = crate::storage::remove_dir_all(&path);
+            crate::storage::create_dir_all(&path).unwrap();
             Scratch(path)
         }
     }
 
     impl Drop for Scratch {
         fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.0);
+            let _ = crate::storage::remove_dir_all(&self.0);
         }
     }
 
@@ -346,7 +356,7 @@ mod tests {
         let (triangles, normals) = stl::read_binary(&scratch.0.join("mesh/mesh.stl")).unwrap();
         assert!(triangles.iter().zip(&normals).all(|(t, n)| (0..3).map(|a| t[0][a] * n[a]).sum::<f32>() > 0.0));
         let written: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(scratch.0.join("mesh/result.json")).unwrap()).unwrap();
+            serde_json::from_str(&crate::storage::read_to_string(scratch.0.join("mesh/result.json")).unwrap()).unwrap();
         let keys: Vec<&str> = written.as_object().unwrap().keys().map(String::as_str).collect();
         let mut expected = vec![
             "flat_base_applied",
@@ -389,7 +399,7 @@ mod tests {
     fn refuses_existing_output() {
         let scratch = Scratch::new("existing");
         sphere_volume(&scratch.0.join("v.npz"), true, None);
-        std::fs::create_dir(scratch.0.join("mesh")).unwrap();
+        crate::storage::create_dir(scratch.0.join("mesh")).unwrap();
         let error =
             run(&scratch.0.join("v.npz"), &scratch.0.join("mesh"), &DenseConfig::default(), 1, &EventLog::none(), None, 2).unwrap_err();
         assert!(error.to_string().contains("already exists"), "{error}");
@@ -434,7 +444,7 @@ mod tests {
     fn default_run_smooths_and_previews_do_not() {
         let scratch = Scratch::new("events");
         sphere_volume(&scratch.0.join("v.npz"), true, None);
-        let log_path = std::fs::canonicalize(&scratch.0).unwrap().join("events.jsonl");
+        let log_path = crate::storage::canonicalize(&scratch.0).unwrap().join("events.jsonl");
         let log = EventLog::new(Some(&log_path), "mesh");
         let full = run(&scratch.0.join("v.npz"), &scratch.0.join("mesh"), &DenseConfig::default(), 1, &log, None, 1).unwrap();
         let preview_log = EventLog::new(Some(&log_path), "stereo");
@@ -455,7 +465,7 @@ mod tests {
         let radii = radii(&scratch.0.join("mesh/mesh.stl"));
         assert!((radii[radii.len() / 2] - 1.0).abs() < 0.03 && radii[radii.len() - 1] - radii[0] < 0.08);
         let events: Vec<serde_json::Value> =
-            std::fs::read_to_string(&log_path).unwrap().lines().map(|line| serde_json::from_str(line).unwrap()).collect();
+            crate::storage::read_to_string(&log_path).unwrap().lines().map(|line| serde_json::from_str(line).unwrap()).collect();
         assert_eq!(events.len(), 2);
         assert_eq!(events[0]["type"], "artifact");
         assert_eq!((events[0]["stage"].as_str(), events[0]["kind"].as_str()), (Some("mesh"), Some("final_mesh")));

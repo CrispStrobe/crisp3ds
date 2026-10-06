@@ -182,7 +182,7 @@ mod tests {
     #[test]
     fn a_run_that_cannot_start_reports_failure_through_poll() {
         let root = std::env::temp_dir().join(format!("crisp3ds-capi-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
+        let _ = crate::storage::remove_dir_all(&root);
         let options = CString::new(json!({"output": root.join("run"), "inputs": root.join("missing")}).to_string()).unwrap();
         // SAFETY: valid string; null error slot is allowed.
         let run = unsafe { crisp3ds_run_start(options.as_ptr(), std::ptr::null_mut()) };
@@ -202,6 +202,6 @@ mod tests {
         assert!(state["error"].as_str().unwrap().contains("cameras.json"), "{state}");
         // SAFETY: live handle, freed once.
         unsafe { crisp3ds_run_free(run) };
-        let _ = std::fs::remove_dir_all(&root);
+        let _ = crate::storage::remove_dir_all(&root);
     }
 }

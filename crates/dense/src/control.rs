@@ -2,12 +2,11 @@
 //! thread may set, an optional `cancel` file a client may create (the run
 //! directory contract), an optional deadline, and the stage's log file.
 
-use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use web_time::Instant;
 
 /// Why a stage stopped before it finished.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,7 +31,7 @@ pub struct Control {
     cancel: Option<Arc<AtomicBool>>,
     cancel_file: Option<PathBuf>,
     deadline: Option<Instant>,
-    log: Option<Mutex<File>>,
+    log: Option<Mutex<PathBuf>>,
 }
 
 impl Control {
@@ -48,14 +47,18 @@ impl Control {
         log: Option<&Path>,
     ) -> anyhow::Result<Self> {
         let log = match log {
-            Some(path) => Some(Mutex::new(File::create(path)?)),
+            Some(path) => {
+                crate::storage::write(path, b"")?;
+                Some(Mutex::new(path.to_path_buf()))
+            }
             None => None,
         };
         Ok(Control { cancel, cancel_file, deadline, log })
     }
 
     pub fn cancelled(&self) -> bool {
-        self.cancel.as_ref().is_some_and(|flag| flag.load(Ordering::Relaxed)) || self.cancel_file.as_ref().is_some_and(|file| file.exists())
+        self.cancel.as_ref().is_some_and(|flag| flag.load(Ordering::Relaxed))
+            || self.cancel_file.as_ref().is_some_and(crate::storage::exists)
     }
 
     /// `Err(Stopped)` once the run was cancelled or the stage's deadline passed. Stages call this between units of work.
@@ -73,8 +76,8 @@ impl Control {
     pub fn log(&self, text: impl AsRef<str>) {
         match &self.log {
             Some(file) => {
-                let mut file = file.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-                let _ = writeln!(file, "{}", text.as_ref());
+                let path = file.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                let _ = crate::storage::append(&*path, format!("{}\n", text.as_ref()).as_bytes());
             }
             None => {
                 println!("{}", text.as_ref());
@@ -93,12 +96,12 @@ mod tests {
         assert!(Control::none().check().is_ok());
         let flag = Arc::new(AtomicBool::new(false));
         let file = std::env::temp_dir().join(format!("crisp3ds-cancel-{}", std::process::id()));
-        let _ = std::fs::remove_file(&file);
+        let _ = crate::storage::remove_file(&file);
         let control = Control::new(Some(flag.clone()), Some(file.clone()), None, None).unwrap();
         assert!(control.check().is_ok());
-        std::fs::write(&file, "").unwrap();
+        crate::storage::write(&file, "").unwrap();
         assert_eq!(control.check().unwrap_err().downcast::<Stopped>().unwrap(), Stopped::Cancelled);
-        std::fs::remove_file(&file).unwrap();
+        crate::storage::remove_file(&file).unwrap();
         assert!(control.check().is_ok());
         flag.store(true, Ordering::Relaxed);
         assert!(control.cancelled());

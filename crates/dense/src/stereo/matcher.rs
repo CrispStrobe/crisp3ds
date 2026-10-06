@@ -96,17 +96,17 @@ pub struct Matcher<'a> {
 
 impl<'a> Matcher<'a> {
     /// `search` is the grown hull that bounds every hypothesis.
-    pub fn new(gpu: &'a Gpu, config: &'a DenseConfig, search: &Hull) -> anyhow::Result<Self> {
+    pub async fn new(gpu: &'a Gpu, config: &'a DenseConfig, search: &Hull) -> anyhow::Result<Self> {
         let aggregate = include_str!("../shaders/aggregate.wgsl");
         Ok(Matcher {
             gpu,
             config,
-            warp: gpu.kernel("warp", include_str!("../shaders/warp.wgsl"), "main")?,
-            ncc_rows: gpu.kernel("ncc rows", include_str!("../shaders/ncc_rows.wgsl"), "main")?,
-            ncc_columns: gpu.kernel("ncc columns", include_str!("../shaders/ncc_columns.wgsl"), "main")?,
-            blur_rows: gpu.kernel("aggregate rows", aggregate, "horizontal")?,
-            blur_columns: gpu.kernel("aggregate columns", aggregate, "vertical")?,
-            peak: gpu.kernel("peak", include_str!("../shaders/peak.wgsl"), "main")?,
+            warp: gpu.kernel("warp", include_str!("../shaders/warp.wgsl"), "main").await?,
+            ncc_rows: gpu.kernel("ncc rows", include_str!("../shaders/ncc_rows.wgsl"), "main").await?,
+            ncc_columns: gpu.kernel("ncc columns", include_str!("../shaders/ncc_columns.wgsl"), "main").await?,
+            blur_rows: gpu.kernel("aggregate rows", aggregate, "horizontal").await?,
+            blur_columns: gpu.kernel("aggregate columns", aggregate, "vertical").await?,
+            peak: gpu.kernel("peak", include_str!("../shaders/peak.wgsl"), "main").await?,
             hull: gpu.upload("search hull", &search.bits),
             hull_params: (
                 [search.origin[0], search.origin[1], search.origin[2], search.voxel as f32],
@@ -171,7 +171,7 @@ impl<'a> Matcher<'a> {
     /// Fills the cost volume: `Stereo.score` for every hypothesis. `offsets`
     /// are inverse depths (sweep) or offsets added to `1 / init` (refine).
     #[allow(clippy::too_many_arguments)]
-    fn score(
+    async fn score(
         &mut self,
         buffers: &LevelBuffers,
         level: &[LevelView],
@@ -204,14 +204,25 @@ impl<'a> Matcher<'a> {
                         chunk: [count as u32, first as u32, 0, 0],
                     },
                 );
-                self.gpu.run(
-                    &self.warp,
-                    &[&params, &buffers.mask[view], &self.hull, init, &buffers.gray[j], &buffers.mask[j], &offsets_buffer, &work.warped],
-                    (count * pixels) as u64,
-                )?;
+                self.gpu
+                    .run(
+                        &self.warp,
+                        &[
+                            &params,
+                            &buffers.mask[view],
+                            &self.hull,
+                            init,
+                            &buffers.gray[j],
+                            &buffers.mask[j],
+                            &offsets_buffer,
+                            &work.warped,
+                        ],
+                        (count * pixels) as u64,
+                    )
+                    .await?;
                 let size = [reference.width as u32, reference.height as u32, count as u32, window as u32];
                 let params = self.gpu.uniform("ncc row params", &RowParams { size });
-                self.gpu.run(&self.ncc_rows, &[&params, &buffers.gray[view], &work.warped, &work.sums], (count * pixels) as u64)?;
+                self.gpu.run(&self.ncc_rows, &[&params, &buffers.gray[view], &work.warped, &work.sums], (count * pixels) as u64).await?;
                 let params = self.gpu.uniform(
                     "ncc params",
                     &NccParams {
@@ -220,7 +231,9 @@ impl<'a> Matcher<'a> {
                         gates: [self.config.min_variance as f32, self.config.window_fill as f32, 0.0, 0.0],
                     },
                 );
-                self.gpu.run(&self.ncc_columns, &[&params, &work.warped, &work.sums, &work.best, &work.volume], (count * pixels) as u64)?;
+                self.gpu
+                    .run(&self.ncc_columns, &[&params, &work.warped, &work.sums, &work.best, &work.volume], (count * pixels) as u64)
+                    .await?;
             }
             first += count;
         }
@@ -229,7 +242,7 @@ impl<'a> Matcher<'a> {
 
     /// `_aggregate` and `_peak`, then the depth of the best hypothesis per pixel.
     #[allow(clippy::too_many_arguments)]
-    fn reduce(
+    async fn reduce(
         &self,
         reference: &LevelView,
         hypotheses: usize,
@@ -249,19 +262,19 @@ impl<'a> Matcher<'a> {
             );
             let weights = self.gpu.upload("aggregate weights", &weights);
             let bindings = [&params, &weights, &work.volume, &work.numerator, &work.denominator];
-            self.gpu.run(&self.blur_rows, &bindings, (hypotheses * pixels) as u64)?;
-            self.gpu.run(&self.blur_columns, &bindings, (hypotheses * pixels) as u64)?;
+            self.gpu.run(&self.blur_rows, &bindings, (hypotheses * pixels) as u64).await?;
+            self.gpu.run(&self.blur_columns, &bindings, (hypotheses * pixels) as u64).await?;
         }
         let params =
             self.gpu.uniform("peak params", &PeakParams { size: [width as u32, height as u32, hypotheses as u32, refine as u32], values });
-        self.gpu.run(&self.peak, &[&params, &work.volume, init, &work.depth], pixels as u64)?;
-        Ok(Plane { width, height, data: self.gpu.read::<f32>(&work.depth, pixels)? })
+        self.gpu.run(&self.peak, &[&params, &work.volume, init, &work.depth], pixels as u64).await?;
+        Ok(Plane { width, height, data: self.gpu.read::<f32>(&work.depth, pixels).await? })
     }
 
     /// `Stereo.sweep`: a full inverse-depth sweep between the view's hull bounds.
     /// Returns the depth map and the size of one inverse-depth step.
     #[allow(clippy::too_many_arguments)]
-    pub fn sweep(
+    pub async fn sweep(
         &mut self,
         buffers: &LevelBuffers,
         level: &[LevelView],
@@ -277,15 +290,16 @@ impl<'a> Matcher<'a> {
         let inverse = linspace(1.0 / near, 1.0 / far, planes);
         let reference = &level[view];
         let unused = self.gpu.zeroed("no init", 4);
-        self.score(buffers, level, view, neighbours, window, false, &unused, &inverse)?;
+        self.score(buffers, level, view, neighbours, window, false, &unused, &inverse).await?;
         let step = (1.0 / far - 1.0 / near) / (planes as f64 - 1.0);
-        let depth = self.reduce(reference, planes, aggregate, false, &unused, [step as f32, 0.0, min_score as f32, (1.0 / near) as f32])?;
+        let depth =
+            self.reduce(reference, planes, aggregate, false, &unused, [step as f32, 0.0, min_score as f32, (1.0 / near) as f32]).await?;
         Ok((depth, step.abs()))
     }
 
     /// `Stereo.refine`: searches `half` steps of inverse depth either side of a smooth initial surface.
     #[allow(clippy::too_many_arguments)]
-    pub fn refine(
+    pub async fn refine(
         &mut self,
         buffers: &LevelBuffers,
         level: &[LevelView],
@@ -301,8 +315,8 @@ impl<'a> Matcher<'a> {
         let reference = &level[view];
         let offsets: Vec<f32> = (-half..=half).map(|n| n as f32 * step as f32).collect();
         let init_buffer = self.gpu.upload("init", &init.data);
-        self.score(buffers, level, view, neighbours, window, true, &init_buffer, &offsets)?;
-        self.reduce(reference, offsets.len(), aggregate, true, &init_buffer, [step as f32, half as f32, min_score as f32, 0.0])
+        self.score(buffers, level, view, neighbours, window, true, &init_buffer, &offsets).await?;
+        self.reduce(reference, offsets.len(), aggregate, true, &init_buffer, [step as f32, half as f32, min_score as f32, 0.0]).await
     }
 }
 
@@ -549,16 +563,18 @@ mod tests {
         let overrides: Vec<String> = synthetic::SMALL.iter().map(|s| s.to_string()).collect();
         let config = options::build(None, &overrides).unwrap();
         let inputs = Inputs::load(&root.join("inputs"), &config).unwrap();
-        std::fs::remove_dir_all(&root).unwrap();
+        crate::storage::remove_dir_all(&root).unwrap();
         let gpu = Gpu::new().unwrap();
-        let state = build_hull(&gpu, &inputs, &config, &mut None).unwrap();
-        let mut matcher = Matcher::new(&gpu, &config, &state.search).unwrap();
+        let state = crate::gpu::block_on(build_hull(&gpu, &inputs, &config, &mut None)).unwrap();
+        let mut matcher = crate::gpu::block_on(Matcher::new(&gpu, &config, &state.search)).unwrap();
         let view = 5;
         let neighbours = inputs.neighbours(view, config.neighbours as usize, &config).unwrap();
 
         let coarse = build_level(&inputs, 64);
         let buffers = matcher.upload(&coarse);
-        let (found, step) = matcher.sweep(&buffers, &coarse, view, &neighbours, state.bounds[view], 5, 1.0, config.min_score).unwrap();
+        let (found, step) =
+            crate::gpu::block_on(matcher.sweep(&buffers, &coarse, view, &neighbours, state.bounds[view], 5, 1.0, config.min_score))
+                .unwrap();
         let expected = reference::sweep(&coarse, view, &neighbours, state.bounds[view], &state.search, 5, 1.0, config.min_score, &config);
         let (same, valid) = agreement(&expected, &found, 1e-4);
         assert!(valid > 500, "{valid} valid pixels");
@@ -567,7 +583,9 @@ mod tests {
         let fine = build_level(&inputs, 128);
         let buffers = matcher.upload(&fine);
         let init = initial(&found, &fine[view].mask, 1.5);
-        let found = matcher.refine(&buffers, &fine, view, &neighbours, &init, step / 2.0, 8, 7, 1.0, config.min_score).unwrap();
+        let found =
+            crate::gpu::block_on(matcher.refine(&buffers, &fine, view, &neighbours, &init, step / 2.0, 8, 7, 1.0, config.min_score))
+                .unwrap();
         let expected = reference::refine(&fine, view, &neighbours, &init, step / 2.0, 8, &state.search, 7, 1.0, config.min_score, &config);
         let (same, valid) = agreement(&expected, &found, 1e-4);
         assert!(valid > 1000, "{valid} valid pixels");

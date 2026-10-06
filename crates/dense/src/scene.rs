@@ -104,7 +104,7 @@ pub fn remap_mask(source: &Plane<u8>, map_x: &[f32], map_y: &[f32]) -> Vec<u8> {
 
 /// `cv2.imread(path, IMREAD_GRAYSCALE)` for 8-bit files: grey as stored, colour through OpenCV's BGR weights.
 pub fn read_gray(path: &Path) -> anyhow::Result<Plane<u8>> {
-    let decoded = image::open(path).with_context(|| path.display().to_string())?;
+    let decoded = crate::storage::open_image(path).with_context(|| path.display().to_string())?;
     let (width, height) = (decoded.width() as usize, decoded.height() as usize);
     let luma = |r: u8, g: u8, b: u8| ((r as u32 * 4899 + g as u32 * 9617 + b as u32 * 1868 + 8192) >> 14) as u8;
     let data = match decoded {
@@ -120,7 +120,7 @@ pub fn read_gray(path: &Path) -> anyhow::Result<Plane<u8>> {
 /// Writes `cameras.json`, `masks/` and `sparse_points.npy` into a fresh directory.
 /// Returns `{"views", "sparse_points"}` like the Python module.
 pub fn run(scene: &Path, prepared: &Path, raw_masks: &Path, output: &Path) -> anyhow::Result<Value> {
-    let data: Value = serde_json::from_str(&std::fs::read_to_string(scene).with_context(|| scene.display().to_string())?)
+    let data: Value = serde_json::from_str(&crate::storage::read_to_string(scene).with_context(|| scene.display().to_string())?)
         .with_context(|| scene.display().to_string())?;
     let intrinsics = data["intrinsics"].as_array().ok_or_else(|| anyhow!("scene has no intrinsics"))?;
     if intrinsics.len() != 1 || intrinsics[0]["distortionType"] != "radialk3" {
@@ -145,10 +145,10 @@ pub fn run(scene: &Path, prepared: &Path, raw_masks: &Path, output: &Path) -> an
     views.sort_by_key(|v| file_name(&text(&v["path"])));
     let views: Vec<&Value> = views.into_iter().filter(|v| poses.contains_key(&text(&v["poseId"]))).collect();
 
-    if output.exists() {
+    if crate::storage::exists(output) {
         bail!("output directory exists: {}", output.display());
     }
-    std::fs::create_dir_all(output.join("masks")).with_context(|| output.display().to_string())?;
+    crate::storage::create_dir_all(output.join("masks")).with_context(|| output.display().to_string())?;
     let rows: Vec<anyhow::Result<Value>> = parallel_map(views.len(), |n| {
         let view = views[n];
         let id = text(&view["viewId"]);
@@ -162,11 +162,11 @@ pub fn run(scene: &Path, prepared: &Path, raw_masks: &Path, output: &Path) -> an
         let image = prepared.join(format!("{id}.png"));
         let source = file_name(&text(&view["path"]));
         let raw = read_gray(&raw_masks.join(&source)).ok().filter(|m| (m.width, m.height) == (width, height));
-        let (true, Some(raw)) = (image.is_file(), raw) else { bail!("missing prepared image or raw mask for {id}") };
+        let (true, Some(raw)) = (crate::storage::is_file(&image), raw) else { bail!("missing prepared image or raw mask for {id}") };
         let name = format!("view_{id}");
         let mask = remap_mask(&raw, &map_x, &map_y);
-        image::GrayImage::from_raw(width as u32, height as u32, mask).expect("mask size").save(output.join(format!("masks/{name}.png")))?;
-        let absolute = std::fs::canonicalize(&image).unwrap_or(image);
+        crate::storage::save_png(output.join(format!("masks/{name}.png")), width, height, 1, &mask)?;
+        let absolute = crate::storage::canonicalize(&image).unwrap_or(image);
         Ok(json!({
             "name": name, "source": source, "image": absolute.to_string_lossy(), "mask": format!("masks/{name}.png"),
             "width": width, "height": height, "k": [fx, fy, cx + 0.5, cy + 0.5],
@@ -178,8 +178,8 @@ pub fn run(scene: &Path, prepared: &Path, raw_masks: &Path, output: &Path) -> an
     for landmark in data["structure"].as_array().map(Vec::as_slice).unwrap_or(&[]) {
         points.extend(numbers(&landmark["X"], 3)?);
     }
-    std::fs::write(output.join("sparse_points.npy"), crate::npz::npy_f64(&[points.len() / 3, 3], &points))?;
-    std::fs::write(output.join("cameras.json"), serde_json::to_string_pretty(&json!({ "views": rows }))? + "\n")?;
+    crate::storage::write(output.join("sparse_points.npy"), crate::npz::npy_f64(&[points.len() / 3, 3], &points))?;
+    crate::storage::write(output.join("cameras.json"), serde_json::to_string_pretty(&json!({ "views": rows }))? + "\n")?;
     Ok(json!({"views": rows.len(), "sparse_points": points.len() / 3}))
 }
 

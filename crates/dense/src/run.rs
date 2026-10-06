@@ -14,8 +14,9 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
-use std::sync::{mpsc, Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
+
+use web_time::{Duration, Instant};
 
 use anyhow::{anyhow, bail, Context};
 use serde::Deserialize;
@@ -151,6 +152,102 @@ pub fn input_sheet(inputs: &Path, path: &Path) -> anyhow::Result<()> {
     sheet.save(path)
 }
 
+/// Preview volumes waiting to be meshed coarsely. With threads a worker takes
+/// them as they are announced; without (wasm32) the driver meshes them itself
+/// at the next stage boundary.
+#[derive(Default)]
+struct PreviewQueue {
+    state: Mutex<PreviewState>,
+    changed: std::sync::Condvar,
+}
+
+#[derive(Default)]
+struct PreviewState {
+    waiting: std::collections::VecDeque<(PathBuf, String)>,
+    meshing: bool,
+    closed: bool,
+    /// Set when the run failed or was cancelled: waiting volumes are dropped.
+    abandoned: bool,
+}
+
+struct PreviewMesher {
+    queue: Arc<PreviewQueue>,
+    events: EventLog,
+    config: DenseConfig,
+    step: usize,
+    threads: usize,
+}
+
+impl PreviewMesher {
+    fn lock(&self) -> std::sync::MutexGuard<'_, PreviewState> {
+        self.queue.state.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    fn mesh(&self, volume: &Path, label: &str) {
+        let result = crate::mesh::run(volume, &volume.with_extension(""), &self.config, self.step, &self.events, Some(label), self.threads);
+        let log = match &result {
+            Ok(report) => serde_json::to_string_pretty(report).unwrap_or_default(),
+            Err(error) => format!("{error:#}"),
+        };
+        let _ = crate::storage::write(volume.with_extension("log"), log + "\n");
+    }
+
+    /// The worker: meshes volumes until the queue is closed and empty.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn work(&self) {
+        loop {
+            let next = {
+                let mut state = self.lock();
+                loop {
+                    if state.abandoned {
+                        state.waiting.clear();
+                    }
+                    if let Some(next) = state.waiting.pop_front() {
+                        state.meshing = true;
+                        break Some(next);
+                    }
+                    if state.closed {
+                        break None;
+                    }
+                    state = self.queue.changed.wait(state).unwrap_or_else(|poisoned| poisoned.into_inner());
+                }
+            };
+            let Some((volume, label)) = next else { return };
+            self.mesh(&volume, &label);
+            self.lock().meshing = false;
+            self.queue.changed.notify_all();
+        }
+    }
+
+    /// Returns when no preview is waiting or being meshed. `abandon` drops the waiting ones.
+    fn settle(&self, abandon: bool) {
+        if abandon {
+            let mut state = self.lock();
+            state.abandoned = true;
+            state.waiting.clear();
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.queue.changed.notify_all();
+            let mut state = self.lock();
+            while state.meshing || !state.waiting.is_empty() {
+                state = self.queue.changed.wait(state).unwrap_or_else(|poisoned| poisoned.into_inner());
+            }
+        }
+        #[cfg(target_arch = "wasm32")]
+        loop {
+            let next = self.lock().waiting.pop_front();
+            let Some((volume, label)) = next else { break };
+            self.mesh(&volume, &label);
+        }
+    }
+
+    fn close(&self) {
+        self.lock().closed = true;
+        self.queue.changed.notify_all();
+    }
+}
+
 struct Driver {
     output: PathBuf,
     events: EventLog,
@@ -158,21 +255,28 @@ struct Driver {
     started: Instant,
     cancel: Option<Arc<AtomicBool>>,
     finished: bool,
+    previews: Arc<PreviewMesher>,
+}
+
+/// A stage that has started: its events, its control and its clock.
+struct Stage {
+    name: String,
+    command: Vec<String>,
+    events: EventLog,
+    control: Control,
+    started: Instant,
 }
 
 impl Driver {
-    fn control(&self, stage: &str, timeout: Option<f64>) -> anyhow::Result<Control> {
-        let deadline = timeout.map(|seconds| Instant::now() + Duration::from_secs_f64(seconds.max(0.0)));
-        Control::new(self.cancel.clone(), Some(self.output.join("cancel")), deadline, Some(&self.output.join(format!("{stage}.log"))))
-    }
-
     fn write_report(&self) -> anyhow::Result<()> {
-        std::fs::write(self.output.join("pipeline.json"), serde_json::to_string_pretty(&self.report)? + "\n")?;
+        crate::storage::write(self.output.join("pipeline.json"), serde_json::to_string_pretty(&self.report)? + "\n")?;
         Ok(())
     }
 
+    /// Closes the run: `pipeline.json`, then `run_finished` as the last event (previews are settled first).
     fn finish(&mut self, status: &str) -> anyhow::Result<()> {
         self.finished = true;
+        self.previews.settle(status != "complete");
         self.report["status"] = json!(status);
         self.report["seconds"] = json!(self.started.elapsed().as_secs_f64());
         self.write_report()?;
@@ -187,26 +291,26 @@ impl Driver {
         self.events.emit("run_finished", json!({"status": outcome, "seconds": self.report["seconds"]}))
     }
 
-    /// One stage: events around it, its entry in `pipeline.json`, its log file.
-    fn stage<T>(
-        &mut self,
-        name: &str,
-        command: Vec<String>,
-        timeout: Option<f64>,
-        work: impl FnOnce(&EventLog, &Control) -> anyhow::Result<T>,
-    ) -> anyhow::Result<T> {
+    /// Starts a stage: `stage_started`, its log file, its deadline.
+    fn begin(&mut self, name: &str, command: Vec<String>, timeout: Option<f64>) -> anyhow::Result<Stage> {
         println!("[{name}] ...");
         let events = self.events.stage(name);
         events.emit("stage_started", json!({}))?;
-        let started = Instant::now();
-        let control = self.control(name, timeout)?;
-        let result = control.check().and_then(|_| work(&events, &control));
+        let deadline = timeout.map(|seconds| Instant::now() + Duration::from_secs_f64(seconds.max(0.0)));
+        let log = self.output.join(format!("{name}.log"));
+        let control = Control::new(self.cancel.clone(), Some(self.output.join("cancel")), deadline, Some(&log))?;
+        Ok(Stage { name: name.to_string(), command, events, control, started: Instant::now() })
+    }
+
+    /// Ends a stage with its result: its entry in `pipeline.json`, `stage_finished` or `error` and the end of the run.
+    fn end<T>(&mut self, stage: Stage, result: anyhow::Result<T>) -> anyhow::Result<T> {
+        let Stage { name, command, events, control, started } = stage;
         let seconds = started.elapsed().as_secs_f64();
         let stopped = result.as_ref().err().and_then(|e| e.downcast_ref::<Stopped>().copied());
         if let Err(error) = &result {
             control.log(format!("{error:#}"));
         }
-        self.report["stages"][name] = json!({
+        self.report["stages"][&name] = json!({
             "command": command,
             "exit_code": match (&result, stopped) { (Ok(_), _) => json!(0), (_, Some(_)) => Value::Null, _ => json!(1) },
             "timed_out": stopped == Some(Stopped::Deadline),
@@ -243,13 +347,22 @@ fn text(path: &Path) -> String {
 /// content of `pipeline.json`. Every event is appended to `events.jsonl` there
 /// and passed to `observer`; setting `cancel` (or creating the `cancel` file)
 /// stops the run at the next view while matching, or between stages otherwise.
+///
+/// Blocks the calling thread until the run is over; call it on a worker thread.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn run(options: &RunOptions, observer: Option<Observer>, cancel: Option<Arc<AtomicBool>>) -> anyhow::Result<Value> {
+    crate::gpu::block_on(run_async(options, observer, cancel))
+}
+
+/// [`run`] as a future, for hosts that cannot block (a browser). Paths may
+/// name files of the in-memory tree (`crate::storage`); in a browser they all do.
+pub async fn run_async(options: &RunOptions, observer: Option<Observer>, cancel: Option<Arc<AtomicBool>>) -> anyhow::Result<Value> {
     let config = options.configuration()?;
     if options.output.as_os_str().is_empty() {
         bail!("an output directory is required");
     }
-    let output = std::path::absolute(&options.output)?;
-    if output.exists() {
+    let output = crate::storage::absolute(&options.output)?;
+    if crate::storage::exists(&output) {
         bail!("output directory exists: {}", output.display());
     }
     let from_scene = options.scene.is_some() && options.prepared.is_some() && options.raw_masks.is_some();
@@ -257,36 +370,44 @@ pub fn run(options: &RunOptions, observer: Option<Observer>, cancel: Option<Arc<
         bail!("give inputs, or all of scene, prepared and raw_masks");
     }
     #[cfg(not(target_arch = "wasm32"))]
-    {
-        let parent = output.parent().filter(|p| p.exists()).map(Path::to_path_buf).unwrap_or(std::env::current_dir()?);
+    if !crate::storage::is_memory(&output) {
+        let parent = output.parent().filter(|p| crate::storage::exists(p)).map(Path::to_path_buf).unwrap_or(std::env::current_dir()?);
         let free = fs4::available_space(&parent).with_context(|| parent.display().to_string())? as f64 / (1u64 << 30) as f64;
         if free < options.minimum_free_gib {
             bail!("only {free:.1} GiB free; need {} (see minimum_free_gib)", options.minimum_free_gib);
         }
     }
-    std::fs::create_dir_all(&output).with_context(|| output.display().to_string())?;
+    crate::storage::create_dir_all(&output).with_context(|| output.display().to_string())?;
     // Event paths are relative to the run directory as the file system names it.
-    let output = std::fs::canonicalize(&output)?;
-    std::fs::write(output.join("config.json"), serde_json::to_string_pretty(&config)? + "\n")?;
+    let output = crate::storage::canonicalize(&output)?;
+    crate::storage::write(output.join("config.json"), serde_json::to_string_pretty(&config)? + "\n")?;
 
-    // Preview volumes announced by the stereo stage go to the meshing thread.
-    let (sender, receiver) = mpsc::channel::<Option<(PathBuf, String)>>();
-    let release = sender.clone();
-    let sender = Mutex::new(sender);
-    let run_directory = output.clone();
+    // Preview volumes announced by the stereo stage are queued for coarse meshing.
+    let queue = Arc::new(PreviewQueue::default());
+    let (announced, run_directory) = (queue.clone(), output.clone());
     let watching: Observer = Arc::new(move |event: &Value| {
         if event["type"] == "artifact" && event["kind"] == "preview_volume" {
             if let (Some(path), Some(label)) = (event["path"].as_str(), event["label"].as_str()) {
-                let _ = sender.lock().unwrap_or_else(|p| p.into_inner()).send(Some((run_directory.join(path), label.to_string())));
+                let mut state = announced.state.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                if !state.abandoned {
+                    state.waiting.push_back((run_directory.join(path), label.to_string()));
+                }
+                drop(state);
+                announced.changed.notify_all();
             }
-        } else if event["type"] == "run_finished" {
-            let _ = sender.lock().unwrap_or_else(|p| p.into_inner()).send(None);
         }
         if let Some(observer) = &observer {
             observer(event);
         }
     });
     let events = EventLog::for_run(&output, Some(watching));
+    let mesher = Arc::new(PreviewMesher {
+        queue,
+        events: events.stage("stereo"),
+        config: config.clone(),
+        step: options.preview_step.max(1),
+        threads: options.threads.max(1),
+    });
     let mut driver = Driver {
         output: output.clone(),
         events: events.clone(),
@@ -294,51 +415,44 @@ pub fn run(options: &RunOptions, observer: Option<Observer>, cancel: Option<Arc<
         started: Instant::now(),
         cancel,
         finished: false,
+        previews: mesher.clone(),
     };
     let source = options.inputs.as_ref().or(options.scene.as_ref()).expect("checked above");
     let source_name = source.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
 
-    let outcome = std::thread::scope(|scope| {
-        let preview_events = events.stage("stereo");
-        let (preview_config, step, threads) = (config.clone(), options.preview_step.max(1), options.threads.max(1));
-        let mesher = scope.spawn(move || {
-            while let Ok(Some((volume, label))) = receiver.recv() {
-                let target = volume.with_extension("");
-                let result = crate::mesh::run(&volume, &target, &preview_config, step, &preview_events, Some(&label), threads);
-                let log = match &result {
-                    Ok(report) => serde_json::to_string_pretty(report).unwrap_or_default(),
-                    Err(error) => format!("{error:#}"),
-                };
-                let _ = std::fs::write(volume.with_extension("log"), log + "\n");
-            }
-        });
-        let outcome = stages(options, &config, &output, &mut driver, source_name);
-        if let Err(error) = &outcome {
-            if !driver.finished {
-                // Anything outside a stage must still close the event log.
-                let _ = events.emit("error", json!({"message": format!("{error:#}")}));
-                let _ = driver.finish("failed before or between stages");
-            }
-        }
-        // Release the meshing thread; outstanding previews finish first, they are small.
-        let _ = release.send(None);
-        let _ = mesher.join();
-        outcome
-    });
-    let previews = output.join("stereo/preview");
-    if let Ok(entries) = std::fs::read_dir(&previews) {
-        for entry in entries.flatten() {
-            if entry.path().extension().is_some_and(|e| e == "npz") {
-                let _ = std::fs::remove_file(entry.path());
-            }
+    // With threads, previews are meshed on a second one while matching continues.
+    #[cfg(not(target_arch = "wasm32"))]
+    let worker = {
+        let mesher = mesher.clone();
+        std::thread::Builder::new().name("crisp3ds-previews".into()).spawn(move || mesher.work())?
+    };
+    let outcome = stages(options, &config, &output, &mut driver, source_name).await;
+    let outcome = close(outcome, &events, &mut driver);
+    mesher.close();
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = worker.join();
+    for entry in crate::storage::list(output.join("stereo/preview")).unwrap_or_default() {
+        if entry.extension().is_some_and(|e| e == "npz") {
+            let _ = crate::storage::remove_file(entry);
         }
     }
     outcome?;
     Ok(driver.report)
 }
 
-fn stages(options: &RunOptions, config: &DenseConfig, output: &Path, driver: &mut Driver, source_name: String) -> anyhow::Result<()> {
-    let gpu = Gpu::new();
+/// Anything that failed outside a stage must still close the event log.
+fn close(outcome: anyhow::Result<()>, events: &EventLog, driver: &mut Driver) -> anyhow::Result<()> {
+    if let Err(error) = &outcome {
+        if !driver.finished {
+            let _ = events.emit("error", json!({"message": format!("{error:#}")}));
+            let _ = driver.finish("failed before or between stages");
+        }
+    }
+    outcome
+}
+
+async fn stages(options: &RunOptions, config: &DenseConfig, output: &Path, driver: &mut Driver, source_name: String) -> anyhow::Result<()> {
+    let gpu = Gpu::request().await;
     let device = match &gpu {
         Ok(gpu) => format!("wgpu: {}", gpu.describe()),
         Err(_) => "wgpu".to_string(),
@@ -348,10 +462,11 @@ fn stages(options: &RunOptions, config: &DenseConfig, output: &Path, driver: &mu
         "run_started",
         json!({"schema": SCHEMA, "configuration": serde_json::to_value(config)?, "device": device, "inputs": source_name}),
     )?;
+
     let inputs = match &options.inputs {
         Some(inputs) => {
-            let inputs = std::path::absolute(inputs)?;
-            if !inputs.join("cameras.json").is_file() {
+            let inputs = crate::storage::absolute(inputs)?;
+            if !crate::storage::is_file(inputs.join("cameras.json")) {
                 bail!("{} has no cameras.json; it is not an inputs directory", inputs.display());
             }
             inputs
@@ -367,11 +482,12 @@ fn stages(options: &RunOptions, config: &DenseConfig, output: &Path, driver: &mu
                 ["crisp3ds-dense", "inputs", "--scene", &text(&scene), "--prepared", &text(&prepared), "--raw-masks", &text(&raw_masks)]
                     .map(String::from)
                     .to_vec();
-            driver.stage("inputs", command, Some(600.0), |_, control| {
-                let report = scene::run(&scene, &prepared, &raw_masks, &inputs)?;
-                control.log(report.to_string());
-                Ok(())
-            })?;
+            let stage = driver.begin("inputs", command, Some(600.0))?;
+            let result = stage.control.check().and_then(|_| scene::run(&scene, &prepared, &raw_masks, &inputs));
+            if let Ok(report) = &result {
+                stage.control.log(report.to_string());
+            }
+            driver.end(stage, result)?;
             inputs
         }
     };
@@ -393,41 +509,49 @@ fn stages(options: &RunOptions, config: &DenseConfig, output: &Path, driver: &mu
     if let Some(depths) = &options.reuse_depths {
         command.extend(["--reuse-depths".to_string(), text(depths)]);
     }
-    driver.stage("stereo", command, Some(options.stereo_timeout), |events, control| {
-        stereo::run::run_with(&arguments, config, &gpu, events, control).map(|_| ())
-    })?;
+    let stage = driver.begin("stereo", command, Some(options.stereo_timeout))?;
+    let result = match stage.control.check() {
+        Ok(()) => stereo::run::run_with(&arguments, config, &gpu, &stage.events, &stage.control).await.map(|_| ()),
+        Err(stopped) => Err(stopped),
+    };
+    driver.end(stage, result)?;
     drop(gpu);
+    // Without a second thread the previews are meshed here.
+    #[cfg(target_arch = "wasm32")]
+    driver.previews.settle(false);
 
     let volume = output.join("stereo/volume.npz");
     let command = ["crisp3ds-dense", "mesh", "--volume", &text(&volume)].map(String::from).to_vec();
     let threads = options.threads.max(1);
-    let mesh = driver.stage("mesh", command, Some(900.0), |events, control| {
-        let report = crate::mesh::run(&volume, &output.join("mesh"), config, 1, events, None, threads)?;
-        control.log(serde_json::to_string_pretty(&report)?);
-        Ok(report)
-    })?;
+    let stage = driver.begin("mesh", command, Some(900.0))?;
+    let result =
+        stage.control.check().and_then(|_| crate::mesh::run(&volume, &output.join("mesh"), config, 1, &stage.events, None, threads));
+    if let Ok(report) = &result {
+        stage.control.log(serde_json::to_string_pretty(report)?);
+    }
+    let mesh = driver.end(stage, result)?;
 
     if options.check {
         let stl = output.join("mesh/mesh.stl");
         let repaired = output.join("stereo/masks-repaired");
         let command = ["crisp3ds-dense", "check", "--inputs", &text(&inputs), "--mesh", &text(&stl)].map(String::from).to_vec();
-        let report = driver.stage("check", command, Some(900.0), |events, control| {
-            let options = check::Options {
-                inputs: &inputs,
-                mesh: &stl,
-                output: &output.join("check"),
-                repaired_masks: Some(&repaired),
-                preview_views: if options.preview { 3 } else { 0 },
-                check_views: 24,
-            };
-            let report = check::run(&options, events)?;
-            control.log(serde_json::to_string_pretty(&report)?);
-            Ok(report)
-        })?;
-        driver.report["photo_check"] = report;
+        let stage = driver.begin("check", command, Some(900.0))?;
+        let check_options = check::Options {
+            inputs: &inputs,
+            mesh: &stl,
+            output: &output.join("check"),
+            repaired_masks: Some(&repaired),
+            preview_views: if options.preview { 3 } else { 0 },
+            check_views: 24,
+        };
+        let result = stage.control.check().and_then(|_| check::run(&check_options, &stage.events));
+        if let Ok(report) = &result {
+            stage.control.log(serde_json::to_string_pretty(report)?);
+        }
+        driver.report["photo_check"] = driver.end(stage, result)?;
     }
     if !options.keep_volume {
-        std::fs::remove_file(&volume)?;
+        crate::storage::remove_file(&volume)?;
     }
     driver.report["mesh"] = json!(text(&output.join("mesh/mesh.stl")));
     driver.report["closed"] = json!(mesh.closed);
@@ -487,6 +611,7 @@ pub fn parse(arguments: &[String]) -> anyhow::Result<RunOptions> {
 }
 
 /// `crisp3ds-dense run ...`: prints the summary the Python driver prints.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn main(arguments: &[String]) -> anyhow::Result<()> {
     if arguments.iter().any(|a| a == "--list-settings") {
         let defaults = serde_json::to_value(DenseConfig::default())?;
@@ -530,7 +655,7 @@ mod tests {
     #[test]
     fn refuses_before_anything_is_written() {
         let root = std::env::temp_dir().join(format!("crisp3ds-run-refuse-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
+        let _ = crate::storage::remove_dir_all(&root);
         let options = RunOptions { output: root.clone(), ..Default::default() };
         assert!(run(&options, None, None).is_err());
         assert!(!root.exists());
@@ -543,20 +668,20 @@ mod tests {
     #[test]
     fn a_failure_between_stages_closes_the_event_log() {
         let root = std::env::temp_dir().join(format!("crisp3ds-run-fail-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(root.join("in")).unwrap();
+        let _ = crate::storage::remove_dir_all(&root);
+        crate::storage::create_dir_all(root.join("in")).unwrap();
         let options = RunOptions { output: root.join("run"), inputs: Some(root.join("in")), ..Default::default() };
         assert!(run(&options, None, None).is_err());
-        let log = std::fs::read_to_string(root.join("run/events.jsonl")).unwrap();
+        let log = crate::storage::read_to_string(root.join("run/events.jsonl")).unwrap();
         let types: Vec<String> =
             log.lines().map(|l| serde_json::from_str::<Value>(l).unwrap()["type"].as_str().unwrap().to_string()).collect();
         assert_eq!(types, ["run_started", "error", "run_finished"]);
         let last: Value = serde_json::from_str(log.lines().last().unwrap()).unwrap();
         assert_eq!(last["status"], "failed");
-        let pipeline: Value = serde_json::from_str(&std::fs::read_to_string(root.join("run/pipeline.json")).unwrap()).unwrap();
+        let pipeline: Value = serde_json::from_str(&crate::storage::read_to_string(root.join("run/pipeline.json")).unwrap()).unwrap();
         assert_eq!(pipeline["status"], "failed before or between stages");
         assert!(root.join("run/config.json").is_file());
-        std::fs::remove_dir_all(&root).unwrap();
+        crate::storage::remove_dir_all(&root).unwrap();
     }
 
     fn kinds(events: &[Value], kind: &str) -> usize {
@@ -586,7 +711,7 @@ mod tests {
             assert_eq!(report["stages"][stage]["exit_code"], 0, "{stage}");
             assert!(Path::new(report["stages"][stage]["log"].as_str().unwrap()).is_file());
         }
-        let run_directory = std::fs::canonicalize(root.join("run")).unwrap();
+        let run_directory = crate::storage::canonicalize(root.join("run")).unwrap();
         for file in
             ["config.json", "pipeline.json", "events.jsonl", "input-sheet.png", "mesh/mesh.stl", "check/preview.png", "stereo/depths.npz"]
         {
@@ -598,7 +723,7 @@ mod tests {
             .flatten()
             .all(|e| e.path().extension().is_none_or(|x| x != "npz")));
         let events = seen.lock().unwrap().clone();
-        assert_eq!(std::fs::read_to_string(run_directory.join("events.jsonl")).unwrap().lines().count(), events.len());
+        assert_eq!(crate::storage::read_to_string(run_directory.join("events.jsonl")).unwrap().lines().count(), events.len());
         assert_eq!((events[0]["type"].as_str(), events[0]["schema"].as_str()), (Some("run_started"), Some(SCHEMA)));
         assert_eq!(
             (events.last().unwrap()["type"].as_str(), events.last().unwrap()["status"].as_str()),
@@ -636,6 +761,29 @@ mod tests {
             assert!(run_directory.join(event["path"].as_str().unwrap()).is_file(), "{event}");
         }
 
+        // The same run entirely in the in-memory tree: same result, nothing on disk.
+        let memory = PathBuf::from(format!("mem:/run-test-{}", std::process::id()));
+        synthetic::write(&memory.join("inputs"), 24, 128).unwrap();
+        let options = RunOptions {
+            output: memory.join("run"),
+            inputs: Some(memory.join("inputs")),
+            overrides: overrides.clone(),
+            ..Default::default()
+        };
+        let in_memory = run(&options, None, None).unwrap();
+        assert_eq!(in_memory["triangles"], report["triangles"]);
+        assert_eq!(in_memory["photo_check"]["silhouette_iou_input_masks"], report["photo_check"]["silhouette_iou_input_masks"]);
+        for file in ["run/events.jsonl", "run/pipeline.json", "run/mesh/mesh.stl", "run/check/preview.png", "run/stereo.log"] {
+            assert!(crate::storage::is_file(memory.join(file)), "{file}");
+        }
+        assert!(!Path::new("mem:").exists(), "a memory run must not touch the disk");
+        assert_eq!(
+            crate::storage::read_to_string(memory.join("run/events.jsonl")).unwrap().lines().count(),
+            crate::storage::read_to_string(run_directory.join("events.jsonl")).unwrap().lines().count()
+        );
+        crate::storage::remove_dir_all(&memory).unwrap();
+        assert!(crate::storage::memory_files(&memory).is_empty());
+
         // Cancelled from the observer as soon as matching reports progress.
         let cancel = Arc::new(AtomicBool::new(false));
         let (flag, seen) = (cancel.clone(), Arc::new(Mutex::new(Vec::<Value>::new())));
@@ -652,10 +800,10 @@ mod tests {
         let events = seen.lock().unwrap().clone();
         assert_eq!(events.last().unwrap()["status"], "cancelled");
         assert!(events.iter().any(|e| e["type"] == "error" && e["message"] == "cancelled on request" && e["stage"] == "stereo"));
-        let pipeline: Value = serde_json::from_str(&std::fs::read_to_string(root.join("cancelled/pipeline.json")).unwrap()).unwrap();
+        let pipeline: Value = serde_json::from_str(&crate::storage::read_to_string(root.join("cancelled/pipeline.json")).unwrap()).unwrap();
         assert_eq!(pipeline["status"], "failed in stereo");
         assert_eq!(pipeline["stages"]["stereo"]["cancelled"], true);
         assert!(pipeline["stages"]["stereo"]["exit_code"].is_null());
-        std::fs::remove_dir_all(&root).unwrap();
+        crate::storage::remove_dir_all(&root).unwrap();
     }
 }

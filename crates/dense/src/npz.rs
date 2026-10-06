@@ -6,8 +6,6 @@
 //! arrays and scalars in C order. Writing produces the same layout, so NumPy reads it.
 
 use std::collections::BTreeMap;
-use std::fs::File;
-use std::io::Write;
 use std::path::Path;
 
 use anyhow::{anyhow, bail, ensure, Context, Result};
@@ -126,7 +124,7 @@ pub struct Npz {
 
 impl Npz {
     pub fn read(path: &Path) -> Result<Self> {
-        let bytes = std::fs::read(path).with_context(|| format!("cannot read {}", path.display()))?;
+        let bytes = crate::storage::read(path).with_context(|| format!("cannot read {}", path.display()))?;
         Self::from_bytes(&bytes).with_context(|| format!("{} is not a readable .npz", path.display()))
     }
 
@@ -310,7 +308,7 @@ fn parse_npy(bytes: &[u8]) -> Result<Array> {
 
 /// Reads a standalone `.npy` file (`sparse_points.npy`).
 pub fn read_npy(path: &Path) -> Result<Array> {
-    let bytes = std::fs::read(path).with_context(|| format!("cannot read {}", path.display()))?;
+    let bytes = crate::storage::read(path).with_context(|| format!("cannot read {}", path.display()))?;
     parse_npy(&bytes).with_context(|| format!("{} is not a readable .npy", path.display()))
 }
 
@@ -430,9 +428,7 @@ pub fn write(path: &Path, arrays: &[(&str, &Array)], compress: bool) -> Result<(
     out.extend_from_slice(&(directory.len() as u32).to_le_bytes());
     out.extend_from_slice(&directory_offset.to_le_bytes());
     out.extend_from_slice(&0u16.to_le_bytes()); // comment length
-    let mut file = File::create(path).with_context(|| format!("cannot create {}", path.display()))?;
-    file.write_all(&out)?;
-    Ok(())
+    crate::storage::write_owned(path, out).with_context(|| format!("cannot create {}", path.display()))
 }
 
 #[cfg(test)]
@@ -480,7 +476,7 @@ mod tests {
             let path = std::env::temp_dir().join(format!("crisp3ds-npz-{}-{}.npz", std::process::id(), compress));
             write(&path, &entries, compress).unwrap();
             let again = Npz::read(&path).unwrap();
-            std::fs::remove_file(&path).unwrap();
+            crate::storage::remove_file(&path).unwrap();
             check_fixture(&again);
             assert_eq!(again.arrays.len(), original.arrays.len());
         }
@@ -489,7 +485,7 @@ mod tests {
     #[test]
     fn refuses_what_it_cannot_read() {
         assert!(Npz::from_bytes(b"not a zip archive at all, just some text").is_err());
-        let mut damaged = std::fs::read(fixture("arrays-stored.npz")).unwrap();
+        let mut damaged = crate::storage::read(fixture("arrays-stored.npz")).unwrap();
         // Flip one byte of the first member: the checksum must catch it.
         let at = 30 + usize::from(u16_at(&damaged, 26).unwrap()) + usize::from(u16_at(&damaged, 28).unwrap()) + 100;
         damaged[at] ^= 0x40;
@@ -523,7 +519,7 @@ mod tests {
         let path = std::env::temp_dir().join(format!("crisp3ds-npz-pieces-{}.npz", std::process::id()));
         write(&path, &[("big", &array)], true).unwrap();
         let back = Npz::read(&path).unwrap();
-        std::fs::remove_file(&path).unwrap();
+        crate::storage::remove_file(&path).unwrap();
         assert_eq!(back.get("big").unwrap(), &array);
         assert_eq!(npy_f64(&[2], &[1.0, 2.0]).len() % 64, 16);
     }

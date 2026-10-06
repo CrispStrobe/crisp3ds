@@ -297,17 +297,17 @@ struct Carver<'a> {
 }
 
 impl<'a> Carver<'a> {
-    fn new(gpu: &'a Gpu) -> anyhow::Result<Self> {
+    async fn new(gpu: &'a Gpu) -> anyhow::Result<Self> {
         Ok(Carver {
             gpu,
-            kernel: gpu.kernel("carve", include_str!("shaders/carve.wgsl"), "main")?,
+            kernel: gpu.kernel("carve", include_str!("shaders/carve.wgsl"), "main").await?,
             voxels: gpu.zeroed("carve voxels", 4 * CHUNK as u64),
             counts: gpu.zeroed("carve counts", 4 * CHUNK as u64),
         })
     }
 
     /// Violation counts of the listed voxels (linear indices into `shape`).
-    fn count(&self, silhouettes: &Silhouettes, shape: [usize; 3], axes: &wgpu::Buffer, voxels: &[u32]) -> anyhow::Result<Vec<u32>> {
+    async fn count(&self, silhouettes: &Silhouettes, shape: [usize; 3], axes: &wgpu::Buffer, voxels: &[u32]) -> anyhow::Result<Vec<u32>> {
         let mut out = Vec::with_capacity(voxels.len());
         for chunk in voxels.chunks(CHUNK) {
             self.gpu.write(&self.voxels, chunk);
@@ -324,13 +324,15 @@ impl<'a> Carver<'a> {
                         pad: [0; 3],
                     },
                 );
-                self.gpu.run(
-                    &self.kernel,
-                    &[&params, &batch.cameras, &batch.frames, &batch.masks, axes, &self.voxels, &self.counts],
-                    chunk.len() as u64,
-                )?;
+                self.gpu
+                    .run(
+                        &self.kernel,
+                        &[&params, &batch.cameras, &batch.frames, &batch.masks, axes, &self.voxels, &self.counts],
+                        chunk.len() as u64,
+                    )
+                    .await?;
             }
-            out.extend(self.gpu.read::<u32>(&self.counts, chunk.len())?);
+            out.extend(self.gpu.read::<u32>(&self.counts, chunk.len()).await?);
         }
         Ok(out)
     }
@@ -358,11 +360,11 @@ pub struct HullState {
 
 /// `Stereo.build_hull`: a coarse carve to find the object box, then a fine carve inside it.
 /// `voxel` is fixed by the first call and reused by later ones (after mask repair).
-pub fn build_hull(gpu: &Gpu, inputs: &Inputs, config: &DenseConfig, voxel: &mut Option<f64>) -> anyhow::Result<HullState> {
+pub async fn build_hull(gpu: &Gpu, inputs: &Inputs, config: &DenseConfig, voxel: &mut Option<f64>) -> anyhow::Result<HullState> {
     let masks: Vec<Plane<u8>> = crate::inputs::parallel_map(inputs.count(), |n| dilate(&inputs.masks[n], config.hull_dilate as usize));
     let silhouettes = Silhouettes::new(gpu, &inputs.cameras, &masks);
     drop(masks);
-    let carver = Carver::new(gpu)?;
+    let carver = Carver::new(gpu).await?;
     let views = silhouettes.views;
 
     // Box of the sparse points, padded; 96 coarse voxels along its longest side.
@@ -386,7 +388,7 @@ pub fn build_hull(gpu: &Gpu, inputs: &Inputs, config: &DenseConfig, voxel: &mut 
     let loose = config.hull_allowed.max(inputs.repair_loose).max(16) as u32;
     let all: Vec<u32> = (0..candidate.len() as u32).collect();
     let axes = gpu.upload("coarse axes", &candidate.axes());
-    let counts = carver.count(&silhouettes, coarse_shape, &axes, &all)?;
+    let counts = carver.count(&silhouettes, coarse_shape, &axes, &all).await?;
     let flags: Vec<bool> = counts.iter().map(|&c| c <= loose).collect();
     candidate.bits = crate::gpu::pack_bits(flags.iter().copied());
     let (mut low, mut high) = ([usize::MAX; 3], [0usize; 3]);
@@ -432,14 +434,16 @@ pub fn build_hull(gpu: &Gpu, inputs: &Inputs, config: &DenseConfig, voxel: &mut 
     let axes = gpu.upload("fine axes", &hull.axes());
     let mut violations = vec![views.min(u16::MAX as usize) as u16; hull.len()];
     let mut pending: Vec<u32> = Vec::with_capacity(CHUNK);
-    let flush = |pending: &mut Vec<u32>, violations: &mut Vec<u16>| -> anyhow::Result<()> {
-        let counts = carver.count(&silhouettes, shape, &axes, pending)?;
-        for (&linear, &count) in pending.iter().zip(&counts) {
-            violations[linear as usize] = count.min(u16::MAX as u32) as u16;
-        }
-        pending.clear();
-        Ok(())
-    };
+    // Counts the pending candidates and stores their violations.
+    macro_rules! flush {
+        () => {{
+            let counts = carver.count(&silhouettes, shape, &axes, &pending).await?;
+            for (&linear, &count) in pending.iter().zip(&counts) {
+                violations[linear as usize] = count.min(u16::MAX as u32) as u16;
+            }
+            pending.clear();
+        }};
+    }
     let (ny, nz) = (shape[1], shape[2]);
     for (i, cx) in cells[0].iter().enumerate() {
         let Some(cx) = cx else { continue };
@@ -455,11 +459,11 @@ pub fn build_hull(gpu: &Gpu, inputs: &Inputs, config: &DenseConfig, voxel: &mut 
                 }
             }
             if pending.len() + nz > CHUNK {
-                flush(&mut pending, &mut violations)?;
+                flush!();
             }
         }
     }
-    flush(&mut pending, &mut violations)?;
+    flush!();
 
     let allowed = config.hull_allowed as u16;
     hull.bits = crate::gpu::pack_bits(violations.iter().map(|&v| v <= allowed));
@@ -533,8 +537,8 @@ mod tests {
         let inputs = Inputs::load(&root.join("inputs"), &config).unwrap();
         let gpu = Gpu::new().unwrap();
         let mut voxel = None;
-        let state = build_hull(&gpu, &inputs, &config, &mut voxel).unwrap();
-        std::fs::remove_dir_all(&root).unwrap();
+        let state = crate::gpu::block_on(build_hull(&gpu, &inputs, &config, &mut voxel)).unwrap();
+        crate::storage::remove_dir_all(&root).unwrap();
         // Hull of a unit sphere seen from a ring: at least the sphere, not much more.
         let volume = state.hull.count() as f64 * state.hull.voxel.powi(3);
         assert!(volume > 4.0 && volume < 7.0, "{volume}");

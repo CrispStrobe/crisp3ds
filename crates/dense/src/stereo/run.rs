@@ -1,7 +1,7 @@
 //! The stage driver: port of `run` in `multiscale_stereo.py`.
 
 use std::path::Path;
-use std::time::Instant;
+use web_time::Instant;
 
 use anyhow::{bail, Context};
 use serde_json::{json, Value};
@@ -117,7 +117,7 @@ impl Previews<'_> {
         let Some(directory) = &self.directory else { return Ok(()) };
         let (partial, target) = (directory.join(format!("{name}.partial")), directory.join(format!("{name}.npz")));
         write_volume(&partial, false, hull, indices, total, weight, self.config.truncation_voxels * hull.voxel, support)?;
-        std::fs::rename(&partial, &target)?;
+        crate::storage::rename(&partial, &target)?;
         self.events.artifact("preview_volume", &target, label, meta)
     }
 
@@ -138,20 +138,27 @@ fn hull_report(state: &HullState, since: Instant) -> anyhow::Result<Value> {
 }
 
 /// The stage as a command: its own device, events appended to `arguments.events`, log on standard output.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn run(arguments: &Arguments, config: &DenseConfig) -> anyhow::Result<Value> {
     let events = EventLog::new(arguments.events.as_deref(), "stereo");
-    run_with(arguments, config, &Gpu::new()?, &events, &Control::none())
+    crate::gpu::block_on(run_with(arguments, config, &Gpu::new()?, &events, &Control::none()))
 }
 
 /// The stage inside a larger run: on the caller's device, reporting to the
 /// caller's event log, stopping when `control` says so (checked once per view
 /// while matching and between the other steps).
-pub fn run_with(arguments: &Arguments, config: &DenseConfig, gpu: &Gpu, events: &EventLog, control: &Control) -> anyhow::Result<Value> {
+pub async fn run_with(
+    arguments: &Arguments,
+    config: &DenseConfig,
+    gpu: &Gpu,
+    events: &EventLog,
+    control: &Control,
+) -> anyhow::Result<Value> {
     let output = &arguments.output;
-    if output.exists() {
+    if crate::storage::exists(output) {
         bail!("output directory exists: {}", output.display());
     }
-    std::fs::create_dir_all(output).with_context(|| output.display().to_string())?;
+    crate::storage::create_dir_all(output).with_context(|| output.display().to_string())?;
     let started = Instant::now();
     let mut report = json!({
         "configuration": serde_json::to_value(config)?,
@@ -168,12 +175,12 @@ pub fn run_with(arguments: &Arguments, config: &DenseConfig, gpu: &Gpu, events: 
     let picks = [count / 7, (count / 2).saturating_sub(3), (4 * count) / 5];
     let previews = Previews { directory: arguments.previews.then(|| output.join("preview")), events, config };
     if let Some(directory) = &previews.directory {
-        std::fs::create_dir(directory)?;
+        crate::storage::create_dir(directory)?;
     }
 
     let t = Instant::now();
     let mut voxel = None;
-    let mut state = build_hull(gpu, &inputs, config, &mut voxel)?;
+    let mut state = build_hull(gpu, &inputs, config, &mut voxel).await?;
     report["hull"] = hull_report(&state, t)?;
     control.log(format!("hull {}", report["hull"]));
     events.progress(0.03, "Silhouette hull built")?;
@@ -203,20 +210,19 @@ pub fn run_with(arguments: &Arguments, config: &DenseConfig, gpu: &Gpu, events: 
         let mut rounds = Vec::new();
         for _ in 0..config.repair_rounds {
             control.check()?;
-            rounds.push(repair_masks(gpu, &mut inputs, &state, config)?);
-            state = build_hull(gpu, &inputs, config, &mut voxel)?;
+            rounds.push(repair_masks(gpu, &mut inputs, &state, config).await?);
+            state = build_hull(gpu, &inputs, config, &mut voxel).await?;
             report["hull_repaired"] = hull_report(&state, t)?;
         }
         let added: f64 = rounds.iter().map(|r| r.added_fraction_median).sum();
         report["mask_repair"] = json!({"loose_views": inputs.repair_loose, "rounds": rounds, "added_fraction_median": added});
         control.log(format!("repair {} {}", report["mask_repair"], report["hull_repaired"]));
-        std::fs::create_dir(output.join("masks-repaired"))?;
+        crate::storage::create_dir(output.join("masks-repaired"))?;
         let written: Vec<anyhow::Result<()>> = parallel_map(count, |n| {
             let mask = &inputs.masks[n];
             let pixels: Vec<u8> = mask.data.iter().map(|&m| m * 255).collect();
             let path = output.join("masks-repaired").join(format!("{}.png", inputs.rows[n].name));
-            image::GrayImage::from_raw(mask.width as u32, mask.height as u32, pixels).expect("mask size").save(&path)?;
-            Ok(())
+            crate::storage::save_png(&path, mask.width, mask.height, 1, &pixels)
         });
         written.into_iter().collect::<anyhow::Result<()>>()?;
         let sheet = output.join("mask-repair.png");
@@ -236,10 +242,10 @@ pub fn run_with(arguments: &Arguments, config: &DenseConfig, gpu: &Gpu, events: 
 
     {
         let list = VoxelList::new(gpu, &state.hull, &state.hull.indices());
-        let coverer = Coverer::new(gpu)?;
+        let coverer = Coverer::new(gpu).await?;
         let mut covers = Vec::new();
         for &i in &picks {
-            covers.push(coverer.cover(&list, &inputs.cameras[i], inputs.masks[i].width, inputs.masks[i].height)?);
+            covers.push(coverer.cover(&list, &inputs.cameras[i], inputs.masks[i].width, inputs.masks[i].height).await?);
         }
         let sheet = output.join("hull-vs-mask.png");
         colour_sheet(&sheet, &inputs, &picks, |i| {
@@ -280,13 +286,13 @@ pub fn run_with(arguments: &Arguments, config: &DenseConfig, gpu: &Gpu, events: 
             }
             let context =
                 LevelContext { gpu, inputs: &inputs, state: &state, config, output, events, previews: &previews, picks: &picks, control };
-            match_levels(&context, &sizes, &mut report)?
+            match_levels(&context, &sizes, &mut report).await?
         }
     };
 
     let t = Instant::now();
     let rim = round_half_even(config.rim_fraction * DenseConfig::level(&config.windows, sizes.len() - 1) as f64) as usize;
-    let fused: Fused = tsdf(gpu, &state.hull, &inputs.cameras, &level, &depths, rim, config)?;
+    let fused: Fused = tsdf(gpu, &state.hull, &inputs.cameras, &level, &depths, rim, config).await?;
     report["rim_pixels"] = json!(rim);
     report["fused_passes"] = json!([]);
     let observed = fused.weight.iter().filter(|&&w| w > 0.0).count() as f64 / fused.weight.len().max(1) as f64;
@@ -313,7 +319,7 @@ pub fn run_with(arguments: &Arguments, config: &DenseConfig, gpu: &Gpu, events: 
 fn finish(mut report: Value, output: &Path, started: Instant) -> anyhow::Result<Value> {
     report["seconds"] = json!(started.elapsed().as_secs_f64());
     report["reference_used"] = json!(false);
-    std::fs::write(output.join("result.json"), serde_json::to_string_pretty(&report)? + "\n")?;
+    crate::storage::write(output.join("result.json"), serde_json::to_string_pretty(&report)? + "\n")?;
     Ok(report)
 }
 
@@ -394,7 +400,7 @@ mod tests {
             assert!(root.join("stereo").join(file).is_file(), "{file}");
         }
         // Events: progress, sheets and preview volumes whose files exist.
-        let log = std::fs::read_to_string(root.join("events.jsonl")).unwrap();
+        let log = crate::storage::read_to_string(root.join("events.jsonl")).unwrap();
         let lines: Vec<Value> = log.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
         assert!(lines.iter().all(|l| l["stage"] == "stereo"));
         let kinds: Vec<&str> = lines.iter().filter(|l| l["type"] == "artifact").map(|l| l["kind"].as_str().unwrap()).collect();
@@ -406,6 +412,6 @@ mod tests {
         assert!(lines.iter().any(|l| l["type"] == "metric" && l["name"] == "coverage_level_1"));
         // A second run into the same directory is refused.
         assert!(run(&arguments, &config).is_err());
-        std::fs::remove_dir_all(&root).unwrap();
+        crate::storage::remove_dir_all(&root).unwrap();
     }
 }

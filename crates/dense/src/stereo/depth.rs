@@ -374,7 +374,7 @@ mod tests {
         let overrides: Vec<String> = synthetic::SMALL.iter().map(|s| s.to_string()).collect();
         let config = options::build(None, &overrides).unwrap();
         let inputs = Inputs::load(&root.join("inputs"), &config).unwrap();
-        std::fs::remove_dir_all(&root).unwrap();
+        crate::storage::remove_dir_all(&root).unwrap();
         let level = build_level(&inputs, 96);
         let exact: Vec<Plane<f32>> = level.iter().map(synthetic::sphere_depth).collect();
         let voters: Vec<Vec<usize>> = (0..12).map(|i| vec![(i + 1) % 12, (i + 11) % 12]).collect();

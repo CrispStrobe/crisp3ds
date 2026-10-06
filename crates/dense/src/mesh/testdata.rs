@@ -5,7 +5,7 @@ use serde_json::Value;
 
 pub fn scipy_reference() -> Value {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/dense-native/scipy-reference.json");
-    serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+    serde_json::from_str(&crate::storage::read_to_string(path).unwrap()).unwrap()
 }
 
 pub fn dims(value: &Value) -> [usize; 3] {

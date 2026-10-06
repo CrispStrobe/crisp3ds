@@ -20,15 +20,17 @@ bytemuck = { version = "1", features = ["derive"] }
 crc32fast = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 miniz_oxide = "0.8"
-pollster = "1"
 rayon = "1"
 serde = { version = "1", features = ["derive"] }
+web-time = "1"
 serde_json = { version = "1", features = ["float_roundtrip"] }
 wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "dx12", "metal", "vulkan", "wgsl", "webgpu"] }
 
 # Free disk space before a run; there is no file system to ask in a browser.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 fs4 = "1.1"
+# Drives the async GPU paths on a thread that may block.
+pollster = "1"
 
 # Signalling the process group of an external tool (src/photos/process.rs).
 [target.'cfg(unix)'.dependencies]

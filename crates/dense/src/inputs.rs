@@ -106,6 +106,14 @@ pub struct Inputs {
 }
 
 /// Runs `work(index)` for every index on up to [`THREADS`] threads; results in order.
+/// Without threads (wasm32) it is a plain loop.
+#[cfg(target_arch = "wasm32")]
+pub fn parallel_map<T: Send>(count: usize, work: impl Fn(usize) -> T + Sync) -> Vec<T> {
+    (0..count).map(work).collect()
+}
+
+/// Runs `work(index)` for every index on up to [`THREADS`] threads; results in order.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn parallel_map<T: Send>(count: usize, work: impl Fn(usize) -> T + Sync) -> Vec<T> {
     let next = std::sync::atomic::AtomicUsize::new(0);
     let mut slots: Vec<Option<T>> = (0..count).map(|_| None).collect();
@@ -193,13 +201,13 @@ fn pil_luma(r: u8, g: u8, b: u8) -> u8 {
 /// bits by the decoder, which Pillow does differently; none of the pipeline's
 /// inputs are.
 fn load_rgb(path: &Path) -> anyhow::Result<image::RgbImage> {
-    let decoded = image::open(path).with_context(|| path.display().to_string())?;
+    let decoded = crate::storage::open_image(path).with_context(|| path.display().to_string())?;
     Ok(decoded.to_rgb8())
 }
 
 /// A mask as booleans, like `np.asarray(Image.open(path).convert("L")) > 127`.
 fn load_mask(path: &Path) -> anyhow::Result<Plane<u8>> {
-    let decoded = image::open(path).with_context(|| path.display().to_string())?;
+    let decoded = crate::storage::open_image(path).with_context(|| path.display().to_string())?;
     let (width, height) = (decoded.width() as usize, decoded.height() as usize);
     let luma: Vec<u8> = match decoded {
         image::DynamicImage::ImageLuma8(l) => l.into_raw(),
@@ -252,8 +260,8 @@ fn load_view(row: &ViewRow, percentiles: &[f64]) -> anyhow::Result<Loaded> {
 
 /// Camera rows of an inputs directory with absolute image and mask paths (relative ones resolve to the directory).
 pub fn load_views(directory: &Path) -> anyhow::Result<Vec<ViewRow>> {
-    let text =
-        std::fs::read_to_string(directory.join("cameras.json")).with_context(|| directory.join("cameras.json").display().to_string())?;
+    let text = crate::storage::read_to_string(directory.join("cameras.json"))
+        .with_context(|| directory.join("cameras.json").display().to_string())?;
     let mut rows = serde_json::from_str::<CameraFile>(&text).context("cameras.json")?.views;
     for row in &mut rows {
         for path in [&mut row.image, &mut row.mask] {

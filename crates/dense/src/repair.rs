@@ -112,12 +112,12 @@ pub struct Coverer<'a> {
 }
 
 impl<'a> Coverer<'a> {
-    pub fn new(gpu: &'a Gpu) -> anyhow::Result<Self> {
-        Ok(Coverer { gpu, kernel: gpu.kernel("cover", include_str!("shaders/cover.wgsl"), "main")? })
+    pub async fn new(gpu: &'a Gpu) -> anyhow::Result<Self> {
+        Ok(Coverer { gpu, kernel: gpu.kernel("cover", include_str!("shaders/cover.wgsl"), "main").await? })
     }
 
     /// Pixels of a `width` x `height` view that the listed voxel centres project onto (2x2 splat).
-    pub fn cover(&self, list: &VoxelList, camera: &Camera, width: usize, height: usize) -> anyhow::Result<Plane<u8>> {
+    pub async fn cover(&self, list: &VoxelList, camera: &Camera, width: usize, height: usize) -> anyhow::Result<Plane<u8>> {
         let stride = width.div_ceil(32);
         let bits = self.gpu.zeroed("cover bits", (4 * stride * height) as u64);
         let rows = self.gpu.upload("cover camera", &camera_rows(camera));
@@ -135,9 +135,9 @@ impl<'a> Coverer<'a> {
                     pad: 0,
                 },
             );
-            self.gpu.run(&self.kernel, &[&params, &rows, &list.axes, voxels, &bits], *count as u64)?;
+            self.gpu.run(&self.kernel, &[&params, &rows, &list.axes, voxels, &bits], *count as u64).await?;
         }
-        let words = self.gpu.read::<u32>(&bits, stride * height)?;
+        let words = self.gpu.read::<u32>(&bits, stride * height).await?;
         let mut out = Plane::<u8>::new(width, height);
         for y in 0..height {
             for x in 0..width {
@@ -177,7 +177,7 @@ pub struct RepairRound {
 /// (voxels that all but `repair_loose` views agree on, kept away from the
 /// support) and is darker than the midpoint between this photo's object range
 /// and its backdrop. Rewrites `inputs.masks`.
-pub fn repair_masks(gpu: &Gpu, inputs: &mut Inputs, state: &HullState, config: &DenseConfig) -> anyhow::Result<RepairRound> {
+pub async fn repair_masks(gpu: &Gpu, inputs: &mut Inputs, state: &HullState, config: &DenseConfig) -> anyhow::Result<RepairRound> {
     let (near_ring, far_ring) = (5usize, 15usize);
     let hull = &state.hull;
     let axes = [hull.axis(0), hull.axis(1), hull.axis(2)];
@@ -202,10 +202,10 @@ pub fn repair_masks(gpu: &Gpu, inputs: &mut Inputs, state: &HullState, config: &
         .map(|(linear, _)| linear as u32)
         .collect();
     let list = VoxelList::new(gpu, hull, &indices);
-    let coverer = Coverer::new(gpu)?;
+    let coverer = Coverer::new(gpu).await?;
     let mut covers = Vec::with_capacity(inputs.count());
     for n in 0..inputs.count() {
-        covers.push(coverer.cover(&list, &inputs.cameras[n], inputs.masks[n].width, inputs.masks[n].height)?);
+        covers.push(coverer.cover(&list, &inputs.cameras[n], inputs.masks[n].width, inputs.masks[n].height).await?);
     }
     let repaired: Vec<(Plane<u8>, f64)> = parallel_map(inputs.count(), |n| {
         let (mask, gray, cover) = (&inputs.masks[n], &inputs.gray[n], &covers[n]);
@@ -293,9 +293,9 @@ mod gpu_tests {
         let overrides: Vec<String> = synthetic::SMALL.iter().map(|s| s.to_string()).collect();
         let config = options::build(None, &overrides).unwrap();
         let mut inputs = Inputs::load(&root.join("inputs"), &config).unwrap();
-        std::fs::remove_dir_all(&root).unwrap();
+        crate::storage::remove_dir_all(&root).unwrap();
         let gpu = Gpu::new().unwrap();
-        let state = build_hull(&gpu, &inputs, &config, &mut None).unwrap();
+        let state = crate::gpu::block_on(build_hull(&gpu, &inputs, &config, &mut None)).unwrap();
         let indices = state.hull.indices();
         let axes = [state.hull.axis(0), state.hull.axis(1), state.hull.axis(2)];
         let points: Vec<[f32; 3]> = indices
@@ -306,10 +306,10 @@ mod gpu_tests {
             })
             .collect();
         let list = VoxelList::new(&gpu, &state.hull, &indices);
-        let coverer = Coverer::new(&gpu).unwrap();
+        let coverer = crate::gpu::block_on(Coverer::new(&gpu)).unwrap();
         for n in [0, 7, 19] {
             let (w, h) = (inputs.masks[n].width, inputs.masks[n].height);
-            let found = coverer.cover(&list, &inputs.cameras[n], w, h).unwrap();
+            let found = crate::gpu::block_on(coverer.cover(&list, &inputs.cameras[n], w, h)).unwrap();
             let expected = cover_reference(&points, &inputs.cameras[n], w, h);
             let different = found.data.iter().zip(&expected.data).filter(|(a, b)| a != b).count();
             let covered = expected.data.iter().filter(|&&v| v != 0).count();
@@ -323,7 +323,7 @@ mod gpu_tests {
         assert!(down[2] < -0.999 && middle[2] > 1.0, "{middle:?} {down:?}");
         // Nothing is darker than the object's own range outside the masks, so nothing is added.
         let before = inputs.masks.clone();
-        let round = repair_masks(&gpu, &mut inputs, &state, &config).unwrap();
+        let round = crate::gpu::block_on(repair_masks(&gpu, &mut inputs, &state, &config)).unwrap();
         assert_eq!(round.added_fraction_maximum, 0.0);
         assert_eq!(inputs.masks, before);
     }

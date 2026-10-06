@@ -118,7 +118,7 @@ impl DenseConfig {
     /// Reads a `config.json` (or a `result.json` carrying a `configuration` object).
     /// Unknown keys are ignored and missing ones take their defaults.
     pub fn load(path: &Path) -> anyhow::Result<Self> {
-        let value: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
+        let value: serde_json::Value = serde_json::from_str(&crate::storage::read_to_string(path)?)?;
         let value = value.get("configuration").cloned().unwrap_or(value);
         Ok(serde_json::from_value(value)?)
     }
@@ -136,7 +136,7 @@ mod tests {
     #[test]
     fn defaults_match_the_python_reference() {
         let fixture = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/dense-config-defaults.json");
-        let reference: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(fixture).unwrap()).unwrap();
+        let reference: serde_json::Value = serde_json::from_str(&crate::storage::read_to_string(fixture).unwrap()).unwrap();
         let ours = serde_json::to_value(DenseConfig::default()).unwrap();
         assert_eq!(ours, reference, "DenseConfig drifted from scripts/turntable_mesh/dense_config.py");
     }

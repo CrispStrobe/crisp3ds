@@ -72,8 +72,7 @@ pub fn colour_sheet(
             sheet[target..target + 1800].copy_from_slice(&tile[y * 1800..(y + 1) * 1800]);
         }
     }
-    image::RgbImage::from_raw(width as u32, height as u32, sheet).expect("sheet size").save(path)?;
-    Ok(())
+    crate::storage::save_png(path, width, height, 3, &sheet)
 }
 
 /// `np.percentile(values, q)` on unsorted float32 data, in float64.
@@ -129,6 +128,5 @@ pub fn depth_sheet(path: &Path, level: &[LevelView], depths: &[Plane<f32>], pick
         sheet.extend_from_slice(tile);
     }
     sheet.resize(1200 * height, 0);
-    image::GrayImage::from_raw(1200, height as u32, sheet).expect("sheet size").save(path)?;
-    Ok(())
+    crate::storage::save_png(path, 1200, height, 1, &sheet)
 }

@@ -41,7 +41,7 @@ pub fn build(config_path: Option<&Path>, overrides: &[String]) -> anyhow::Result
     let mut values = serde_json::to_value(DenseConfig::default())?;
     let known = values.as_object().cloned().expect("configuration is an object");
     if let Some(path) = config_path {
-        let loaded: Value = serde_json::from_str(&std::fs::read_to_string(path).with_context(|| path.display().to_string())?)
+        let loaded: Value = serde_json::from_str(&crate::storage::read_to_string(path).with_context(|| path.display().to_string())?)
             .with_context(|| path.display().to_string())?;
         let loaded = loaded.get("configuration").cloned().unwrap_or(loaded);
         if let Value::Object(map) = loaded {
@@ -146,9 +146,9 @@ mod tests {
     #[test]
     fn reads_a_result_file() {
         let path = std::env::temp_dir().join(format!("crisp3ds-options-{}.json", std::process::id()));
-        std::fs::write(&path, r#"{"configuration": {"grid": 320, "sizes": [256, 512], "unknown": 1}, "views": 73}"#).unwrap();
+        crate::storage::write(&path, r#"{"configuration": {"grid": 320, "sizes": [256, 512], "unknown": 1}, "views": 73}"#).unwrap();
         let config = build(Some(&path), &["planes=64".to_string()]).unwrap();
-        std::fs::remove_file(&path).unwrap();
+        crate::storage::remove_file(&path).unwrap();
         assert_eq!((config.grid, config.sizes, config.planes), (320, vec![256, 512], 64));
     }
 }
