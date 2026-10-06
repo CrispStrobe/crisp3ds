@@ -1,0 +1,229 @@
+//! Photo staging: the capture order, `capture_NNNN.png` copies and the coarse
+//! masks (`_photos` and `step_coarse` of `photos_to_inputs.py`).
+
+use std::cmp::Ordering;
+use std::path::{Path, PathBuf};
+
+use anyhow::{anyhow, bail, Context};
+use image::ImageDecoder;
+use serde_json::{json, Value};
+
+use crate::inputs::Plane;
+
+use super::coarse::{coarse_mask, resolve_envelope, Threshold};
+use super::util;
+
+pub const PHOTO_SUFFIXES: [&str; 5] = ["png", "jpg", "jpeg", "tif", "tiff"];
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum Part {
+    Number(u128),
+    Text(String),
+}
+
+/// Sort key that orders `x_2_rgb.png` before `x_10_rgb.png`: runs of digits compare as numbers, the rest without case.
+fn natural_key(name: &str) -> Vec<Part> {
+    let mut parts = Vec::new();
+    let mut run = String::new();
+    let mut digits = false;
+    for character in name.chars() {
+        if character.is_ascii_digit() != digits {
+            parts.push(if digits { Part::Number(run.parse().unwrap_or(u128::MAX)) } else { Part::Text(run.to_lowercase()) });
+            run.clear();
+            digits = !digits;
+        }
+        run.push(character);
+    }
+    parts.push(if digits { Part::Number(run.parse().unwrap_or(u128::MAX)) } else { Part::Text(run.to_lowercase()) });
+    parts
+}
+
+pub fn natural_order(a: &str, b: &str) -> Ordering {
+    natural_key(a).cmp(&natural_key(b)).then_with(|| a.cmp(b))
+}
+
+pub fn capture_name(index: usize) -> String {
+    format!("capture_{index:04}.png")
+}
+
+fn suffix(path: &Path) -> String {
+    path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default()
+}
+
+/// The photos of a folder in capture order (natural order of the file names).
+pub fn list_photos(folder: &Path) -> anyhow::Result<Vec<PathBuf>> {
+    let mut photos = Vec::new();
+    for entry in std::fs::read_dir(folder).with_context(|| folder.display().to_string())? {
+        let path = entry?.path();
+        if PHOTO_SUFFIXES.contains(&suffix(&path).as_str()) && path.is_file() {
+            photos.push(path);
+        }
+    }
+    photos.sort_by(|a, b| natural_order(&file_name(a), &file_name(b)));
+    Ok(photos)
+}
+
+pub fn file_name(path: &Path) -> String {
+    path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default()
+}
+
+/// A decoded photo: upright 8-bit RGB as `ImageOps.exif_transpose(image).convert("RGB")`
+/// gives it, and whether the file needed no rotation.
+pub struct Photo {
+    pub rgb: image::RgbImage,
+    pub upright: bool,
+}
+
+impl Photo {
+    pub fn width(&self) -> usize {
+        self.rgb.width() as usize
+    }
+
+    pub fn height(&self) -> usize {
+        self.rgb.height() as usize
+    }
+
+    /// Pillow's `convert("L")`.
+    pub fn gray(&self) -> Plane<u8> {
+        let data = self.rgb.pixels().map(|p| util::luma(p.0[0], p.0[1], p.0[2])).collect();
+        Plane { width: self.width(), height: self.height(), data }
+    }
+}
+
+/// Decodes a PNG or JPEG by content, as Pillow does. 16-bit files are reduced
+/// by the decoder, which Pillow does differently; TIFF is not built in.
+pub fn open_photo(path: &Path) -> anyhow::Result<Photo> {
+    let context = || format!("{} (the native stage reads PNG and JPEG photos)", path.display());
+    let reader = image::ImageReader::open(path).with_context(context)?.with_guessed_format().with_context(context)?;
+    let mut decoder = reader.into_decoder().with_context(context)?;
+    let orientation = decoder.orientation().with_context(context)?;
+    let mut decoded = image::DynamicImage::from_decoder(decoder).with_context(context)?;
+    decoded.apply_orientation(orientation);
+    Ok(Photo { rgb: decoded.to_rgb8(), upright: orientation == image::metadata::Orientation::NoTransforms })
+}
+
+/// A 0/255 mask file as a 0/1 plane; anything else in the file is an error.
+pub fn open_binary_mask(path: &Path) -> anyhow::Result<Plane<u8>> {
+    let decoded = image::open(path).with_context(|| path.display().to_string())?;
+    let (width, height) = (decoded.width() as usize, decoded.height() as usize);
+    let values = match decoded {
+        image::DynamicImage::ImageLuma8(gray) => gray.into_raw(),
+        _ => bail!("binary single-channel masks required: {}", path.display()),
+    };
+    if values.iter().any(|&v| v != 0 && v != 255) {
+        bail!("binary single-channel masks required: {}", path.display());
+    }
+    Ok(Plane { width, height, data: values.into_iter().map(|v| (v != 0) as u8).collect() })
+}
+
+pub fn save_mask(path: &Path, mask: &Plane<u8>) -> anyhow::Result<()> {
+    util::save_gray(path, mask.width, mask.height, mask.data.iter().map(|&m| if m != 0 { 255 } else { 0 }).collect())
+}
+
+/// Stages the photos as `work/photos/capture_NNNN.png` (PNG files byte for
+/// byte, others decoded once) and writes `work/coarse-masks/<name>.png` and
+/// `photo-map.json`. Returns the photo map.
+pub fn step_coarse(
+    out: &Path,
+    photos: &[PathBuf],
+    envelope: &str,
+    threshold: Threshold,
+    threads: usize,
+    watch: &mut dyn FnMut(usize) -> anyhow::Result<()>,
+) -> anyhow::Result<Value> {
+    let (staged, masks) = (out.join("work/photos"), out.join("work/coarse-masks"));
+    std::fs::create_dir_all(&staged)?;
+    std::fs::create_dir_all(&masks)?;
+    let rows = util::parallel(
+        photos.len(),
+        threads,
+        |index| {
+            let source = &photos[index];
+            let name = capture_name(index);
+            let photo = open_photo(source)?;
+            let byte_exact = suffix(source) == "png" && photo.upright;
+            if byte_exact {
+                std::fs::copy(source, staged.join(&name)).with_context(|| source.display().to_string())?;
+            } else {
+                photo.rgb.save_with_format(staged.join(&name), image::ImageFormat::Png)?;
+            }
+            let (width, height) = (photo.width(), photo.height());
+            let window = resolve_envelope(envelope, width, height)?;
+            let (mask, info) = coarse_mask(&photo.gray(), threshold, window).map_err(|e| anyhow!("{}: {e}", file_name(source)))?;
+            save_mask(&masks.join(format!("{name}.png")), &mask)?;
+            let row = json!({
+                "capture": name, "source": file_name(source), "byte_exact_copy": byte_exact,
+                "threshold": info.threshold, "foreground_pixels": info.foreground_pixels,
+                "other_dark_pixels_in_envelope": info.other_dark_pixels_in_envelope,
+                "dark_pixels_outside_envelope": info.dark_pixels_outside_envelope,
+                "bbox_xyxy": info.bbox_xyxy, "touches_envelope": info.touches_envelope,
+            });
+            Ok((row, width, height, window))
+        },
+        watch,
+    )?;
+    let Some(&(_, width, height, window)) = rows.first() else { bail!("no photos") };
+    for ((_, w, h, _), source) in rows.iter().zip(photos) {
+        if (*w, *h) != (width, height) {
+            bail!("{} is ({w}, {h}); all photos must share one size (({width}, {height}))", file_name(source));
+        }
+    }
+    let report = json!({
+        "width": width, "height": height, "envelope_xyxy": window,
+        "photos": rows.into_iter().map(|row| row.0).collect::<Vec<_>>(),
+    });
+    util::write_json(&out.join("photo-map.json"), &report, 1)?;
+    Ok(report)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn natural_photo_order() {
+        let mut names = vec!["x_10_rgb.png", "x_2_rgb.png", "x_1_rgb.png", "X_11_rgb.png"];
+        names.sort_by(|a, b| natural_order(a, b));
+        assert_eq!(names, ["x_1_rgb.png", "x_2_rgb.png", "x_10_rgb.png", "X_11_rgb.png"]);
+        assert_eq!(capture_name(7), "capture_0007.png");
+        let mut names = vec!["9.png", "10.png", "a.png", "1b.png"];
+        names.sort_by(|a, b| natural_order(a, b));
+        assert_eq!(names, ["1b.png", "9.png", "10.png", "a.png"]);
+    }
+
+    #[test]
+    fn stages_photos_and_writes_coarse_masks() {
+        let folder = std::env::temp_dir().join(format!("crisp3ds-staging-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&folder);
+        std::fs::create_dir_all(folder.join("photos")).unwrap();
+        for n in [2usize, 10, 1] {
+            let mut photo = image::RgbImage::from_pixel(40, 30, image::Rgb([220, 220, 220]));
+            for y in 10..20 {
+                for x in 5 + n as u32..25 {
+                    photo.put_pixel(x, y, image::Rgb([20, 30, 40]));
+                }
+            }
+            photo.save(folder.join(format!("photos/thing_{n}_rgb.png"))).unwrap();
+        }
+        std::fs::write(folder.join("photos/notes.txt"), "not a photo").unwrap();
+        let photos = list_photos(&folder.join("photos")).unwrap();
+        assert_eq!(photos.iter().map(|p| file_name(p)).collect::<Vec<_>>(), ["thing_1_rgb.png", "thing_2_rgb.png", "thing_10_rgb.png"]);
+        let out = folder.join("out");
+        let map = step_coarse(&out, &photos, "auto", Threshold::Level(70), 2, &mut |_| Ok(())).unwrap();
+        assert_eq!((map["width"].as_u64(), map["height"].as_u64()), (Some(40), Some(30)));
+        assert_eq!(map["photos"][2]["source"], "thing_10_rgb.png");
+        assert_eq!(map["photos"][2]["foreground_pixels"], 100);
+        assert_eq!(map["photos"][0]["bbox_xyxy"], json!([6, 10, 25, 20]));
+        assert_eq!(map["photos"][0]["byte_exact_copy"], true);
+        assert_eq!(std::fs::read(out.join("work/photos/capture_0001.png")).unwrap(), std::fs::read(&photos[1]).unwrap());
+        let mask = open_binary_mask(&out.join("work/coarse-masks/capture_0002.png.png")).unwrap();
+        assert_eq!(mask.data.iter().filter(|&&m| m == 1).count(), 100);
+        assert_eq!(util::read_json(&out.join("photo-map.json")).unwrap(), map);
+        // A photo of another size is refused.
+        image::RgbImage::from_pixel(41, 30, image::Rgb([0, 0, 0])).save(folder.join("photos/thing_11_rgb.png")).unwrap();
+        let photos = list_photos(&folder.join("photos")).unwrap();
+        let error = step_coarse(&folder.join("out2"), &photos, "auto", Threshold::Level(70), 2, &mut |_| Ok(())).unwrap_err();
+        assert!(error.to_string().contains("all photos must share one size"), "{error}");
+        std::fs::remove_dir_all(&folder).unwrap();
+    }
+}

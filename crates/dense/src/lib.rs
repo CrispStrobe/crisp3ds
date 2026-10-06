@@ -17,6 +17,7 @@ pub mod hull;
 pub mod inputs;
 pub mod mesh;
 pub mod npz;
+pub mod photos;
 pub mod render;
 pub mod repair;
 pub mod run;
