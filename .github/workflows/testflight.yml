@@ -1,0 +1,310 @@
+name: testflight
+
+# Crisp 3D Studio for internal TestFlight: the iOS app and the sandboxed Mac App Store
+# variant, signed for distribution, checked by Apple, and uploaded only when asked to.
+#
+#   dry_run=true (default)  build, sign, verify the signature, validate with Apple
+#                           (altool --validate-app), keep the .ipa/.pkg as artifacts.
+#                           Nothing is uploaded and no build number is used up.
+#   dry_run=false           the same, then upload. A build number cannot be reused and an
+#                           upload cannot be undone: run the dry run first.
+#
+# Version: package.json (the same everywhere, scripts/set-version.mjs). Build number
+# (CFBundleVersion): this workflow's run number, so every upload has a higher one.
+# The store builds contain only what runs inside the app: no AliceVision, COLMAP, SAM or
+# Python launcher (macOS: --no-default-features --features native-engine; iOS cannot start
+# programs at all).
+#
+# Secrets: ASC_API_KEY_P8_BASE64, ASC_KEY_ID, ASC_ISSUER_ID, ASC_TEAM_ID, ASC_APP_ID,
+# DIST_CERT_P12_BASE64 and DIST_CERT_PASSWORD (Apple Distribution and Mac Installer
+# identities), ASC_PROFILE_BASE64 (iOS App Store profile), MAC_PROFILE_BASE64 (Mac App
+# Store profile). None of them is printed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build, sign and validate only; do not upload'
+        type: boolean
+        default: true
+      platforms:
+        description: 'Which apps'
+        type: choice
+        options: [both, ios, macos]
+        default: both
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+env:
+  BUNDLE_ID: com.crispstrobe.crisp3ds
+  IOS_PROFILE_NAME: Crisp 3D Studio iOS AppStore CI
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: '0'
+
+jobs:
+  ios:
+    name: iOS (${{ inputs.dry_run && 'dry run' || 'upload' }})
+    if: inputs.platforms != 'macos'
+    runs-on: macos-26
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/studio
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/studio/package-lock.json
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          targets: aarch64-apple-ios
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            apps/studio/src-tauri/target
+          key: testflight-ios-${{ hashFiles('apps/studio/src-tauri/Cargo.lock') }}
+      - name: Tools
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodebuild -version
+      - run: npm ci
+      - name: Version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "Crisp 3D Studio $version, build $BUILD_NUMBER"
+      - name: Signing material (keychain, profile, API key)
+        env:
+          P12: ${{ secrets.DIST_CERT_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.DIST_CERT_PASSWORD }}
+          PROFILE: ${{ secrets.ASC_PROFILE_BASE64 }}
+          KEY_P8: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password=$(openssl rand -hex 16)
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          printf '%s' "$P12" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -k "$keychain" -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productbuild
+          rm "$RUNNER_TEMP/dist.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign:,productsign: -s -k "$password" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          security find-identity -v -p codesigning "$keychain" | sed 's/ ([A-Z0-9]*)"/"/'
+          for folder in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$folder"
+            printf '%s' "$PROFILE" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+            uuid=$(security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" | plutil -extract UUID raw -)
+            cp "$RUNNER_TEMP/profile.mobileprovision" "$folder/$uuid.mobileprovision"
+          done
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          ( umask 077; printf '%s' "$KEY_P8" | base64 --decode > "$HOME/.appstoreconnect/private_keys/AuthKey_$KEY_ID.p8" )
+      - name: Xcode project (privacy manifest, build number)
+        run: |
+          echo "IOS_CONFIG={\"bundle\":{\"iOS\":{\"bundleVersion\":\"$BUILD_NUMBER\"}}}" >> "$GITHUB_ENV"
+          npx tauri ios init --ci --config "{\"bundle\":{\"iOS\":{\"bundleVersion\":\"$BUILD_NUMBER\"}}}"
+          node scripts/ios-prepare.mjs
+      - name: Archive (unsigned; signed at export)
+        run: |
+          npx tauri ios build --ci --target aarch64 --no-sign --archive-only --config "$IOS_CONFIG"
+          archive=$(find src-tauri/gen/apple/build -name '*.xcarchive' -maxdepth 3 | head -n 1)
+          test -n "$archive"
+          echo "ARCHIVE=$PWD/$archive" >> "$GITHUB_ENV"
+          app=$(find "$archive/Products/Applications" -name '*.app' -maxdepth 1 | head -n 1)
+          /usr/libexec/PlistBuddy -c Print "$app/Info.plist" | grep -E 'CFBundleIdentifier|CFBundleShortVersionString|CFBundleVersion|CFBundleDisplayName|CFBundleName|ITSAppUsesNonExemptEncryption|UIFileSharingEnabled'
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$app/Info.plist")" = "$BUILD_NUMBER"
+          test -f "$app/PrivacyInfo.xcprivacy"
+      - name: Export (App Store distribution signing)
+        env:
+          TEAM_ID: ${{ secrets.ASC_TEAM_ID }}
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>provisioningProfiles</key>
+            <dict><key>$BUNDLE_ID</key><string>$IOS_PROFILE_NAME</string></dict>
+            <key>uploadSymbols</key><false/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportPath "$RUNNER_TEMP/export" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+          ipa=$(find "$RUNNER_TEMP/export" -name '*.ipa' | head -n 1)
+          test -n "$ipa"
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          out="$GITHUB_WORKSPACE/out/Crisp-3D-Studio_${VERSION}_${BUILD_NUMBER}_ios.ipa"
+          mv "$ipa" "$out"
+          echo "IPA=$out" >> "$GITHUB_ENV"
+      - name: Verify the signature
+        run: |
+          rm -rf "$RUNNER_TEMP/ipa" && mkdir "$RUNNER_TEMP/ipa"
+          unzip -q "$IPA" -d "$RUNNER_TEMP/ipa"
+          app=$(find "$RUNNER_TEMP/ipa/Payload" -name '*.app' -maxdepth 1 | head -n 1)
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign --display --verbose=2 "$app" 2>&1 | grep -E '^(Identifier|Authority|TeamIdentifier)=' | sed 's/^Authority=\(Apple Distribution\).*/Authority=\1/'
+          codesign -d --entitlements - --xml "$app" | plutil -p - | grep -E 'application-identifier|get-task-allow|beta-reports-active'
+          ls -la "$IPA"
+      - name: Validate with Apple
+        env:
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+        run: xcrun altool --validate-app -f "$IPA" -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER"
+      - name: Upload to App Store Connect
+        if: ${{ !inputs.dry_run }}
+        env:
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+          APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          xcrun altool --upload-package "$IPA" -t ios --apple-id "$APP_ID" --bundle-id "$BUNDLE_ID" \
+            --bundle-version "$BUILD_NUMBER" --bundle-short-version-string "$VERSION" \
+            --apiKey "$KEY_ID" --apiIssuer "$ISSUER"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: testflight-ios
+          path: out/*.ipa
+          if-no-files-found: error
+      - name: Remove signing material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
+          rm -rf "$HOME/.appstoreconnect/private_keys"
+
+  macos:
+    name: macOS App Store (${{ inputs.dry_run && 'dry run' || 'upload' }})
+    if: inputs.platforms != 'ios'
+    runs-on: macos-26
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/studio
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/studio/package-lock.json
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            apps/studio/src-tauri/target
+          key: testflight-macos-${{ hashFiles('apps/studio/src-tauri/Cargo.lock') }}
+      - run: npm ci
+      - name: Version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "Crisp 3D Studio $version, build $BUILD_NUMBER"
+      # One keychain for the whole job, on the search list: the bundler signs the app and
+      # productbuild signs the package with identities from it. The bundler gets no
+      # certificate of its own (two keychains with the same identity make codesign refuse).
+      - name: Signing material (keychain, profile, API key)
+        env:
+          P12: ${{ secrets.DIST_CERT_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.DIST_CERT_PASSWORD }}
+          PROFILE: ${{ secrets.MAC_PROFILE_BASE64 }}
+          KEY_P8: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password=$(openssl rand -hex 16)
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          printf '%s' "$P12" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -k "$keychain" -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productbuild
+          rm "$RUNNER_TEMP/dist.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign:,productsign: -s -k "$password" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          # The identities by fingerprint, so nothing about them needs to be written here.
+          app_identity=$(security find-identity -v -p codesigning "$keychain" | awk '/"Apple Distribution:/ {print $2; exit}')
+          installer=$(security find-identity -v "$keychain" | sed -n 's/.*"\(3rd Party Mac Developer Installer: [^"]*\)".*/\1/p' | head -n 1)
+          test -n "$app_identity" && test -n "$installer"
+          echo "APP_IDENTITY=$app_identity" >> "$GITHUB_ENV"
+          echo "INSTALLER_IDENTITY=$installer" >> "$GITHUB_ENV"
+          printf '%s' "$PROFILE" | base64 --decode > "$RUNNER_TEMP/embedded.provisionprofile"
+          echo "PROFILE_FILE=$RUNNER_TEMP/embedded.provisionprofile" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          ( umask 077; printf '%s' "$KEY_P8" | base64 --decode > "$HOME/.appstoreconnect/private_keys/AuthKey_$KEY_ID.p8" )
+      - name: Build and sign the app (sandboxed variant)
+        run: |
+          rm -rf src-tauri/target/release/bundle
+          config=$(node -e '
+            const [identity, profile, build] = process.argv.slice(1);
+            console.log(JSON.stringify({ bundle: { macOS: { signingIdentity: identity, hardenedRuntime: true, bundleVersion: build, files: { "embedded.provisionprofile": profile } } } }));
+          ' "$APP_IDENTITY" "$PROFILE_FILE" "$BUILD_NUMBER")
+          npx tauri build --ci --bundles app --config src-tauri/tauri.appstore.conf.json --config "$config" -- --no-default-features --features native-engine --locked
+          app=$(find src-tauri/target/release/bundle/macos -name '*.app' -maxdepth 1 | head -n 1)
+          test -n "$app"
+          echo "APP=$PWD/$app" >> "$GITHUB_ENV"
+      - name: Verify the app
+        run: |
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign --display --verbose=2 "$APP" 2>&1 | grep -E '^(Identifier|TeamIdentifier|Runtime)' || true
+          codesign -d --entitlements - --xml "$APP" | plutil -p -
+          /usr/libexec/PlistBuddy -c Print "$APP/Contents/Info.plist" | grep -E 'CFBundleIdentifier|CFBundleName|CFBundleShortVersionString|CFBundleVersion|LSApplicationCategoryType|LSMinimumSystemVersion|ITSAppUsesNonExemptEncryption'
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$APP/Contents/Info.plist")" = "$BUILD_NUMBER"
+          test -f "$APP/Contents/embedded.provisionprofile"
+          test -s "$APP/Contents/Resources/../MacOS/crisp3ds-studio"
+      - name: Package (signed installer)
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          pkg="$GITHUB_WORKSPACE/out/Crisp-3D-Studio_${VERSION}_${BUILD_NUMBER}_macos.pkg"
+          productbuild --component "$APP" /Applications --sign "$INSTALLER_IDENTITY" "$pkg"
+          pkgutil --check-signature "$pkg" | sed -n '1,4p' | sed 's/: [^:]*([A-Z0-9]*)$//'
+          echo "PKG=$pkg" >> "$GITHUB_ENV"
+          ls -la "$pkg"
+      - name: Validate with Apple
+        env:
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+        run: xcrun altool --validate-app -f "$PKG" -t macos --apiKey "$KEY_ID" --apiIssuer "$ISSUER"
+      - name: Upload to App Store Connect
+        if: ${{ !inputs.dry_run }}
+        env:
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+          APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          xcrun altool --upload-package "$PKG" -t macos --apple-id "$APP_ID" --bundle-id "$BUNDLE_ID" \
+            --bundle-version "$BUILD_NUMBER" --bundle-short-version-string "$VERSION" \
+            --apiKey "$KEY_ID" --apiIssuer "$ISSUER"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: testflight-macos
+          path: out/*.pkg
+          if-no-files-found: error
+      - name: Remove signing material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
+          rm -rf "$HOME/.appstoreconnect/private_keys"
