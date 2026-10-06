@@ -17,7 +17,13 @@ interface EngineRun {
 }
 
 interface EnginePackage {
-  createRun(arguments_: { files: Map<string, Uint8Array>; options: Record<string, unknown>; onEvent(event: unknown): void }): Promise<EngineRun>;
+  createRun(arguments_: {
+    files?: Map<string, Uint8Array>;
+    photos?: Map<string, Uint8Array>;
+    calibration?: string;
+    options: Record<string, unknown>;
+    onEvent(event: unknown): void;
+  }): Promise<EngineRun>;
   settingsSchema(): Promise<unknown>;
   memory(): { wasm: number; files: number };
 }
@@ -75,7 +81,7 @@ async function load(module: string): Promise<void> {
   }
 }
 
-async function run(id: string, files: [string, File][], options: Record<string, unknown>): Promise<void> {
+async function run(id: string, from: { files: [string, File][] } | { photos: [string, File][]; calibration: string }, options: Record<string, unknown>): Promise<void> {
   const started = performance.now();
   let peak = 0;
   const note = () => {
@@ -84,8 +90,13 @@ async function run(id: string, files: [string, File][], options: Record<string, 
   };
   try {
     if (engine === null) throw new Error("The engine is not loaded.");
+    // An inputs folder is read one file at a time; photos are copied into the engine when the run is made.
+    const source =
+      "files" in from
+        ? { files: new FilesOnDisk(from.files) }
+        : { photos: new Map(from.photos.map(([name, file]) => [name, new Uint8Array(new FileReaderSync().readAsArrayBuffer(file))] as [string, Uint8Array])), calibration: from.calibration };
     const handle = await engine.createRun({
-      files: new FilesOnDisk(files),
+      ...source,
       options,
       onEvent: (event) => {
         note();
@@ -104,7 +115,8 @@ async function run(id: string, files: [string, File][], options: Record<string, 
 
 scope.onmessage = ({ data }) => {
   if (data.type === "load") void load(data.module);
-  else if (data.type === "run") void run(data.id, data.files, data.options);
+  else if (data.type === "run") void run(data.id, { files: data.files }, data.options);
+  else if (data.type === "run-photos") void run(data.id, { photos: data.photos, calibration: data.calibration }, data.options);
   else if (data.type === "cancel") runs.get(data.id)?.cancel();
   else if (data.type === "file") {
     const bytes = runs.get(data.id)?.file(data.path);

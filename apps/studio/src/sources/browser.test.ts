@@ -6,7 +6,7 @@ import { activeOptions, chosenProviders, importFields, missingFields, parseStart
 import { event, fixtureEvents, settle } from "../testing/fixture";
 import { downloadName } from "../ui/download";
 import { servedByEngine } from "../ui/served";
-import { BrowserEngine, describeInputs, PREVIEW_LIMIT_MEGAPIXELS, previewAdvice, relativeFiles } from "./browserEngine";
+import { BrowserEngine, checkCalibration, describeInputs, photoFiles, PREVIEW_LIMIT_MEGAPIXELS, previewAdvice, relativeFiles } from "./browserEngine";
 import { RunStore } from "./runStore";
 
 /** A stand-in for the worker: records what it is sent and lets the test answer. */
@@ -61,7 +61,7 @@ describe("the engine in this browser", () => {
     const health = await engine.health();
     expect(worker.sent[0]).toEqual({ type: "load", module: "https://host/app/engine/crisp3ds-dense.js" });
     expect(health).toMatchObject({ device: "WebGPU: apple metal-3", canStartRuns: true, choosesDevice: false, scoresReference: false });
-    expect(health.startPoints?.map((point) => point.id)).toEqual(["inputs"]);
+    expect(health.startPoints?.map((point) => point.id)).toEqual(["inputs", "photos"]);
     expect((await engine.settings())[0]?.name).toBe("grid");
     expect(worker.sent).toHaveLength(1); // loaded once
     expect(engine.kind).toBe("browser");
@@ -168,6 +168,53 @@ describe("the engine in this browser", () => {
     expect(() => describeInputs("bunny", files, named("/disk/prepared/1.png"))).toThrow(/full paths elsewhere on a disk/);
     expect(() => describeInputs("x", files, "{}")).toThrow(/not an inputs folder/);
     expect(() => describeInputs("x", files, "not json")).toThrow(/not an inputs folder/);
+  });
+
+  it("starts from photos: picked images in capture order, a calibration, threshold and turntable, no previews by default", async () => {
+    const worker = new FakeWorker();
+    const shipped = JSON.stringify({ schema: "crisp3ds_lens_calibration_v1", fx: 776 });
+    const engine = new BrowserEngine({
+      module: "https://host/app/engine/crisp3ds-dense.js",
+      createWorker: () => worker,
+      clock: () => 1000,
+      base: "https://host/app/",
+      fetcher: async (url) =>
+        url.endsWith("index.json")
+          ? new Response(JSON.stringify([{ file: "3dlf-pro.json", label: "3dlf-pro" }]))
+          : url.endsWith("calibrations/3dlf-pro.json")
+            ? new Response(shipped)
+            : new Response("", { status: 404 }),
+    });
+    const health = await engine.health();
+    const photosPoint = health.startPoints!.find((point) => point.id === "photos")!;
+    expect(photosPoint.fields.map((field) => field.key)).toEqual(["photos", "calibration"]);
+    expect(photosPoint.providers.map((choice) => [choice.module, choice.default, choice.options.filter((o) => o.available).map((o) => o.id)])).toEqual([
+      ["masks", "threshold", ["threshold"]],
+      ["cameras", "turntable", ["turntable"]],
+    ]);
+    await expect(engine.startRun({ photos: "x" })).rejects.toThrow(/choose the photos/);
+    const named = (name: string) => ({ name, file: file(name) });
+    const photos = photoFiles(["capture_10.png", "capture_2.png", ".DS_Store", "notes.txt", "capture_1.jpg", "capture_2.png"].map(named));
+    expect(photos.map(([name]) => name)).toEqual(["capture_1.jpg", "capture_2.png", "capture_10.png"]);
+    engine.setPhotos({ name: "bunny", files: photos });
+    await expect(engine.startRun({ photos: "bunny" })).rejects.toThrow(/lens calibration/);
+    expect(await engine.calibrations()).toEqual([{ label: "3dlf-pro", path: "calibrations/3dlf-pro.json" }]);
+    await engine.useShippedCalibration("calibrations/3dlf-pro.json");
+    await expect(engine.startRun({ photos: "bunny", providers: { masks: "external-sam", cameras: "turntable" } })).rejects.toThrow(/threshold/);
+    const id = await engine.startRun({ photos: "bunny", calibration: "3dlf-pro.json", providers: { masks: "threshold", cameras: "turntable" }, settings: { grid: 320 } });
+    const sent = worker.sent.at(-1) as Extract<ToWorker, { type: "run-photos" }>;
+    expect(sent).toMatchObject({ type: "run-photos", id, calibration: shipped, options: { live_previews: false, photo_options: ["--masks", "threshold", "--cameras", "turntable"], settings: { grid: 320 } } });
+    expect(sent.photos.map(([name]) => name)).toEqual(["capture_1.jpg", "capture_2.png", "capture_10.png"]);
+    // A refusal from the engine (photos out of order, say) ends the run with its sentence.
+    worker.answer({ type: "finished", id, ok: false, message: "the photos are not in capture order", seconds: 1, peakWasmBytes: 1 });
+    await settle();
+    const source = engine.openRun(id);
+    const store = new RunStore(source);
+    source.start();
+    expect(store.get().run.status).toBe("failed");
+    expect(store.get().run.errors.map((error) => error.message)).toEqual(["the photos are not in capture order"]);
+    expect(() => checkCalibration("{}")).toThrow(/not a lens calibration/);
+    expect(() => checkCalibration("nope")).toThrow(/not JSON/);
   });
 
   it("names downloads after the run and what the file is", () => {

@@ -113,7 +113,68 @@ const BROWSER_START: StartPoint[] = [
     providers: [],
     optionGroups: [],
   },
+  {
+    id: "photos",
+    label: "Turntable photos",
+    meaning: "Photos of an object on a turntable, one turn, and the calibration of the lens. Masks and cameras are made first, here in the browser; nothing is uploaded.",
+    fields: [
+      { key: "photos", label: "Photos", kind: "folder", required: true, help: "One photo per turntable position, in capture order by name (PNG or JPEG)." },
+      { key: "calibration", label: "Lens calibration", kind: "file", required: true, help: "Focal length, principal point and radial distortion of the lens (crisp3ds_lens_calibration_v1)." },
+    ],
+    providers: [
+      {
+        module: "masks",
+        label: "Masks",
+        default: "threshold",
+        settings: [],
+        options: [
+          { id: "threshold", label: "threshold", meaning: "Dark object on a light backdrop: grey threshold, largest dark region, contact shadow taken out.", available: true, external: [], settings: [], inputs: [] },
+          { id: "import", label: "import", meaning: "Masks made elsewhere.", available: false, reason: "Not in the browser yet: the engine package cannot take a folder of masks.", external: [], settings: [], inputs: [] },
+        ],
+      },
+      {
+        module: "cameras",
+        label: "Cameras",
+        default: "turntable",
+        settings: [],
+        options: [
+          { id: "turntable", label: "turntable", meaning: "One turn on a turntable: features, matching and the turn solved inside the engine.", available: true, external: [], settings: [], inputs: [] },
+          { id: "markers", label: "markers", meaning: "A printed marker mat under the object.", available: false, reason: "Not in the browser yet: the engine package cannot take the mat's description file.", external: [], settings: [], inputs: [] },
+          { id: "import", label: "import", meaning: "A camera solution made elsewhere.", available: false, reason: "Not in the browser yet: the engine package cannot take a camera solution file.", external: [], settings: [], inputs: [] },
+        ],
+      },
+    ],
+    optionGroups: [],
+  },
 ];
+
+/** Photos picked on this device for the photos start, sorted by name (the capture order). */
+export interface PickedPhotos {
+  name: string;
+  files: [string, File][];
+}
+
+/** Images among picked files, by file name, in natural name order ("2.png" before "10.png"). Hidden files are dropped. */
+export function photoFiles(files: { name: string; file: File }[]): [string, File][] {
+  const image = /\.(png|jpe?g)$/i;
+  const chosen = files.filter(({ name }) => image.test(name) && !name.startsWith("."));
+  const seen = new Set<string>();
+  const unique = chosen.filter(({ name }) => !seen.has(name) && seen.add(name) !== undefined);
+  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+  return unique.sort((a, b) => collator.compare(a.name, b.name)).map(({ name, file }) => [name, file]);
+}
+
+/** A calibration file is JSON that says what it is. Throws a sentence otherwise. */
+export function checkCalibration(text: string): string {
+  let parsed: { schema?: unknown };
+  try {
+    parsed = JSON.parse(text) as { schema?: unknown };
+  } catch {
+    throw new Error("This file is not JSON; a lens calibration is a JSON file.");
+  }
+  if (parsed.schema !== "crisp3ds_lens_calibration_v1") throw new Error("This JSON file is not a lens calibration (crisp3ds_lens_calibration_v1).");
+  return text;
+}
 
 interface Held {
   id: string;
@@ -135,6 +196,10 @@ export interface BrowserOptions {
   /** Wall clock in Unix seconds. */
   clock?: () => number;
   objectUrls?: { create(blob: Blob): string; revoke(url: string): void };
+  /** For the shipped calibrations; injected in tests. */
+  fetcher?: (url: string) => Promise<Response>;
+  /** Base URL the shipped files are relative to (default: the page's). */
+  base?: string;
 }
 
 const IMAGE_TYPES: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg" };
@@ -152,6 +217,8 @@ export class BrowserEngine implements Engine {
   private counter = 0;
   private picked: PickedInputs | null = null;
   private previews: boolean | null = null;
+  private photos: PickedPhotos | null = null;
+  private calibration: { label: string; text: string } | null = null;
   private readonly clock: () => number;
 
   constructor(private readonly options: BrowserOptions) {
@@ -166,6 +233,45 @@ export class BrowserEngine implements Engine {
 
   inputs(): PickedInputs | null {
     return this.picked;
+  }
+
+  /** The photos for the photos start, and whether intermediate surfaces are wanted (null: off, the default for photo sets). */
+  setPhotos(photos: PickedPhotos | null, livePreviews: boolean | null = null): void {
+    this.photos = photos;
+    this.previews = livePreviews;
+  }
+
+  pickedPhotos(): PickedPhotos | null {
+    return this.photos;
+  }
+
+  setCalibration(calibration: { label: string; text: string } | null): void {
+    this.calibration = calibration;
+  }
+
+  pickedCalibration(): { label: string; text: string } | null {
+    return this.calibration;
+  }
+
+  /** Lens calibrations shipped with the app (calibrations/index.json next to it). */
+  async calibrations(): Promise<{ label: string; path: string }[]> {
+    const fetcher = this.options.fetcher ?? ((url: string) => fetch(url));
+    try {
+      const response = await fetcher(new URL("calibrations/index.json", this.options.base ?? document.baseURI).href);
+      if (!response.ok) return [];
+      const list = (await response.json()) as { file?: unknown; label?: unknown }[];
+      return list.filter((row) => typeof row.file === "string").map((row) => ({ label: typeof row.label === "string" ? row.label : String(row.file), path: `calibrations/${String(row.file)}` }));
+    } catch {
+      return [];
+    }
+  }
+
+  /** Reads a shipped calibration (a path from `calibrations()`) and makes it the run's. */
+  async useShippedCalibration(path: string): Promise<void> {
+    const fetcher = this.options.fetcher ?? ((url: string) => fetch(url));
+    const response = await fetcher(new URL(path, this.options.base ?? document.baseURI).href);
+    if (!response.ok) throw new EngineError(`${path}: not found`, response.status);
+    this.calibration = { label: path.split("/").pop() ?? path, text: checkCalibration(await response.text()) };
   }
 
   /** Peak WebAssembly memory of a run in bytes, as far as seen. */
@@ -265,6 +371,7 @@ export class BrowserEngine implements Engine {
 
   async startRun(body: Record<string, unknown>): Promise<string> {
     await this.load();
+    if (body.photos !== undefined) return this.startFromPhotos(body);
     if (this.picked === null) throw new EngineError("inputs: choose the inputs folder first", 400);
     if ([...this.runs.values()].some((run) => !run.ended)) {
       throw new EngineError("A run is already in progress in this browser. Wait for it, or cancel it.", 400);
@@ -276,6 +383,28 @@ export class BrowserEngine implements Engine {
     if (typeof body.settings === "object" && body.settings !== null) options.settings = body.settings;
     this.runs.set(id, { id, events: [], status: "running", started: this.clock(), stage: null, fraction: 0, peak: 0, ended: false, listeners: new Set() });
     this.worker?.postMessage({ type: "run", id, files: this.picked.files, options });
+    return id;
+  }
+
+  private startFromPhotos(body: Record<string, unknown>): string {
+    if (this.photos === null || this.photos.files.length === 0) throw new EngineError("photos: choose the photos first", 400);
+    if (this.photos.files.length < 3) throw new EngineError("photos: at least three photos are needed, one per turntable position", 400);
+    if (this.calibration === null) throw new EngineError("calibration: choose the lens calibration", 400);
+    if ([...this.runs.values()].some((run) => !run.ended)) {
+      throw new EngineError("A run is already in progress in this browser. Wait for it, or cancel it.", 400);
+    }
+    const providers = (typeof body.providers === "object" && body.providers !== null ? body.providers : {}) as Record<string, unknown>;
+    const masks = typeof providers.masks === "string" ? providers.masks : "threshold";
+    const cameras = typeof providers.cameras === "string" ? providers.cameras : "turntable";
+    if (masks !== "threshold" || cameras !== "turntable") throw new EngineError("providers: in the browser, masks come from threshold and cameras from turntable", 400);
+    const extra = Array.isArray(body.photo_options) ? body.photo_options.filter((word): word is string => typeof word === "string") : [];
+    const name = typeof body.name === "string" && body.name.trim() !== "" ? body.name.trim() : this.photos.name;
+    const id = `browser-${String(++this.counter).padStart(2, "0")}-${name.replace(/[^A-Za-z0-9._-]+/g, "-").slice(0, 40) || "run"}`;
+    // Photo sets are large: intermediate surfaces only when asked for.
+    const options: Record<string, unknown> = { live_previews: this.previews ?? false, photo_options: ["--masks", masks, "--cameras", cameras, ...extra] };
+    if (typeof body.settings === "object" && body.settings !== null) options.settings = body.settings;
+    this.runs.set(id, { id, events: [], status: "running", started: this.clock(), stage: null, fraction: 0, peak: 0, ended: false, listeners: new Set() });
+    this.worker?.postMessage({ type: "run-photos", id, photos: this.photos.files, calibration: this.calibration.text, options });
     return id;
   }
 

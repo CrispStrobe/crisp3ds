@@ -18,6 +18,7 @@ import { navigate } from "./app";
 import type { BrowserEngine } from "../sources/browserEngine";
 import { DeviceImport } from "./deviceImport";
 import { FolderPicker } from "./folderPicker";
+import { CalibrationPicker, PhotosPicker } from "./photoPickers";
 import { Icon } from "./icons";
 import { PathField } from "./pathField";
 import { CalibrationList, ProviderChoices } from "./providerFields";
@@ -194,6 +195,20 @@ export function NewRun({ engine, prefs, onChange }: Props) {
                 key={`${point.id}-${field.key}`}
                 engine={engine as BrowserEngine}
                 error={fieldError(field.key) ?? (showErrors && missing.includes(field.key) ? "Choose the inputs folder." : undefined)}
+                onPicked={(name) => setField(field.key, name)}
+              />
+            ) : engine.kind === "browser" && field.key === "photos" ? (
+              <PhotosPicker
+                key={`${point.id}-${field.key}`}
+                engine={engine as BrowserEngine}
+                error={fieldError(field.key) ?? (showErrors && missing.includes(field.key) ? "Choose the photos." : undefined)}
+                onPicked={(name) => setField(field.key, name)}
+              />
+            ) : engine.kind === "browser" && field.key === "calibration" ? (
+              <CalibrationPicker
+                key={`${point.id}-${field.key}`}
+                engine={engine as BrowserEngine}
+                error={fieldError(field.key) ?? (showErrors && missing.includes(field.key) ? "Choose the lens calibration." : undefined)}
                 onPicked={(name) => setField(field.key, name)}
               />
             ) : (
