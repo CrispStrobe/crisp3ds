@@ -729,8 +729,8 @@ What a production browser build still lacks:
   is refused (see above), as natively.
 - **Persistence.** Outputs live in memory until the host takes them; nothing is
   written to the origin-private file system, and a run cannot be resumed.
-- **Photo front end.** Masks and cameras from plain photos are not part of the
-  browser build (`src/photos` drives external programs and is excluded there).
+- **Photo front end.** Masks and cameras from plain photos need external
+  programs, which a browser build leaves out (see `src/photos`).
 - **Coverage.** One browser engine (Chromium), one GPU (Apple M1 through
   Metal) and SwiftShader; no Firefox or Safari, no Windows or Linux GPU.
 
