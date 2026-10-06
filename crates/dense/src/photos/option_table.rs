@@ -78,11 +78,11 @@ pub const OPTIONS: &[OptionSpec] = &[
         flag: "cameras",
         scope: "run",
         kind: "provider",
-        default: Some("colmap"),
+        default: Some("turntable"),
         choices: &[],
         variable: Some("CRISP3DS_CAMERAS"),
         repeated: false,
-        meaning: "Camera provider: colmap, alicevision, turntable, markers or import:PATH",
+        meaning: "Camera provider: turntable, markers, colmap, alicevision or import:PATH",
     },
     OptionSpec {
         flag: "stop-after",

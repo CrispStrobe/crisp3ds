@@ -71,7 +71,7 @@ pub const CAMERAS_COLMAP: Provider = Provider {
     wasm: false,
     external: &["colmap"],
     license: "COLMAP BSD-3-Clause; its dependencies carry their own licenses",
-    default: true,
+    default: false,
 };
 
 pub const CAMERAS_ALICEVISION: Provider = Provider {
@@ -129,17 +129,17 @@ pub const CAMERAS_TURNTABLE: Provider = Provider {
     wasm: true,
     external: &[],
     license: "this crate (AGPL-3.0-only)",
-    default: false,
+    default: true,
 };
 
 pub const PROVIDERS: [Provider; 8] = [
     MASKS_THRESHOLD,
     MASKS_IMPORT,
     MASKS_EXTERNAL_SAM,
-    CAMERAS_COLMAP,
-    CAMERAS_ALICEVISION,
     CAMERAS_TURNTABLE,
     CAMERAS_MARKERS,
+    CAMERAS_COLMAP,
+    CAMERAS_ALICEVISION,
     CAMERAS_IMPORT,
 ];
 
@@ -183,7 +183,7 @@ mod tests {
         assert_eq!(table["schema"], "crisp3ds_photo_providers_v1");
         let expected: [(&str, &[&str]); 2] = [
             ("masks", &["threshold", "import", "external-sam"]),
-            ("cameras", &["colmap", "alicevision", "turntable", "markers", "import"]),
+            ("cameras", &["turntable", "markers", "colmap", "alicevision", "import"]),
         ];
         for (module, names) in expected {
             let rows = table[module].as_array().unwrap();
@@ -192,6 +192,6 @@ mod tests {
             // Whatever starts another program cannot run in a browser.
             assert!(rows.iter().all(|r| r["external"].as_array().unwrap().is_empty() || r["platforms"]["wasm"] == false));
         }
-        assert_eq!(table["cameras"][0]["license"].as_str().unwrap().split(';').next(), Some("COLMAP BSD-3-Clause"));
+        assert_eq!(table["cameras"][2]["license"].as_str().unwrap().split(';').next(), Some("COLMAP BSD-3-Clause"));
     }
 }
