@@ -10,8 +10,9 @@ name: release
 #
 # Jobs
 #   web      Studio's static bundle (relative URLs, demo recording inside), zipped.
-#   desktop  The Studio Tauri app, bundled: macOS arm64 (.dmg, .app.tar.gz),
-#            Windows x64 (NSIS setup .exe), Linux x64 (AppImage, .deb).
+#   desktop  The Studio Tauri app with the reconstruction engine (crates/dense) built
+#            in, bundled: macOS arm64 (.dmg, .app.tar.gz), Windows x64 (NSIS setup
+#            .exe), Linux x64 (AppImage, .deb).
 #            Bundling is switched on only here, through src-tauri/tauri.release.conf.json;
 #            tauri.conf.json keeps bundle.active=false for every other build.
 #   android  Debug-signed APK (throwaway debug key). Non-blocking.
@@ -23,9 +24,11 @@ name: release
 # What these builds are NOT
 #   - Not signed. macOS gets an ad-hoc signature only, so Gatekeeper will refuse
 #     the app until the user allows it; Windows SmartScreen will warn.
-#   - Not self-contained. The desktop app starts the engine with a Python that is
-#     installed separately (scripts/turntable_mesh/requirements-dense.txt). No
-#     Python and no PyTorch are bundled.
+#   - Not a photos-to-model app yet. The desktop app reconstructs by itself, without
+#     Python, from photos whose cameras and masks already exist. Getting cameras and
+#     masks from plain photos still needs external tools (the Python pipeline with
+#     AliceVision and SAM); none of that is bundled.
+#   - Not tested on Windows or Linux beyond building, and not on phones at all.
 #   - Not GPU-tested for CUDA. CI has no GPU; --device mps and cuda are not run here.
 #
 # Signing (optional, off until the secrets exist; none are defined by this file)
@@ -490,9 +493,11 @@ jobs:
           **Prerelease $VERSION. Read this before installing.**
 
           - **Unsigned builds.** Nothing here is signed with a developer certificate or notarised. macOS (ad-hoc signature only) will refuse to open the app until you allow it under System Settings > Privacy & Security, or remove the quarantine flag (\`xattr -dr com.apple.quarantine "Crisp3DS Studio.app"\`). Windows SmartScreen will warn about the installer. The Android file is a debug build signed with a throwaway debug key; the iOS file runs in the simulator only.
-          - **The desktop app needs a separately installed Python.** No Python and no PyTorch are bundled. Unpack \`$python_archive\`, install \`scripts/turntable_mesh/requirements-dense.txt\` (numpy, pillow, scipy, scikit-image, opencv-python-headless, torch) into a Python 3.11 environment, and point the app's "Engine settings" at the unpacked folder and that interpreter.
+          - **The desktop app reconstructs by itself; no Python is needed for that.** The engine is built in and runs on the computer's GPU (Metal, DirectX 12 or Vulkan). It starts from photos whose cameras and masks already exist: an inputs folder, or an AliceVision solution with its prepared images and raw masks.
+          - **Starting from plain photos still needs external tools.** Cameras and masks come from the Python pipeline in \`$python_archive\` together with AliceVision and SAM, installed separately; the app can start that pipeline as its optional "External Python engine". None of it is bundled.
+          - **Tried on one Mac only.** The desktop app was run on an Apple M1. The Windows and Linux builds compile and pass their tests in CI, where no GPU is available; they have not been run by a person.
           - **CUDA is lightly tested.** The pipeline is tested on CPU in CI and used with Apple MPS. \`--device cuda\` was checked once on a Tesla T4 with the synthetic scene (same depths as CPU); no real photo set has been run on an NVIDIA GPU.
-          - **Phones are clients.** The mobile builds connect to an engine on another machine or play the demo; they do not reconstruct.
+          - **Phone builds are untested.** The Android and iOS simulator builds contain the same engine and have never been installed or run. Treat them as clients of an engine on another machine at most.
           - **License: AGPL-3.0-only.**
 
           | File | What it is |
@@ -501,7 +506,7 @@ jobs:
           | \`crisp3ds-studio-*-windows-x64-setup.exe\` | Studio desktop app, Windows installer (per user) |
           | \`crisp3ds-studio-*-linux-x64.AppImage\`, \`.deb\` | Studio desktop app, Linux |
           | \`crisp3ds-studio-web-*.zip\` | Studio as static files, with the demo recording; serve from any path or with \`engine_server.py --static\` |
-          | \`crisp3ds-dense-pipeline-*.tar.gz\` | The reconstruction pipeline and engine (Python source), contract and test fixture |
+          | \`crisp3ds-dense-pipeline-*.tar.gz\` | The Python reference pipeline and its HTTP engine (source), contract and test fixture; needed only for the photos start and for scoring |
           | \`crisp3ds-studio-*-android-arm64-debug.apk\` | Android debug build (if present) |
           | \`crisp3ds-studio-*-ios-simulator-arm64.app.zip\` | iOS simulator build (if present) |
           | \`SHA256SUMS.txt\` | Checksums of all of the above |

@@ -10,7 +10,7 @@ it, and where the App Store and TestFlight stand.
 | File | Job | What it is |
 | --- | --- | --- |
 | `crisp3ds-studio-web-<v>.zip` | web | Studio as static files (relative URLs, demo recording and third-party notices inside) |
-| `crisp3ds-studio-<v>-macos-arm64.dmg`, `.app.tar.gz` | desktop | Studio desktop app, Apple Silicon, ad-hoc signed |
+| `crisp3ds-studio-<v>-macos-arm64.dmg`, `.app.tar.gz` | desktop | Studio desktop app with the engine built in, Apple Silicon, ad-hoc signed |
 | `crisp3ds-studio-<v>-windows-x64-setup.exe` | desktop | NSIS installer, per user, unsigned |
 | `crisp3ds-studio-<v>-linux-x64.AppImage`, `.deb` | desktop | Linux x64 |
 | `crisp3ds-studio-<v>-android-arm64-debug.apk` | android (non-blocking) | debug build, throwaway debug key |
@@ -26,9 +26,12 @@ shows it is self-contained.
 Every release states, in its notes:
 
 - **Unsigned builds.** No developer certificate, no notarisation.
-- **The desktop app needs a separately installed Python** with
-  `scripts/turntable_mesh/requirements-dense.txt`. No Python and no PyTorch
-  are bundled.
+- **The desktop app reconstructs by itself.** The engine (`crates/dense`) is
+  built in; no Python is needed for runs that start from cameras and masks.
+- **The photos start still needs external tools** (the Python pipeline with
+  AliceVision and SAM, installed separately). None of that is bundled.
+- **Tried on one Mac only**; Windows, Linux and the phone builds are untested
+  beyond building.
 - **No GPU-tested CUDA path.** CI runs on CPU; MPS is used on the development
   machine; `--device cuda` has not been run on a GPU by the project.
 - **AGPL-3.0-only.**
@@ -111,10 +114,12 @@ obligations**.
   unmodified; their source is on crates.io. If one is ever patched, the patch
   must be published.
 
-The audit covers the Studio apps only. They contain no Python, PyTorch,
-AliceVision, SAM, OpenMVS or other engine. The pipeline's own dependencies are
-installed by the user and are not redistributed by these releases, except as
-names in `requirements-dense.txt`.
+The audit covers the Studio apps, including the reconstruction engine linked
+into them (`crates/dense`, the project's own code, and its dependencies such
+as `wgpu`). They contain no Python, PyTorch, AliceVision, SAM, OpenMVS or other
+third-party engine. The Python pipeline's dependencies are installed by the
+user and are not redistributed by these releases, except as names in
+`requirements-dense.txt`.
 
 
 ## App Store and TestFlight: prepared, nothing uploaded
@@ -127,15 +132,28 @@ repository on purpose; nothing from them belongs in here.
 
 ### What is in the repository
 
-- A client-only variant of the app for sandboxed store builds
-  (`tauri build -- --no-default-features`): no engine launcher, opens on the
-  connection screen. Checked locally: built, ad-hoc signed with the sandbox
-  entitlements, started.
+- A variant of the app for sandboxed store builds
+  (`tauri build -- --no-default-features --features native-engine`): the
+  reconstruction engine is built in and runs inside the sandbox; the launcher
+  for the external Python engine, which a sandboxed app cannot use, is compiled
+  out. Checked locally: built, ad-hoc signed with the sandbox entitlements,
+  and the synthetic sphere reconstructed inside it (8 s, folders in the app's
+  container). That run was started through a debug hook, not through the
+  window: the screen was locked at the time, so the form was not exercised in
+  this variant.
 - `apps/studio/src-tauri/tauri.appstore.conf.json`: store bundle settings.
   It names no bundle identifier; pass the chosen one at build time
   (`--config '{"identifier":"..."}'`).
 - `apps/studio/src-tauri/entitlements.appstore.plist`:
-  `com.apple.security.app-sandbox`, `com.apple.security.network.client`.
+  `com.apple.security.app-sandbox`,
+  `com.apple.security.files.user-selected.read-write` (inputs are folders the
+  user picks; the runs folder may be one too) and
+  `com.apple.security.network.client` (only for the optional engine on another
+  computer; drop it if that mode is removed from the store variant).
+  Folders picked in a dialog are usable until the app quits: security-scoped
+  bookmarks, which would let a chosen data or runs folder survive a restart,
+  are not implemented, so the store variant should keep its default folders
+  inside the container.
 - `apps/studio/src-tauri/Info.plist` (macOS) and `Info.ios.plist` (iOS):
   `ITSAppUsesNonExemptEncryption = false`, `NSAllowsLocalNetworking`,
   `NSLocalNetworkUsageDescription`. Both were checked in built apps: the
@@ -178,7 +196,8 @@ Then, following the owner's App Store notes:
    `Info.plist`, icons (`tauri icon` from a 1024 px source) and launch screen,
    add a privacy manifest (`PrivacyInfo.xcprivacy`) for the required-reason
    APIs that Tauri's core uses, sign, archive, validate, upload.
-2. macOS: build the client-only variant with
+2. macOS: build the store variant
+   (`--no-default-features --features native-engine`) with
    `--config src-tauri/tauri.appstore.conf.json`, sign for distribution,
    package, validate, upload.
 3. Answer export compliance if the plist key did not, create an internal

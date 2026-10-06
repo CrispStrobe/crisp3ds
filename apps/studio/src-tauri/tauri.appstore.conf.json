@@ -6,7 +6,7 @@
     "active": true,
     "category": "GraphicsAndDesign",
     "shortDescription": "Watch a photo-to-STL reconstruction step by step",
-    "longDescription": "Crisp3DS Studio shows a photo-to-STL reconstruction as it happens. This edition connects to a Crisp3DS engine running on another computer, or plays back recorded runs. It does not reconstruct by itself.",
+    "longDescription": "Crisp3DS Studio shows a photo-to-STL reconstruction as it happens. The reconstruction is built in and runs on this computer's graphics processor, starting from photos with known cameras and masks. It can also connect to a Crisp3DS engine on another computer, or play back recorded runs.",
     "copyright": "Crisp3DS contributors",
     "homepage": "https://github.com/CrispStrobe/crisp3ds",
     "macOS": {

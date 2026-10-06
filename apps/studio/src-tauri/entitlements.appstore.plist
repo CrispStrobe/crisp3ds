@@ -5,7 +5,10 @@
 	<!-- Mac App Store and TestFlight builds must be sandboxed. -->
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
-	<!-- Outgoing connections only: to an engine the user names, and nothing else. -->
+	<!-- Inputs are folders the user picks; runs can be written to a folder the user picks. -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	<!-- Outgoing connections only, for the optional engine on another computer. -->
 	<key>com.apple.security.network.client</key>
 	<true/>
 </dict>
