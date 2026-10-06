@@ -73,6 +73,10 @@ pub struct ViewRow {
     pub name: String,
     pub image: String,
     pub mask: String,
+    #[serde(default)]
+    pub width: usize,
+    #[serde(default)]
+    pub height: usize,
     pub k: [f64; 4],
     pub rotation: [[f64; 3]; 3],
     pub translation: [f64; 3],
@@ -246,22 +250,28 @@ fn load_view(row: &ViewRow, percentiles: &[f64]) -> anyhow::Result<Loaded> {
     Ok(Loaded { gray: Plane { width, height, data: gray }, mask, bounds: [x0, y0, x1, y1] })
 }
 
-impl Inputs {
-    pub fn load(directory: &Path, config: &DenseConfig) -> anyhow::Result<Self> {
-        let text = std::fs::read_to_string(directory.join("cameras.json"))
-            .with_context(|| directory.join("cameras.json").display().to_string())?;
-        let mut rows = serde_json::from_str::<CameraFile>(&text).context("cameras.json")?.views;
-        for row in &mut rows {
-            for path in [&mut row.image, &mut row.mask] {
-                if !Path::new(path.as_str()).is_absolute() {
-                    *path = directory.join(path.as_str()).to_string_lossy().to_string();
-                }
+/// Camera rows of an inputs directory with absolute image and mask paths (relative ones resolve to the directory).
+pub fn load_views(directory: &Path) -> anyhow::Result<Vec<ViewRow>> {
+    let text =
+        std::fs::read_to_string(directory.join("cameras.json")).with_context(|| directory.join("cameras.json").display().to_string())?;
+    let mut rows = serde_json::from_str::<CameraFile>(&text).context("cameras.json")?.views;
+    for row in &mut rows {
+        for path in [&mut row.image, &mut row.mask] {
+            if !Path::new(path.as_str()).is_absolute() {
+                *path = directory.join(path.as_str()).to_string_lossy().to_string();
             }
         }
+    }
+    Ok(rows)
+}
+
+impl Inputs {
+    pub fn load(directory: &Path, config: &DenseConfig) -> anyhow::Result<Self> {
+        let rows = load_views(directory)?;
         if (rows.len() as i64) < config.neighbours + 1 {
             bail!("fewer views than neighbours + 1");
         }
-        let sparse_array = crate::arrays::read_npy(&directory.join("sparse_points.npy"))?;
+        let sparse_array = crate::npz::read_npy(&directory.join("sparse_points.npy"))?;
         if sparse_array.shape.len() != 2 || sparse_array.shape[1] != 3 || sparse_array.shape[0] == 0 {
             bail!("sparse_points.npy must be N x 3");
         }

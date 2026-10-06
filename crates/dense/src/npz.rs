@@ -308,6 +308,60 @@ fn parse_npy(bytes: &[u8]) -> Result<Array> {
     Ok(Array { shape, data })
 }
 
+/// Reads a standalone `.npy` file (`sparse_points.npy`).
+pub fn read_npy(path: &Path) -> Result<Array> {
+    let bytes = std::fs::read(path).with_context(|| format!("cannot read {}", path.display()))?;
+    parse_npy(&bytes).with_context(|| format!("{} is not a readable .npy", path.display()))
+}
+
+/// The `.npy` encoding of a float64 array, as `np.save` writes it.
+pub fn npy_f64(shape: &[usize], values: &[f64]) -> Vec<u8> {
+    npy_bytes(&Array::new(shape, Data::F64(values.to_vec())))
+}
+
+/// Bytes per independently compressed piece of a member.
+const DEFLATE_PIECE: usize = 4 << 20;
+
+/// One piece as a raw deflate stream. Pieces before the last end with a sync
+/// flush: byte-aligned and not final, so the pieces of a member concatenate
+/// into one valid stream.
+fn deflate_piece(data: &[u8], last: bool) -> Vec<u8> {
+    use miniz_oxide::deflate::core::{compress, create_comp_flags_from_zip_params, CompressorOxide, TDEFLFlush, TDEFLStatus};
+    let mut compressor = CompressorOxide::new(create_comp_flags_from_zip_params(6, 0, 0));
+    let flush = if last { TDEFLFlush::Finish } else { TDEFLFlush::Sync };
+    let mut out = vec![0u8; data.len() / 2 + 1024];
+    let (mut read, mut written) = (0, 0);
+    loop {
+        let (status, consumed, produced) = compress(&mut compressor, &data[read..], &mut out[written..], flush);
+        read += consumed;
+        written += produced;
+        match status {
+            TDEFLStatus::Done => break,
+            TDEFLStatus::Okay if !last && read == data.len() && written < out.len() => break,
+            TDEFLStatus::Okay => {
+                if written == out.len() {
+                    out.resize(out.len() * 2, 0);
+                }
+            }
+            _ => unreachable!("deflate into memory cannot fail"),
+        }
+    }
+    out.truncate(written);
+    out
+}
+
+/// Deflate (level 6) of `data`, compressed in pieces on up to four threads.
+/// The result is one raw deflate stream any inflater reads; it is a few bytes
+/// per piece larger than a single-pass stream.
+pub fn deflate(data: &[u8]) -> Vec<u8> {
+    let pieces: Vec<&[u8]> = data.chunks(DEFLATE_PIECE).collect();
+    if pieces.is_empty() {
+        return deflate_piece(&[], true);
+    }
+    let packed = crate::inputs::parallel_map(pieces.len(), |n| deflate_piece(pieces[n], n + 1 == pieces.len()));
+    packed.concat()
+}
+
 fn npy_bytes(array: &Array) -> Vec<u8> {
     let shape = match array.shape.as_slice() {
         [] => "()".to_string(),
@@ -334,7 +388,7 @@ pub fn write(path: &Path, arrays: &[(&str, &Array)], compress: bool) -> Result<(
     let mut directory = Vec::new();
     for (name, array) in arrays {
         let content = npy_bytes(array);
-        let stored = if compress { miniz_oxide::deflate::compress_to_vec(&content, 6) } else { content.clone() };
+        let stored = if compress { deflate(&content) } else { content.clone() };
         let member = format!("{name}.npy");
         ensure!(
             content.len() < u32::MAX as usize && out.len() < u32::MAX as usize && arrays.len() < 0xFFFF,
@@ -442,5 +496,35 @@ mod tests {
         assert!(Npz::from_bytes(&damaged).is_err());
         let big_endian = b"\x93NUMPY\x01\x00\x46\x00{'descr': '>f4', 'fortran_order': False, 'shape': (1,), }            \n\0\0\0\0";
         assert!(parse_npy(big_endian).is_err());
+    }
+
+    /// Members larger than one piece are compressed in parallel into one stream any inflater reads.
+    #[test]
+    fn pieces_concatenate_into_one_deflate_stream() {
+        let mut state = 12345u32;
+        let data: Vec<u8> = (0..2 * DEFLATE_PIECE + 777)
+            .map(|n| {
+                state = state.wrapping_mul(1664525).wrapping_add(1013904223);
+                if n % 3 == 0 {
+                    (state >> 24) as u8
+                } else {
+                    (n / 1000) as u8
+                }
+            })
+            .collect();
+        let packed = deflate(&data);
+        assert!(packed.len() < data.len());
+        assert_eq!(miniz_oxide::inflate::decompress_to_vec(&packed).unwrap(), data);
+        assert_eq!(miniz_oxide::inflate::decompress_to_vec(&deflate(&[])).unwrap(), Vec::<u8>::new());
+        assert_eq!(miniz_oxide::inflate::decompress_to_vec(&deflate(b"abc")).unwrap(), b"abc");
+        // And through the archive: a large array survives a compressed round trip.
+        let values: Vec<f32> = (0..3_000_000).map(|n| (n % 977) as f32 * 0.5).collect();
+        let array = Array::new(&[values.len()], Data::F32(values));
+        let path = std::env::temp_dir().join(format!("crisp3ds-npz-pieces-{}.npz", std::process::id()));
+        write(&path, &[("big", &array)], true).unwrap();
+        let back = Npz::read(&path).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(back.get("big").unwrap(), &array);
+        assert_eq!(npy_f64(&[2], &[1.0, 2.0]).len() % 64, 16);
     }
 }

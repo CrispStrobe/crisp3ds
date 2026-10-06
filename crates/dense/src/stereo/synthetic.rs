@@ -122,7 +122,7 @@ pub fn write(output: &Path, views: usize, size: usize) -> anyhow::Result<()> {
         let r = (1.0 - z * z).sqrt();
         sparse.extend_from_slice(&[r * (golden * n as f64).cos(), r * (golden * n as f64).sin(), z]);
     }
-    std::fs::write(output.join("sparse_points.npy"), crate::arrays::npy_f64(&[count, 3], &sparse))?;
+    std::fs::write(output.join("sparse_points.npy"), crate::npz::npy_f64(&[count, 3], &sparse))?;
     let members: Vec<(&str, &Array)> = depths.iter().map(|(name, array)| (name.as_str(), array)).collect();
     npz::write(&output.join("exact_depths.npz"), &members, true)?;
     std::fs::write(output.join("cameras.json"), serde_json::to_string_pretty(&json!({ "views": rows }))? + "\n")?;

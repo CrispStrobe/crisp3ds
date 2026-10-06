@@ -14,13 +14,20 @@ fn main() -> ExitCode {
             println!("crisp3ds-dense {}", env!("CARGO_PKG_VERSION"));
             ExitCode::SUCCESS
         }
-        Some("stereo") => match crisp3ds_dense::stereo::main(&arguments[1..]) {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(error) => {
-                eprintln!("crisp3ds-dense stereo: {error:#}");
-                ExitCode::from(1)
+        Some(name @ ("stereo" | "inputs" | "check")) => {
+            let result = match name {
+                "stereo" => crisp3ds_dense::stereo::main(&arguments[1..]),
+                "check" => crisp3ds_dense::check::main(&arguments[1..]),
+                _ => crisp3ds_dense::scene::main(&arguments[1..]),
+            };
+            match result {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) => {
+                    eprintln!("crisp3ds-dense {name}: {error:#}");
+                    ExitCode::from(1)
+                }
             }
-        },
+        }
         _ => {
             eprintln!("usage: crisp3ds-dense <defaults|--version>   (stages are being ported; see crates/dense/README.md)");
             ExitCode::from(2)
