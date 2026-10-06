@@ -505,6 +505,24 @@ to +0.0030 over the whole surface and by -0.0012 to +0.0014 above the
 support; the tops (Bunny's back, Armadillo's shell, Lucy's wings and torch)
 look the same on the sheets.
 
+**Handedness of the 3DLF scans.** Every reconstruction of the four test
+objects fits its Revopoint scan only as a mirror image, with the AliceVision,
+COLMAP and turntable cameras alike (Dragon, trimmed rms 0.60 mirrored against
+1.98 proper). The reconstruction is not what is mirrored. `crisp3ds-dense
+synthetic --capture --asymmetric` renders 48 photos of a sphere with three
+bumps of different sizes on its +x, +y and +z axes, from the rig's camera
+convention (x right, y down, z forward, world to camera). From those photos the
+default command (threshold masks, turntable cameras) recovers cameras that
+match the true ones by a proper similarity (rms 0.0027 against 0.545 for the
+best mirrored one, orbit radius 6), and the mesh carried into the true frame
+lies on the true object (median distance 0.0017 of the unit radius, 95 % within
+0.021). The scan evaluator, given the exact object and its mirror image against
+the true surface, scores the first proper and the second mirrored, and our
+reconstruction proper (trimmed rms 0.0136 against 0.0140). So the 3DLF scans
+are mirror images of the objects as photographed (a left-handed scan export,
+or a mirrored frame in the scanner software); the evaluator says so in its
+warning and scores the reflected fit, as before.
+
 ### Camera providers through the dense stages
 
 A provider is judged by the reconstruction it leads to. `colmap` against

@@ -623,11 +623,14 @@ def evaluate(mesh_triangles, reference_vertices, reference_faces, *, seed=215, s
             for name, fit in fits.items() if name != chosen), None),
     }
     warnings = []
+    rms = handedness_report["best_trimmed_rms"]
     if mirrored:
         warnings.append(
-            "CHIRALITY: the mesh only fits the scan as its mirror image. The scored transform "
-            "includes a reflection; a proper similarity cannot produce it. Either the "
-            "reconstruction frame or the scan export is left-handed; this tool cannot tell which.")
+            "CHIRALITY: the mesh fits the scan only as its mirror image (trimmed rms proper "
+            f"{rms.get('proper', float('nan')):.4g}, mirrored {rms.get('mirrored', float('nan')):.4g}); the scored "
+            "transform includes a reflection. The reconstruction keeps the handedness of the photographed "
+            "object (checked on a synthetic object of known handedness, crates/dense/README.md), so the "
+            "scan is the mirror image of the object as photographed. Expected for the 3DLF Revopoint scans.")
 
     # All samples get a distance (the picture uses them); only the held-out half is scored.
     mesh_in_reference = apply(transform, mesh_points)
