@@ -287,7 +287,12 @@ function storeAudit() {
   const obligations = third.filter((row) => row.category === "notice");
   if (obligations.length > 0) console.log("  with obligations (notices kept, source offered in the app's license screen): " + obligations.map((row) => `${row.name} ${row.version} [${row.linked?.join("+") ?? "web"}]`).join(", "));
   console.log("the project's own code in these builds: " + own.map((row) => `${row.name} ${row.version} (${row.license})`).join(", "));
-  console.log("  Its license is the copyright holder's to grant; this audit does not judge it.");
+  const notice = join(root, "../../NOTICE");
+  const permission = existsSync(notice) && /additional permission \(AGPL-3\.0 section 7\)/i.test(readFileSync(notice, "utf8"));
+  console.log(permission
+    ? "  Basis for the project's own AGPL code in store builds: the section 7 additional permission in NOTICE (store binaries published by the copyright holder)."
+    : "  NOTICE with the store permission is missing: the project's own AGPL code has no stated basis for store distribution.");
+  if (!permission) process.exitCode = 1;
   const encryption = crates.filter((row) => ENCRYPTION.test(row.name));
   console.log("crates that implement encryption or TLS: " + (encryption.length === 0 ? "none" : encryption.map((row) => `${row.name} ${row.version} [${row.linked.join("+")}]`).join(", ")));
   const bad = third.filter((row) => rank(row.category) >= rank("decision"));
@@ -452,7 +457,10 @@ function markdown(data) {
 /** Copyright and license files of everything shipped, as one text file. */
 function notices(npm, rust, file) {
   const wanted = /^(licen[sc]e|copying|notice|copyright|unlicense)/i;
+  // The project's own license and the store permission (NOTICE at the repository root) come first.
+  const own = join(root, "../../NOTICE");
   const parts = [
+    ...(existsSync(own) ? [readFileSync(own, "utf8").trim(), "", "=".repeat(100), ""] : []),
     "Crisp 3D Studio: third-party notices",
     "",
     "Crisp 3D Studio itself is licensed AGPL-3.0-only. It includes the following third-party",

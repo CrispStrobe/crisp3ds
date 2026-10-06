@@ -28,13 +28,13 @@ export function Notices() {
         <div>
           <h1>Licenses</h1>
           <p class="sub">
-            Crisp 3D Studio is free software under the GNU Affero General Public License, version 3 only. Its source code is at{" "}
+            Crisp 3D Studio is free software under the GNU Affero General Public License, version 3 only, with an additional permission for the builds its author publishes in app stores (shown first below). Its source code is at{" "}
             <span class="mono wrap">https://github.com/CrispStrobe/crisp3ds</span>.
           </p>
         </div>
       </div>
       <section class="card" aria-labelledby="n-third">
-        <h2 id="n-third">Third-party software in this app</h2>
+        <h2 id="n-third">License, store permission and third-party software</h2>
         {missing ? (
           <p>
             This build does not carry the collected notices (they are written into release builds). The list of what the app
