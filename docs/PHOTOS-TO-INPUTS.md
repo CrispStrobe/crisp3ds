@@ -65,6 +65,7 @@ it used. It does not undistort anything.
 | --- | --- | --- | --- | --- |
 | `alicevision` (default) | `cameraInit`, `featureExtraction` inside the masks, `imageMatching`, `featureMatching`, `globalSfM --lockAllIntrinsics true`: the commands of the reference | AliceVision executables (`--alicevision`) | MPL-2.0 (parts derived from libmv MIT); dependencies carry their own | yes / no / no |
 | `colmap` | `feature_extractor` with one shared `FULL_OPENCV` camera fixed to the declared lens and the masks as COLMAP masks, `exhaustive_matcher` (or `sequential_matcher`, or `matches_importer` on a closed ring of pairs), `mapper` with focal length, principal point and distortion not refined | a COLMAP executable (`--colmap`, or `colmap` on the `PATH`) | BSD-3-Clause; dependencies carry their own | yes / no / no |
+| `turntable` | our own solver for one turn of ordered turntable photos ([`TURNTABLE-SOLVER.md`](TURNTABLE-SOLVER.md)): SIFT features in the masks, one rotation about a fixed axis fitted to all consecutive pairs, tracks, bundle adjustment with free poses and the lens fixed. Repeatable; `--open-turn` for photos that do not close a turn | nothing | this crate | yes / yes / yes |
 | `markers` | a printed mat of ArUco markers under the object ([`MARKER-MAT.md`](MARKER-MAT.md)): markers detected in every photo, a pose per photo from all visible corners, the scene in the mat's millimetres and handedness. Verified on rendered photos only | the mat's description (`--markers-mat`, written by `crisp3ds-dense mat`) | this crate; marker codes of OpenCV's `DICT_4X4_50` | yes / yes / yes |
 | `import:PATH` | reads an existing solution: an AliceVision `.sfm` file, or a COLMAP model directory (`cameras`, `images`, `points3D` as `.bin` or `.txt`, also below `sparse/0`). Its photos may be named like the originals or `capture_NNNN.png` | nothing | this crate | yes / yes / yes |
 
@@ -101,6 +102,12 @@ the COLMAP 4 option names.
 
 ### After the provider
 
+- **Closure gate.** The photos are taken as one closed turn unless `--open-turn`
+  is given: what is left from the last photo back to the first, per capture
+  step, must be a step like the others (not below minus a quarter of the
+  median step, not above `--maximum-closing-step-ratio`, 2.5, times it). It
+  applies to every camera provider and catches step angles that are all a
+  little too large or too small, which no other gate sees.
 - **Gates.** The audit works on the solution, whoever produced it: lens equal
   to the declared one (and reported as locked, where the program says), share
   of registered photos, observations in front of their cameras, reprojection

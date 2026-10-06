@@ -137,11 +137,20 @@ The scale of the recovered orbit was within 0.03 % of the truth in every row
   print: perfectly flat, matt, evenly lit, and a lens that is exactly the
   declared model. Paper curl, glossy toner, uneven light, motion blur and
   lens calibration error will add to them. A real capture is the next test.
-- **Masks.** The markers are dark, like the object. The `threshold` mask
-  provider takes the largest dark region and will include markers that touch
-  the object's outline in a photo; masks from `external-sam` or `import` are
-  the choice with a mat until the threshold provider knows about it. The
-  measurements above used the rendered object masks.
+- **Masks.** The markers are dark, like the object. With `--masks threshold`
+  the provider's own detection and pose are therefore used once more during
+  the masks stage: every marker is compared with the photo cell by cell, and
+  the cells that look as printed (with all their neighbours) are taken out of
+  the dark region before the object is picked. Cells the object covers stay,
+  so the object is not cut; a marker half hidden by the object keeps a few
+  cells at the object's outline. On the base rendering, against the rendered
+  masks: 0.8 % of extra pixels in the median and 1.3 % at most (2.9 % and
+  5.9 % without the step), 0.7 % missing either way, and the object comes out
+  of the dense stages with the same radius (31.97 mm) and height (89.99 mm) as
+  with the rendered masks. Use a fixed level there (`--threshold-level 70`):
+  Otsu's level, the default of `--masks threshold`, separates the white paper
+  from a darker table instead of the object from the paper and takes the
+  table for the object.
 - **The lens is taken as given.** A wrong calibration tilts and shifts the
   poses and does not show as a failed gate until it is gross.
 - **A marker that is partly hidden is not used**, and nothing outside the mat

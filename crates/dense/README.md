@@ -327,6 +327,30 @@ crisp3ds-dense photos --photos <bunny>/rgb --calibration scripts/turntable_mesh/
     --alicevision .local-tools/alicevision-local/prefix --alicevision-library-path /opt/homebrew/lib
 ```
 
+### Our own cameras: `--cameras turntable`
+
+For one turn of ordered turntable photos with a known lens, from this crate
+alone (`src/photos/turntable/`, `docs/TURNTABLE-SOLVER.md`): SIFT features
+written here, mutual ratio matches between neighbouring photos around the
+closed turn, one rotation about a fixed axis fitted to all consecutive pairs
+as the starting point, tracks, and a bundle adjustment with free poses and the
+lens fixed (Levenberg-Marquardt with a Schur complement). No crate added, no
+random choice: two runs write identical `cameras.json` files. Builds for
+wasm32.
+
+Scanner F1 above the support at 0.5 %, same SAM masks, native dense stages:
+
+| | Bunny | Armadillo | Dragon | Lucy |
+| --- | --- | --- | --- | --- |
+| `alicevision` | 0.963 | 0.952 | 0.834 | 0.826 |
+| `colmap` | 0.965 | 0.952 | 0.844 | 0.865 |
+| `turntable` | 0.966 | 0.953 | 0.837 | 0.860 |
+| Camera recovery, `colmap` / `turntable` | 64 s / 18 s | 105 s / 24 s | 182 s / 18 s | 133 s / 13 s |
+
+Every provider now also passes a closure gate: a capture is one closed turn
+unless `--open-turn` says otherwise, and what is left from the last photo to
+the first must be a step like the others.
+
 ### Cameras from a printed mat: `--cameras markers`, `crisp3ds-dense mat`
 
 `crisp3ds-dense mat --size a4|letter|a3 --output DIR` writes a mat of ArUco
