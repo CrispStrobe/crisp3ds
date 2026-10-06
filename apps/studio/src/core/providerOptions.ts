@@ -65,6 +65,10 @@ export const PROVIDER_OPTIONS: Record<string, ProviderOptionSpec[]> = {
   "masks:*": [
     option("hole-cleanup-budget", "Hole cleanup budget", "number", "0.02", "Largest share of the foreground that the dark-hole fill may add."),
   ],
+  "cameras:markers": [
+    option("markers-minimum", "Markers needed in a photo", "integer", "5", "A photo with fewer decoded markers gets no pose.", { advanced: false }),
+    option("markers-aspect", "Print aspect", "text", "auto", "Height over width of the print relative to the design; auto estimates it, 1 means printed true to scale."),
+  ],
   "cameras:alicevision": [
     option("alicevision-describer-preset", "Feature density", "choice", "normal", "How many features AliceVision extracts per photo. Higher is slower and can register more photos.", {
       choices: ["low", "medium", "normal", "high", "ultra"],
@@ -108,6 +112,7 @@ export const PROVIDER_OPTIONS: Record<string, ProviderOptionSpec[]> = {
 export const PROVIDER_IMPORTS: Record<string, ImportSpec> = {
   "masks:import": { key: "masks_import", label: "Masks folder", kind: "folder", help: "One 8-bit PNG per photo, white object, named like the photo or capture_NNNN.png in capture order." },
   "cameras:import": { key: "cameras_import", label: "Camera solution", kind: "file", help: "An AliceVision .sfm file, or a COLMAP model folder (type its path)." },
+  "cameras:markers": { key: "markers_mat", label: "Marker mat description", kind: "file", help: "The file that `crisp3ds-dense mat` wrote for the printed mat under the object (docs/MARKER-MAT.md)." },
 };
 
 /** The options of one provider: its own, then those every provider of its module has. */

@@ -27,7 +27,7 @@ pub const ALICEVISION_PROGRAMS: [&str; 5] = [
 /// Options of the photos stage that say where things are or what to run. They are set by
 /// the shell from the request's own fields and the saved settings, never by option tokens
 /// that came from the page.
-const RESERVED: [&str; 19] = [
+const RESERVED: [&str; 20] = [
     "--photos",
     "--output",
     "--events",
@@ -47,6 +47,7 @@ const RESERVED: [&str; 19] = [
     "--sam-pythonpath",
     "--sam-repository",
     "--list-providers",
+    "--markers-mat",
 ];
 
 /// True inside the macOS App Sandbox, where the app cannot start programs from the disk.

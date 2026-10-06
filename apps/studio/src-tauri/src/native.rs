@@ -82,7 +82,7 @@ pub struct EventPage {
 }
 
 /// Body of a start request: the same shape as `POST /api/runs` of the HTTP engine.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Clone, Deserialize)]
 #[serde(default)]
 pub struct StartBody {
     pub name: Option<String>,
@@ -100,6 +100,8 @@ pub struct StartBody {
     pub masks_import: Option<String>,
     /// Existing camera solution (file or folder), for the `import` cameras provider.
     pub cameras_import: Option<String>,
+    /// Description of the printed marker mat (a file), for the `markers` cameras provider.
+    pub markers_mat: Option<String>,
     /// Tuning options of the photos stage, one word per element. Never a place or a program.
     pub photo_options: Vec<String>,
     pub settings: Map<String, Value>,
@@ -363,6 +365,15 @@ impl Native {
         crate::tools::check_tokens(&body.photo_options)?;
         let mut options = vec!["--calibration".to_string(), calibration.to_string_lossy().into_owned()];
         options.extend(["--masks".to_string(), chosen[0].1.clone(), "--cameras".to_string(), chosen[1].1.clone()]);
+        if chosen[1].0 == "markers" {
+            // The mat is a place: it comes from its own field, checked like every other path.
+            let mat = given(&body.markers_mat).ok_or("markers_mat: the description of the printed marker mat is needed")?;
+            let mat = self.resolve_source("markers_mat", &mat)?;
+            if !mat.is_file() {
+                return Err("markers_mat: that is not a file".into());
+            }
+            options.extend(["--markers-mat".to_string(), mat.to_string_lossy().into_owned()]);
+        }
         options.extend(crate::tools::location_flags(&chosen[0].0, &chosen[1].0, tools, repo));
         options.extend(body.photo_options.iter().cloned());
         Ok(options)
@@ -1081,6 +1092,20 @@ mod tests {
         assert!(engine.options(&imported, "id").unwrap_err().starts_with("cameras_import"));
         imported.cameras_import = None;
         assert!(engine.options(&imported, "id").unwrap_err().starts_with("cameras_import:"));
+
+        // The marker mat is a file named by its own field, inside the data folder like every path.
+        let mut mat = imported.clone();
+        mat.providers.insert("cameras".into(), "markers".into());
+        assert!(engine.options(&mat, "id").unwrap_err().starts_with("markers_mat:"));
+        mat.markers_mat = Some("../outside.json".into());
+        assert!(engine.options(&mat, "id").unwrap_err().starts_with("markers_mat"));
+        mat.markers_mat = Some("bunny/final.sfm".into());
+        let words = engine.options(&mat, "id").unwrap().photo_options;
+        let at = words.iter().position(|word| word == "--markers-mat").expect("the mat is passed on");
+        assert!(words[at + 1].ends_with("final.sfm"));
+        assert_eq!(words[words.iter().position(|word| word == "--cameras").unwrap() + 1], "markers");
+        mat.photo_options = vec!["--markers-mat".into(), "/etc/passwd".into()];
+        assert!(engine.options(&mat, "id").unwrap_err().contains("--markers-mat cannot be set by a run request"));
 
         // What cannot run, does not exist, or tries to name a program is refused with a sentence.
         assert!(engine.options(&body(json!({"masks": "threshold", "cameras": "colmap"})), "id").unwrap_err().starts_with("cameras: "));

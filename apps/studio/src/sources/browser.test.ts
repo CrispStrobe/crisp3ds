@@ -243,6 +243,12 @@ describe("the photos start", () => {
     const body = startBody(point, { name: "", device: "", reference: "", values: { photos: "rgb", calibration: "lens.json", masks_import: "bunny/masks", cameras_import: "bunny/final.sfm" }, providers }, {});
     expect(body).toMatchObject({ masks_import: "bunny/masks", cameras_import: "bunny/final.sfm", providers });
     expect(missingFields(point, { photos: "rgb", calibration: "lens.json" }, {})).toEqual([]);
+    // The printed marker mat: its description is a file with a field of its own, never an option word.
+    const mat = parseStartPoints([{ ...described[0]!, providers: [described[0]!.providers[0], { module: "cameras", label: "Cameras", default: "markers", options: [{ id: "markers" }, { id: "import" }] }] }])[0]!;
+    expect(importFields(mat, {}).map((entry) => entry.spec.key)).toEqual(["markers_mat"]);
+    expect(missingFields(mat, { photos: "rgb", calibration: "lens.json" }, {})).toEqual(["markers_mat"]);
+    const sent = startBody(mat, { name: "", device: "", reference: "", values: { photos: "rgb", calibration: "lens.json", markers_mat: "mat.json" }, providers: {}, options: { "markers-minimum": "4", "markers-aspect": "auto" } }, {});
+    expect(sent).toMatchObject({ markers_mat: "mat.json", providers: { masks: "threshold", cameras: "markers" }, photo_options: ["--markers-minimum", "4"] });
   });
 
   it("writes booleans and repeated options the way the photos stage reads them", () => {
@@ -268,9 +274,9 @@ describe("the photos start", () => {
       "colmap-matching": "Must be one of: exhaustive, ring, sequential.",
     });
     expect(optionTokens({ cameras: "colmap" }, { "colmap-overlap": "many" })).toEqual([]);
-    const reserved = ["photos", "output", "events", "calibration", "masks", "cameras", "python", "alicevision", "alicevision-library-path", "colmap", "sam-python", "sam-source", "sam-checkpoint", "sam-repository", "stop-after"];
+    const reserved = ["photos", "output", "events", "calibration", "masks", "cameras", "python", "alicevision", "alicevision-library-path", "colmap", "sam-python", "sam-source", "sam-checkpoint", "sam-repository", "stop-after", "markers-mat"];
     for (const module of ["masks", "cameras"]) {
-      for (const provider of ["threshold", "import", "external-sam", "alicevision", "colmap"]) {
+      for (const provider of ["threshold", "import", "external-sam", "alicevision", "colmap", "markers"]) {
         for (const spec of optionsFor(module, provider)) expect(reserved).not.toContain(spec.flag);
       }
     }

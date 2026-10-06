@@ -411,8 +411,11 @@ undistorted photos and masks") and then runs the dense stages.
   `scripts/turntable_mesh/calibrations/` are offered as buttons; any other
   file can be typed or picked.
 - **Providers.** One choice for masks (`threshold`, `import`,
-  `external-sam`) and one for cameras (`alicevision`, `colmap`, `import`),
-  from the crate's list. A provider that cannot run here is shown, disabled,
+  `external-sam`) and one for cameras (`alicevision`, `colmap`, `markers`,
+  `import`), from the crate's list. `markers` (a printed marker mat under the
+  object, `docs/MARKER-MAT.md`) needs no external program, only the mat's
+  description file; it was added to the form after the verification below
+  and has not been run from the app. A provider that cannot run here is shown, disabled,
   with the reason ("AliceVision is not set up. See Tools."). `import` asks
   for the folder or file to import. Each provider's options are in the form,
   the common ones visible and the rest under "More options"; only values that
@@ -647,7 +650,7 @@ Still not verified:
 
 - **The native pickers.** They need a person's click; the path grant behind
   them is unit-tested. Typing a path and the folder browser were used instead.
-- **Photos with COLMAP or SAM**, and the `import` providers, through the
+- **Photos with COLMAP, SAM or the marker mat**, and the `import` providers, through the
   window: neither tool is installed here. The request building is unit-tested
   against the crate's parser.
 - A run in the browser engine in Safari or Firefox, on a phone, or inside the
