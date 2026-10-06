@@ -22,10 +22,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: dense-native-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   native:
     name: native (${{ matrix.os }})
