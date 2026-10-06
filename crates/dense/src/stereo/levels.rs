@@ -53,9 +53,12 @@ pub async fn match_levels(
     let mut level: Vec<LevelView> = Vec::new();
     let mut depths: Vec<Plane<f32>> = Vec::new();
     let mut coarser: Option<Vec<Plane<f32>>> = None;
-    // As in the reference, one step of inverse depth serves all views of the finer
-    // levels: the step of the last view swept at the coarsest level.
-    let mut step = 0.0f64;
+    // Step of inverse depth per view. As in the reference, the step of the last
+    // view swept at the coarsest level serves every view of the finer levels (its
+    // loop variable is overwritten). CRISP3DS_OWN_STEP=1 gives each view the step
+    // of its own depth range instead; under evaluation.
+    let shared_step = !std::env::var("CRISP3DS_OWN_STEP").is_ok_and(|v| v == "1");
+    let mut steps = vec![0.0f64; count];
     let mut rows: Vec<Value> = Vec::new();
     for (li, &size) in sizes.iter().enumerate() {
         let t = Instant::now();
@@ -78,7 +81,10 @@ pub async fn match_levels(
                 let mut d = if li == 0 {
                     let (d, view_step) =
                         matcher.sweep(&buffers, &level, i, &neighbours[i], state.bounds[i], window, aggregate, config.min_score).await?;
-                    step = view_step;
+                    steps[i] = view_step;
+                    if shared_step {
+                        steps = vec![view_step; count];
+                    }
                     d
                 } else {
                     if i >= inits_from + inits.len() {
@@ -88,7 +94,7 @@ pub async fn match_levels(
                         inits = parallel_map((count - i).min(16), |n| initial(&depths[i + n], &level[i + n].mask, sigma));
                         initial_seconds += t_init.elapsed().as_secs_f64();
                     }
-                    let fine = step / scale / if p == 0 { 1.0 } else { 2.0 };
+                    let fine = steps[i] / scale / if p == 0 { 1.0 } else { 2.0 };
                     let half = if p == 0 { DenseConfig::level(&config.band_first, li) } else { config.band_later };
                     matcher
                         .refine(
@@ -113,7 +119,7 @@ pub async fn match_levels(
                     let half = DenseConfig::level(&config.band_first, li);
                     let minimum = config.min_score.max(config.hull_front_min_score);
                     let d2 =
-                        matcher.refine(&buffers, &level, i, &neighbours[i], &front, step / scale, half, window, aggregate, minimum).await?;
+                        matcher.refine(&buffers, &level, i, &neighbours[i], &front, steps[i] / scale, half, window, aggregate, minimum).await?;
                     let margin = (1.0 - config.hull_front_margin) as f32;
                     for (value, &candidate) in d.data.iter_mut().zip(&d2.data) {
                         if candidate > 0.0 && (*value == 0.0 || candidate < *value * margin) {

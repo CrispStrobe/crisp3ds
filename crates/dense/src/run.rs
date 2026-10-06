@@ -46,6 +46,13 @@ pub struct RunOptions {
     pub prepared: Option<PathBuf>,
     /// 0/255 masks named like the source photos.
     pub raw_masks: Option<PathBuf>,
+    /// Folder of turntable photos: the photos stage (masks, cameras) runs first
+    /// and its scene is the inputs directory. Not in a browser.
+    pub photos: Option<PathBuf>,
+    /// Command-line options of the photos stage (`crisp3ds-dense photos --help`):
+    /// `--calibration FILE`, `--masks PROVIDER`, `--cameras PROVIDER` and the
+    /// providers' own options, one word per element.
+    pub photo_options: Vec<String>,
     /// JSON with settings (a `config.json` or a previous `result.json`).
     pub config: Option<PathBuf>,
     /// `key=value` overrides, applied after `config`.
@@ -79,6 +86,8 @@ impl Default for RunOptions {
             scene: None,
             prepared: None,
             raw_masks: None,
+            photos: None,
+            photo_options: Vec::new(),
             config: None,
             overrides: Vec::new(),
             settings: serde_json::Map::new(),
@@ -369,9 +378,17 @@ pub async fn run_async(options: &RunOptions, observer: Option<Observer>, cancel:
         bail!("output directory exists: {}", output.display());
     }
     let from_scene = options.scene.is_some() && options.prepared.is_some() && options.raw_masks.is_some();
-    if options.inputs.is_none() && !from_scene {
-        bail!("give inputs, or all of scene, prepared and raw_masks");
+    if options.inputs.is_none() && !from_scene && options.photos.is_none() {
+        bail!("give photos, or inputs, or all of scene, prepared and raw_masks");
     }
+    if options.photos.is_some() && (cfg!(target_arch = "wasm32") || crate::storage::is_memory(&output)) {
+        bail!("the photos stage starts external programs and needs a run directory on disk");
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let photo_stage = match &options.photos {
+        Some(photos) => Some(photo_stage_options(options, photos, &output)?),
+        None => None,
+    };
     #[cfg(not(target_arch = "wasm32"))]
     if !crate::storage::is_memory(&output) {
         let parent = output.parent().filter(|p| crate::storage::exists(p)).map(Path::to_path_buf).unwrap_or(std::env::current_dir()?);
@@ -433,7 +450,7 @@ pub async fn run_async(options: &RunOptions, observer: Option<Observer>, cancel:
         finished: false,
         previews: mesher.clone(),
     };
-    let source = options.inputs.as_ref().or(options.scene.as_ref()).expect("checked above");
+    let source = options.photos.as_ref().or(options.inputs.as_ref()).or(options.scene.as_ref()).expect("checked above");
     let source_name = source.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
 
     // With threads, previews are meshed on a second one while matching continues.
@@ -442,6 +459,9 @@ pub async fn run_async(options: &RunOptions, observer: Option<Observer>, cancel:
         let mesher = mesher.clone();
         std::thread::Builder::new().name("crisp3ds-previews".into()).spawn(move || mesher.work())?
     };
+    #[cfg(not(target_arch = "wasm32"))]
+    let outcome = stages(options, photo_stage.as_ref(), &config, &output, &mut driver, source_name).await;
+    #[cfg(target_arch = "wasm32")]
     let outcome = stages(options, &config, &output, &mut driver, source_name).await;
     let outcome = close(outcome, &events, &mut driver);
     mesher.close();
@@ -467,7 +487,34 @@ fn close(outcome: anyhow::Result<()>, events: &EventLog, driver: &mut Driver) ->
     outcome
 }
 
-async fn stages(options: &RunOptions, config: &DenseConfig, output: &Path, driver: &mut Driver, source_name: String) -> anyhow::Result<()> {
+/// The photos stage's options for this run: its command line with the run's directories filled in.
+/// Resolved before anything is written, so that a bad option or a missing program fails early.
+#[cfg(not(target_arch = "wasm32"))]
+fn photo_stage_options(options: &RunOptions, photos: &Path, output: &Path) -> anyhow::Result<crate::photos::options::Options> {
+    use crate::photos::{cameras::camera_provider, masks::mask_provider, options::resolve};
+    let mut arguments: Vec<String> =
+        ["--threads", &options.threads.to_string(), "--minimum-free-gib", &options.minimum_free_gib.to_string()].map(String::from).to_vec();
+    arguments.extend(options.photo_options.iter().cloned());
+    for (flag, value) in [("--photos", photos), ("--output", &output.join("frontend")), ("--events", &output.join("events.jsonl"))] {
+        arguments.extend([flag.to_string(), text(value)]);
+    }
+    let resolved = resolve(&arguments, &|name| std::env::var(name).ok()).context("photos stage options")?;
+    if resolved.stop_after_masks {
+        bail!("--stop-after masks leaves no scene to reconstruct; use the photos command for that");
+    }
+    mask_provider(&resolved).check(&resolved)?;
+    camera_provider(&resolved).check(&resolved)?;
+    Ok(resolved)
+}
+
+async fn stages(
+    options: &RunOptions,
+    #[cfg(not(target_arch = "wasm32"))] photo_stage: Option<&crate::photos::options::Options>,
+    config: &DenseConfig,
+    output: &Path,
+    driver: &mut Driver,
+    source_name: String,
+) -> anyhow::Result<()> {
     let gpu = Gpu::request().await;
     let device = match &gpu {
         Ok(gpu) => format!("wgpu: {}", gpu.describe()),
@@ -479,7 +526,48 @@ async fn stages(options: &RunOptions, config: &DenseConfig, output: &Path, drive
         json!({"schema": SCHEMA, "configuration": serde_json::to_value(config)?, "device": device, "inputs": source_name}),
     )?;
 
-    let inputs = match &options.inputs {
+    // From plain photos: masks and cameras first. That stage writes its own `masks` and `cameras` stage events.
+    #[cfg(not(target_arch = "wasm32"))]
+    let from_photos = match photo_stage {
+        Some(photo_options) => {
+            println!("[photos] ...");
+            let started = Instant::now();
+            let events_path = output.join("events.jsonl");
+            let finished = crate::photos::run::run(photo_options, &driver.events, &events_path, driver.cancel.clone());
+            let seconds = started.elapsed().as_secs_f64();
+            let cancelled = Control::new(driver.cancel.clone(), Some(output.join("cancel")), None, None)?.cancelled();
+            let code = finished.as_ref().map(|f| f.code).unwrap_or(1);
+            driver.report["stages"]["photos"] = json!({
+                "command": std::iter::once("crisp3ds-dense photos".to_string()).chain(options.photo_options.iter().cloned()).collect::<Vec<_>>(),
+                "exit_code": if cancelled { Value::Null } else { json!(code) },
+                "timed_out": false, "cancelled": cancelled, "seconds": seconds,
+                "log": text(&output.join("frontend/logs")),
+            });
+            driver.write_report()?;
+            if code != 0 {
+                let reason = match &finished {
+                    Ok(finished) => {
+                        format!("photos stage ended with status {} ({})", finished.report["status"], finished.report["reasons"])
+                    }
+                    Err(error) => format!("{error:#}"),
+                };
+                if cancelled {
+                    driver.events.stage("cameras").emit("error", json!({"message": "cancelled on request"}))?;
+                } else if finished.is_err() {
+                    driver.events.stage("cameras").emit("error", json!({"message": reason}))?;
+                }
+                driver.finish("failed in photos")?;
+                bail!("stage photos failed: {reason}");
+            }
+            println!("[photos] {seconds:.1}s");
+            Some(output.join("frontend/inputs"))
+        }
+        None => None,
+    };
+    #[cfg(target_arch = "wasm32")]
+    let from_photos: Option<PathBuf> = None;
+    let given = from_photos.as_ref().or(options.inputs.as_ref());
+    let inputs = match given {
         Some(inputs) => {
             let inputs = crate::storage::absolute(inputs)?;
             if !crate::storage::is_file(inputs.join("cameras.json")) {
@@ -510,8 +598,13 @@ async fn stages(options: &RunOptions, config: &DenseConfig, output: &Path, drive
     if input_sheet(&inputs, &output.join("input-sheet.png")).is_ok() {
         driver.events.stage("inputs").artifact("input_sheet", &output.join("input-sheet.png"), "Photos with mask outlines", json!({}))?;
     }
-    driver.report["native_stages"] =
-        json!(if options.inputs.is_some() { vec!["stereo", "mesh", "check"] } else { vec!["inputs", "stereo", "mesh", "check"] });
+    driver.report["native_stages"] = json!(if from_photos.is_some() {
+        vec!["photos", "stereo", "mesh", "check"]
+    } else if options.inputs.is_some() {
+        vec!["stereo", "mesh", "check"]
+    } else {
+        vec!["inputs", "stereo", "mesh", "check"]
+    });
 
     let gpu = gpu?;
     let arguments = stereo::Arguments {
@@ -579,7 +672,8 @@ async fn stages(options: &RunOptions, config: &DenseConfig, output: &Path, drive
     driver.finish("complete")
 }
 
-pub const USAGE: &str = "usage: crisp3ds-dense run --output DIR (--inputs DIR | --scene FILE --prepared DIR --raw-masks DIR) \
+pub const USAGE: &str = "usage: crisp3ds-dense run --output DIR (--photos DIR --calibration JSON [--masks PROVIDER] [--cameras PROVIDER] \
+[options of `crisp3ds-dense photos`] | --inputs DIR | --scene FILE --prepared DIR --raw-masks DIR) \
 [--config FILE] [--set KEY=VALUE]... [--threads N] [--stereo-timeout SECONDS] [--minimum-free-gib G] [--reuse-depths FILE] \
 [--no-live-previews] [--preview-step N] [--skip-check] [--no-preview] [--keep-volume]";
 
@@ -612,13 +706,24 @@ pub fn parse(arguments: &[String]) -> anyhow::Result<RunOptions> {
             "--no-preview" => options.preview = false,
             "--keep-volume" => options.keep_volume = true,
             // Accepted for command lines written for the Python driver; they select nothing here.
-            "--device" | "--python" | "--torch-python" | "--native" => drop(value()?),
-            "--photos" | "--calibration" | "--photos-option" | "--photos-timeout" => {
-                bail!("{flag}: masks and cameras from plain photos need SAM 2.1 and AliceVision; use scripts/turntable_mesh/dense_pipeline.py for that step")
-            }
+            "--device" | "--torch-python" | "--native" | "--photos-timeout" => drop(value()?),
+            "--photos" => options.photos = Some(PathBuf::from(value()?)),
+            "--photos-option" => options.photo_options.push(value()?),
             "--reference" => bail!("--reference: scoring against a scan is done by scripts/turntable_mesh/scan_evaluate.py; run it on mesh/mesh.stl afterwards"),
-            other => bail!("unknown argument {other}\n{USAGE}"),
+            // Everything else belongs to the photos stage (`crisp3ds-dense photos --help`); it checks the names.
+            other => {
+                options.photo_options.push(match &inline {
+                    Some(value) => format!("{other}={value}"),
+                    None => other.to_string(),
+                });
+                if inline.is_none() && rest.clone().next().is_some_and(|next| !next.starts_with("--")) {
+                    options.photo_options.push(rest.next().cloned().expect("peeked"));
+                }
+            }
         }
+    }
+    if options.photos.is_none() && !options.photo_options.is_empty() {
+        bail!("unknown argument {} (options of the photos stage need --photos)\n{USAGE}", options.photo_options[0]);
     }
     if options.output.as_os_str().is_empty() {
         bail!("--output is required\n{USAGE}");
@@ -655,7 +760,20 @@ mod tests {
         assert!(!options.live_previews && options.keep_volume && options.check && options.threads == 3);
         let config = options.configuration().unwrap();
         assert_eq!((config.grid, config.sizes), (96, vec![64, 128]));
-        for refused in ["--photos x", "--reference scan.ply", "--bogus", "--inputs in"] {
+        let from_photos = parse(
+            &"--output run --photos shots --calibration lens.json --masks threshold --colmap-masks=off --no-sam-multimask --threads 3"
+                .split(' ')
+                .map(String::from)
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+        assert_eq!(from_photos.photos, Some(PathBuf::from("shots")));
+        assert_eq!(
+            from_photos.photo_options,
+            ["--calibration", "lens.json", "--masks", "threshold", "--colmap-masks=off", "--no-sam-multimask"]
+        );
+        assert_eq!(from_photos.threads, 3);
+        for refused in ["--reference scan.ply", "--output run --inputs in --bogus", "--inputs in"] {
             assert!(parse(&refused.split(' ').map(String::from).collect::<Vec<_>>()).is_err(), "{refused}");
         }
         let json =
