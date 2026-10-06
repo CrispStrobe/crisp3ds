@@ -630,6 +630,10 @@ def internal_step(name, output):
 # ----------------------------------------------------------------------------
 
 
+# Default dark-hole budget for SAM masks; silhouette_cleanup.py itself keeps 0.02 as its default.
+SAM_HOLE_CLEANUP_BUDGET = 0.05
+
+
 def resolve(args):
     """Flags, then environment, then defaults, into one JSON-serialisable configuration."""
     def pick(value, variable, default=None):
@@ -670,7 +674,10 @@ def resolve(args):
         "device": args.device, "threads": args.threads, "minimum_free_gib": args.minimum_free_gib,
         "envelope": args.envelope, "dark_threshold": threshold if threshold == "otsu" else int(threshold),
         "sam_multimask": args.sam_multimask, "sam_preserve_holes": args.sam_preserve_holes,
-        "sam_automatic_cues": args.sam_automatic_cues, "hole_cleanup_budget": args.hole_cleanup_budget,
+        "sam_automatic_cues": args.sam_automatic_cues,
+        # The masks here always come from SAM; correct SAM 2.1 masks hold rows of small dark holes (up to about 2.5 %
+        # of the mask on the test objects), as in crates/dense (SAM_HOLE_CLEANUP_BUDGET).
+        "hole_cleanup_budget": SAM_HOLE_CLEANUP_BUDGET if args.hole_cleanup_budget is None else args.hole_cleanup_budget,
         "contrast_gamma": args.contrast_gamma, "clahe_clip": args.clahe_clip, "clahe_grid": args.clahe_grid,
         "initial_field_of_view": args.initial_field_of_view, "describer_types": args.describer_types,
         "describer_preset": args.describer_preset, "matching_method": args.matching_method,
@@ -883,7 +890,8 @@ def parser():
     masks.add_argument("--sam-multimask", action=argparse.BooleanOptionalAction, default=True)
     masks.add_argument("--sam-preserve-holes", action=argparse.BooleanOptionalAction, default=True)
     masks.add_argument("--sam-automatic-cues", action=argparse.BooleanOptionalAction, default=True)
-    masks.add_argument("--hole-cleanup-budget", type=float, default=0.02, help="largest fraction of the foreground the dark-hole fill may add")
+    masks.add_argument("--hole-cleanup-budget", type=float, default=None,
+                       help=f"largest fraction of the foreground the dark-hole fill may add (default {SAM_HOLE_CLEANUP_BUDGET}, as for SAM masks in crates/dense)")
     cameras = p.add_argument_group("camera recovery")
     cameras.add_argument("--contrast-gamma", type=float, default=0.5, help="gamma for the feature images; 1 disables")
     cameras.add_argument("--clahe-clip", type=float, default=2.0, help="CLAHE clip limit for the feature images; 0 disables")

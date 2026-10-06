@@ -288,7 +288,7 @@ class CommandTests(unittest.TestCase):
             self.assertNotIn("--model-config", sam)
             self.assertEqual(commands["sam"]["environment"]["PYTHONPATH"], str(front.REPOSITORY))
             cleanup = commands["cleanup"]["command"]
-            self.assertEqual(cleanup[-3:], ["--dark-object-bright-background", "--maximum-total-filled-foreground-fraction", "0.02"])
+            self.assertEqual(cleanup[-3:], ["--dark-object-bright-background", "--maximum-total-filled-foreground-fraction", "0.05"])
             features = commands["featureExtraction"]["command"]
             self.assertEqual(features[:3], ["/sci/python", str(Path(folder).absolute() / "av.py"), "featureExtraction"])
             for flag, value in (("--describerTypes", "sift"), ("--describerPreset", "normal"), ("--forceCpuExtraction", "true"),

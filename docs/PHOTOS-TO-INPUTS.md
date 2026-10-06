@@ -45,6 +45,7 @@ follow for every provider.
 | `threshold` (default) | grey threshold (`--threshold-level`: Otsu per photo by default, or a level), largest dark region inside `--threshold-envelope`, contact shadow taken out (`--threshold-shadow`) | nothing | this crate | yes / yes / yes |
 | `import:DIR` | masks made elsewhere: 8-bit PNG, object above 127, named `capture_NNNN.png` in capture order or like the photo (`name.png`, `name.ext.png`) | nothing | this crate | yes / yes / yes |
 | `external-sam` | SAM 2.1 prompted by the threshold masks (level 70), through `scripts/turntable_mesh/segment.py` | an interpreter with PyTorch (`--sam-python`), a SAM 2 checkout (`--sam-source`), a checkpoint (`--sam-checkpoint`), this repository (`--sam-repository`) | SAM 2 Apache-2.0, PyTorch BSD-3-Clause | yes / no / no |
+| `sam` | the same prompts and choice as `external-sam`, in this process: SAM 2.1 Hiera-tiny as two ONNX graphs run by ONNX Runtime; SAM's single mask by default (`--sam-candidates several`: the best of its three proposals) | a build with the cargo feature `sam-onnx`; ONNX Runtime's shared library (`--sam-runtime`, or `ORT_DYLIB_PATH`); the model from `--sam-model DIR`, else fetched once (130 MB) from `huggingface.co/cstr/sam2.1-hiera-tiny-ONNX` into the cache and checked against pinned SHA-256 | model Apache-2.0, ONNX Runtime MIT, `ort` and `ureq` MIT OR Apache-2.0 | yes / no / no |
 
 Which one to use was measured on the four test objects, from the photos in one
 command with the turntable cameras, against SAM masks imported through
@@ -58,6 +59,34 @@ front of the object has turntable under it. With that, the whole-surface
 scores are within 0.005 of SAM on all four objects and above it on the
 Dragon, and `threshold` is the default. `external-sam` remains for objects
 that are not dark on a light backdrop.
+
+With correct SAM masks (see below) the comparison stands. Scanner F1 at
+0.5 %, whole surface / above the support, turntable cameras, native dense
+stages:
+
+| | threshold | SAM, MPS before the fix (old) | SAM, correct (`sam`, native) |
+| --- | --- | --- | --- |
+| Bunny | 0.905 / 0.967 | 0.908 / 0.966 | 0.912 / 0.966 |
+| Armadillo | 0.913 / 0.950 | 0.926 / 0.953 | 0.921 / 0.947 |
+| Dragon | 0.784 / 0.849 | 0.791 / 0.837 | 0.804 / 0.850 |
+| Lucy | 0.819 / 0.862 | 0.824 / 0.860 | 0.809 / 0.848 |
+
+SAM is within about 0.02 of the threshold masks either way: better over the
+whole surface on three objects, mainly the Dragon, and 0.014 lower above the
+support on Lucy, whose raised torch and forearm the SAM masks leave out on
+some views. SAM is therefore an option for captures the threshold cannot
+separate, not the default. Render sheets with one row per mask source:
+`.local-tools/turntable-mesh/checkpoint-renders/sam-native-<object>.png`.
+
+**SAM masks made with PyTorch on Apple MPS before 2026-10-06 came from a
+partly wrong encoder** (PyTorch 2.7's `max_pool2d` on MPS is wrong for the
+strided query view SAM 2's Hiera encoder pools). `segment.py` now pools a
+contiguous copy; its MPS masks then equal the CPU masks and those of `sam`
+(Bunny: 69 to 71 of 73 identical, lowest IoU 0.999996). Correct SAM masks hold
+rows of small dark holes inside the object on some views (window-grid pattern,
+up to about 2.5 % of the mask), which the dark-hole cleanup fills; its budget
+is therefore 0.05 for `sam` and `external-sam` (and in `photos_to_inputs.py`)
+unless `--hole-cleanup-budget` is given, and 0.02 for the other providers.
 
 ### Camera providers
 

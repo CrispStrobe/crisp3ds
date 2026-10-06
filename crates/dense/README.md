@@ -401,6 +401,51 @@ Dragon 5 062, Lucy 2 663, counted in the runs with threshold masks)
 raised by 3.2 voxels), the Dragon (3.2) and the Armadillo (0.6), not on Lucy;
 with SAM masks only on the Dragon (0.8).
 
+### SAM 2.1 in this process: `--masks sam`
+
+`src/photos/sam/` ports what `segment.py` does around the network (prompts
+from the coarse masks, choice among the network's masks, the region holding
+the primary point) and runs SAM 2.1 Hiera-tiny as two ONNX graphs through
+ONNX Runtime. It is behind the cargo feature `sam-onnx` (off by default, so
+normal builds and CI download and link nothing):
+
+```sh
+cargo build --release --features sam-onnx
+crisp3ds-dense run --photos data/bunny/rgb --calibration scripts/turntable_mesh/calibrations/3dlf-pro.json \
+    --masks sam --sam-runtime /path/to/libonnxruntime.dylib --output runs/bunny-sam
+```
+
+The runtime is ONNX Runtime's shared library (`--sam-runtime` or
+`ORT_DYLIB_PATH`; the pip wheel's `onnxruntime/capi/libonnxruntime.*.dylib`
+works). The model is `--sam-model DIR` (`model.json`, `encoder.onnx`,
+`decoder.onnx`, written by `tools/sam2_export_onnx.py`), else it is fetched
+once from `huggingface.co/cstr/sam2.1-hiera-tiny-ONNX` into the cache
+(`CRISP3DS_CACHE_DIR`, else the platform's) and checked against SHA-256 pinned
+in `src/photos/sam/fetch.rs`, with progress in the event log (step
+`sam-download`). `--sam-candidates single` (default) takes SAM's own single
+mask, `several` the best-scored of its three proposals that agrees with every
+point, as `external-sam` does. The dark-hole cleanup budget is 0.05 for the
+SAM providers unless given.
+
+Exported graphs against PyTorch on the CPU (8 Bunny photos at 1749 x 1155):
+image embedding within 1.5e-5, mask logits within 7.2e-5, the same mask chosen
+on all 8 (IoU 1.0). The provider against `segment.py` on the CPU, 73 Bunny
+photos: 69 masks identical, lowest IoU 0.999996. Scanner F1 at 0.5 %, whole
+surface / above the support, turntable cameras, native dense stages:
+
+| | threshold | SAM, MPS before the fix | `sam` |
+| --- | --- | --- | --- |
+| Bunny | 0.905 / 0.967 | 0.908 / 0.966 | 0.912 / 0.966 |
+| Armadillo | 0.913 / 0.950 | 0.926 / 0.953 | 0.921 / 0.947 |
+| Dragon | 0.784 / 0.849 | 0.791 / 0.837 | 0.804 / 0.850 |
+| Lucy | 0.819 / 0.862 | 0.824 / 0.860 | 0.809 / 0.848 |
+
+On these dark objects SAM does not beat the threshold: it is an option for
+other captures, and `threshold` stays the default. Time on an Apple M1 (CPU,
+4 threads, machine shared with other jobs): about 2.4 s per photo, nearly all
+in the encoder, peak memory 2.4 GB; Core ML, fp16 and int8 are not measured
+yet.
+
 ### Camera providers through the dense stages
 
 A provider is judged by the reconstruction it leads to. `colmap` against
