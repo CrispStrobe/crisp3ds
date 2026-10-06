@@ -3,7 +3,9 @@ name: studio
 # Crisp3DS Studio (apps/studio): the web front end and its Tauri 2 shell.
 #
 #   web      typecheck, unit tests and the static bundle (artifact). Built with
-#            relative asset URLs, so it can be served from any path.
+#            relative asset URLs, so it can be served from any path. The bundle
+#            carries the engine for browsers (crates/dense/web as WebAssembly,
+#            built here); it is only built, not run: the runners have no WebGPU.
 #   native   the desktop shell on macOS, Windows and Linux with the reconstruction
 #            engine (crates/dense) linked in: Rust unit tests, then a release build
 #            WITHOUT installer bundling (tauri.conf.json has bundle.active=false and
@@ -78,6 +80,22 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      # The engine for "This browser": crates/dense/web as WebAssembly, copied into dist/engine
+      # by the build. Without it the app still builds and that mode says it is not included.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/bin/wasm-bindgen
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            crates/dense/web/target
+          key: studio-wasm-${{ hashFiles('crates/dense/web/Cargo.lock') }}
+      - name: Engine for browsers (WebAssembly)
+        working-directory: crates/dense/web
+        run: |
+          rustup target add wasm32-unknown-unknown
+          wasm-bindgen --version 2>/dev/null | grep -q ' 0\.2\.129$' || cargo install wasm-bindgen-cli --version 0.2.129 --locked
+          sh build.sh
       - run: npm run build
       # Fails on a license outside the policy (GPL, AGPL, LGPL, unknown from third parties)
       # and when docs/licenses.json or docs/THIRD-PARTY-LICENSES.md are out of date.
@@ -87,6 +105,8 @@ jobs:
         run: |
           test -s dist/demo/events.jsonl
           test -s dist/demo/mesh/mesh.stl
+          test -s dist/engine/crisp3ds-dense.js
+          test -s dist/engine/pkg/crisp3ds_dense_web_bg.wasm
           ! grep -E '(src|href)="/' dist/index.html
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

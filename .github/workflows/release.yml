@@ -128,12 +128,29 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      # The engine for "This browser": crates/dense/web as WebAssembly, copied into dist/engine
+      # by the build. Without it the app still builds and that mode says it is not included.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/bin/wasm-bindgen
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            crates/dense/web/target
+          key: studio-wasm-${{ hashFiles('crates/dense/web/Cargo.lock') }}
+      - name: Engine for browsers (WebAssembly)
+        working-directory: crates/dense/web
+        run: |
+          rustup target add wasm32-unknown-unknown
+          wasm-bindgen --version 2>/dev/null | grep -q ' 0\.2\.129$' || cargo install wasm-bindgen-cli --version 0.2.129 --locked
+          sh build.sh
       # Build with the third-party notices inside (needs cargo, which the runner image has).
       - run: npm run build:release
       - name: Zip (one top-level folder, demo recording inside)
         run: |
           test -s dist/demo/events.jsonl
           test -s dist/THIRD-PARTY-NOTICES.txt
+          test -s dist/engine/pkg/crisp3ds_dense_web_bg.wasm
           ! grep -E '(src|href)="/' dist/index.html
           name="crisp3ds-studio-web-$FILE_VERSION"
           mkdir -p ../../release-out && mv dist "$name"
@@ -493,9 +510,10 @@ jobs:
           **Prerelease $VERSION. Read this before installing.**
 
           - **Unsigned builds.** Nothing here is signed with a developer certificate or notarised. macOS (ad-hoc signature only) will refuse to open the app until you allow it under System Settings > Privacy & Security, or remove the quarantine flag (\`xattr -dr com.apple.quarantine "Crisp3DS Studio.app"\`). Windows SmartScreen will warn about the installer. The Android file is a debug build signed with a throwaway debug key; the iOS file runs in the simulator only.
-          - **The desktop app reconstructs by itself; no Python is needed for that.** The engine is built in and runs on the computer's GPU (Metal, DirectX 12 or Vulkan). It starts from photos whose cameras and masks already exist: an inputs folder, or an AliceVision solution with its prepared images and raw masks.
-          - **Starting from plain photos still needs external tools.** Cameras and masks come from the Python pipeline in \`$python_archive\` together with AliceVision and SAM, installed separately; the app can start that pipeline as its optional "External Python engine". None of it is bundled.
-          - **Tried on one Mac only.** The desktop app was run on an Apple M1. The Windows and Linux builds compile and pass their tests in CI, where no GPU is available; they have not been run by a person.
+          - **The desktop app reconstructs by itself; no Python is needed.** The engine is built in and runs on the computer's GPU (Metal, DirectX 12 or Vulkan). From cameras and masks that already exist (an inputs folder, or a camera solution with its prepared images and raw masks) it needs nothing else.
+          - **From plain turntable photos it needs AliceVision or COLMAP on the computer.** The app makes the masks itself (dark object on a light backdrop) and runs AliceVision or COLMAP for the cameras; tell it where they are under Folders > Tools, where each has a Check button. Neither is bundled. Masks from SAM 2.1 are optional and need a Python with PyTorch. A lens calibration file for the camera is required.
+          - **In a browser with WebGPU, the web build reconstructs too.** "This browser" on the Connection screen runs the same engine in the page from an inputs folder on the device (cameras, photos, masks); nothing is uploaded. It needs a current Chrome or Edge and enough memory: the engine may use up to 4 GiB, and a set of 73 photos of 2 megapixels takes 1.9 GiB.
+          - **Tried on one Mac only.** The desktop app was run on an Apple M1, and the browser engine in Chromium on the same Mac. The Windows and Linux builds compile and pass their tests in CI, where no GPU is available; they have not been run by a person.
           - **CUDA is lightly tested.** The pipeline is tested on CPU in CI and used with Apple MPS. \`--device cuda\` was checked once on a Tesla T4 with the synthetic scene (same depths as CPU); no real photo set has been run on an NVIDIA GPU.
           - **Phone builds are untested.** The Android and iOS simulator builds contain the same engine and have never been installed or run. Treat them as clients of an engine on another machine at most.
           - **License: AGPL-3.0-only.**
@@ -505,8 +523,8 @@ jobs:
           | \`crisp3ds-studio-*-macos-arm64.dmg\`, \`.app.tar.gz\` | Studio desktop app, Apple Silicon |
           | \`crisp3ds-studio-*-windows-x64-setup.exe\` | Studio desktop app, Windows installer (per user) |
           | \`crisp3ds-studio-*-linux-x64.AppImage\`, \`.deb\` | Studio desktop app, Linux |
-          | \`crisp3ds-studio-web-*.zip\` | Studio as static files, with the demo recording; serve from any path or with \`engine_server.py --static\` |
-          | \`crisp3ds-dense-pipeline-*.tar.gz\` | The Python reference pipeline and its HTTP engine (source), contract and test fixture; needed only for the photos start and for scoring |
+          | \`crisp3ds-studio-web-*.zip\` | Studio as static files, with the demo recording and the engine for browsers; serve from any path (over http or https, not opened as a file) or with \`engine_server.py --static\` |
+          | \`crisp3ds-dense-pipeline-*.tar.gz\` | The Python reference pipeline and its HTTP engine (source), contract and test fixture; needed only for scoring against a reference scan and for comparisons |
           | \`crisp3ds-studio-*-android-arm64-debug.apk\` | Android debug build (if present) |
           | \`crisp3ds-studio-*-ios-simulator-arm64.app.zip\` | iOS simulator build (if present) |
           | \`SHA256SUMS.txt\` | Checksums of all of the above |
