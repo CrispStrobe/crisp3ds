@@ -9,6 +9,7 @@ use std::time::Instant;
 use serde_json::{json, Value};
 
 use crate::config::DenseConfig;
+use crate::control::Control;
 use crate::events::EventLog;
 use crate::fusion::tsdf;
 use crate::gpu::Gpu;
@@ -19,7 +20,7 @@ use super::depth::{consistent, hull_front, initial, merge_fallback};
 use super::level::{build_level, coverage, LevelView};
 use super::matcher::Matcher;
 use super::previews::depth_sheet;
-use super::run::{log, Previews};
+use super::run::Previews;
 
 /// Everything the loop needs from the driver.
 #[derive(Clone, Copy)]
@@ -32,12 +33,13 @@ pub struct LevelContext<'a> {
     pub events: &'a EventLog,
     pub previews: &'a Previews<'a>,
     pub picks: &'a [usize],
+    pub control: &'a Control,
 }
 
 /// Runs every level in `sizes`. Returns the finest level and its final depth
 /// maps; level rows and the fallback coverage are added to `report`.
 pub fn match_levels(context: &LevelContext, sizes: &[i64], report: &mut Value) -> anyhow::Result<(Vec<LevelView>, Vec<Plane<f32>>)> {
-    let LevelContext { gpu, inputs, state, config, output, events, previews, picks } = *context;
+    let LevelContext { gpu, inputs, state, config, output, events, previews, picks, control } = *context;
     let count = inputs.count();
     let neighbours: Vec<Vec<usize>> =
         (0..count).map(|i| inputs.neighbours(i, config.neighbours as usize, config)).collect::<anyhow::Result<_>>()?;
@@ -68,6 +70,7 @@ pub fn match_levels(context: &LevelContext, sizes: &[i64], report: &mut Value) -
             let mut inits: Vec<Plane<f32>> = Vec::new();
             let mut inits_from = 0usize;
             for i in 0..count {
+                control.check()?;
                 let mut d = if li == 0 {
                     let (d, view_step) =
                         matcher.sweep(&buffers, &level, i, &neighbours[i], state.bounds[i], window, aggregate, config.min_score)?;
@@ -131,7 +134,7 @@ pub fn match_levels(context: &LevelContext, sizes: &[i64], report: &mut Value) -
                 "initial_seconds": initial_seconds, "pass_seconds": t_pass.elapsed().as_secs_f64(),
                 "seconds": t.elapsed().as_secs_f64(),
             });
-            log(format!(
+            control.log(format!(
                 "level {li} pass {p}: size {size}, coverage {:.3}, {:.1}s",
                 row["consistent_coverage"]["median"].as_f64().unwrap_or(0.0),
                 row["seconds"].as_f64().unwrap_or(0.0)

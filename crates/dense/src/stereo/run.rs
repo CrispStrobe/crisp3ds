@@ -7,6 +7,7 @@ use anyhow::{bail, Context};
 use serde_json::{json, Value};
 
 use crate::config::DenseConfig;
+use crate::control::Control;
 use crate::events::EventLog;
 use crate::fusion::{tsdf, Fused, Support};
 use crate::gpu::Gpu;
@@ -89,12 +90,6 @@ pub fn read_depths(path: &Path, count: usize) -> anyhow::Result<Vec<Plane<f32>>>
         .collect()
 }
 
-pub(super) fn log(text: impl AsRef<str>) {
-    use std::io::Write;
-    println!("{}", text.as_ref());
-    let _ = std::io::stdout().flush();
-}
-
 /// Volumes the driver meshes coarsely while matching continues, renamed into place when complete.
 pub struct Previews<'a> {
     directory: Option<std::path::PathBuf>,
@@ -142,15 +137,22 @@ fn hull_report(state: &HullState, since: Instant) -> anyhow::Result<Value> {
     Ok(report)
 }
 
+/// The stage as a command: its own device, events appended to `arguments.events`, log on standard output.
 pub fn run(arguments: &Arguments, config: &DenseConfig) -> anyhow::Result<Value> {
+    let events = EventLog::new(arguments.events.as_deref(), "stereo");
+    run_with(arguments, config, &Gpu::new()?, &events, &Control::none())
+}
+
+/// The stage inside a larger run: on the caller's device, reporting to the
+/// caller's event log, stopping when `control` says so (checked once per view
+/// while matching and between the other steps).
+pub fn run_with(arguments: &Arguments, config: &DenseConfig, gpu: &Gpu, events: &EventLog, control: &Control) -> anyhow::Result<Value> {
     let output = &arguments.output;
     if output.exists() {
         bail!("output directory exists: {}", output.display());
     }
     std::fs::create_dir_all(output).with_context(|| output.display().to_string())?;
     let started = Instant::now();
-    let events = EventLog::new(arguments.events.as_deref(), "stereo");
-    let gpu = Gpu::new()?;
     let mut report = json!({
         "configuration": serde_json::to_value(config)?,
         "device": format!("wgpu: {}", gpu.describe()),
@@ -164,17 +166,18 @@ pub fn run(arguments: &Arguments, config: &DenseConfig) -> anyhow::Result<Value>
     report["views"] = json!(count);
     report["load_seconds"] = json!(t.elapsed().as_secs_f64());
     let picks = [count / 7, (count / 2).saturating_sub(3), (4 * count) / 5];
-    let previews = Previews { directory: arguments.previews.then(|| output.join("preview")), events: &events, config };
+    let previews = Previews { directory: arguments.previews.then(|| output.join("preview")), events, config };
     if let Some(directory) = &previews.directory {
         std::fs::create_dir(directory)?;
     }
 
     let t = Instant::now();
     let mut voxel = None;
-    let mut state = build_hull(&gpu, &inputs, config, &mut voxel)?;
+    let mut state = build_hull(gpu, &inputs, config, &mut voxel)?;
     report["hull"] = hull_report(&state, t)?;
-    log(format!("hull {}", report["hull"]));
+    control.log(format!("hull {}", report["hull"]));
     events.progress(0.03, "Silhouette hull built")?;
+    control.check()?;
     previews.hull("00-hull", "Silhouette hull", &state.hull)?;
 
     if arguments.only.as_deref() == Some("hull") {
@@ -199,13 +202,14 @@ pub fn run(arguments: &Arguments, config: &DenseConfig) -> anyhow::Result<Value>
         let before: Vec<Plane<u8>> = picks.iter().map(|&i| inputs.masks[i].clone()).collect();
         let mut rounds = Vec::new();
         for _ in 0..config.repair_rounds {
-            rounds.push(repair_masks(&gpu, &mut inputs, &state, config)?);
-            state = build_hull(&gpu, &inputs, config, &mut voxel)?;
+            control.check()?;
+            rounds.push(repair_masks(gpu, &mut inputs, &state, config)?);
+            state = build_hull(gpu, &inputs, config, &mut voxel)?;
             report["hull_repaired"] = hull_report(&state, t)?;
         }
         let added: f64 = rounds.iter().map(|r| r.added_fraction_median).sum();
         report["mask_repair"] = json!({"loose_views": inputs.repair_loose, "rounds": rounds, "added_fraction_median": added});
-        log(format!("repair {} {}", report["mask_repair"], report["hull_repaired"]));
+        control.log(format!("repair {} {}", report["mask_repair"], report["hull_repaired"]));
         std::fs::create_dir(output.join("masks-repaired"))?;
         let written: Vec<anyhow::Result<()>> = parallel_map(count, |n| {
             let mask = &inputs.masks[n];
@@ -231,8 +235,8 @@ pub fn run(arguments: &Arguments, config: &DenseConfig) -> anyhow::Result<Value>
     }
 
     {
-        let list = VoxelList::new(&gpu, &state.hull, &state.hull.indices());
-        let coverer = Coverer::new(&gpu)?;
+        let list = VoxelList::new(gpu, &state.hull, &state.hull.indices());
+        let coverer = Coverer::new(gpu)?;
         let mut covers = Vec::new();
         for &i in &picks {
             covers.push(coverer.cover(&list, &inputs.cameras[i], inputs.masks[i].width, inputs.masks[i].height)?);
@@ -249,6 +253,7 @@ pub fn run(arguments: &Arguments, config: &DenseConfig) -> anyhow::Result<Value>
         events.artifact("hull_mask_sheet", &sheet, "Hull against masks (red: mask not covered, blue: hull outside mask)", json!({}))?;
     }
     events.progress(0.08, "Masks and hull ready")?;
+    control.check()?;
 
     let sizes = level_sizes(&config.sizes, inputs.longest);
     if arguments.only.as_deref() == Some("levels") {
@@ -273,28 +278,20 @@ pub fn run(arguments: &Arguments, config: &DenseConfig) -> anyhow::Result<Value>
             if config.fused_passes != 0 {
                 bail!("fused_passes is not ported to the native stage; use fused_passes=0");
             }
-            let context = LevelContext {
-                gpu: &gpu,
-                inputs: &inputs,
-                state: &state,
-                config,
-                output,
-                events: &events,
-                previews: &previews,
-                picks: &picks,
-            };
+            let context =
+                LevelContext { gpu, inputs: &inputs, state: &state, config, output, events, previews: &previews, picks: &picks, control };
             match_levels(&context, &sizes, &mut report)?
         }
     };
 
     let t = Instant::now();
     let rim = round_half_even(config.rim_fraction * DenseConfig::level(&config.windows, sizes.len() - 1) as f64) as usize;
-    let fused: Fused = tsdf(&gpu, &state.hull, &inputs.cameras, &level, &depths, rim, config)?;
+    let fused: Fused = tsdf(gpu, &state.hull, &inputs.cameras, &level, &depths, rim, config)?;
     report["rim_pixels"] = json!(rim);
     report["fused_passes"] = json!([]);
     let observed = fused.weight.iter().filter(|&&w| w > 0.0).count() as f64 / fused.weight.len().max(1) as f64;
     report["tsdf"] = json!({"hull_voxels": fused.indices.len(), "observed_fraction": observed, "seconds": t.elapsed().as_secs_f64()});
-    log(format!("tsdf {}", report["tsdf"]));
+    control.log(format!("tsdf {}", report["tsdf"]));
     events.progress(0.97, "Depth fused")?;
 
     let t = Instant::now();
