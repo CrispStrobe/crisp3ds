@@ -200,6 +200,9 @@ pub struct Options {
     pub stop_after_masks: bool,
     pub envelope: String,
     pub dark_threshold: Threshold,
+    /// Share of the way from the object's grey to the threshold that still counts as object core when the
+    /// contact shadow is taken out of threshold masks; 0: not done (and never for the prompts of external-sam).
+    pub threshold_shadow: f64,
     pub hole_cleanup_budget: f64,
     pub sam: SamOptions,
     pub contrast_gamma: f64,
@@ -242,6 +245,9 @@ masks, threshold provider (also makes the prompts of external-sam and the red ov
   --threshold-level N|otsu        grey level below which a pixel is object (otsu per photo for --masks threshold,
                                   else 70)                                                 [alias --dark-threshold]
   --threshold-envelope SPEC       auto (whole frame) or x0,y0,x1,y1 in pixels, fractions if all <= 1  [alias --envelope]
+  --threshold-shadow F            takes the contact shadow out of threshold masks: a mask pixel stays only with object
+                                  core (darker than this share of the way from the object's grey to the level) at or
+                                  below it in its column (0.25; 0 disables)
   --hole-cleanup-budget F         largest share of the foreground the dark-hole fill may add (0.02), every provider
 masks, external-sam provider (flag, then environment variable):
   --sam-python EXE --sam-source DIR --sam-checkpoint FILE [--sam-config NAME] [--sam-pythonpath LIST] --sam-repository DIR
@@ -531,6 +537,7 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
         dark_threshold: Threshold::parse(
             &text("threshold-level").unwrap_or_else(|| if masks == MaskChoice::Threshold { "otsu" } else { "70" }.into()),
         )?,
+        threshold_shadow: if masks == MaskChoice::Threshold { number("threshold-shadow")?.clamp(0.0, 1.0) } else { 0.0 },
         hole_cleanup_budget: super::cleanup::validate_budget(number("hole-cleanup-budget")?)?,
         sam,
         contrast_gamma: number("contrast-gamma")?,
@@ -593,6 +600,7 @@ impl Options {
             "cameras_import": argument(if let CameraChoice::Import(path) = &self.cameras { Some(path) } else { None }),
             "python": self.python, "threads": self.threads, "minimum_free_gib": self.minimum_free_gib,
             "envelope": self.envelope, "dark_threshold": self.dark_threshold.to_json(), "hole_cleanup_budget": self.hole_cleanup_budget,
+            "threshold_shadow": self.threshold_shadow,
             "contrast_gamma": self.contrast_gamma, "clahe_clip": self.clahe_clip, "clahe_grid": self.clahe_grid,
             "random_seed": self.random_seed,
             "gates": self.gates.to_json(), "keep_intermediates": self.keep_intermediates, "stop_after_masks": self.stop_after_masks,

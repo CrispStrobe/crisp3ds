@@ -176,6 +176,22 @@ pub fn step_coarse_with(
     prepare: Option<&Preparation>,
     watch: &mut dyn FnMut(usize) -> anyhow::Result<()>,
 ) -> anyhow::Result<Value> {
+    step_coarse_shadow(out, photos, envelope, threshold, 0.0, threads, prepare, watch)
+}
+
+/// [`step_coarse_with`] that also takes the contact shadow out of every mask (`coarse::drop_shadow`
+/// with this `shadow` fraction; 0 leaves the masks as they are).
+#[allow(clippy::too_many_arguments)]
+pub fn step_coarse_shadow(
+    out: &Path,
+    photos: &[PathBuf],
+    envelope: &str,
+    threshold: Threshold,
+    shadow: f64,
+    threads: usize,
+    prepare: Option<&Preparation>,
+    watch: &mut dyn FnMut(usize) -> anyhow::Result<()>,
+) -> anyhow::Result<Value> {
     let (staged, masks) = (out.join("work/photos"), out.join("work/coarse-masks"));
     std::fs::create_dir_all(&staged)?;
     std::fs::create_dir_all(&masks)?;
@@ -202,11 +218,13 @@ pub fn step_coarse_with(
                     threshold = Threshold::Level(level);
                 }
             }
-            let (mask, info) = coarse_mask(&gray, threshold, window).map_err(|e| anyhow!("{}: {e}", file_name(source)))?;
+            let (mut mask, info) = coarse_mask(&gray, threshold, window).map_err(|e| anyhow!("{}: {e}", file_name(source)))?;
+            let shadow_pixels = super::coarse::drop_shadow(&gray, &mut mask, info.threshold, shadow);
             save_mask(&masks.join(format!("{name}.png")), &mask)?;
             let row = json!({
                 "capture": name, "source": file_name(source), "byte_exact_copy": byte_exact,
-                "threshold": info.threshold, "foreground_pixels": info.foreground_pixels,
+                "threshold": info.threshold, "foreground_pixels": info.foreground_pixels - shadow_pixels,
+                "shadow_pixels_removed": shadow_pixels,
                 "other_dark_pixels_in_envelope": info.other_dark_pixels_in_envelope,
                 "dark_pixels_outside_envelope": info.dark_pixels_outside_envelope,
                 "bbox_xyxy": info.bbox_xyxy, "touches_envelope": info.touches_envelope,

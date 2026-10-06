@@ -154,6 +154,62 @@ pub fn label(support: &Plane<u8>, eight: bool) -> (Plane<u32>, usize) {
     (labels, count)
 }
 
+/// Takes the contact shadow out of a threshold mask (0/1); returns the number of pixels removed.
+///
+/// A level that separates a dark object from a light turntable also takes the
+/// shadow the object casts on the turntable: darker than the level, lighter
+/// than the object. Two things tell it from lit parts of the object, which are
+/// as light. It is not as dark as the object's own material (the core: below
+/// the median grey of the mask plus `fraction` of the way to the level), and it
+/// lies on the turntable, so in an upright photo there is turntable below it,
+/// not object. A mask pixel is therefore kept only when there is a core pixel
+/// at or below it in its column: lit upward faces have their object under
+/// them, shadow beside or in front of the object has not. Of what remains the
+/// largest 8-connected part is kept. `fraction` 0 or less changes nothing.
+pub fn drop_shadow(gray: &Plane<u8>, mask: &mut Plane<u8>, level: u32, fraction: f64) -> usize {
+    let (width, height) = (mask.width, mask.height);
+    let before = mask.data.iter().filter(|&&m| m != 0).count();
+    if fraction <= 0.0 || before == 0 {
+        return 0;
+    }
+    let mut histogram = [0usize; 256];
+    for (&g, &m) in gray.data.iter().zip(&mask.data) {
+        histogram[g as usize] += (m != 0) as usize;
+    }
+    let mut seen = 0;
+    let dark = (0..256).find(|&g| {
+        seen += histogram[g];
+        2 * seen >= before
+    });
+    let dark = dark.unwrap_or(0) as f64;
+    let core = dark + fraction.min(1.0) * (f64::from(level) - dark);
+    for x in 0..width {
+        let mut supported = false;
+        for y in (0..height).rev() {
+            let at = y * width + x;
+            if mask.data[at] != 0 {
+                supported |= f64::from(gray.data[at]) < core;
+                if !supported {
+                    mask.data[at] = 0;
+                }
+            }
+        }
+    }
+    let (labels, count) = label(mask, true);
+    if count > 1 {
+        let mut sizes = vec![0usize; count + 1];
+        for &value in &labels.data {
+            sizes[value as usize] += 1;
+        }
+        sizes[0] = 0;
+        let largest = (1..=count).fold(1, |best, n| if sizes[n] > sizes[best] { n } else { best }) as u32;
+        for (m, &l) in mask.data.iter_mut().zip(&labels.data) {
+            *m = (l == largest) as u8;
+        }
+    }
+    before - mask.data.iter().filter(|&&m| m != 0).count()
+}
+
 /// Numbers that `coarse_mask` reports next to the mask.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CoarseInfo {
@@ -303,5 +359,30 @@ mod tests {
         // A U shape: its two arms meet only at the bottom, and still get one label.
         let support = Plane { width: 3, height: 3, data: vec![1, 0, 1, 1, 0, 1, 1, 1, 1] };
         assert_eq!(label(&support, false).0.data, vec![1, 0, 1, 1, 0, 1, 1, 1, 1]);
+    }
+
+    #[test]
+    fn shadow_beside_and_below_the_object_goes_and_lit_tops_stay() {
+        // A dark object (30) with a lit top (100), on a light ground (220), with shadow (110) below and beside it.
+        let (width, height) = (40usize, 30usize);
+        let mut gray = filled(width, height, 220);
+        let mut put = |x0: usize, y0: usize, x1: usize, y1: usize, value: u8| {
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    gray.data[y * width + x] = value;
+                }
+            }
+        };
+        put(10, 5, 20, 8, 100); // lit top of the object
+        put(10, 8, 20, 20, 30); // the object
+        put(8, 20, 30, 23, 110); // shadow under and to the right of it
+        let (mut mask, info) = coarse_mask(&gray, Threshold::Level(150), [0, 0, width, height]).unwrap();
+        assert_eq!(info.foreground_pixels, 30 + 120 + 66);
+        let mut untouched = mask.clone();
+        assert_eq!(drop_shadow(&gray, &mut untouched, 150, 0.0), 0);
+        assert_eq!(drop_shadow(&gray, &mut mask, 150, 0.25), 66);
+        let at = |x: usize, y: usize| mask.data[y * width + x];
+        assert_eq!((at(12, 6), at(12, 12), at(12, 21), at(25, 21)), (1, 1, 0, 0));
+        assert_eq!(mask.data.iter().map(|&m| m as usize).sum::<usize>(), 150);
     }
 }

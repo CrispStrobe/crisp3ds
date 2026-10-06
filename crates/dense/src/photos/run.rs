@@ -276,7 +276,17 @@ impl Run<'_> {
             self.internal("masks", "coarse", small, 0.0, coarse_end, "Reading photos, coarse dark-object masks", count, |watch| {
                 // With a marker mat the dark markers are hidden first (markers/provider.rs).
                 let hide = super::markers::provider::mask_preparation(options)?;
-                staging::step_coarse_with(out, &photos, &options.envelope, options.dark_threshold, threads, hide.as_deref(), watch)
+                let shadow = options.threshold_shadow;
+                staging::step_coarse_shadow(
+                    out,
+                    &photos,
+                    &options.envelope,
+                    options.dark_threshold,
+                    shadow,
+                    threads,
+                    hide.as_deref(),
+                    watch,
+                )
             })?;
         let touching: Vec<&str> = photo_map["photos"]
             .as_array()

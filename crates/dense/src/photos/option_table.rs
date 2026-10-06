@@ -115,6 +115,16 @@ pub const OPTIONS: &[OptionSpec] = &[
         meaning: "Region the object must lie in: auto (whole frame) or x0,y0,x1,y1 in pixels, fractions if all <= 1",
     },
     OptionSpec {
+        flag: "threshold-shadow",
+        scope: "masks:threshold",
+        kind: "number",
+        default: Some("0.25"),
+        choices: &[],
+        variable: None,
+        repeated: false,
+        meaning: "Takes the contact shadow out of the masks: a pixel stays only with object core (darker than this share of the way from the object's grey to the level) at or below it in its column; 0 disables",
+    },
+    OptionSpec {
         flag: "hole-cleanup-budget",
         scope: "masks",
         kind: "number",
