@@ -8,10 +8,12 @@
 pub mod arrays;
 pub mod config;
 pub mod events;
+pub mod fusion;
 pub mod gpu;
 pub mod hull;
 pub mod inputs;
 pub mod mesh;
 pub mod npz;
+pub mod repair;
 pub mod stereo;
 pub mod stl;

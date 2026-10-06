@@ -18,8 +18,29 @@ use crate::config::DenseConfig;
 use crate::gpu::{Gpu, Kernel};
 use crate::inputs::{percentile_sorted_f64, Camera, Inputs, Plane};
 
-/// Voxels per carve dispatch.
-const CHUNK: usize = 1 << 21;
+/// Voxels per dispatch.
+pub const CHUNK: usize = 1 << 21;
+
+/// A list of voxels of one grid on the device, in chunks one dispatch can take,
+/// with the grid's centre coordinates. Kernels rebuild each centre from its linear index.
+pub struct VoxelList {
+    pub shape: [usize; 3],
+    pub axes: wgpu::Buffer,
+    /// Buffers of linear indices and the number of voxels in each.
+    pub chunks: Vec<(wgpu::Buffer, usize)>,
+    pub count: usize,
+}
+
+impl VoxelList {
+    pub fn new(gpu: &Gpu, hull: &Hull, indices: &[u32]) -> Self {
+        VoxelList {
+            shape: hull.shape,
+            axes: gpu.upload("voxel axes", &hull.axes()),
+            chunks: indices.chunks(CHUNK).map(|chunk| (gpu.upload("voxel list", chunk), chunk.len())).collect(),
+            count: indices.len(),
+        }
+    }
+}
 
 /// Occupancy grid in world space. `origin` is the corner of voxel (0, 0, 0).
 #[derive(Debug, Clone)]

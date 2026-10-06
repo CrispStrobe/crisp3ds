@@ -1,6 +1,8 @@
 //! The stereo stage: port of `scripts/turntable_mesh/multiscale_stereo.py`.
 
+pub mod level;
 pub mod options;
+pub mod previews;
 pub mod run;
 pub mod synthetic;
 
