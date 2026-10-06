@@ -148,23 +148,47 @@ pub fn sphere_depth(view: &LevelView) -> Plane<f32> {
     depth
 }
 
-/// Command `synthetic --output DIR [--views N] [--size PIXELS]`: writes the scene
-/// and prints the settings sized for it.
+const USAGE: &str = "usage: crisp3ds-dense synthetic --output DIR [--views N] [--size PIXELS]      an inputs directory (sphere)
+       crisp3ds-dense synthetic --capture --output DIR [--views N] [--width W] [--height H]   raw photos, lens.json, truth.json
+       crisp3ds-dense synthetic --verify RUN --truth CAPTURE_DIR      check a run made from such a capture";
+
+/// The `synthetic` command: an inputs directory of the analytic sphere (and the
+/// settings sized for it), or a capture of raw photos with its lens, or the
+/// check of a run made from such a capture.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn main(arguments: &[String]) -> anyhow::Result<()> {
-    let (mut output, mut views, mut size) = (None, 24usize, 128usize);
+    use std::path::PathBuf;
+    let (mut output, mut views, mut size, mut capture) = (None, None, 128usize, false);
+    let (mut width, mut height, mut verify, mut truth) = (640usize, 480usize, None, None);
     let mut rest = arguments.iter();
     while let Some(flag) = rest.next() {
-        let mut value = || rest.next().ok_or_else(|| anyhow::anyhow!("{flag} needs a value"));
+        let mut value = || rest.next().ok_or_else(|| anyhow::anyhow!("{flag} needs a value\n{USAGE}"));
         match flag.as_str() {
-            "--output" => output = Some(std::path::PathBuf::from(value()?)),
-            "--views" => views = value()?.parse()?,
+            "--output" => output = Some(PathBuf::from(value()?)),
+            "--views" => views = Some(value()?.parse::<usize>()?),
             "--size" => size = value()?.parse()?,
-            other => anyhow::bail!("unknown argument {other}\nusage: crisp3ds-dense synthetic --output DIR [--views N] [--size PIXELS]"),
+            "--width" => width = value()?.parse()?,
+            "--height" => height = value()?.parse()?,
+            "--capture" => capture = true,
+            "--verify" => verify = Some(PathBuf::from(value()?)),
+            "--truth" => truth = Some(PathBuf::from(value()?)),
+            other => anyhow::bail!("unknown argument {other}\n{USAGE}"),
         }
     }
-    let output = output.ok_or_else(|| anyhow::anyhow!("--output is required"))?;
+    if let Some(run) = verify {
+        let truth = truth.ok_or_else(|| anyhow::anyhow!("--verify needs --truth CAPTURE_DIR\n{USAGE}"))?;
+        println!("{}", serde_json::to_string_pretty(&super::capture::verify(&run, &truth)?)?);
+        return Ok(());
+    }
+    let output = output.ok_or_else(|| anyhow::anyhow!("--output is required\n{USAGE}"))?;
     anyhow::ensure!(!crate::storage::exists(&output), "output directory exists: {}", output.display());
-    write(&output, views, size)?;
+    if capture {
+        super::capture::write(&output, views.unwrap_or(40), width, height)?;
+        println!("photos: {}", output.join("photos").display());
+        println!("calibration: {}", output.join("lens.json").display());
+        return Ok(());
+    }
+    write(&output, views.unwrap_or(24), size)?;
     println!("suggested overrides: {}", SMALL.iter().map(|item| format!("--set {item}")).collect::<Vec<_>>().join(" "));
     Ok(())
 }

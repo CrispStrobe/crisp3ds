@@ -50,6 +50,7 @@ pub struct DenseConfig {
     pub behind_voxels: f64,
     pub behind_weight: f64,
     pub free_weight: f64,
+    pub skirt_voxels: f64,
     pub mesh_smooth: f64,
     pub mesh_fill_sigmas: Vec<f64>,
     pub mesh_final_smooth: f64,
@@ -102,6 +103,7 @@ impl Default for DenseConfig {
             behind_voxels: 12.0,
             behind_weight: 0.25,
             free_weight: 1.0,
+            skirt_voxels: 0.0,
             mesh_smooth: 1.0,
             mesh_fill_sigmas: vec![2.0, 4.0],
             mesh_final_smooth: 0.6,
@@ -128,6 +130,10 @@ impl DenseConfig {
         values[index.min(values.len() - 1)]
     }
 }
+
+/// Settings this crate has and the Python reference does not. The reference is
+/// no longer extended; new behaviour is developed here.
+pub const NATIVE_ONLY: [&str; 1] = ["skirt_voxels"];
 
 /// Name, group, meaning, kind and default of every setting, as JSON
 /// (`{"settings": [...]}`), for generated settings forms. Written from the
@@ -160,8 +166,11 @@ mod tests {
     fn defaults_match_the_python_reference() {
         let fixture = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/dense-config-defaults.json");
         let reference: serde_json::Value = serde_json::from_str(&crate::storage::read_to_string(fixture).unwrap()).unwrap();
-        let ours = serde_json::to_value(DenseConfig::default()).unwrap();
-        assert_eq!(ours, reference, "DenseConfig drifted from scripts/turntable_mesh/dense_config.py");
+        let mut ours = serde_json::to_value(DenseConfig::default()).unwrap();
+        for name in NATIVE_ONLY {
+            assert!(ours.as_object_mut().unwrap().remove(name).is_some(), "{name}");
+        }
+        assert_eq!(ours, reference, "the settings shared with scripts/turntable_mesh/dense_config.py drifted");
     }
 
     #[test]

@@ -299,7 +299,9 @@ pub async fn run_with(
     }
     let t = Instant::now();
     let rim = round_half_even(config.rim_fraction * DenseConfig::level(&config.windows, sizes.len() - 1) as f64) as usize;
-    let fused: Fused = tsdf(gpu, &state.hull, &inputs.cameras, &level, &depths, rim, config).await?;
+    let mut fused: Fused = tsdf(gpu, &state.hull, &inputs.cameras, &level, &depths, rim, config).await?;
+    let skirt = crate::fusion::remove_skirt(&state.hull, &mut fused, config.skirt_voxels);
+    report["skirt"] = json!({"band_voxels": config.skirt_voxels, "voxels_removed": skirt});
     report["rim_pixels"] = json!(rim);
     report["fused_passes"] = json!([]);
     let observed = fused.weight.iter().filter(|&&w| w > 0.0).count() as f64 / fused.weight.len().max(1) as f64;

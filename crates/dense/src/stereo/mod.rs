@@ -1,5 +1,7 @@
 //! The stereo stage: port of `scripts/turntable_mesh/multiscale_stereo.py`.
 
+#[cfg(not(target_arch = "wasm32"))]
+pub mod capture;
 pub mod depth;
 pub mod level;
 pub mod levels;

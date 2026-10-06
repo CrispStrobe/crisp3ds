@@ -16,7 +16,7 @@ use crate::hull::{camera_rows, dilate, Hull, HullState, VoxelList};
 use crate::inputs::{median_f64, parallel_map, Camera, Inputs, Plane};
 
 /// Eigenvector of the smallest eigenvalue of a symmetric 3x3 matrix (cyclic Jacobi).
-fn smallest_eigenvector(mut a: [[f64; 3]; 3]) -> [f64; 3] {
+pub(crate) fn smallest_eigenvector(mut a: [[f64; 3]; 3]) -> [f64; 3] {
     let mut v = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
     for _ in 0..64 {
         let off = a[0][1] * a[0][1] + a[0][2] * a[0][2] + a[1][2] * a[1][2];

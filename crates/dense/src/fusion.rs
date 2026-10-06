@@ -186,6 +186,91 @@ pub async fn tsdf(
     Ok(Fused { indices, total, weight, truncation, support: Support { point: middle, down, height } })
 }
 
+/// Removes the skirt that contact shadow leaves around the foot of an object.
+///
+/// A mask made by thresholding takes the dark contact shadow on the support
+/// for object. Seen from all around, such a flat patch carves to a thin slab
+/// of hull lying on the support, and where no depth was measured on it the
+/// surface stage keeps the hull. The support is known here (the orbit normal
+/// and the lowest well-supported measured surface), so the hull is looked at
+/// as columns standing on it: a column that rises no more than `band_voxels`
+/// above the support, with no measured surface clearly above the support in it
+/// or next to it, is shadow, not object. Its voxels are marked as free space.
+/// Columns under real geometry are taller or carry measured surface and stay.
+/// Returns the number of voxels changed; nothing happens without a support height.
+pub fn remove_skirt(hull: &Hull, fused: &mut Fused, band_voxels: f64) -> usize {
+    let Some(support) = fused.support.height else { return 0 };
+    if band_voxels <= 0.0 || fused.indices.is_empty() {
+        return 0;
+    }
+    let voxel = hull.voxel as f32;
+    let (point, down) = (fused.support.point, fused.support.down);
+    // Two directions in the support plane.
+    let helper = if down[0].abs() <= down[1].abs() && down[0].abs() <= down[2].abs() {
+        [1.0, 0.0, 0.0]
+    } else if down[1].abs() <= down[2].abs() {
+        [0.0, 1.0, 0.0]
+    } else {
+        [0.0, 0.0, 1.0]
+    };
+    let cross = |a: [f32; 3], b: [f32; 3]| [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    let unit = |a: [f32; 3]| {
+        let n = (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).sqrt().max(1e-20);
+        a.map(|v| v / n)
+    };
+    let u = unit(cross(down, helper));
+    let v = cross(down, u);
+    let axes = [hull.axis(0), hull.axis(1), hull.axis(2)];
+    let dot = |a: [f32; 3], b: [f32; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    // Height above the support (positive upwards) and column of every hull voxel.
+    let located: Vec<(i32, i32, f32)> = fused
+        .indices
+        .iter()
+        .map(|&linear| {
+            let [i, j, k] = hull.unravel(linear);
+            let p = [axes[0][i] - point[0], axes[1][j] - point[1], axes[2][k] - point[2]];
+            ((dot(p, u) / voxel).floor() as i32, (dot(p, v) / voxel).floor() as i32, support - dot(p, down))
+        })
+        .collect();
+    let (a0, b0) = (located.iter().map(|l| l.0).min().unwrap() - 1, located.iter().map(|l| l.1).min().unwrap() - 1);
+    let (wide, deep) =
+        ((located.iter().map(|l| l.0).max().unwrap() - a0 + 2) as usize, (located.iter().map(|l| l.1).max().unwrap() - b0 + 2) as usize);
+    let column = |l: &(i32, i32, f32)| (l.1 - b0) as usize * wide + (l.0 - a0) as usize;
+    let mut top = vec![f32::MIN; wide * deep];
+    let mut measured = vec![false; wide * deep];
+    for (n, l) in located.iter().enumerate() {
+        let c = column(l);
+        top[c] = top[c].max(l.2);
+        let (total, weight) = (fused.total[n], fused.weight[n]);
+        if weight >= 3.0 && (total / weight).abs() < 0.5 && l.2 > 1.5 * voxel {
+            measured[c] = true;
+        }
+    }
+    // A column is judged with its eight neighbours: next to a tall or measured column it stays.
+    let band = band_voxels as f32 * voxel;
+    let mut shadow = vec![false; wide * deep];
+    for y in 1..deep - 1 {
+        for x in 1..wide - 1 {
+            let mut flat = top[y * wide + x] > f32::MIN;
+            for (dx, dy) in [(-1i64, -1i64), (0, -1), (1, -1), (-1, 0), (0, 0), (1, 0), (-1, 1), (0, 1), (1, 1)] {
+                let c = (y as i64 + dy) as usize * wide + (x as i64 + dx) as usize;
+                flat &= top[c] <= band && !measured[c];
+            }
+            shadow[y * wide + x] = flat;
+        }
+    }
+    let mut removed = 0;
+    for (n, l) in located.iter().enumerate() {
+        if shadow[column(l)] {
+            let weight = fused.weight[n].max(1.0);
+            fused.weight[n] = weight;
+            fused.total[n] = weight;
+            removed += 1;
+        }
+    }
+    removed
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -244,6 +329,61 @@ mod tests {
         let height = fused.support.height.expect("support height");
         let lowest = fused.support.point[2] - height;
         assert!(lowest < -0.5 && lowest > -1.1, "{lowest}");
+    }
+
+    /// A box standing on a plane with a thin skirt around it: the skirt goes, the box stays.
+    #[test]
+    fn a_flat_unmeasured_skirt_is_removed_and_the_object_stays() {
+        let shape = [40usize, 40, 30];
+        let mut flags = vec![false; 40 * 40 * 30];
+        let at = |i: usize, j: usize, k: usize| (i * 40 + j) * 30 + k;
+        // The support is the plane z = 4 (down is -z here); the box rises to z = 24, the skirt to z = 6.
+        for i in 4..36 {
+            for j in 4..36 {
+                let in_box = (14..26).contains(&i) && (14..26).contains(&j);
+                for k in 4..if in_box { 24 } else { 6 } {
+                    flags[at(i, j, k)] = true;
+                }
+            }
+        }
+        let hull = Hull::from_flags(&flags, shape, [0.0; 3], 1.0);
+        let indices = hull.indices();
+        let (mut total, mut weight) = (vec![0.0f32; indices.len()], vec![0.0f32; indices.len()]);
+        // Measured surface on the sides and top of the box.
+        for (n, &linear) in indices.iter().enumerate() {
+            let [i, j, k] = hull.unravel(linear);
+            let on_box_surface = (14..26).contains(&i) && (14..26).contains(&j) && (i == 14 || i == 25 || j == 14 || j == 25 || k == 23);
+            if on_box_surface {
+                (total[n], weight[n]) = (0.0, 5.0);
+            }
+        }
+        let support = Support { point: [20.0, 20.0, 40.0], down: [0.0, 0.0, -1.0], height: Some(36.0) };
+        let mut fused = Fused { indices, total, weight, truncation: 3.0, support };
+        let removed = remove_skirt(&hull, &mut fused, 4.0);
+        let state = |i: usize, j: usize, k: usize| {
+            let n = fused.indices.binary_search(&(at(i, j, k) as u32)).unwrap();
+            (fused.total[n], fused.weight[n])
+        };
+        assert_eq!(state(6, 6, 4), (1.0, 1.0), "skirt far from the box is free space");
+        assert_eq!(state(30, 20, 5), (1.0, 1.0));
+        assert_eq!(state(20, 20, 4), (0.0, 0.0), "the unmeasured inside of the box is untouched");
+        assert_eq!(state(14, 20, 10), (0.0, 5.0), "measured surface is untouched");
+        assert_eq!(state(13, 20, 4), (0.0, 0.0), "the column next to the box stays");
+        assert!(removed > 1500 && removed < 2 * 32 * 32, "{removed}");
+        // Nothing is removed without a support height or with the setting at zero.
+        let mut none = Fused {
+            support: Support { height: None, ..support },
+            ..Fused {
+                indices: fused.indices.clone(),
+                total: vec![0.0; fused.indices.len()],
+                weight: vec![0.0; fused.indices.len()],
+                truncation: 3.0,
+                support,
+            }
+        };
+        assert_eq!(remove_skirt(&hull, &mut none, 4.0), 0);
+        none.support.height = Some(36.0);
+        assert_eq!(remove_skirt(&hull, &mut none, 0.0), 0);
     }
 
     #[test]

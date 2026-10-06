@@ -113,6 +113,7 @@ pub fn validate(c: &DenseConfig) -> anyhow::Result<()> {
     need((0.0..=3.0).contains(&c.rim_fraction) && c.truncation_voxels >= 1.0, "invalid fusion values")?;
     need(c.behind_voxels >= c.truncation_voxels && (0.0..=1.0).contains(&c.behind_weight), "invalid inside vote")?;
     need(0.0 < c.free_weight && c.free_weight <= 1.0, "free_weight must be in (0,1]")?;
+    need((0.0..=64.0).contains(&c.skirt_voxels), "skirt_voxels must be in 0..64")?;
     need(c.mesh_smooth > 0.0 && c.mesh_confidence_cap > 0.0 && (0..=100).contains(&c.mesh_taubin_cycles), "invalid mesh values")?;
     Ok(())
 }

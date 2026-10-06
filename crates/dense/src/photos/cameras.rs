@@ -349,6 +349,20 @@ pub fn ring_pairs(count: usize, overlap: usize) -> String {
     seen.into_iter().map(|(a, b)| format!("{} {}\n", capture_name(a), capture_name(b))).collect()
 }
 
+/// Major version in the banner COLMAP prints with its help (`COLMAP 3.9.1 -- Structure-from-Motion ...`).
+pub fn colmap_major(banner: &str) -> Option<i64> {
+    let rest = banner.split("COLMAP").nth(1)?.trim_start();
+    let number: String = rest.chars().take_while(char::is_ascii_digit).collect();
+    number.parse().ok()
+}
+
+/// Asks the executable for its version; `None` when it does not say (a wrapper, say).
+fn detect_colmap_major(options: &Options) -> Option<i64> {
+    let program = colmap_program(options).ok()?;
+    let output = std::process::Command::new(&program[0]).args(&program[1..]).arg("help").output().ok()?;
+    colmap_major(&String::from_utf8_lossy(&output.stdout)).or_else(|| colmap_major(&String::from_utf8_lossy(&output.stderr)))
+}
+
 /// The COLMAP commands of a run: `feature_extractor`, a matcher and `mapper`.
 ///
 /// The shared camera is `FULL_OPENCV` with the declared lens as its
@@ -366,7 +380,7 @@ pub fn colmap_commands(options: &Options, lens: &Lens) -> anyhow::Result<Vec<Ext
     let parameters = colmap_parameters(lens).iter().map(|v| util::python_float(*v)).collect::<Vec<_>>().join(",");
     // COLMAP 4 moved the options every feature type shares out of the SIFT groups.
     let (extraction, matching) =
-        if colmap.cli >= 4 { ("FeatureExtraction", "FeatureMatching") } else { ("SiftExtraction", "SiftMatching") };
+        if colmap.cli >= 4 { ("FeatureExtraction", "FeatureMatching") } else { ("SiftExtraction", "SiftMatching") }; // 0 (not asked) is treated as 3
     let step = |name: &str, command: &str, arguments: Vec<String>, more: &[String]| ExternalCommand {
         name: name.to_string(),
         command: program.iter().cloned().chain([command.to_string()]).chain(arguments).chain(more.iter().cloned()).collect(),
@@ -488,7 +502,14 @@ impl CameraProvider for Colmap {
         std::fs::create_dir_all(work.join("sparse"))?;
         let count = options.photo_count;
         std::fs::write(work.join("pairs.txt"), ring_pairs(count, options.colmap.overlap as usize))?;
-        let commands = colmap_commands(options, lens)?;
+        // The option names of the feature steps changed with COLMAP 4; ask the executable unless told.
+        let mut versioned = options.clone();
+        if versioned.colmap.cli == 0 {
+            let found = detect_colmap_major(options);
+            run.note("colmap_major_version", found.map(Value::from).unwrap_or(Value::Null));
+            versioned.colmap.cli = found.unwrap_or(3);
+        }
+        let commands = colmap_commands(&versioned, lens)?;
         let timeouts = &options.timeouts;
         run.external("cameras", &commands[0], out, timeouts.features, 0.04, 0.30, "Detecting features (COLMAP)", None)?;
         run.external("cameras", &commands[1], out, timeouts.matching, 0.30, 0.60, "Matching features (COLMAP)", None)?;
@@ -680,6 +701,16 @@ mod tests {
         assert!(check(&["--cameras", "colmap", "--colmap", &wrapper]).contains("Python wrapper"));
         assert_eq!(check(&["--cameras", "colmap", "--colmap", &wrapper, "--python", "/sci/python"]), "");
         std::fs::remove_dir_all(&folder).unwrap();
+    }
+
+    #[test]
+    fn colmap_version_is_read_from_its_banner() {
+        assert_eq!(
+            colmap_major("COLMAP 3.9.1 -- Structure-from-Motion and Multi-View Stereo\n(Commit Unknown on Unknown without CUDA)"),
+            Some(3)
+        );
+        assert_eq!(colmap_major("\nCOLMAP 4.0.2 (Commit abc)"), Some(4));
+        assert_eq!(colmap_major("usage: something else"), None);
     }
 
     #[test]

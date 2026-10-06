@@ -124,6 +124,63 @@ jobs:
       - name: GPU tests
         run: cargo test --locked --release -- gpu_ --test-threads 1
 
+  # The whole chain from photos with the real COLMAP executable of the distribution:
+  # a synthetic capture (textured sphere, mildly distorting lens, known orbit), threshold
+  # masks, COLMAP cameras with the declared lens fixed, the dense stages on Mesa's software
+  # Vulkan, then a check of the recovered orbit and the mesh. Does not block yet.
+  colmap:
+    name: photos with the COLMAP executable
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+        working-directory: crates/dense
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: '0'
+      CRISP3DS_GPU_FALLBACK: '1'
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
+      - name: COLMAP and Mesa lavapipe
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends colmap mesa-vulkan-drivers libvulkan1
+          colmap help | head -3 || true
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            crates/dense/target
+          key: dense-native-gpu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('crates/dense/Cargo.lock') }}
+          restore-keys: |
+            dense-native-gpu-${{ runner.os }}-${{ runner.arch }}-
+      - name: Build
+        run: cargo build --locked --release
+      - name: Synthetic capture
+        run: ./target/release/crisp3ds-dense synthetic --capture --output capture
+      - name: Photos to mesh with COLMAP cameras
+        run: >
+          ./target/release/crisp3ds-dense run --output run --photos capture/photos --calibration capture/lens.json
+          --masks threshold --cameras colmap --threads 4 --minimum-free-gib 2
+          --set sizes=128,256 --set grid=128
+      - name: Recovered orbit and mesh
+        run: ./target/release/crisp3ds-dense synthetic --verify run --truth capture
+      - name: Reports
+        if: always()
+        run: |
+          cat run/frontend/frontend.json 2>/dev/null | head -80 || true
+          tail -n 30 run/frontend/logs/*.log 2>/dev/null || true
+          cat run/pipeline.json 2>/dev/null | head -60 || true
+
   # The library for wasm32, the browser package, and the test page in headless
   # Chromium on a software WebGPU adapter (SwiftShader). Does not block: WebGPU
   # in headless Chromium on a runner without a GPU is not dependable.

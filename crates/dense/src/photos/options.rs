@@ -120,7 +120,8 @@ pub struct AliceVisionOptions {
 pub struct ColmapOptions {
     /// The `colmap` executable, or a wrapper (a `.py` wrapper is run with `--python`).
     pub location: Option<PathBuf>,
-    /// Major version of the command line: 3 (`SiftExtraction.*`) or 4 (`FeatureExtraction.*`).
+    /// Major version of the command line: 3 (`SiftExtraction.*`) or 4 (`FeatureExtraction.*`);
+    /// 0 asks the executable for its version when the run starts.
     pub cli: i64,
     /// `exhaustive`, `sequential` or `ring`.
     pub matching: String,
@@ -222,7 +223,7 @@ cameras, colmap provider:
   --colmap-matching exhaustive|sequential|ring (exhaustive)   ring: every photo with its --colmap-overlap successors
                                   around the closed turn (matches_importer); sequential: the same without closing the turn
   --colmap-overlap N (10)         --colmap-masks on|off (on: no features outside the masks)
-  --colmap-max-features N (8192)  --colmap-cli 3|4 (3: SiftExtraction.* option names; 4: FeatureExtraction.*)
+  --colmap-max-features N (8192)  --colmap-cli auto|3|4 (auto: ask the executable; 3: SiftExtraction.* names; 4: FeatureExtraction.*)
   --colmap-extractor-option ARG, --colmap-matcher-option ARG, --colmap-mapper-option ARG   extra tokens; repeat
 tools:
   --python EXE                    only for .py wrappers [CRISP3DS_PYTHON]
@@ -485,7 +486,7 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
     }
     let colmap = ColmapOptions {
         location: pick("colmap", "CRISP3DS_COLMAP").map(|p| absolute(&p)),
-        cli: integer("colmap-cli", 3)?,
+        cli: if text("colmap-cli").as_deref() == Some("auto") { 0 } else { integer("colmap-cli", 0)? },
         matching: text("colmap-matching").unwrap_or_else(|| "exhaustive".into()),
         overlap: integer("colmap-overlap", 10)?,
         use_masks: match text("colmap-masks").as_deref() {
@@ -498,8 +499,8 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
         matcher_option: many("colmap-matcher-option"),
         mapper_option: many("colmap-mapper-option"),
     };
-    if !["exhaustive", "sequential", "ring"].contains(&colmap.matching.as_str()) || ![3, 4].contains(&colmap.cli) || colmap.overlap < 1 {
-        bail!("--colmap-matching must be exhaustive, sequential or ring, --colmap-cli 3 or 4, --colmap-overlap at least 1");
+    if !["exhaustive", "sequential", "ring"].contains(&colmap.matching.as_str()) || ![0, 3, 4].contains(&colmap.cli) || colmap.overlap < 1 {
+        bail!("--colmap-matching must be exhaustive, sequential or ring, --colmap-cli auto, 3 or 4, --colmap-overlap at least 1");
     }
     let options = Options {
         photos,
@@ -653,7 +654,7 @@ pub(crate) mod tests {
         assert_eq!((options.photo_count, options.dark_threshold, options.envelope.as_str()), (3, Threshold::Level(70), "auto"));
         assert_eq!((&options.masks, &options.cameras), (&MaskChoice::ExternalSam, &CameraChoice::AliceVision));
         assert_eq!(resolve(&arguments(&folder, &["--masks", "threshold"]), &none).unwrap().dark_threshold, Threshold::Otsu);
-        assert_eq!((options.colmap.matching.as_str(), options.colmap.use_masks, options.colmap.cli), ("exhaustive", true, 3));
+        assert_eq!((options.colmap.matching.as_str(), options.colmap.use_masks, options.colmap.cli), ("exhaustive", true, 0));
         let record = options.to_json();
         assert_eq!(record["schema"], SCHEMA);
         assert_eq!((record["masks_provider"].as_str(), record["cameras_provider"].as_str()), (Some("external-sam"), Some("alicevision")));

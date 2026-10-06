@@ -305,6 +305,13 @@
       "default": 1.0
     },
     {
+      "name": "skirt_voxels",
+      "group": "Fusion",
+      "meaning": "Height in voxels of unmeasured hull lying flat on the support that is removed (contact shadow); 0 keeps it",
+      "kind": "number",
+      "default": 0.0
+    },
+    {
       "name": "mesh_smooth",
       "group": "Surface",
       "meaning": "Smoothing of the fused field, voxels",
