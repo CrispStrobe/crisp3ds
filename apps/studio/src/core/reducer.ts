@@ -38,6 +38,8 @@ export interface MeshStep {
 
 /** Sheet kinds of the contract, in the order they normally appear. */
 export const SHEET_KINDS = [
+  "mask_sheet",
+  "sparse_overlay",
   "input_sheet",
   "mask_repair_sheet",
   "hull_mask_sheet",
@@ -276,8 +278,22 @@ function withStage(
   change: (stage: StageState) => StageState,
 ): StageState[] {
   const known = stages.some((stage) => stage.name === name);
-  const all = known ? stages : [...stages, { name, status: "pending" as const, fraction: 0, message: "" }];
+  const all = known ? stages : insertStage(stages, { name, status: "pending" as const, fraction: 0, message: "" });
   return all.map((stage) => (stage.name === name ? { ...change(stage), lastEventAt: time } : stage));
+}
+
+/**
+ * Stages that only some runs have. `masks` and `cameras` belong in front (runs started from
+ * plain photos); a stage this front end has never heard of goes to the end.
+ */
+const EARLY_STAGES = ["masks", "cameras"];
+
+function insertStage(stages: readonly StageState[], stage: StageState): StageState[] {
+  const rank = EARLY_STAGES.indexOf(stage.name);
+  if (rank < 0) return [...stages, stage];
+  // After the early stages that come before it, in front of everything else.
+  const at = stages.filter((other) => EARLY_STAGES.indexOf(other.name) >= 0 && EARLY_STAGES.indexOf(other.name) < rank).length;
+  return [...stages.slice(0, at), stage, ...stages.slice(at)];
 }
 
 function replaceByPath<T extends { path: string }>(items: readonly T[], item: T): T[] {

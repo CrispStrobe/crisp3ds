@@ -3,6 +3,8 @@ import {
   sameConfig,
   sourceText,
   type ConfigField,
+  type ToolCheck,
+  type ToolName,
   type EngineStatus,
   type Shell,
   type ShellConfig,
@@ -152,6 +154,53 @@ const PYTHON_FIELDS: FieldSpec[] = [
   },
 ];
 
+/** External programs of the photos start, grouped by the provider that needs them. */
+const TOOL_GROUPS: { tool: ToolName; title: string; what: string; fields: FieldSpec[] }[] = [
+  {
+    tool: "alicevision",
+    title: "AliceVision",
+    what: "Cameras from photos (provider alicevision). MPL-2.0; installed separately.",
+    fields: [
+      {
+        field: "alicevision",
+        label: "AliceVision folder",
+        help: "The install folder that has bin/aliceVision_cameraInit and the others, or a wrapper script.",
+        pick: "folder",
+        pickTitle: "Choose the AliceVision install folder",
+      },
+      {
+        field: "alicevision_library_path",
+        label: "Extra library folders",
+        help: "Folders with libraries AliceVision needs besides its own lib folder, separated like PATH (for example /opt/homebrew/lib).",
+      },
+    ],
+  },
+  {
+    tool: "colmap",
+    title: "COLMAP",
+    what: "Cameras from photos (provider colmap). BSD-3-Clause; installed separately.",
+    fields: [
+      {
+        field: "colmap",
+        label: "COLMAP program",
+        help: "The colmap executable. Empty: a colmap found on the PATH is used.",
+        pick: "file",
+        pickTitle: "Choose the colmap program",
+      },
+    ],
+  },
+  {
+    tool: "sam",
+    title: "SAM 2.1",
+    what: "Masks by a neural network (provider external-sam). Needs a Python with PyTorch, the SAM 2 source and a checkpoint, and the crisp3ds source folder below.",
+    fields: [
+      { field: "sam_python", label: "Python with PyTorch", help: "The interpreter that runs SAM.", pick: "file", pickTitle: "Choose the Python interpreter for SAM" },
+      { field: "sam_source", label: "SAM 2 source folder", help: "A checkout of the SAM 2 repository.", pick: "folder", pickTitle: "Choose the SAM 2 source folder" },
+      { field: "sam_checkpoint", label: "SAM 2.1 checkpoint", help: "The checkpoint file (.pt).", pick: "file", pickTitle: "Choose the SAM 2.1 checkpoint" },
+    ],
+  },
+];
+
 const FOLDER_FIELDS: FieldSpec[] = [
   {
     field: "data_dir",
@@ -179,13 +228,14 @@ export function ShellSettingsScreen({
   shell: Shell;
   info: ShellInfo | null;
   status: EngineStatus | null;
-  mode: "native" | "python" | "remote";
+  mode: "native" | "python" | "remote" | "browser";
   onChange(): void;
 }) {
   const [settings, setSettings] = useState<ShellSettings | null>(null);
   const [form, setForm] = useState<ShellConfig | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [checks, setChecks] = useState<Partial<Record<ToolName, ToolCheck | "busy">>>({});
 
   useEffect(() => {
     shell.settings().then(
@@ -210,9 +260,13 @@ export function ShellSettingsScreen({
   }
   if (settings === null || form === null) return null;
   const python = info?.can_run_engine === true;
+  const sandboxed = info?.sandboxed === true;
 
   const change = (field: ConfigField, value: string) => setForm({ ...form, [field]: value });
   const dirty = !sameConfig(form, settings.saved);
+  const resolvedOf = (field: ConfigField) =>
+    (settings.tools as Record<string, { value: string; source: "setting" | "environment" | "found" | "default" }>)[field] ??
+    (settings.resolved as Record<string, { value: string; source: "setting" | "environment" | "found" | "default" }>)[field]!;
 
   const apply = async (event: Event) => {
     event.preventDefault();
@@ -231,9 +285,25 @@ export function ShellSettingsScreen({
     }
   };
 
+  // A check uses what is saved, so unsaved changes are saved first.
+  const check = async (tool: ToolName) => {
+    setChecks((current) => ({ ...current, [tool]: "busy" }));
+    try {
+      if (!sameConfig(form, settings.saved)) {
+        const saved = await shell.saveSettings(form);
+        setSettings(saved);
+        setForm(saved.saved);
+      }
+      const result = await shell.checkTool(tool);
+      setChecks((current) => ({ ...current, [tool]: result }));
+    } catch (problem) {
+      setChecks((current) => ({ ...current, [tool]: { ok: false, summary: describe(problem), detail: "" } }));
+    }
+  };
+
   const pick = async (spec: FieldSpec) => {
     if (spec.pick === undefined) return;
-    const current = form[spec.field] || settings.resolved[spec.field].value;
+    const current = form[spec.field] || resolvedOf(spec.field).value;
     const chosen = await shell.pickPath(spec.pick, spec.pickTitle ?? spec.label, current || undefined).catch(() => null);
     if (chosen !== null) change(spec.field, chosen);
   };
@@ -271,22 +341,43 @@ export function ShellSettingsScreen({
       </section>
       )}
 
+      {sandboxed && (
+        <div class="notice" role="note">
+          <p>
+            This edition of the app runs in the App Sandbox. It cannot start other programs, so the photos start with
+            AliceVision, COLMAP or SAM is not available here, and a folder chosen with a dialog has to be chosen again after
+            the app was restarted.
+          </p>
+        </div>
+      )}
       <form onSubmit={apply} novalidate>
         {[
           { legend: "Folders", fields: FOLDER_FIELDS, shown: true },
+          ...TOOL_GROUPS.map((group) => ({
+            legend: `Tools: ${group.title}`,
+            fields: group.fields,
+            shown: info?.native_engine === true && !sandboxed,
+            tool: group.tool,
+            what: group.what,
+          })),
           { legend: "External Python engine (optional)", fields: PYTHON_FIELDS, shown: python },
         ]
           .filter((group) => group.shown)
           .map((group) => (
         <fieldset class="panel" key={group.legend}>
           <legend>{group.legend}</legend>
+          {"tool" in group && (
+            <>
+              <p class="help">{group.what}</p>
+            </>
+          )}
           {group.fields === PYTHON_FIELDS && (
             <p class="help">
               <strong>Python is not part of this app.</strong> {NOT_BUNDLED}
             </p>
           )}
           {group.fields.map((spec) => {
-            const resolved = settings.resolved[spec.field];
+            const resolved = resolvedOf(spec.field);
             const id = `shell-${spec.field}`;
             return (
               <div class="field" key={spec.field}>
@@ -336,6 +427,31 @@ export function ShellSettingsScreen({
             </select>
             <span class="help">The default for new runs; each run can choose another.</span>
           </label>
+          )}
+          {"tool" in group && (
+            <div class="tool-check">
+              <button type="button" class="button" disabled={checks[group.tool] === "busy"} onClick={() => void check(group.tool)}>
+                {checks[group.tool] === "busy" ? "Checking..." : "Check"}
+                <span class="visually-hidden"> {group.legend}</span>
+              </button>
+              {(() => {
+                const result = checks[group.tool];
+                if (result === undefined || result === "busy") return null;
+                return (
+                  <div class={`tool-result ${result.ok ? "ok" : "bad"}`} role="status">
+                    <strong>{result.ok ? "Works." : "Does not work."}</strong> {result.summary}
+                    {result.detail !== "" && (
+                      <details class="raw">
+                        <summary>What was run</summary>
+                        <pre class="error-text" tabIndex={0}>
+                          {result.detail}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
           )}
         </fieldset>
           ))}

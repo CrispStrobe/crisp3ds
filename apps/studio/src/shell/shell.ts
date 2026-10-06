@@ -14,6 +14,8 @@ export interface ShellInfo {
   can_run_engine: boolean;
   /** Native folder and file pickers exist. */
   can_pick_paths: boolean;
+  /** The app runs in the macOS App Sandbox. */
+  sandboxed: boolean;
   os: string;
   version: string;
   auto_device: string;
@@ -40,16 +42,47 @@ export interface ShellConfig {
   runs_dir: string;
   data_dir: string;
   device: string;
+  alicevision: string;
+  alicevision_library_path: string;
+  colmap: string;
+  sam_python: string;
+  sam_source: string;
+  sam_checkpoint: string;
 }
 
-export const CONFIG_FIELDS = ["repo", "python", "torch_python", "runs_dir", "data_dir", "device"] as const;
+export const CONFIG_FIELDS = [
+  "repo",
+  "python",
+  "torch_python",
+  "runs_dir",
+  "data_dir",
+  "device",
+  "alicevision",
+  "alicevision_library_path",
+  "colmap",
+  "sam_python",
+  "sam_source",
+  "sam_checkpoint",
+] as const;
+export const TOOL_FIELDS = ["alicevision", "alicevision_library_path", "colmap", "sam_python", "sam_source", "sam_checkpoint"] as const;
+export type ToolField = (typeof TOOL_FIELDS)[number];
+export type ToolName = "alicevision" | "colmap" | "sam";
+
+export interface ToolCheck {
+  ok: boolean;
+  /** One line: the version, or what is wrong. */
+  summary: string;
+  detail: string;
+}
 export type ConfigField = (typeof CONFIG_FIELDS)[number];
 
 export type ValueSource = "setting" | "environment" | "found" | "default";
 
 export interface ShellSettings {
   saved: ShellConfig;
-  resolved: Record<ConfigField, { value: string; source: ValueSource }>;
+  resolved: Record<Exclude<ConfigField, ToolField>, { value: string; source: ValueSource }>;
+  /** Where the external programs of the photos start are. */
+  tools: Record<ToolField, { value: string; source: ValueSource }>;
   problem: string | null;
   file: string;
 }
@@ -61,6 +94,8 @@ export interface Shell {
   engineStatus(): Promise<EngineStatus>;
   restartEngine(): Promise<void>;
   stopEngine(): Promise<void>;
+  /** Asks an external program of the photos start about itself, with the saved settings. */
+  checkTool(tool: ToolName): Promise<ToolCheck>;
   /** Calls any command of the shell; the built-in engine is reached through this. */
   bridge<T>(command: string, args?: Record<string, unknown>): Promise<T>;
   /** Native picker; resolves to null when cancelled. */
@@ -74,6 +109,7 @@ const tauriShell: Shell = {
   engineStatus: () => invoke<EngineStatus>("engine_status"),
   restartEngine: () => invoke<void>("restart_engine"),
   stopEngine: () => invoke<void>("stop_engine"),
+  checkTool: (tool) => invoke<ToolCheck>("check_tool", { tool }),
   bridge: (command, args) => invoke(command, args),
   pickPath: (kind, title, start) => invoke<string | null>("pick_path", { kind, title, start: start ?? null }),
 };
@@ -91,6 +127,12 @@ export function sourceText(source: ValueSource, field: ConfigField): string {
       torch_python: "CRISP3DS_TORCH_PYTHON",
       runs_dir: "CRISP3DS_RUNS_DIR",
       data_dir: "CRISP3DS_DATA_DIR",
+      alicevision: "CRISP3DS_ALICEVISION",
+      alicevision_library_path: "CRISP3DS_ALICEVISION_LIBRARY_PATH",
+      colmap: "CRISP3DS_COLMAP",
+      sam_python: "CRISP3DS_SAM_PYTHON",
+      sam_source: "CRISP3DS_SAM_SOURCE",
+      sam_checkpoint: "CRISP3DS_SAM_CHECKPOINT",
     }[field as string];
     return variable !== undefined ? `from ${variable}` : "from the environment";
   }
@@ -101,5 +143,5 @@ export function sourceText(source: ValueSource, field: ConfigField): string {
 
 /** Only fields that differ from what is saved need saving. */
 export function sameConfig(a: ShellConfig, b: ShellConfig): boolean {
-  return CONFIG_FIELDS.every((field) => a[field].trim() === b[field].trim());
+  return CONFIG_FIELDS.every((field) => (a[field] ?? "").trim() === (b[field] ?? "").trim());
 }

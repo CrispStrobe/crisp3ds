@@ -2,7 +2,20 @@ import { describe, expect, it } from "vitest";
 import { parseRoute } from "../ui/app";
 import { getShell, sameConfig, sourceText, type ShellConfig } from "./shell";
 
-const config: ShellConfig = { repo: "/r", python: "", torch_python: "", runs_dir: "", data_dir: "", device: "auto" };
+const config: ShellConfig = {
+  repo: "/r",
+  python: "",
+  torch_python: "",
+  runs_dir: "",
+  data_dir: "",
+  device: "auto",
+  alicevision: "",
+  alicevision_library_path: "",
+  colmap: "",
+  sam_python: "",
+  sam_source: "",
+  sam_checkpoint: "",
+};
 
 describe("the native shell, seen from the web side", () => {
   it("is absent in a browser (and in these tests)", () => {

@@ -5,6 +5,7 @@ import { describe, isAbort } from "../sources/transport";
 import type { RunSource } from "../sources/types";
 import { MeshLoader, type LoadProgress } from "../viewer/meshLoader";
 import type { UpAxis, Viewer } from "../viewer/viewer";
+import { canDownload, downloadFile } from "./download";
 import { Icon } from "./icons";
 import { loadPrefs, savePrefs } from "./prefs";
 
@@ -37,6 +38,7 @@ export function MeshPanel({ source, meshes, runStatus, themeTick }: Props) {
   const [loading, setLoading] = useState<Loading>(null);
   const [error, setError] = useState<{ path: string; message: string } | null>(null);
   const [retry, setRetry] = useState(0);
+  const [saving, setSaving] = useState(false);
   /** Sizes learnt by asking the server, by path; null when it could not say. */
   const [probed, setProbed] = useState<Record<string, number | null>>({});
   const [flat, setFlat] = useState(() => loadPrefs().flat);
@@ -346,6 +348,21 @@ export function MeshPanel({ source, meshes, runStatus, themeTick }: Props) {
             ))}
           </select>
         </label>
+        {canDownload(source) && shownStep !== undefined && (
+          <button
+            type="button"
+            class="button"
+            disabled={saving}
+            onClick={() => {
+              setSaving(true);
+              void downloadFile(source, shownStep.path)
+                .catch((problem) => setError({ path: shownStep.path, message: describe(problem) }))
+                .finally(() => setSaving(false));
+            }}
+          >
+            {saving ? "Saving..." : `Download STL${stlBytes(shownStep.triangles) !== undefined ? ` (${formatBytes(stlBytes(shownStep.triangles))})` : ""}`}
+          </button>
+        )}
         <button type="button" class="button" onClick={() => viewer.current?.resetView()} disabled={shown === null}>
           <Icon name="fit" size={16} /> Reset view
         </button>

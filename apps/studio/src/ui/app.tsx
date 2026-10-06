@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { getShell, type ShellInfo } from "../shell/shell";
+import type { WorkerLike } from "../browser/protocol";
+import { BrowserEngine } from "../sources/browserEngine";
 import { LocalEngine } from "../sources/localEngine";
 import { HttpEngine } from "../sources/httpEngine";
 import { ReplaySource } from "../sources/replaySource";
@@ -35,7 +37,19 @@ export function parseRoute(hash: string): Route {
 }
 
 /** `native`: built into the app. `python`: the external Python engine the app starts. `remote`: an engine by address. */
-export type EngineMode = "native" | "python" | "remote";
+export type EngineMode = "native" | "python" | "remote" | "browser";
+
+declare const __BROWSER_ENGINE__: boolean;
+/** Whether this build carries the engine for "This browser" (the WebAssembly package next to the app). */
+const BROWSER_ENGINE_BUILT = typeof __BROWSER_ENGINE__ !== "undefined" && __BROWSER_ENGINE__;
+
+export interface BrowserMode {
+  /** The WebAssembly package is part of this build. */
+  built: boolean;
+  /** The browser has WebGPU. */
+  webgpu: boolean;
+  inUse: boolean;
+}
 
 export function navigate(hash: string): void {
   location.hash = hash;
@@ -77,8 +91,24 @@ export function App() {
   const hasNative = shell !== null && shellInfo?.native_engine === true;
   const hasPython = shell !== null && shellInfo?.can_run_engine === true;
   // Which engine is in use: the one built into the app unless the user chose otherwise.
+  // The engine in this page's own worker. Made once: its runs live in it.
+  const browserEngine = useMemo(
+    () =>
+      BROWSER_ENGINE_BUILT && typeof Worker !== "undefined"
+        ? new BrowserEngine({
+            module: new URL("engine/crisp3ds-dense.js", document.baseURI).href,
+            createWorker: () => new Worker(new URL("../browser/engine.worker.ts", import.meta.url), { type: "module" }) as unknown as WorkerLike,
+          })
+        : null,
+    [],
+  );
+  const webgpu = typeof navigator !== "undefined" && "gpu" in navigator;
+  // Inside the app the built-in engine does this job; there the browser engine is a hidden diagnostic.
+  const offerBrowser = shell === null || prefs.diagnostics;
   const mode: EngineMode =
-    prefs.engineChoice === "remote"
+    prefs.engineChoice === "browser" && browserEngine !== null && offerBrowser
+      ? "browser"
+      : prefs.engineChoice === "remote" || prefs.engineChoice === "browser"
       ? "remote"
       : prefs.engineChoice === "python" && hasPython
         ? "python"
@@ -89,7 +119,7 @@ export function App() {
             : "remote";
   const local = useLocalEngine(shell, mode === "python");
   const hasLocal = hasNative || hasPython;
-  const useLocal = mode !== "remote";
+  const useLocal = mode === "native" || mode === "python";
 
   useEffect(() => {
     const onHash = () => setRoute(parseRoute(location.hash));
@@ -101,6 +131,12 @@ export function App() {
   useEffect(() => {
     if (useLocal && (location.hash === "" || location.hash === "#/" || location.hash === "#")) navigate("#/engine");
   }, [hasLocal]);
+
+  // `#/?diagnostics=1` (or `=0`) switches diagnostic features on or off, and is remembered.
+  useEffect(() => {
+    const wanted = /[?&]diagnostics=([01])/.exec(location.hash)?.[1];
+    if (wanted !== undefined && (wanted === "1") !== prefs.diagnostics) setPrefs(savePrefs({ diagnostics: wanted === "1" }));
+  }, [route]);
 
   useEffect(() => {
     applyTheme(prefs.theme);
@@ -115,6 +151,7 @@ export function App() {
   const localToken = local.status?.state === "running" ? local.status.token : null;
   const engine = useMemo<Engine | null>(() => {
     try {
+      if (mode === "browser") return browserEngine;
       if (mode === "native" && shell !== null) return new LocalEngine(shell.bridge, { label: "this computer" });
       if (mode === "python") {
         return localUrl !== null ? new HttpEngine(localUrl, { token: localToken ?? undefined, label: "this computer" }) : null;
@@ -123,7 +160,7 @@ export function App() {
     } catch {
       return null;
     }
-  }, [mode, shell, localUrl, localToken, prefs.engineUrl, prefs.engineToken]);
+  }, [mode, shell, browserEngine, localUrl, localToken, prefs.engineUrl, prefs.engineToken]);
 
   const runSource = useMemo<RunSource | null>(() => {
     if (route.screen === "replay") {
@@ -137,7 +174,7 @@ export function App() {
 
   const update = (change: Partial<typeof prefs>) => setPrefs(savePrefs(change));
   const needsEngine = route.screen === "runs" || route.screen === "new" || route.screen === "run";
-  const showRuns = useLocal || prefs.engineUrl !== "";
+  const showRuns = useLocal || mode === "browser" || prefs.engineUrl !== "";
 
   let title = "Studio";
   if (route.screen === "replay") title = route.bundle === null ? "Demo recording" : "Recording";
@@ -187,7 +224,8 @@ export function App() {
       </header>
       <main id="main" tabIndex={-1}>
         {route.screen === "connection" && (
-          <Connection prefs={prefs} onChange={update} localEngine={hasLocal ? { native: hasNative, python: hasPython, status: local.status, mode } : null} />
+          <Connection prefs={prefs} onChange={update} localEngine={hasLocal ? { native: hasNative, python: hasPython, status: local.status, mode } : null}
+            browser={offerBrowser ? { built: browserEngine !== null, webgpu, inUse: mode === "browser" } : null} />
         )}
         {route.screen === "shell" &&
           (shell !== null && hasLocal ? (

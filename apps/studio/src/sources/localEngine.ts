@@ -82,6 +82,7 @@ export class LocalEngine implements Engine {
       choosesDevice: false,
       scoresReference: false,
       dataFolder: typeof body?.data_dir === "string" ? body.data_dir : undefined,
+      sandboxed: body?.sandboxed === true,
     };
   }
 
@@ -133,6 +134,16 @@ export class LocalEngine implements Engine {
       entries.push({ name: record.name, directory: record.directory === true, inputs: record.inputs === true });
     }
     return { path: typeof body?.path === "string" ? body.path : path, entries };
+  }
+
+  async calibrations(): Promise<{ label: string; path: string }[]> {
+    const rows = await this.bridge<unknown>("native_calibrations").catch(() => []);
+    const found: { label: string; path: string }[] = [];
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const record = row as Record<string, unknown> | null;
+      if (typeof record?.path === "string") found.push({ path: record.path, label: typeof record.label === "string" ? record.label : record.path });
+    }
+    return found;
   }
 
   pickPath(kind: "folder" | "file", title: string): Promise<string | null> {

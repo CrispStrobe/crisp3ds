@@ -5,6 +5,7 @@
  * `providers` filled in: nothing in the form has to change for it. No DOM.
  */
 
+import { optionTokens, PROVIDER_IMPORTS, type ImportSpec, type OptionValues } from "./providerOptions";
 import type { SettingValue } from "./settings";
 
 export interface StartField {
@@ -21,6 +22,12 @@ export interface ProviderOption {
   id: string;
   label: string;
   meaning?: string;
+  /** False when it cannot be used right now; `reason` says why. Absent means usable. */
+  available: boolean;
+  reason?: string;
+  /** External programs it starts; empty when everything runs inside the engine. */
+  external: string[];
+  license?: string;
 }
 
 /** One module of the pipeline with interchangeable implementations. */
@@ -60,6 +67,16 @@ export const CONTRACT_START_POINTS: StartPoint[] = [
     ],
     providers: [],
   },
+  {
+    id: "photos",
+    label: "Turntable photos",
+    meaning: "A folder of photos of an object on a turntable and the calibration of the lens; the engine makes masks and cameras first, with the tools installed on its computer.",
+    fields: [
+      { key: "photos", label: "Photos", kind: "folder", required: true, help: "One photo per turntable position, named in capture order." },
+      { key: "calibration", label: "Lens calibration (.json)", kind: "file", required: true, help: "Focal length, principal point and radial distortion of the lens." },
+    ],
+    providers: [],
+  },
 ];
 
 function text(value: unknown): string | undefined {
@@ -89,7 +106,16 @@ export function parseStartPoints(json: unknown): StartPoint[] {
       const options: ProviderOption[] = [];
       for (const option of rows(choice.options)) {
         const optionId = text(option.id);
-        if (optionId !== undefined) options.push({ id: optionId, label: text(option.label) ?? optionId, meaning: text(option.meaning) });
+        if (optionId === undefined) continue;
+        options.push({
+          id: optionId,
+          label: text(option.label) ?? optionId,
+          meaning: text(option.meaning),
+          available: option.available !== false,
+          reason: text(option.reason),
+          external: Array.isArray(option.external) ? option.external.filter((item): item is string => typeof item === "string") : [],
+          license: text(option.license),
+        });
       }
       if (module === undefined || options.length === 0) continue;
       const preferred = text(choice.default);
@@ -97,7 +123,8 @@ export function parseStartPoints(json: unknown): StartPoint[] {
         module,
         label: text(choice.label) ?? module,
         options,
-        default: options.some((option) => option.id === preferred) ? preferred : options[0]!.id,
+        // The engine's default if it can be used, else the first provider that can, else the default anyway.
+        default: (options.find((option) => option.id === preferred && option.available) ?? options.find((option) => option.available) ?? options.find((option) => option.id === preferred) ?? options[0]!).id,
       });
     }
     if (fields.length === 0) continue;
@@ -114,11 +141,34 @@ export interface StartForm {
   values: Record<string, string>;
   /** Chosen provider by module. */
   providers: Record<string, string>;
+  /** Tuning options of the chosen providers, by flag. */
+  options?: OptionValues;
+}
+
+/** The provider in effect for each module of a start point: the chosen one if offered, else the default. */
+export function chosenProviders(point: StartPoint, picked: Record<string, string>): Record<string, string> {
+  const chosen: Record<string, string> = {};
+  for (const choice of point.providers) {
+    const wanted = picked[choice.module];
+    chosen[choice.module] = choice.options.some((option) => option.id === wanted) ? wanted! : (choice.default ?? choice.options[0]!.id);
+  }
+  return chosen;
+}
+
+/** Keys of the paths that the chosen providers import their data from. */
+export function importFields(point: StartPoint, picked: Record<string, string>): { module: string; spec: ImportSpec }[] {
+  const chosen = chosenProviders(point, picked);
+  return Object.entries(chosen).flatMap(([module, provider]) => {
+    const spec = PROVIDER_IMPORTS[`${module}:${provider}`];
+    return spec === undefined ? [] : [{ module, spec }];
+  });
 }
 
 /** Required fields of the start point that are still empty, by key. */
-export function missingFields(point: StartPoint, values: Record<string, string>): string[] {
-  return point.fields.filter((field) => field.required && (values[field.key] ?? "").trim() === "").map((field) => field.key);
+export function missingFields(point: StartPoint, values: Record<string, string>, picked: Record<string, string> = {}): string[] {
+  const missing = point.fields.filter((field) => field.required && (values[field.key] ?? "").trim() === "").map((field) => field.key);
+  for (const { spec } of importFields(point, picked)) if ((values[spec.key] ?? "").trim() === "") missing.push(spec.key);
+  return missing;
 }
 
 /**
@@ -136,12 +186,14 @@ export function startBody(point: StartPoint, form: StartForm, changed: Record<st
   if (form.device.trim() !== "") body.device = form.device.trim();
   if (form.reference.trim() !== "") body.reference = form.reference.trim();
   if (point.providers.length > 0) {
-    const providers: Record<string, string> = {};
-    for (const choice of point.providers) {
-      const chosen = form.providers[choice.module];
-      providers[choice.module] = choice.options.some((option) => option.id === chosen) ? chosen! : (choice.default ?? choice.options[0]!.id);
-    }
+    const providers = chosenProviders(point, form.providers);
     body.providers = providers;
+    for (const { spec } of importFields(point, form.providers)) {
+      const value = (form.values[spec.key] ?? "").trim();
+      if (value !== "") body[spec.key] = value;
+    }
+    const tokens = optionTokens(providers, form.options ?? {});
+    if (tokens.length > 0) body.photo_options = tokens;
   }
   if (Object.keys(changed).length > 0) body.settings = changed;
   return body;

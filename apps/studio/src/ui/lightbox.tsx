@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { Sheet } from "../core/reducer";
 import type { RunSource } from "../sources/types";
 import { useImageUrl } from "./gallery";
+import { canDownload, downloadFile } from "./download";
 import { Icon } from "./icons";
 
 interface Props {
@@ -210,6 +211,11 @@ export function Lightbox({ source, sheets, index, onIndex, onClose }: Props) {
           <button type="button" class="button icon-only" onClick={() => zoomAt(1.25)} aria-label="Zoom in">
             <Icon name="plus" />
           </button>
+          {canDownload(source) && (
+            <button type="button" class="button" onClick={() => void downloadFile(source, sheet.path).catch(() => undefined)}>
+              Download
+            </button>
+          )}
           <button type="button" class="button icon-only" onClick={fit} aria-label="Fit to window">
             <Icon name="fit" />
           </button>

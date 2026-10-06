@@ -11,7 +11,7 @@ import type { ReplaySnapshot, ReplaySpeed } from "../core/replay";
 import type { SettingSpec } from "../core/settings";
 import type { StartPoint } from "../core/startPoints";
 
-export type SourceKind = "replay" | "http" | "local";
+export type SourceKind = "replay" | "http" | "local" | "browser";
 
 export type LinkState =
   /** First request not answered yet. */
@@ -70,6 +70,8 @@ export interface RunSource {
   fetchJson(path: string, options?: FetchOptions): Promise<unknown>;
   /** Size of a run file in bytes without downloading it (HTTP HEAD), or undefined when it cannot be told. */
   fileSize?(path: string, signal?: AbortSignal): Promise<number | undefined>;
+  /** A short note on what the run costs where it runs (the browser engine: its peak memory). */
+  memoryNote?(): string | undefined;
   /** Present when the run can be cancelled from here. */
   cancel?(): Promise<void>;
   /** Present for recordings. */
@@ -88,6 +90,8 @@ export interface EngineHealth {
   scoresReference?: boolean;
   /** Where the engine keeps its data, when it runs on this computer and says so. */
   dataFolder?: string;
+  /** The engine runs in the App Sandbox: it cannot start other programs or read folders the user did not pick. */
+  sandboxed?: boolean;
 }
 
 export interface RunSummary {
@@ -116,6 +120,10 @@ export interface DataEntry {
   directory: boolean;
   /** A run can start from this folder. */
   inputs: boolean;
+  /** A folder with photos a run can start from. */
+  photos?: boolean;
+  /** A lens calibration file. */
+  calibration?: boolean;
 }
 
 export interface DataListing {
@@ -141,4 +149,6 @@ export interface Engine {
    * resolves to the chosen absolute path (null when cancelled), which the engine then accepts.
    */
   pickPath?(kind: "folder" | "file", title: string): Promise<string | null>;
+  /** Lens calibration files the engine found on its computer, for the photos start. */
+  calibrations?(): Promise<{ label: string; path: string }[]>;
 }

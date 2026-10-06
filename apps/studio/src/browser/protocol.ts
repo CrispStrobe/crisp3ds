@@ -1,0 +1,27 @@
+/** Messages between the page and the worker that runs the engine in the browser. */
+
+export type ToWorker =
+  /** Load the engine package from `module` (an absolute URL) and say whether WebGPU is there. */
+  | { type: "load"; module: string }
+  /** Start a run on the picked files. `files` are paths inside the inputs folder with their File. */
+  | { type: "run"; id: string; files: [string, File][]; options: Record<string, unknown> }
+  | { type: "cancel"; id: string }
+  /** Ask for a file of a run's directory, held in the engine's memory. */
+  | { type: "file"; request: number; id: string; path: string }
+  /** Free everything a run holds. */
+  | { type: "dispose"; id: string };
+
+export type FromWorker =
+  | { type: "loaded"; ok: true; settings: unknown; adapter: string | null }
+  | { type: "loaded"; ok: false; message: string }
+  | { type: "event"; id: string; event: unknown; wasmBytes: number }
+  | { type: "finished"; id: string; ok: boolean; message?: string; seconds: number; peakWasmBytes: number }
+  | { type: "file"; request: number; bytes: ArrayBuffer | null };
+
+/** What a worker looks like to the engine; lets tests stand one in. */
+export interface WorkerLike {
+  postMessage(message: ToWorker): void;
+  onmessage: ((event: { data: FromWorker }) => void) | null;
+  onerror?: ((event: unknown) => void) | null;
+  terminate(): void;
+}

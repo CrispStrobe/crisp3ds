@@ -10,12 +10,16 @@ import {
   type FormValues,
   type SettingSpec,
 } from "../core/settings";
-import { CONTRACT_START_POINTS, missingFields, startBody } from "../core/startPoints";
+import { optionErrors, type OptionValues } from "../core/providerOptions";
+import { chosenProviders, CONTRACT_START_POINTS, missingFields, startBody } from "../core/startPoints";
 import { describe, isAbort } from "../sources/transport";
 import { EngineError, type Engine, type EngineHealth } from "../sources/types";
 import { navigate } from "./app";
+import type { BrowserEngine } from "../sources/browserEngine";
+import { FolderPicker } from "./folderPicker";
 import { Icon } from "./icons";
 import { PathField } from "./pathField";
+import { CalibrationList, ProviderChoices } from "./providerFields";
 import type { Prefs } from "./prefs";
 
 interface Props {
@@ -37,9 +41,10 @@ export function NewRun({ engine, prefs, onChange }: Props) {
   const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState<FormValues>({});
   const [name, setName] = useState("");
-  const [values, setValues] = useState<Record<string, string>>({ inputs: prefs.inputs });
+  const [values, setValues] = useState<Record<string, string>>({ inputs: engine.kind === "browser" ? ((engine as BrowserEngine).inputs()?.name ?? "") : prefs.inputs });
   const [pointId, setPointId] = useState("inputs");
   const [providers, setProviders] = useState<Record<string, string>>({});
+  const [providerOptions, setProviderOptions] = useState<OptionValues>({});
   const [reference, setReference] = useState("");
   const [device, setDevice] = useState(prefs.device);
   const [busy, setBusy] = useState(false);
@@ -69,7 +74,8 @@ export function NewRun({ engine, prefs, onChange }: Props) {
   const changedCount = Object.keys(diff.changed).length + Object.keys(diff.errors).length;
   const points = health?.startPoints ?? CONTRACT_START_POINTS;
   const point = points.find((candidate) => candidate.id === pointId) ?? points[0]!;
-  const missing = missingFields(point, values);
+  const missing = missingFields(point, values, providers);
+  const optionProblems = point.providers.length > 0 ? optionErrors(chosenProviders(point, providers), providerOptions) : {};
   const choosesDevice = health?.choosesDevice !== false;
   const scoresReference = health?.scoresReference !== false;
   const setField = (key: string, value: string) => {
@@ -86,7 +92,7 @@ export function NewRun({ engine, prefs, onChange }: Props) {
     event.preventDefault();
     setShowErrors(true);
     setServerError(null);
-    if (missing.length > 0 || Object.keys(diff.errors).length > 0) {
+    if (missing.length > 0 || Object.keys(optionProblems).length > 0 || Object.keys(diff.errors).length > 0) {
       // Open the groups that hold a problem and move to the first one.
       requestAnimationFrame(() => {
         const first = document.querySelector<HTMLElement>(".new-run [aria-invalid='true']");
@@ -97,13 +103,13 @@ export function NewRun({ engine, prefs, onChange }: Props) {
     }
     setBusy(true);
     try {
-      const start = { name, device: choosesDevice ? device : "", reference: scoresReference ? reference : "", values, providers };
+      const start = { name, device: choosesDevice ? device : "", reference: scoresReference ? reference : "", values, providers, options: providerOptions };
       const id = await engine.startRun(startBody(point, start, diff.changed));
-      onChange({ inputs: (values.inputs ?? "").trim(), device });
+      if (engine.kind !== "browser") onChange({ inputs: (values.inputs ?? "").trim(), device });
       navigate(`#/engine/run/${encodeURIComponent(id)}`);
     } catch (problem) {
       const message = describe(problem);
-      const names = [...(specs ?? []).map((spec) => spec.name), ...point.fields.map((field) => field.key), "reference", "device", "name"];
+      const names = [...(specs ?? []).map((spec) => spec.name), ...point.fields.map((field) => field.key), "masks_import", "cameras_import", "reference", "device", "name"];
       setServerError(
         problem instanceof EngineError && problem.status === 400 ? placeServerError(message, names) : { fields: [], message },
       );
@@ -140,8 +146,9 @@ export function NewRun({ engine, prefs, onChange }: Props) {
         <Icon name="back" size={16} /> Runs
       </a>
       <h1>New run</h1>
-      <p class="sub">
-        Runs start from data that is already on the engine's computer: recovered cameras and one mask per photo.
+      <p class="sub" hidden={engine.kind === "browser"}>
+        Runs start from data that is already on the engine's computer: turntable photos with a lens calibration, or
+        recovered cameras and one mask per photo.
         {engine.pickPath !== undefined
           ? " Type a path inside the data folder, browse it, or choose any folder on this computer."
           : " Paths are relative to the engine's data directory."}
@@ -179,7 +186,15 @@ export function NewRun({ engine, prefs, onChange }: Props) {
               {point.meaning !== undefined && <span class="help">{point.meaning}</span>}
             </div>
           )}
-          {point.fields.map((field) => (
+          {point.fields.map((field) =>
+            engine.kind === "browser" && field.kind === "inputs" ? (
+              <FolderPicker
+                key={`${point.id}-${field.key}`}
+                engine={engine as BrowserEngine}
+                error={fieldError(field.key) ?? (showErrors && missing.includes(field.key) ? "Choose the inputs folder." : undefined)}
+                onPicked={(name) => setField(field.key, name)}
+              />
+            ) : (
             <PathField
               key={`${point.id}-${field.key}`}
               engine={engine}
@@ -200,30 +215,33 @@ export function NewRun({ engine, prefs, onChange }: Props) {
                   : undefined)
               }
               required={field.required}
+            >
+              {field.key === "calibration" && <CalibrationList engine={engine} current={values.calibration ?? ""} onPick={(path) => setField("calibration", path)} />}
+            </PathField>
+            ),
+          )}
+          {point.providers.length > 0 && (
+            <ProviderChoices
+              engine={engine}
+              point={point}
+              providers={providers}
+              onProvider={(module, id) => {
+                setProviders((current) => ({ ...current, [module]: id }));
+                setServerError(null);
+              }}
+              options={providerOptions}
+              onOption={(flag, value) => {
+                setProviderOptions((current) => ({ ...current, [flag]: value }));
+                setServerError(null);
+              }}
+              values={values}
+              onValue={setField}
+              error={(key) =>
+                fieldError(key) ?? (showErrors && missing.includes(key) ? "Say where it is." : showErrors ? optionProblems[key] : undefined)
+              }
+              toolsHref={engine.pickPath !== undefined ? "#/shell" : undefined}
             />
-          ))}
-          {point.providers.map((choice) => (
-            <label class="field" for={`f-provider-${choice.module}`} key={`${point.id}-${choice.module}`}>
-              <span class="field-label">{choice.label}</span>
-              <select
-                id={`f-provider-${choice.module}`}
-                value={providers[choice.module] ?? choice.default ?? ""}
-                onChange={(event) => {
-                  const chosen = event.currentTarget.value;
-                  setProviders((current) => ({ ...current, [choice.module]: chosen }));
-                }}
-              >
-                {choice.options.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              {choice.options.find((option) => option.id === (providers[choice.module] ?? choice.default))?.meaning !== undefined && (
-                <span class="help">{choice.options.find((option) => option.id === (providers[choice.module] ?? choice.default))?.meaning}</span>
-              )}
-            </label>
-          ))}
+          )}
           {scoresReference && (
             <PathField
               engine={engine}

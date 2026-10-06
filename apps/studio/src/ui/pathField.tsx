@@ -1,3 +1,4 @@
+import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { cleanPath, crumbs, joinPath, listable, parentPath, splitTyped } from "../core/paths";
 import { describe, isAbort } from "../sources/transport";
@@ -16,6 +17,8 @@ interface Props {
   /** `inputs`: pick a folder a run can start from. `file`: pick a file (or a folder). */
   want: "inputs" | "folder" | "file";
   onInput(value: string): void;
+  /** Shown under the field's help, e.g. suggestions. */
+  children?: ComponentChildren;
 }
 
 type Listing = { state: "loading" } | { state: "ready"; listing: DataListing } | { state: "failed"; message: string };
@@ -57,7 +60,7 @@ function useListing(engine: Engine, path: string | null): Listing | null {
  * typed (a datalist, so the keyboard flow stays a text field), and a browser that walks
  * the engine's data directory and marks the folders a run can start from.
  */
-export function PathField({ id, label, optional, value, placeholder, help, error, required, engine, want, onInput }: Props) {
+export function PathField({ id, label, optional, value, placeholder, help, error, required, engine, want, onInput, children }: Props) {
   const canList = engine.listData !== undefined;
   const [open, setOpen] = useState(false);
   const [folder, setFolder] = useState("");
@@ -153,6 +156,7 @@ export function PathField({ id, label, optional, value, placeholder, help, error
           {help}
         </span>
       )}
+      {children}
       {error !== undefined && (
         <span class="field-error" id={`${id}-error`}>
           {error}
@@ -201,6 +205,7 @@ export function PathField({ id, label, optional, value, placeholder, help, error
                         </span>
                         <span class="entry-name">{entry.name}</span>
                         {entry.inputs && <span class="badge status-complete">Inputs</span>}
+                        {entry.photos && <span class="badge status-running">Photos</span>}
                         <span class="visually-hidden">, open folder</span>
                       </button>
                     ) : (
@@ -209,6 +214,7 @@ export function PathField({ id, label, optional, value, placeholder, help, error
                           {"·"}
                         </span>
                         <span class="entry-name">{entry.name}</span>
+                        {entry.calibration && <span class="badge status-running">Calibration</span>}
                         <span class="visually-hidden">, use this file</span>
                       </button>
                     )}

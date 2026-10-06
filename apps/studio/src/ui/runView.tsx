@@ -84,6 +84,7 @@ export function RunView({ source, heading, backHref, themeTick }: Props) {
             {total !== undefined && <span>{formatDuration(total)}</span>}
             {run.device !== undefined && <span>on {run.device}</span>}
             {source.kind === "replay" && <span class="tag">Recording</span>}
+            {source.memoryNote?.() !== undefined && <span class="memory-note">{source.memoryNote()}</span>}
           </p>
         </div>
         {source.cancel !== undefined && running && (

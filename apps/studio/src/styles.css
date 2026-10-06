@@ -1519,6 +1519,113 @@ fieldset.panel > legend {
   white-space: nowrap;
 }
 
+/* providers of the photos start, tools */
+
+.provider {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.provider > legend {
+  font-weight: 650;
+  padding: 0 6px;
+}
+
+.provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.provider-option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  cursor: pointer;
+}
+
+.provider-option input {
+  margin-top: 3px;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  flex: none;
+}
+
+.provider-option.chosen {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.provider-option.unavailable {
+  cursor: default;
+  background: var(--panel-2);
+}
+
+.provider-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.provider-name {
+  font-weight: 600;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.provider-more > .settings-grid {
+  margin-top: 10px;
+}
+
+.calibrations {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.calibrations button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tool-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px 14px;
+}
+
+.tool-result {
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: 9px 12px;
+  border-radius: var(--radius-small);
+  border: 1px solid var(--border-strong);
+  overflow-wrap: anywhere;
+}
+
+.tool-result.ok {
+  border-color: var(--good);
+  background: var(--good-soft);
+}
+
+.tool-result.bad {
+  border-color: var(--bad);
+  background: var(--bad-soft);
+}
+
 .footer {
   display: flex;
   flex-wrap: wrap;
@@ -1706,4 +1813,13 @@ fieldset.panel > legend {
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* The engine in this browser: what was picked, and what a run cost. */
+.picked {
+  font-size: 0.9rem;
+}
+
+.memory-note {
+  color: var(--muted);
 }

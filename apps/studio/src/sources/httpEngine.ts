@@ -8,6 +8,7 @@
 
 import { normaliseEvent, type RunEvent } from "../core/events";
 import { parseSettingsSchema, type SettingSpec } from "../core/settings";
+import { parseStartPoints } from "../core/startPoints";
 import { browserFetch, describe, encodePath, headSize, isAbort, readBytes, request, type FetchLike } from "./transport";
 import {
   EngineError,
@@ -98,6 +99,8 @@ export class HttpEngine implements Engine {
       schema: typeof body.schema === "string" ? body.schema : undefined,
       device: typeof body.device === "string" ? body.device : undefined,
       canStartRuns: body.can_start_runs === true,
+      // An engine may say how runs can start there; otherwise the contract's three ways apply.
+      startPoints: parseStartPoints(body.start_points).length > 0 ? parseStartPoints(body.start_points) : undefined,
     };
   }
 
@@ -145,7 +148,13 @@ export class HttpEngine implements Engine {
       if (typeof row !== "object" || row === null) continue;
       const record = row as Record<string, unknown>;
       if (typeof record.name !== "string" || record.name === "") continue;
-      entries.push({ name: record.name, directory: record.directory === true, inputs: record.inputs === true });
+      entries.push({
+        name: record.name,
+        directory: record.directory === true,
+        inputs: record.inputs === true,
+        ...(record.photos === true ? { photos: true } : {}),
+        ...(record.calibration === true ? { calibration: true } : {}),
+      });
     }
     return { path: typeof body?.path === "string" ? body.path : path, entries };
   }

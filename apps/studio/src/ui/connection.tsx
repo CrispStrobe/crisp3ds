@@ -5,13 +5,15 @@ import { navigate } from "./app";
 import { Icon } from "./icons";
 import type { Prefs } from "./prefs";
 import type { EngineStatus } from "../shell/shell";
-import type { EngineMode } from "./app";
+import type { BrowserMode, EngineMode } from "./app";
 
 interface Props {
   prefs: Prefs;
   onChange(change: Partial<Prefs>): void;
   /** Present inside the desktop app, which runs an engine itself. */
   localEngine: { native: boolean; python: boolean; status: EngineStatus | null; mode: EngineMode } | null;
+  /** Present where the engine in this page's own worker is offered. */
+  browser: BrowserMode | null;
 }
 
 const LOCAL_STATE: Record<EngineStatus["state"], string> = {
@@ -21,7 +23,7 @@ const LOCAL_STATE: Record<EngineStatus["state"], string> = {
   failed: "could not be started",
 };
 
-export function Connection({ prefs, onChange, localEngine }: Props) {
+export function Connection({ prefs, onChange, localEngine, browser }: Props) {
   const [bundle, setBundle] = useState(prefs.bundleUrl);
   const [url, setUrl] = useState(prefs.engineUrl);
   const [token, setToken] = useState(prefs.engineToken);
@@ -131,6 +133,29 @@ export function Connection({ prefs, onChange, localEngine }: Props) {
                 Engine settings
               </a>
             </div>
+          </section>
+        )}
+        {browser !== null && (
+          <section class="card wide" aria-labelledby="c-browser">
+            <h2 id="c-browser">This browser</h2>
+            <p>
+              Reconstruct here, in this browser, on this device's graphics processor. You choose a folder with cameras, photos
+              and masks; it is read on this device and nothing is uploaded. Runs are kept until this page is closed.
+            </p>
+            {!browser.built ? (
+              <p class="field-error">This build of Studio does not include the engine for browsers.</p>
+            ) : !browser.webgpu ? (
+              <p class="field-error">
+                This browser has no WebGPU, which the engine computes with. Current Chrome and Edge have it; Safari and Firefox
+                have it in their newest versions or behind a setting.
+              </p>
+            ) : (
+              <div class="actions">
+                <a class="button primary" href="#/engine" onClick={() => onChange({ engineChoice: "browser" })}>
+                  {browser.inUse ? "Open runs" : "Use this browser"}
+                </a>
+              </div>
+            )}
           </section>
         )}
         <section class="card" aria-labelledby="c-demo">

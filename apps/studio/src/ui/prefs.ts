@@ -18,6 +18,8 @@ export interface Prefs {
   device: string;
   /** Inside the app: "native" (built in), "python" (external Python engine the app starts) or "remote" (`engineUrl`). */
   engineChoice: string;
+  /** Shows diagnostic features (inside the app: the engine in the web view's own worker). */
+  diagnostics: boolean;
 }
 
 const KEY = "crisp3ds.studio.v1";
@@ -33,6 +35,7 @@ const DEFAULTS: Prefs = {
   inputs: "",
   device: "",
   engineChoice: "native",
+  diagnostics: false,
 };
 
 let cache: Prefs | null = null;

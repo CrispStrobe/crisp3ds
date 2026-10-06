@@ -2,6 +2,8 @@ import { humanise } from "../core/format";
 
 /** Display names of the pipeline stages. Stages added later fall back to their own name. */
 export const STAGE_TEXT: Record<string, { title: string; what: string }> = {
+  masks: { title: "Masks", what: "The object in every photo" },
+  cameras: { title: "Cameras", what: "Where each photo was taken" },
   inputs: { title: "Inputs", what: "Photos, cameras, masks" },
   stereo: { title: "Stereo", what: "Depth from photo pairs" },
   mesh: { title: "Mesh", what: "Closed surface" },
