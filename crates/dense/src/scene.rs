@@ -9,7 +9,7 @@
 //! `INTER_NEAREST` (float32 coordinates rounded half to even, zero outside).
 //! No reference geometry, supplied poses or depth are read.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context};
 use serde_json::{json, Value};
@@ -184,23 +184,141 @@ pub fn run(scene: &Path, prepared: &Path, raw_masks: &Path, output: &Path) -> an
 }
 
 /// `crisp3ds-dense inputs --scene F --prepared DIR --raw-masks DIR --output DIR`.
+/// Makes an inputs directory self-contained: every photo and mask lies inside
+/// it (`images/`, `masks/`) and `cameras.json` names them by relative path, so
+/// the folder can be moved, archived or picked in a browser.
+///
+/// `output` is the directory to write (`None`: `source` itself is completed in
+/// place). Files that are not already there are copied, or hard-linked with
+/// `link` (falling back to a copy across file systems). Everything else in
+/// `cameras.json` is kept as it is.
+pub fn pack(source: &Path, output: Option<&Path>, link: bool) -> anyhow::Result<Value> {
+    use crate::storage;
+    let target = output.unwrap_or(source);
+    let text = storage::read_to_string(source.join("cameras.json")).with_context(|| source.join("cameras.json").display().to_string())?;
+    let mut cameras: Value = serde_json::from_str(&text).context("cameras.json")?;
+    let same = |a: &Path, b: &Path| storage::canonicalize(a).ok().zip(storage::canonicalize(b).ok()).is_some_and(|(a, b)| a == b);
+    let in_place = same(source, target);
+    for folder in ["images", "masks"] {
+        storage::create_dir_all(target.join(folder))?;
+    }
+    let (mut copied, mut linked, mut bytes) = (0usize, 0usize, 0u64);
+    let views = cameras["views"].as_array_mut().ok_or_else(|| anyhow!("cameras.json has no views"))?;
+    for view in views.iter_mut() {
+        let name = view["name"].as_str().ok_or_else(|| anyhow!("a view has no name"))?.to_string();
+        for (key, folder) in [("image", "images"), ("mask", "masks")] {
+            let given = view[key].as_str().ok_or_else(|| anyhow!("view {name} has no {key}"))?;
+            let from = if Path::new(given).is_absolute() { PathBuf::from(given) } else { source.join(given) };
+            let extension = from.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_else(|| "png".to_string());
+            let relative = format!("{folder}/{name}.{extension}");
+            let to = target.join(&relative);
+            if !same(&from, &to) {
+                if !storage::is_file(&from) {
+                    bail!("{key} of view {name} is missing: {}", from.display());
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                let done = link && {
+                    let _ = std::fs::remove_file(&to);
+                    std::fs::hard_link(&from, &to).is_ok()
+                };
+                #[cfg(target_arch = "wasm32")]
+                let done = false;
+                if done {
+                    linked += 1;
+                } else {
+                    let content = storage::read(&from).with_context(|| from.display().to_string())?;
+                    bytes += content.len() as u64;
+                    storage::write_owned(&to, content)?;
+                    copied += 1;
+                }
+            }
+            view[key] = json!(relative);
+        }
+    }
+    let count = views.len();
+    if !in_place {
+        let points =
+            storage::read(source.join("sparse_points.npy")).with_context(|| source.join("sparse_points.npy").display().to_string())?;
+        storage::write_owned(target.join("sparse_points.npy"), points)?;
+    }
+    storage::write(target.join("cameras.json"), serde_json::to_string_pretty(&cameras)? + "\n")?;
+    Ok(json!({"views": count, "copied": copied, "linked": linked, "copied_bytes": bytes, "output": target.to_string_lossy()}))
+}
+
+const USAGE: &str = "usage: crisp3ds-dense inputs --scene FILE --prepared DIR --raw-masks DIR --output DIR [--self-contained [--link]]
+       crisp3ds-dense inputs --pack DIR [--output DIR] [--link]
+--self-contained   copy the prepared photos into the inputs directory and name them by relative path (default: the
+                   photos stay where they are and cameras.json holds their absolute paths)
+--pack DIR         make an existing inputs directory self-contained, in place or as a copy in --output
+--link             hard links instead of copies where the file system allows";
+
 pub fn main(arguments: &[String]) -> anyhow::Result<()> {
     let mut values = std::collections::BTreeMap::new();
+    let (mut contained, mut link) = (false, false);
     let mut rest = arguments.iter();
     while let Some(flag) = rest.next() {
-        if !["--scene", "--prepared", "--raw-masks", "--output"].contains(&flag.as_str()) {
-            bail!("unknown argument {flag}\nusage: crisp3ds-dense inputs --scene FILE --prepared DIR --raw-masks DIR --output DIR");
+        match flag.as_str() {
+            "--self-contained" => contained = true,
+            "--link" => link = true,
+            "--scene" | "--prepared" | "--raw-masks" | "--output" | "--pack" => {
+                values.insert(flag.clone(), rest.next().ok_or_else(|| anyhow!("{flag} needs a value"))?.clone());
+            }
+            _ => bail!("unknown argument {flag}\n{USAGE}"),
         }
-        values.insert(flag.clone(), rest.next().ok_or_else(|| anyhow!("{flag} needs a value"))?.clone());
     }
-    let get = |name: &str| values.get(name).map(Path::new).ok_or_else(|| anyhow!("{name} is required"));
-    println!("{}", run(get("--scene")?, get("--prepared")?, get("--raw-masks")?, get("--output")?)?);
+    let get = |name: &str| values.get(name).map(Path::new).ok_or_else(|| anyhow!("{name} is required\n{USAGE}"));
+    if let Some(source) = values.get("--pack") {
+        println!("{}", pack(Path::new(source), values.get("--output").map(Path::new), link)?);
+        return Ok(());
+    }
+    let mut report = run(get("--scene")?, get("--prepared")?, get("--raw-masks")?, get("--output")?)?;
+    if contained {
+        report["self_contained"] = pack(get("--output")?, None, link)?;
+    }
+    println!("{report}");
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn packing_copies_the_photos_in_and_makes_the_paths_relative() {
+        let folder = std::env::temp_dir().join(format!("crisp3ds-pack-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&folder);
+        std::fs::create_dir_all(folder.join("inputs/masks")).unwrap();
+        std::fs::create_dir_all(folder.join("prepared")).unwrap();
+        std::fs::write(folder.join("prepared/7.png"), b"photo").unwrap();
+        std::fs::write(folder.join("inputs/masks/view_7.png"), b"mask").unwrap();
+        std::fs::write(folder.join("inputs/sparse_points.npy"), b"points").unwrap();
+        let cameras = json!({"scale": {"unit": "mm"}, "views": [{
+            "name": "view_7", "source": "a.png", "image": folder.join("prepared/7.png"), "mask": "masks/view_7.png", "width": 4, "height": 3,
+        }]});
+        std::fs::write(folder.join("inputs/cameras.json"), cameras.to_string()).unwrap();
+
+        // As a copy elsewhere: both files and the points arrive, the rest of cameras.json is kept.
+        let report = pack(&folder.join("inputs"), Some(&folder.join("packed")), false).unwrap();
+        assert_eq!((report["views"].as_u64(), report["copied"].as_u64(), report["copied_bytes"].as_u64()), (Some(1), Some(2), Some(9)));
+        let packed: Value = serde_json::from_str(&std::fs::read_to_string(folder.join("packed/cameras.json")).unwrap()).unwrap();
+        assert_eq!(
+            (packed["views"][0]["image"].as_str(), packed["views"][0]["mask"].as_str()),
+            (Some("images/view_7.png"), Some("masks/view_7.png"))
+        );
+        assert_eq!((packed["scale"]["unit"].as_str(), packed["views"][0]["width"].as_u64()), (Some("mm"), Some(4)));
+        assert_eq!(std::fs::read(folder.join("packed/images/view_7.png")).unwrap(), b"photo");
+        assert_eq!(std::fs::read(folder.join("packed/sparse_points.npy")).unwrap(), b"points");
+
+        // In place, with links: only the photo is brought in; a second pass has nothing to do.
+        let report = pack(&folder.join("inputs"), None, true).unwrap();
+        assert_eq!(report["copied"].as_u64().unwrap() + report["linked"].as_u64().unwrap(), 1);
+        assert_eq!(std::fs::read(folder.join("inputs/images/view_7.png")).unwrap(), b"photo");
+        let again = pack(&folder.join("inputs"), None, false).unwrap();
+        assert_eq!((again["copied"].as_u64(), again["linked"].as_u64()), (Some(0), Some(0)));
+        std::fs::remove_file(folder.join("inputs/images/view_7.png")).unwrap();
+        assert!(pack(&folder.join("inputs"), None, false).unwrap_err().to_string().contains("missing"));
+        let _ = std::fs::remove_dir_all(&folder);
+    }
 
     #[test]
     fn an_undistorted_lens_maps_pixels_to_themselves() {

@@ -696,14 +696,31 @@ async fn stages(
 /// `meaning`, `platforms`, `external` programs, `license`, and the `option`
 /// that selects it in `photo_options`.
 pub fn describe() -> Value {
+    describe_with(&[])
+}
+
+/// [`describe`] with the locations of the external programs: `photo_options`
+/// are words of the photos stage's command line, of which the tool options are
+/// read (`--colmap`, `--alicevision`, `--python`, `--sam-python`,
+/// `--sam-source`, `--sam-checkpoint`, `--sam-repository`; then their
+/// environment variables). Every provider of the photos start point says
+/// whether it can run with them (`available`, `reason`, `version`) and lists
+/// its options (`settings`: flag, kind, default, choices, meaning, from the
+/// table the command-line parser reads); options shared by a module are in the
+/// module's `settings`, the rest in the start point's `option_groups`. Every
+/// start point lists the `stages` a run from it goes through.
+pub fn describe_with(photo_options: &[String]) -> Value {
+    let _ = photo_options;
     let field =
         |key: &str, label: &str, kind: &str, help: &str| json!({"key": key, "label": label, "kind": kind, "required": true, "help": help});
+    #[cfg_attr(target_arch = "wasm32", allow(unused_mut))]
     let mut points = vec![
         json!({
             "id": "inputs", "label": "Inputs folder",
             "meaning": "A folder with cameras.json, the undistorted photos and their masks.",
             "fields": [field("inputs", "Inputs folder", "inputs", "A folder with cameras.json, the photos and their masks.")],
             "providers": [],
+            "stages": ["stereo", "mesh", "check"],
         }),
         json!({
             "id": "scene", "label": "Camera solution, images and masks",
@@ -714,10 +731,14 @@ pub fn describe() -> Value {
                 field("raw_masks", "Raw masks", "folder", "One 0/255 mask per source photo, named like the photo."),
             ],
             "providers": [],
+            "stages": ["inputs", "stereo", "mesh", "check"],
         }),
     ];
     let table = crate::photos::providers::listing();
-    if cfg!(not(target_arch = "wasm32")) {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use crate::photos::{availability, option_table};
+        let tools = availability::ToolLocations::from_words(photo_options, &|name| std::env::var(name).ok());
         let choice = |module: &str, label: &str| {
             let options: Vec<Value> = table[module]
                 .as_array()
@@ -725,15 +746,23 @@ pub fn describe() -> Value {
                 .flatten()
                 .filter(|row| row["available"] == true)
                 .map(|row| {
+                    let name = row["name"].as_str().unwrap_or_default();
+                    let state = availability::check(module, name, &tools);
                     json!({
                         "id": row["name"], "label": row["name"], "meaning": row["summary"], "option": row["selector"],
                         "platforms": row["platforms"], "external": row["external"], "license": row["license"],
+                        "available": state.available, "reason": state.reason, "version": state.version,
+                        "settings": option_table::of_provider(module, name),
                     })
                 })
                 .collect();
             let default = table[module].as_array().into_iter().flatten().find(|row| row["default"] == true && row["available"] == true);
-            json!({"module": module, "label": label, "options": options, "default": default.map(|row| row["name"].clone())})
+            json!({
+                "module": module, "label": label, "options": options, "default": default.map(|row| row["name"].clone()),
+                "settings": option_table::of_group(module),
+            })
         };
+        let group = |id: &str, label: &str| json!({"id": id, "label": label, "settings": option_table::of_group(id)});
         points.push(json!({
             "id": "photos", "label": "Turntable photos",
             "meaning": "A folder of photos of an object on a turntable and the calibration of the lens; masks and cameras are made first.",
@@ -742,6 +771,11 @@ pub fn describe() -> Value {
                 field("calibration", "Lens calibration (.json)", "file", "Focal length, principal point and radial distortion of the lens."),
             ],
             "providers": [choice("masks", "Masks"), choice("cameras", "Cameras")],
+            // The scene is written by the `cameras` stage: a run from photos has no `inputs` stage.
+            "stages": ["masks", "cameras", "stereo", "mesh", "check"],
+            "option_groups": [
+                group("tools", "Tools"), group("machine", "Machine"), group("deadlines", "Deadlines"), group("gates", "Quality gates"),
+            ],
         }));
     }
     json!({"schema": "crisp3ds_start_points_v1", "platform": table["platform"], "start_points": points})
@@ -810,7 +844,8 @@ pub fn parse(arguments: &[String]) -> anyhow::Result<RunOptions> {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn main(arguments: &[String]) -> anyhow::Result<()> {
     if arguments.iter().any(|a| a == "--describe") {
-        println!("{}", serde_json::to_string_pretty(&describe())?);
+        let rest: Vec<String> = arguments.iter().filter(|a| *a != "--describe").cloned().collect();
+        println!("{}", serde_json::to_string_pretty(&describe_with(&rest))?);
         return Ok(());
     }
     if arguments.iter().any(|a| a == "--list-settings") {
@@ -883,6 +918,24 @@ mod tests {
                 );
             }
         }
+        assert_eq!(points[0]["stages"], json!(["stereo", "mesh", "check"]));
+        assert_eq!(points[2]["stages"], json!(["masks", "cameras", "stereo", "mesh", "check"]));
+        let groups: Vec<&str> = points[2]["option_groups"].as_array().unwrap().iter().map(|g| g["id"].as_str().unwrap()).collect();
+        assert_eq!(groups, ["tools", "machine", "deadlines", "gates"]);
+        let cameras = &points[2]["providers"][1];
+        assert!(cameras["settings"].as_array().unwrap().iter().any(|o| o["flag"] == "--open-turn"));
+        let colmap = cameras["options"].as_array().unwrap().iter().find(|o| o["id"] == "colmap").unwrap();
+        assert_eq!(colmap["settings"][0]["kind"], "executable");
+        // With a location that does not exist the provider says why it cannot run; our own solver always can.
+        let described_with = describe_with(&["--colmap".to_string(), "/no/such/colmap".to_string()]);
+        let options = described_with["start_points"][2]["providers"][1]["options"].as_array().unwrap().clone();
+        let state = |id: &str| options.iter().find(|o| o["id"] == id).unwrap().clone();
+        assert_eq!(state("colmap")["available"], false);
+        assert!(state("colmap")["reason"].as_str().unwrap().contains("not found"));
+        assert_eq!(
+            (state("turntable")["available"].as_bool(), state("turntable")["version"].as_str()),
+            (Some(true), Some(env!("CARGO_PKG_VERSION")))
+        );
         let providers = points[2]["providers"].as_array().unwrap();
         assert_eq!(providers.iter().map(|c| c["module"].as_str().unwrap()).collect::<Vec<_>>(), ["masks", "cameras"]);
         for choice in providers {

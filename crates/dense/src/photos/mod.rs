@@ -31,6 +31,7 @@ pub mod cleanup;
 pub mod coarse;
 pub mod contrast;
 pub mod markers;
+pub mod option_table;
 pub mod options;
 pub mod providers;
 pub mod ring;
@@ -45,6 +46,8 @@ pub mod util;
 // included: threshold masks, hole cleanup, contrast images, solution readers, gates, undistortion and the
 // scene writer. The modules below start external programs (and ask the file system for free space),
 // which a browser build cannot do.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod availability;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod cameras;
 #[cfg(not(target_arch = "wasm32"))]
@@ -64,6 +67,10 @@ pub fn command(arguments: &[String]) -> std::process::ExitCode {
     }
     if arguments.iter().any(|a| a == "--list-providers") {
         println!("{}", serde_json::to_string_pretty(&providers::listing()).unwrap_or_default());
+        return ExitCode::SUCCESS;
+    }
+    if arguments.iter().any(|a| a == "--list-options") {
+        println!("{}", serde_json::to_string_pretty(&option_table::listing()).unwrap_or_default());
         return ExitCode::SUCCESS;
     }
     let usage = |error: anyhow::Error| {

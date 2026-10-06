@@ -9,6 +9,7 @@ use anyhow::{anyhow, bail};
 use serde_json::{json, Value};
 
 use super::coarse::Threshold;
+use super::option_table;
 use super::staging::{list_photos, PHOTO_SUFFIXES};
 
 pub const SCHEMA: &str = "crisp3ds_photos_to_inputs_v1";
@@ -219,6 +220,7 @@ pub const USAGE: &str = "\
 usage: crisp3ds-dense photos --photos DIR --calibration JSON --output DIR [--events PATH]
                              [--masks PROVIDER] [--cameras PROVIDER] [options]
        crisp3ds-dense photos --list-providers
+       crisp3ds-dense photos --list-options      every option below as JSON (flag, kind, default, choices, meaning)
 
 From a folder of turntable photos to the scene the dense stages read (inputs/:
 cameras.json, undistorted images/ and masks/, sparse_points.npy). Masks and
@@ -288,77 +290,6 @@ quality gates (a failed gate means exit code 2 and no scene):
   --duplicate-step-deg 0.5 (warning only)
   --maximum-closing-step-ratio 2.5   unless --open-turn: what is left from the last photo to the first, over the median step";
 
-const SWITCHES: &[&str] = &["open-turn", "keep-intermediates", "sam-multimask", "sam-preserve-holes", "sam-automatic-cues"];
-/// Options that may be given several times.
-const REPEATED: &[&str] =
-    &["alicevision-sfm-option", "alicevision-env", "colmap-extractor-option", "colmap-matcher-option", "colmap-mapper-option"];
-const VALUED: &[&str] = &[
-    "photos",
-    "calibration",
-    "output",
-    "events",
-    "masks",
-    "cameras",
-    "python",
-    "threads",
-    "minimum-free-gib",
-    "stop-after",
-    "threshold-level",
-    "threshold-envelope",
-    "hole-cleanup-budget",
-    "sam-python",
-    "sam-source",
-    "sam-checkpoint",
-    "sam-config",
-    "sam-pythonpath",
-    "sam-repository",
-    "sam-device",
-    "contrast-gamma",
-    "clahe-clip",
-    "clahe-grid",
-    "random-seed",
-    "alicevision",
-    "alicevision-library-path",
-    "alicevision-env",
-    "alicevision-sensor-database",
-    "alicevision-memory-gib",
-    "alicevision-initial-field-of-view",
-    "alicevision-describer-types",
-    "alicevision-describer-preset",
-    "alicevision-matching-method",
-    "alicevision-sfm-option",
-    "colmap",
-    "colmap-matching",
-    "colmap-overlap",
-    "colmap-masks",
-    "colmap-max-features",
-    "colmap-cli",
-    "colmap-extractor-option",
-    "colmap-matcher-option",
-    "colmap-mapper-option",
-    "markers-mat",
-    "turntable-features",
-    "turntable-span",
-    "turntable-matches",
-    "markers-minimum",
-    "markers-aspect",
-    "sam-timeout",
-    "features-timeout",
-    "matching-timeout",
-    "sfm-timeout",
-    "small-step-timeout",
-    "minimum-registered-fraction",
-    "minimum-observations-per-view",
-    "maximum-view-reprojection-p95",
-    "minimum-positive-depth-fraction",
-    "maximum-radius-spread-percent",
-    "maximum-out-of-plane-percent",
-    "maximum-angular-gap-deg",
-    "maximum-reversed-steps",
-    "maximum-optical-axis-miss-percent",
-    "duplicate-step-deg",
-    "maximum-closing-step-ratio",
-];
 /// Names of the reference command line that live on under a provider's namespace.
 const ALIASES: &[(&str, &str)] = &[
     ("dark-threshold", "threshold-level"),
@@ -401,12 +332,14 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
             None => (flag, None),
         };
         let name = ALIASES.iter().find(|(old, _)| *old == given).map(|(_, new)| *new).unwrap_or(given);
-        if let Some(switch) = SWITCHES.iter().find(|s| name == **s || name.strip_prefix("no-") == Some(**s)) {
+        let switch = option_table::find(name.strip_prefix("no-").unwrap_or(name)).filter(|option| option.kind == "switch");
+        let valued = option_table::find(name).filter(|option| option.kind != "switch");
+        if let Some(switch) = switch {
             if inline.is_some() {
                 bail!("--{given} takes no value");
             }
-            values.insert(switch.to_string(), vec![(!name.starts_with("no-")).to_string()]);
-        } else if VALUED.contains(&name) {
+            values.insert(switch.flag.to_string(), vec![(!name.starts_with("no-")).to_string()]);
+        } else if let Some(option) = valued {
             let value = match inline {
                 Some(value) => value,
                 None => {
@@ -415,7 +348,7 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
                 }
             };
             let slot = values.entry(name.to_string()).or_default();
-            if !REPEATED.contains(&name) {
+            if !option.repeated {
                 slot.clear();
             }
             slot.push(value);
@@ -428,32 +361,28 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
     let many = |name: &str| values.get(name).cloned().unwrap_or_default();
     let pick =
         |name: &str, variable: &str| text(name).filter(|v| !v.is_empty()).or_else(|| environment(variable).filter(|v| !v.is_empty()));
-    let number = |name: &str, default: f64| -> anyhow::Result<f64> {
-        match text(name) {
-            None => Ok(default),
-            Some(value) => {
-                value.trim().parse::<f64>().ok().filter(|v| v.is_finite()).ok_or_else(|| anyhow!("--{name} needs a number, got {value:?}"))
-            }
-        }
+    let number = |name: &str| -> anyhow::Result<f64> {
+        let value = text(name).unwrap_or_else(|| option_table::default(name).to_string());
+        value.trim().parse::<f64>().ok().filter(|v| v.is_finite()).ok_or_else(|| anyhow!("--{name} needs a number, got {value:?}"))
     };
-    let integer = |name: &str, default: i64| -> anyhow::Result<i64> {
-        match text(name) {
-            None => Ok(default),
-            Some(value) => value.trim().parse::<i64>().map_err(|_| anyhow!("--{name} needs an integer, got {value:?}")),
-        }
+    let integer = |name: &str| -> anyhow::Result<i64> {
+        let value = text(name).unwrap_or_else(|| option_table::default(name).to_string());
+        value.trim().parse::<i64>().map_err(|_| anyhow!("--{name} needs an integer, got {value:?}"))
     };
-    let switch = |name: &str, default: bool| text(name).map(|v| v == "true").unwrap_or(default);
+    let switch = |name: &str| text(name).unwrap_or_else(|| option_table::default(name).to_string()) == "true";
+    let word = |name: &str| text(name).unwrap_or_else(|| option_table::default(name).to_string());
     let required = |name: &str| text(name).ok_or_else(|| anyhow!("--{name} is required"));
-    let seconds = |name: &str, default: i64| -> anyhow::Result<u64> {
-        let value = integer(name, default)?;
+    let seconds = |name: &str| -> anyhow::Result<u64> {
+        let value = integer(name)?;
         if value < 1 {
             bail!("--{name} must be at least one second");
         }
         Ok(value as u64)
     };
     // `provider` or `provider:ARGUMENT`.
-    let choice = |name: &str, variable: &str, default: &str| -> (String, Option<String>) {
-        let value = pick(name, variable).unwrap_or_else(|| default.to_string());
+    let choice = |name: &str| -> (String, Option<String>) {
+        let variable = option_table::find(name).and_then(|option| option.variable).unwrap_or_default();
+        let value = pick(name, variable).unwrap_or_else(|| option_table::default(name).to_string());
         match value.split_once(':') {
             Some((provider, argument)) => (provider.to_string(), Some(argument.to_string())),
             None => (value, None),
@@ -474,7 +403,7 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
         Some("masks") => true,
         Some(other) => bail!("--stop-after {other}: only 'masks' is offered"),
     };
-    let masks = match choice("masks", "CRISP3DS_MASKS", "external-sam") {
+    let masks = match choice("masks") {
         (name, None) if name == "threshold" => MaskChoice::Threshold,
         (name, None) if name == "external-sam" => MaskChoice::ExternalSam,
         (name, Some(folder)) if name == "import" && !folder.is_empty() => MaskChoice::Import(absolute(&folder)),
@@ -486,7 +415,7 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
             bail!("--masks import:{} is not a directory", folder.display());
         }
     }
-    let cameras = match choice("cameras", "CRISP3DS_CAMERAS", "colmap") {
+    let cameras = match choice("cameras") {
         (name, None) if name == "alicevision" => CameraChoice::AliceVision,
         (name, None) if name == "colmap" => CameraChoice::Colmap,
         (name, None) if name == "markers" => CameraChoice::Markers,
@@ -530,27 +459,27 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
         config: pick("sam-config", "CRISP3DS_SAM_CONFIG"),
         pythonpath: pick("sam-pythonpath", "CRISP3DS_SAM_PYTHONPATH").map(|v| split_paths(&v)).unwrap_or_default(),
         repository: pick("sam-repository", "CRISP3DS_REPOSITORY").map(|p| absolute(&p)),
-        device: text("sam-device").unwrap_or_else(|| "mps".into()),
-        multimask: switch("sam-multimask", true),
-        preserve_holes: switch("sam-preserve-holes", true),
-        automatic_cues: switch("sam-automatic-cues", true),
+        device: word("sam-device"),
+        multimask: switch("sam-multimask"),
+        preserve_holes: switch("sam-preserve-holes"),
+        automatic_cues: switch("sam-automatic-cues"),
     };
     if !["mps", "cpu", "cuda"].contains(&sam.device.as_str()) {
         bail!("--sam-device {}: expected mps, cpu or cuda", sam.device);
     }
-    let threads = integer("threads", 2)?;
-    let clahe_grid = integer("clahe-grid", 8)?;
+    let threads = integer("threads")?;
+    let clahe_grid = integer("clahe-grid")?;
     if !(1..=256).contains(&threads) || !(1..=64).contains(&clahe_grid) {
         bail!("--threads must be 1..256 and --clahe-grid 1..64");
     }
     let turntable = TurntableOptions {
-        features: integer("turntable-features", 6000)?.clamp(100, 100_000) as usize,
-        span: integer("turntable-span", 4)?.clamp(1, 32) as usize,
+        features: integer("turntable-features")?.clamp(100, 100_000) as usize,
+        span: integer("turntable-span")?.clamp(1, 32) as usize,
         matches: text("turntable-matches").map(|p| absolute(&p)),
     };
     let markers = MarkersOptions {
         mat: pick("markers-mat", "CRISP3DS_MARKERS_MAT").map(|p| absolute(&p)),
-        minimum_per_photo: integer("markers-minimum", 5)?.clamp(1, 1000) as usize,
+        minimum_per_photo: integer("markers-minimum")?.clamp(1, 1000) as usize,
         aspect: match text("markers-aspect").as_deref() {
             None | Some("auto") => None,
             Some(value) => Some(
@@ -565,15 +494,18 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
     };
     let colmap = ColmapOptions {
         location: pick("colmap", "CRISP3DS_COLMAP").map(|p| absolute(&p)),
-        cli: if text("colmap-cli").as_deref() == Some("auto") { 0 } else { integer("colmap-cli", 0)? },
-        matching: text("colmap-matching").unwrap_or_else(|| "exhaustive".into()),
-        overlap: integer("colmap-overlap", 10)?,
+        cli: match word("colmap-cli").as_str() {
+            "auto" => 0,
+            value => value.parse::<i64>().map_err(|_| anyhow!("--colmap-cli needs auto, 3 or 4, got {value:?}"))?,
+        },
+        matching: word("colmap-matching"),
+        overlap: integer("colmap-overlap")?,
         use_masks: match text("colmap-masks").as_deref() {
             None | Some("on") => true,
             Some("off") => false,
             Some(other) => bail!("--colmap-masks {other}: expected on or off"),
         },
-        max_features: integer("colmap-max-features", 8192)?,
+        max_features: integer("colmap-max-features")?,
         extractor_option: many("colmap-extractor-option"),
         matcher_option: many("colmap-matcher-option"),
         mapper_option: many("colmap-mapper-option"),
@@ -591,54 +523,54 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
         cameras,
         python: pick("python", "CRISP3DS_PYTHON"),
         threads: threads as usize,
-        minimum_free_gib: number("minimum-free-gib", 10.0)?,
-        keep_intermediates: switch("keep-intermediates", false),
+        minimum_free_gib: number("minimum-free-gib")?,
+        keep_intermediates: switch("keep-intermediates"),
         stop_after_masks,
-        envelope: text("threshold-envelope").unwrap_or_else(|| "auto".into()),
+        envelope: word("threshold-envelope"),
         // As masks the Otsu level did better than a fixed one on the test objects; as SAM prompts the reference level stays.
         dark_threshold: Threshold::parse(
             &text("threshold-level").unwrap_or_else(|| if masks == MaskChoice::Threshold { "otsu" } else { "70" }.into()),
         )?,
-        hole_cleanup_budget: super::cleanup::validate_budget(number("hole-cleanup-budget", 0.02)?)?,
+        hole_cleanup_budget: super::cleanup::validate_budget(number("hole-cleanup-budget")?)?,
         sam,
-        contrast_gamma: number("contrast-gamma", 0.5)?,
-        clahe_clip: number("clahe-clip", 2.0)?,
+        contrast_gamma: number("contrast-gamma")?,
+        clahe_clip: number("clahe-clip")?,
         clahe_grid: clahe_grid as usize,
         alicevision: AliceVisionOptions {
             tools,
             sensor_database: pick("alicevision-sensor-database", "CRISP3DS_ALICEVISION_SENSOR_DB").map(PathBuf::from),
-            memory_gib: number("alicevision-memory-gib", 4.0)?,
-            initial_field_of_view: number("alicevision-initial-field-of-view", 45.0)?,
-            describer_types: text("alicevision-describer-types").unwrap_or_else(|| "sift".into()),
-            describer_preset: text("alicevision-describer-preset").unwrap_or_else(|| "normal".into()),
-            matching_method: text("alicevision-matching-method").unwrap_or_else(|| "Exhaustive".into()),
+            memory_gib: number("alicevision-memory-gib")?,
+            initial_field_of_view: number("alicevision-initial-field-of-view")?,
+            describer_types: word("alicevision-describer-types"),
+            describer_preset: word("alicevision-describer-preset"),
+            matching_method: word("alicevision-matching-method"),
             sfm_option: many("alicevision-sfm-option"),
         },
         colmap,
         markers,
         turntable,
-        open_turn: switch("open-turn", false),
-        random_seed: integer("random-seed", 0)?,
+        open_turn: switch("open-turn"),
+        random_seed: integer("random-seed")?,
         timeouts: Timeouts {
-            small: seconds("small-step-timeout", 600)?,
-            sam: seconds("sam-timeout", 1800)?,
-            features: seconds("features-timeout", 1800)?,
-            matching: seconds("matching-timeout", 1800)?,
-            sfm: seconds("sfm-timeout", 900)?,
+            small: seconds("small-step-timeout")?,
+            sam: seconds("sam-timeout")?,
+            features: seconds("features-timeout")?,
+            matching: seconds("matching-timeout")?,
+            sfm: seconds("sfm-timeout")?,
         },
         gates: Gates {
-            minimum_registered_fraction: number("minimum-registered-fraction", 0.8)?,
-            minimum_observations_per_view: integer("minimum-observations-per-view", 20)?,
-            maximum_view_reprojection_p95_pixels: number("maximum-view-reprojection-p95", 4.0)?,
-            minimum_positive_depth_fraction: number("minimum-positive-depth-fraction", 0.999)?,
-            maximum_radius_spread_percent: number("maximum-radius-spread-percent", 5.0)?,
-            maximum_out_of_plane_percent: number("maximum-out-of-plane-percent", 5.0)?,
-            maximum_angular_gap_deg: number("maximum-angular-gap-deg", 30.0)?,
-            maximum_reversed_steps: integer("maximum-reversed-steps", 0)?,
-            maximum_optical_axis_miss_percent: number("maximum-optical-axis-miss-percent", 25.0)?,
-            duplicate_step_deg: number("duplicate-step-deg", 0.5)?,
-            full_turn: !switch("open-turn", false),
-            maximum_closing_step_ratio: number("maximum-closing-step-ratio", 2.5)?,
+            minimum_registered_fraction: number("minimum-registered-fraction")?,
+            minimum_observations_per_view: integer("minimum-observations-per-view")?,
+            maximum_view_reprojection_p95_pixels: number("maximum-view-reprojection-p95")?,
+            minimum_positive_depth_fraction: number("minimum-positive-depth-fraction")?,
+            maximum_radius_spread_percent: number("maximum-radius-spread-percent")?,
+            maximum_out_of_plane_percent: number("maximum-out-of-plane-percent")?,
+            maximum_angular_gap_deg: number("maximum-angular-gap-deg")?,
+            maximum_reversed_steps: integer("maximum-reversed-steps")?,
+            maximum_optical_axis_miss_percent: number("maximum-optical-axis-miss-percent")?,
+            duplicate_step_deg: number("duplicate-step-deg")?,
+            full_turn: !switch("open-turn"),
+            maximum_closing_step_ratio: number("maximum-closing-step-ratio")?,
         },
     };
     super::coarse::validate_envelope(&options.envelope)?;
