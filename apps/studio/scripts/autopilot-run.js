@@ -211,10 +211,12 @@
         const scroller = document.scrollingElement ?? document.documentElement;
         scroller.scrollTop += element.getBoundingClientRect().top - bar - 12;
       };
+      // Held until the driver says it has the picture (it creates ack-<name>), or `hold` passes.
       const mark = async (name) => {
         await sleep(1200);
         await log(`MARK ${name}`);
-        await sleep(hold);
+        const acknowledged = await internals.invoke("autopilot_await", { name, limitMs: Number(options.ackLimit ?? 120000) }).catch(() => false);
+        if (!acknowledged) await sleep(hold);
       };
       (document.scrollingElement ?? document.documentElement).scrollTop = 0;
       await mark("run");

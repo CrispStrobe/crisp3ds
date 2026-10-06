@@ -73,6 +73,8 @@ while :; do
       xcrun simctl io "$udid" screenshot "$file" >/dev/null 2>&1
       shots="$shots $file"
       echo "   screenshot $name"
+      # Tells the app it may move on to the next screen.
+      touch "$(dirname "$log")/ack-$name"
     done
     if grep -q "AUTOPILOT DONE\|AUTOPILOT FAILED" "$log"; then break; fi
   fi
@@ -84,5 +86,8 @@ echo "== what the app reported"
 grep -v "^\[autopilot\] *$" "$log" 2>/dev/null | sed 's/^/   /' || true
 grep -q "AUTOPILOT DONE ok" "$log" || { echo "the run did not complete cleanly"; exit 1; }
 test -n "$shots" || { echo "no screenshots were taken"; exit 1; }
+for name in run surface sheets runs new-run; do
+  case " $seen " in *" $name "*) ;; *) echo "the $name screen was not photographed"; exit 1 ;; esac
+done
 # shellcheck disable=SC2086
 "${PYTHON:-python3}" "$HERE/image-check.py" $shots

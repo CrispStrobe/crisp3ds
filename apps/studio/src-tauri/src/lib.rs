@@ -444,6 +444,25 @@ fn autopilot_log(app: AppHandle, line: String) {
     }
 }
 
+/// Debug builds only: waits until whoever drives the app has taken the screenshot named
+/// `name`, which it says by creating `<app data>/ack-<name>`; at most `limit_ms`. Returns
+/// whether it was acknowledged. Lets a slow machine photograph every screen.
+#[cfg(debug_assertions)]
+#[tauri::command]
+async fn autopilot_await(app: AppHandle, name: String, limit_ms: u64) -> bool {
+    let Ok(folder) = app.path().app_data_dir() else { return false };
+    let flag = folder.join(format!("ack-{}", name.replace(['/', '\\', '.'], "-")));
+    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(limit_ms);
+    while std::time::Instant::now() < deadline {
+        if flag.exists() {
+            let _ = std::fs::remove_file(&flag);
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    false
+}
+
 /// Debug builds only: quits the app the way the menu does, so the exit path can be tested.
 #[cfg(debug_assertions)]
 #[tauri::command]
@@ -568,6 +587,7 @@ pub fn run() {
         native_import,
         check_tool,
         autopilot_log,
+        autopilot_await,
         autopilot_quit,
         autopilot_sleep,
         autopilot_memory
