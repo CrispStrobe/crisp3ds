@@ -34,12 +34,39 @@ function lookup(path, probe) {
   return undefined;
 }
 
+// Folders the host supplies: the names directly inside a source prefix (photos only; an inputs
+// directory is read by the paths in cameras.json and needs no listing).
+const listed = new Set();
+
+function list(directory) {
+  const folder = `${directory}/`;
+  for (const prefix of listed) {
+    if (!folder.startsWith(prefix)) continue;
+    const inside = folder.slice(prefix.length);
+    const names = new Set();
+    for (const key of sources.get(prefix).keys()) if (key.startsWith(inside)) names.add(key.slice(inside.length).split("/")[0]);
+    return names.size ? [...names] : undefined;
+  }
+  return undefined;
+}
+
 /** Loads the WebAssembly module once. */
 export async function load() {
   ready ??= init().then((exports) => {
     wasm = exports;
   });
   await ready;
+}
+
+/**
+ * How a run may start in this browser: `{schema, platform, start_points: [...]}`, each start point
+ * with its fields, stages and the providers that run here (with their options), for a form built
+ * from data. The photos start point maps to `createRun({ photos, calibration, options })`, with the
+ * chosen providers' words in `options.photo_options`.
+ */
+export async function describe() {
+  await load();
+  return JSON.parse(engine.describe());
 }
 
 /** Name, group, meaning, kind and default of every setting. */
@@ -67,8 +94,8 @@ export function memory() {
  *
  * From photos the masks and cameras are recovered first with the providers that need no other
  * program (threshold masks and the turntable solver by default); `options.photo_options` takes
- * further words of `crisp3ds-dense photos`. The photos are copied into the engine's memory when
- * the run is created (about the size of the files), so the caller may drop its own copies.
+ * further words of `crisp3ds-dense photos`. The photos stay in JavaScript memory (the map is
+ * kept until `dispose`) and are handed to the engine one at a time.
  */
 export async function createRun({ files, photos, calibration, options = {}, onEvent } = {}) {
   await load();
@@ -100,12 +127,15 @@ function startFromPhotos(root, photos, calibration, options, onEvent) {
   if (calibration === undefined || calibration === null) throw new Error("a run from photos needs the lens calibration");
   const entries = photos instanceof Map ? [...photos] : Object.entries(photos);
   if (!entries.length) throw new Error("no photos");
-  // The photos stage lists its folder, so the photos go into the engine's tree now.
-  // TODO: hand them over one at a time through the file source once the tree can list it.
-  for (const [name, bytes] of entries) {
+  for (const [name] of entries) {
     if (name.includes("/")) throw new Error(`photo names are file names, not paths: ${name}`);
-    engine.putFile(`${root}/photos/${name}`, bytes);
   }
+  // The photos stay here, in JavaScript memory; the engine lists the folder and asks for one photo at a time.
+  const prefix = `${root}/photos/`;
+  sources.set(prefix, new Map(entries));
+  listed.add(prefix);
+  engine.setFileSource(lookup);
+  engine.setFileLister(list);
   const lens = calibration instanceof Uint8Array ? calibration
     : new TextEncoder().encode(typeof calibration === "string" ? calibration : JSON.stringify(calibration));
   engine.putFile(`${root}/calibration.json`, lens);
@@ -116,13 +146,31 @@ function startFromPhotos(root, photos, calibration, options, onEvent) {
     photos: `${root}/photos`,
     photo_options: ["--calibration", `${root}/calibration.json`, ...(options.photo_options ?? [])],
   });
-  const finished = handle.start(text, onEvent ?? null).then((report) => JSON.parse(report));
+  // Once the photos stage has written the scene, its files leave WebAssembly memory for this
+  // side, like the inputs of a run from an inputs directory: the dense stages then start with
+  // the engine's memory nearly empty instead of holding the scene behind their own buffers.
+  const scene = `${root}/run/frontend/inputs`;
+  const relay = (event) => {
+    if (event.type === "stage_finished" && event.stage === "cameras") {
+      const files = new Map();
+      for (const [path] of JSON.parse(engine.listFiles(scene))) files.set(path.slice(scene.length + 1), engine.getFile(path));
+      engine.removeTree(scene);
+      sources.set(`${scene}/`, files);
+      listed.add(`${scene}/`);
+    }
+    onEvent?.(event);
+  };
+  const finished = handle.start(text, relay).then((report) => JSON.parse(report));
   return {
     finished,
     cancel: () => handle.cancel(),
-    file: (path) => engine.getFile(`${root}/run/${path}`),
+    file: (path) => engine.getFile(`${root}/run/${path}`) ?? (path.startsWith("frontend/inputs/") ? lookup(`${root}/run/${path}`, false) : undefined),
     files: () => JSON.parse(engine.listFiles(`${root}/run`)).map(([path, size]) => [path.slice(`${root}/run/`.length), size]),
     dispose: () => {
+      for (const folder of [prefix, `${scene}/`]) {
+        sources.delete(folder);
+        listed.delete(folder);
+      }
       engine.removeTree(root);
       handle.free();
     },

@@ -27,6 +27,8 @@ thread_local! {
     static NEXT: RefCell<u32> = const { RefCell::new(1) };
     /// Supplies files the host keeps in JavaScript memory.
     static SOURCE: RefCell<Option<js_sys::Function>> = const { RefCell::new(None) };
+    /// Lists folders the host keeps in JavaScript memory.
+    static LISTER: RefCell<Option<js_sys::Function>> = const { RefCell::new(None) };
 }
 
 #[wasm_bindgen(start)]
@@ -44,6 +46,14 @@ pub fn version() -> String {
 #[wasm_bindgen(js_name = settingsSchema)]
 pub fn settings_schema() -> String {
     crisp3ds_dense::config::SETTINGS_SCHEMA.to_string()
+}
+
+/// How a run may start in a browser, as JSON text: the start points (photos, an
+/// inputs directory), their fields, stages and the providers this build can run
+/// (no external programs), with their options. See `crisp3ds_dense::run::describe`.
+#[wasm_bindgen]
+pub fn describe() -> String {
+    crisp3ds_dense::run::describe().to_string()
 }
 
 /// The default settings as JSON text.
@@ -88,6 +98,27 @@ pub fn set_file_source(source: Option<js_sys::Function>) {
             }
             value.is_instance_of::<js_sys::Uint8Array>().then(|| js_sys::Uint8Array::from(value).to_vec())
         }) as storage::Source
+    }));
+}
+
+/// Registers `lister(directory)`: called when a directory of the tree is listed.
+/// It returns an array with the names of the files the host supplies directly
+/// inside that directory (through the file source), or `undefined` when it
+/// supplies none there. A folder of photos kept in JavaScript memory is then
+/// listed like a stored one. `undefined` or `null` removes the lister.
+#[wasm_bindgen(js_name = setFileLister)]
+pub fn set_file_lister(lister: Option<js_sys::Function>) {
+    let present = lister.is_some();
+    LISTER.with(|slot| *slot.borrow_mut() = lister);
+    storage::set_memory_lister(present.then(|| {
+        Box::new(|directory: &str| {
+            let function = LISTER.with(|slot| slot.borrow().clone())?;
+            let value = function.call1(&JsValue::NULL, &JsValue::from_str(directory)).ok()?;
+            if !js_sys::Array::is_array(&value) {
+                return None;
+            }
+            Some(js_sys::Array::from(&value).iter().filter_map(|name| name.as_string()).collect())
+        }) as storage::Lister
     }));
 }
 

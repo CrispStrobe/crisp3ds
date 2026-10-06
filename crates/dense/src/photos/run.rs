@@ -369,6 +369,9 @@ impl Run<'_> {
             };
             util::parallel(count, threads, work, watch).map(|_| ())
         })?;
+        if !provider.reads_staged_photos() && !options.keep_intermediates {
+            let _ = crate::photos::fs::remove_dir_all(out.join("work/photos"));
+        }
         let solution = provider.recover(self, lens.as_ref())?;
         let mut used = json!({"fx": solution.lens.pixels[0], "fy": solution.lens.pixels[1], "cx": solution.lens.pixels[2], "cy": solution.lens.pixels[3],
                               "k": solution.lens.k, "width": solution.lens.width, "height": solution.lens.height});

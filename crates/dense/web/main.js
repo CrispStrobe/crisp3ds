@@ -22,8 +22,14 @@ worker.onmessage = ({ data }) => {
   } else if (data.type === "event") {
     state.events.push(data.event);
     state.wasmBytes = Math.max(state.wasmBytes ?? 0, data.wasmBytes ?? 0);
-    if (data.event.type !== "progress" && data.event.type !== "metric") {
-      state.memoryAtEvents.push([data.event.stage, data.event.kind ?? data.event.type, data.wasmBytes ?? 0]);
+    // [stage, kind or progress message, WebAssembly bytes, bytes of files in the tree]
+    if (data.event.type !== "metric") {
+      const label = data.event.type === "progress" ? `progress ${data.event.message}` : data.event.kind ?? data.event.type;
+      const last = state.memoryAtEvents.at(-1);
+      // Progress repeats: keep a row only when the label or the memory changed.
+      if (!last || last[1] !== label || last[2] !== data.wasmBytes || last[3] !== data.fileBytes) {
+        state.memoryAtEvents.push([data.event.stage, label, data.wasmBytes ?? 0, data.fileBytes ?? 0]);
+      }
     }
     const event = data.event;
     if (event.type === "progress") {

@@ -118,6 +118,10 @@ impl CameraProvider for Markers {
     fn intermediates(&self) -> &'static [&'static str] {
         &[]
     }
+
+    fn reads_staged_photos(&self) -> bool {
+        true
+    }
 }
 
 /// For `--masks threshold` with `--cameras markers`: hides the mat's visible markers in a photo's grey

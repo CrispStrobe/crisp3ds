@@ -54,14 +54,12 @@ self.onmessage = async ({ data }) => {
       options: data.options ?? {},
       onEvent: (event) => {
         peak = Math.max(peak, memory().wasm);
-        self.postMessage({ type: "event", event, wasmBytes: memory().wasm });
+        const now = memory();
+        self.postMessage({ type: "event", event, wasmBytes: now.wasm, fileBytes: now.files });
       },
     });
-    // The engine holds its own copy of photos; drop ours.
-    if (data.mode === "photos") {
-      files.clear();
-      source.photos.clear();
-    }
+    // The run keeps the photos it was given; the fetched map is not needed twice.
+    if (data.mode === "photos") files.clear();
     const report = await run.finished;
     peak = Math.max(peak, memory().wasm);
     for (const path of data.keep ?? []) {

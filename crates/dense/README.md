@@ -975,9 +975,9 @@ disk there:
   module. A path whose first component is `mem:` names a file in an in-memory
   tree on any platform; in a browser every path does. The layout of a run
   directory and the events are the same. A host can also register a source that
-  hands over files it keeps elsewhere (the browser package does that for an
-  inputs directory; photos are copied into the tree when a run is created,
-  because the photos stage lists its folder).
+  hands over files it keeps elsewhere, and a lister for the folders among them
+  (the browser package keeps photos and inputs in JavaScript memory and hands
+  them over one file at a time).
 - **GPU** (`src/gpu/`). Device creation, kernel compilation, dispatch and
   readback are `async`. Native callers drive them with a blocking executor
   (`run`, `stereo::run::run`); a browser awaits `run_async`. In a browser,
@@ -1034,13 +1034,20 @@ const fromPhotos = await createRun({
 
 Only providers without external programs run in a browser: `--masks
 threshold` or `import:DIR`, `--cameras turntable`, `markers` or `import:PATH`
-(the defaults are `threshold` and `turntable`). The photos are copied into the
-engine when the run is created, so the caller may drop its own copies; the
-events add the `masks`, `cameras` and `inputs` stages in front of `stereo`.
+(the defaults are `threshold` and `turntable`). The photos stay in JavaScript
+memory until `dispose()` and are handed over one at a time; once the cameras
+stage has written the scene, its files move out of WebAssembly memory to the
+same place (`run.file("frontend/inputs/...")` still finds them). The events
+add the `masks`, `cameras` and `inputs` stages in front of `stereo`.
+`describe()` returns the start points of `run::describe()` for this build (in
+a browser: photos with `threshold` or `import` masks and `turntable`,
+`markers` or `import` cameras, and an inputs directory), for a form built from
+data.
 
 The bindings underneath (`web/src/lib.rs`): `Run` with `start(options, onEvent)`
 and `cancel()`, `putFile`, `getFile`, `listFiles`, `removeTree`,
-`setFileSource`, `settingsSchema`, `defaultSettings`, `version`.
+`setFileSource`, `setFileLister`, `describe`, `settingsSchema`,
+`defaultSettings`, `version`.
 
 Measured in headless Chromium 153 with WebGPU on an Apple M1. The adapter
 reports vendor `apple`, architecture `metal-3`, not a fallback adapter. The
@@ -1082,14 +1089,25 @@ all, against 93 s natively with four threads. Stages: masks 23 s, cameras
 contrast and scene 25 s), stereo 139 s, mesh 23 s, check 14 s. All 73 photos
 register; the cameras equal the native ones to 5e-11; 1 047 938 triangles,
 closed, genus 7; scanner F1 `above_margin` 0.963 / 0.995 / 1.000 and `all`
-0.902 / 0.938 / 0.955, as natively (0.964 / 0.995 / 1.000). Peak WebAssembly
-memory 2499 MiB: 375 MiB after the masks, 775 MiB after the cameras, the rest
-in stereo, 580 MiB above a run from the inputs directory. At the end the tree
-holds 249 MiB of the run (128 MiB of it the undistorted inputs) plus the
-100 MiB of photos. Lower would be: photos handed over through the source
-instead of copied (needs the tree to list the source), the photos and
-`frontend/work` released once the scene is written; where in the cameras
-stage the 400 MiB between the masks and the scene go has not been measured.
+0.902 / 0.938 / 0.955, as natively (0.964 / 0.995 / 1.000).
+
+Peak WebAssembly memory of that run was 2499 MiB. What brought it to 2038 MiB
+(each measured on the Bunny from photos):
+
+| Change | Peak | Photos stage high-water |
+| --- | --- | --- |
+| Photos copied into the tree (first run) | 2499 MiB | 775 MiB |
+| Photos handed over lazily (`setFileLister`) | 2404 MiB | 669 MiB |
+| The scene moved out to JavaScript after the cameras stage | 2032 MiB | 672 MiB |
+| Staged photos deleted once the contrast images exist (`reads_staged_photos`) | 2038 MiB | 570 MiB |
+
+The photos stage now stays well below the dense stages: the peak is set in
+`stereo`, 1468 MiB above where it starts, and 470 MiB of that come after
+fusion, while `volume.npz` and `depths.npz` are encoded in memory. A run from
+the inputs directory peaks at 1921 MiB for the same reason. Getting the
+Bunny well under 2 GiB therefore needs the volume handed to the surface stage
+without encoding it (or a streamed encoder), not more work in the photos
+stage.
 
 What a production browser build still lacks:
 
@@ -1106,8 +1124,7 @@ What a production browser build still lacks:
 - **Persistence.** Outputs live in memory until the host takes them; nothing is
   written to the origin-private file system, and a run cannot be resumed.
 - **Photo front end.** Runs from photos work with the providers without
-  external programs; SAM, COLMAP and AliceVision are not available, and the
-  photos are copied into WebAssembly memory rather than handed over lazily.
+  external programs; SAM, COLMAP and AliceVision are not available.
 - **Coverage.** One browser engine (Chromium), one GPU (Apple M1 through
   Metal) and SwiftShader; no Firefox or Safari, no Windows or Linux GPU.
 

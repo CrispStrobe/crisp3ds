@@ -41,6 +41,13 @@ pub trait CameraProvider {
 
     /// Bulky work files below the output directory that the scene does not need.
     fn intermediates(&self) -> &'static [&'static str];
+
+    /// Whether the provider reads the staged photos (`work/photos`); when not, they are
+    /// deleted as soon as the contrast images are written (unless intermediates are kept),
+    /// which in a browser keeps them out of memory while cameras are recovered.
+    fn reads_staged_photos(&self) -> bool {
+        false
+    }
 }
 
 pub fn camera_provider(options: &Options) -> Box<dyn CameraProvider> {
