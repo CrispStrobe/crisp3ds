@@ -1858,3 +1858,13 @@ fieldset.panel > legend {
   gap: 6px 12px;
   margin-top: 6px;
 }
+
+/* The way to compute on the web build: the first thing a visitor sees. */
+.card.featured {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.card.featured h2 {
+  font-size: 1.3rem;
+}

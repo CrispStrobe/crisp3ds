@@ -50,10 +50,10 @@ const shot = async (name) => {
 
 try {
   await page.goto(base + "#/");
-  const card = page.locator("section.card", { has: page.getByRole("heading", { name: "This browser" }) });
+  const card = page.locator("section.card", { has: page.getByRole("heading", { name: /This browser|Reconstruct in this browser/ }) });
   await card.waitFor();
   console.log("connection card:", (await card.innerText()).split("\n").slice(-1)[0]);
-  await card.getByRole("link", { name: /Use this browser|Open runs/ }).click();
+  await card.getByRole("link", { name: /Start in this browser|Use this browser|Open runs/ }).click();
   await page.getByRole("heading", { name: "Runs", level: 1 }).waitFor();
   console.log("runs screen:", (await page.locator(".page-head .sub").innerText()).trim());
   await page.getByRole("link", { name: /New run|Start the first run/ }).first().click();

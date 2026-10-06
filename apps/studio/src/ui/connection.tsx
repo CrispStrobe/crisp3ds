@@ -90,11 +90,18 @@ export function Connection({ prefs, onChange, localEngine, browser }: Props) {
   return (
     <section class="page narrow">
       <h1>Photos to a printable model</h1>
-      <p class="lead">
-        Studio shows a reconstruction as it happens: the photos, the masks, the depth found at each level and the
-        surface getting better step by step. The computing is done by an engine on a desktop computer; this page
-        connects to one, or plays back a recorded run.
-      </p>
+      {browser !== null && localEngine === null ? (
+        <p class="lead">
+          Crisp 3D Studio turns photos of an object on a turntable into a closed surface you can print (STL), and shows the
+          surface getting better step by step. It computes right here, in this browser, on this device's graphics processor:
+          nothing is uploaded and nothing needs to be installed.
+        </p>
+      ) : (
+        <p class="lead">
+          Studio shows a reconstruction as it happens: the photos, the masks, the depth found at each level and the surface
+          getting better step by step.
+        </p>
+      )}
 
       <div class="cards">
         {localEngine?.native && (
@@ -136,11 +143,12 @@ export function Connection({ prefs, onChange, localEngine, browser }: Props) {
           </section>
         )}
         {browser !== null && (
-          <section class="card wide" aria-labelledby="c-browser">
-            <h2 id="c-browser">This browser</h2>
+          <section class={`card wide${localEngine === null ? " featured" : ""}`} aria-labelledby="c-browser">
+            <h2 id="c-browser">{localEngine === null ? "Reconstruct in this browser" : "This browser"}</h2>
             <p>
-              Reconstruct here, in this browser, on this device's graphics processor. You choose a folder with cameras, photos
-              and masks; it is read on this device and nothing is uploaded. Runs are kept until this page is closed.
+              Choose a folder with the cameras, the photos and their masks (an inputs folder, as{" "}
+              <span class="mono">crisp3ds-dense inputs --pack</span> writes it). It is read on this device and nothing is
+              uploaded. The model can be downloaded as STL when the run is done; runs are kept until this page is closed.
             </p>
             {!browser.built ? (
               <p class="field-error">This build of Studio does not include the engine for browsers.</p>
@@ -152,7 +160,10 @@ export function Connection({ prefs, onChange, localEngine, browser }: Props) {
             ) : (
               <div class="actions">
                 <a class="button primary" href="#/engine" onClick={() => onChange({ engineChoice: "browser" })}>
-                  {browser.inUse ? "Open runs" : "Use this browser"}
+                  {browser.inUse ? "Open runs" : "Start in this browser"}
+                </a>
+                <a class="button" href="#/replay">
+                  <Icon name="play" /> See a recorded run first
                 </a>
               </div>
             )}
