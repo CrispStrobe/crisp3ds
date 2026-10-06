@@ -65,13 +65,13 @@ pub const MASKS_EXTERNAL_SAM: Provider = Provider {
 pub const MASKS_SAM: Provider = Provider {
     module: "masks",
     name: "sam",
-    selector: "--masks sam --sam-model DIR",
-    summary: "SAM 2.1 prompted by the threshold masks, in this process: a model directory (ONNX graphs) and, in builds with the feature sam-onnx, ONNX Runtime as a shared library",
+    selector: "--masks sam",
+    summary: "SAM 2.1 prompted by the threshold masks, in this process (builds with the feature sam-onnx): ONNX Runtime as a shared library; the model from --sam-model DIR, else fetched once from Hugging Face into the cache",
     desktop: true,
     mobile: false,
     wasm: false,
     external: &[],
-    license: "this crate (AGPL-3.0-only); SAM 2.1 model Apache-2.0; ONNX Runtime MIT; ort crate MIT OR Apache-2.0",
+    license: "this crate (AGPL-3.0-only); SAM 2.1 model Apache-2.0; ONNX Runtime MIT; ort and ureq crates MIT OR Apache-2.0",
     default: false,
 };
 

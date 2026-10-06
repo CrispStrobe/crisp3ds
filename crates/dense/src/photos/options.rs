@@ -266,7 +266,9 @@ masks, external-sam provider (flag, then environment variable):
                                   CRISP3DS_REPOSITORY: the checkout with scripts/turntable_mesh/segment.py]
   --sam-device mps|cpu|cuda (mps)   --[no-]sam-multimask --[no-]sam-preserve-holes --[no-]sam-automatic-cues (on)
 masks, sam provider (the three switches above apply to it too):
-  --sam-model DIR                 model.json with the ONNX graphs, as tools/sam2_export_onnx.py writes them [CRISP3DS_SAM_MODEL]
+  --sam-model DIR                 model.json with the ONNX graphs, as tools/sam2_export_onnx.py writes them [CRISP3DS_SAM_MODEL];
+                                  default: fetched on first use from huggingface.co/cstr/sam2.1-hiera-tiny-ONNX into the
+                                  cache (CRISP3DS_CACHE_DIR, else the platform's) and checked against pinned SHA-256
   --sam-runtime FILE              ONNX Runtime's shared library (libonnxruntime.dylib, .so, onnxruntime.dll)
                                   [CRISP3DS_SAM_RUNTIME, else ORT_DYLIB_PATH]
   --sam-accelerator cpu|coreml (cpu)

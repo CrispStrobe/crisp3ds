@@ -8,12 +8,15 @@
 //! | `select` | cleaning the candidate masks and choosing one |
 //! | `backend` | the model directory (`model.json`) and the interface to the network |
 //! | `onnx` | ONNX Runtime backend (cargo feature `sam-onnx`) |
+//! | `fetch` | the default model, downloaded on first use and checked against pinned SHA-256 (`sam-onnx`) |
 //! | `provider` | the mask provider: files, progress, report |
 //!
 //! Only `onnx` and `provider` depend on the platform; the rest is plain Rust
 //! and builds for every target.
 
 pub mod backend;
+#[cfg(feature = "sam-onnx")]
+pub mod fetch;
 pub mod image;
 #[cfg(feature = "sam-onnx")]
 pub mod onnx;

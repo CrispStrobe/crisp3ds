@@ -21,23 +21,38 @@ use super::{segment, Settings};
 
 pub const SCHEMA: &str = "crisp3ds_sam_native_v1";
 
-/// Whether a model directory and (for backends that load one) a runtime library allow a run; the model's name if so.
+/// The default model in the cache, fetched on first use, in builds that can run it.
+fn default_model() -> Option<PathBuf> {
+    #[cfg(feature = "sam-onnx")]
+    return super::fetch::default_model_directory();
+    #[cfg(not(feature = "sam-onnx"))]
+    None
+}
+
+/// Whether a model directory (or the default model, fetched on first use) and the runtime library allow a run;
+/// what will run if so. Looks at files only: no network.
 pub fn readiness(model: Option<&Path>, runtime: Option<&Path>) -> Result<String, String> {
+    let runtime_ready = || match runtime.map(Path::to_path_buf).or_else(|| std::env::var_os("ORT_DYLIB_PATH").map(PathBuf::from)) {
+        None => Err("ONNX Runtime's shared library is not given (--sam-runtime FILE or ORT_DYLIB_PATH)".to_string()),
+        Some(library) if !library.is_file() => Err(format!("{}: ONNX Runtime's shared library not found", library.display())),
+        Some(_) => Ok(()),
+    };
     let Some(directory) = model else {
-        return Err(
-            "no model directory (--sam-model DIR or CRISP3DS_SAM_MODEL; crates/dense/tools/sam2_export_onnx.py writes one)".to_string()
-        );
+        if let Some(reason) = backend::unavailable("onnx") {
+            return Err(format!("no model directory (--sam-model DIR or CRISP3DS_SAM_MODEL), and {reason}"));
+        }
+        let Some(cache) = default_model() else {
+            return Err("no model directory (--sam-model DIR) and no cache directory to fetch the default model into".to_string());
+        };
+        runtime_ready()?;
+        return Ok(format!("sam2.1_hiera_tiny (onnx), from {} (fetched on first use)", cache.display()));
     };
     let model = ModelInfo::read(directory).map_err(|error| format!("{error:#}"))?;
     if let Some(reason) = backend::unavailable(&model.format) {
         return Err(reason);
     }
     if model.format == "onnx" {
-        match runtime.map(Path::to_path_buf).or_else(|| std::env::var_os("ORT_DYLIB_PATH").map(PathBuf::from)) {
-            None => return Err("ONNX Runtime's shared library is not given (--sam-runtime FILE or ORT_DYLIB_PATH)".to_string()),
-            Some(library) if !library.is_file() => return Err(format!("{}: ONNX Runtime's shared library not found", library.display())),
-            Some(_) => {}
-        }
+        runtime_ready()?;
     }
     Ok(format!("{} ({})", model.name, model.format))
 }
@@ -178,7 +193,10 @@ impl MaskProvider for NativeSam {
         let options = run.options;
         let work = run.out.join("work");
         let target = work.join("sam-native");
-        let directory = options.sam.model.clone().ok_or_else(|| anyhow!("--masks sam needs --sam-model"))?;
+        let (directory, low) = match options.sam.model.clone() {
+            Some(directory) => (directory, low),
+            None => (fetched(run, low, high)?, low + 0.25 * (high - low)),
+        };
         let model = ModelInfo::read(&directory)?;
         let settings = Settings { multimask: options.sam.multimask, preserve_holes: options.sam.preserve_holes };
         let report =
@@ -196,6 +214,29 @@ impl MaskProvider for NativeSam {
     fn dropped_warning(&self) -> Option<&'static str> {
         Some("SAM dropped")
     }
+}
+
+/// The default model, downloaded into the cache unless it is already there; progress goes to the first quarter.
+#[cfg(feature = "sam-onnx")]
+fn fetched(run: &mut Run, low: f64, high: f64) -> anyhow::Result<PathBuf> {
+    use super::fetch;
+    let directory = fetch::default_model_directory().ok_or_else(|| anyhow!("--masks sam: no cache directory; give --sam-model"))?;
+    if fetch::present(&directory) {
+        return Ok(directory);
+    }
+    let megabytes = (fetch::total_bytes() >> 20) as usize;
+    let message = format!("Downloading the SAM 2.1 model ({megabytes} MB) from {}", fetch::REPOSITORY);
+    let timeout = run.options.timeouts.sam;
+    run.internal("masks", "sam-download", timeout, low, low + 0.25 * (high - low), &message, megabytes, |watch| {
+        fetch::ensure(&directory, &mut |done, _| watch((done >> 20) as usize))
+    })?;
+    run.note("sam_download", json!({"from": fetch::REPOSITORY, "into": directory, "bytes": fetch::total_bytes()}));
+    Ok(directory)
+}
+
+#[cfg(not(feature = "sam-onnx"))]
+fn fetched(_run: &mut Run, _low: f64, _high: f64) -> anyhow::Result<PathBuf> {
+    bail!("--masks sam needs --sam-model in a build without the feature sam-onnx")
 }
 
 fn run_into(
@@ -216,7 +257,15 @@ mod tests {
 
     #[test]
     fn readiness_names_what_is_missing() {
-        assert!(readiness(None, None).unwrap_err().contains("--sam-model"));
+        if backend::compiled().is_empty() {
+            assert!(readiness(None, None).unwrap_err().contains("--sam-model"));
+        } else {
+            // Without a model directory the default model is fetched on first use; the runtime is still needed.
+            let library = std::env::temp_dir().join(format!("crisp3ds-sam-library-{}", std::process::id()));
+            std::fs::write(&library, b"").unwrap();
+            assert!(readiness(None, Some(&library)).unwrap().contains("fetched on first use"));
+            std::fs::remove_file(&library).unwrap();
+        }
         let folder = std::env::temp_dir().join(format!("crisp3ds-sam-ready-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&folder);
         std::fs::create_dir_all(&folder).unwrap();

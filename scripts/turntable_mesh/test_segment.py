@@ -420,6 +420,22 @@ class SegmentTests(unittest.TestCase):
                 report["model_after"]["checkpoint_sha256"],
             )
 
+    def test_hiera_pools_a_contiguous_query(self):
+        seen = []
+
+        class View:
+            def contiguous(self):
+                seen.append("copied")
+                return "copy"
+
+        module = SimpleNamespace(do_pool=lambda x, pool, norm=None: (x, pool, norm))
+        segment.contiguous_query_pool(module)
+        segment.contiguous_query_pool(module)
+        self.assertEqual(module.do_pool(View(), "pool"), ("copy", "pool", None))
+        self.assertEqual(seen, ["copied"])
+        unpooled = View()
+        self.assertIs(module.do_pool(unpooled, None)[0], unpooled)
+
     def test_unavailable_mps_has_no_cpu_fallback(self):
         fake_torch = SimpleNamespace(
             backends=SimpleNamespace(mps=SimpleNamespace(is_available=lambda: False))

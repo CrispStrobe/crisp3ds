@@ -402,6 +402,26 @@ def select_prediction(masks, scores, prompt, dimensions, *, preserve_holes=False
     )
 
 
+def contiguous_query_pool(hieradet):
+    """Make Hiera pool a contiguous copy of its query (SAM 2 source left as it is).
+
+    PyTorch 2.7 on Apple MPS returns wrong values from max_pool2d for the
+    strided view of the query that `hieradet.do_pool` pools at every stage
+    change (error about 5 on random data; 0 with a contiguous copy), so every
+    block after the first stage was wrong on MPS. On the CPU the result is
+    unchanged. Idempotent; returns the module."""
+    original = hieradet.do_pool
+    if getattr(original, "contiguous_query", False):
+        return hieradet
+
+    def do_pool(x, pool, norm=None):
+        return original(x.contiguous() if pool is not None else x, pool, norm)
+
+    do_pool.contiguous_query = True
+    hieradet.do_pool = do_pool
+    return hieradet
+
+
 def _load_predictor(source, checkpoint, config, device):
     import torch
 
@@ -412,7 +432,10 @@ def _load_predictor(source, checkpoint, config, device):
     sys.path.insert(0, str(source.resolve()))
     try:
         from sam2.build_sam import build_sam2
+        from sam2.modeling.backbones import hieradet
         from sam2.sam2_image_predictor import SAM2ImagePredictor
+
+        contiguous_query_pool(hieradet)
 
         model = build_sam2(
             config, str(checkpoint), device=device, apply_postprocessing=False
@@ -426,7 +449,7 @@ def _load_predictor(source, checkpoint, config, device):
         predictor,
         torch.inference_mode,
         synchronize,
-        {"torch": torch.__version__, "device": device},
+        {"torch": torch.__version__, "device": device, "hiera_query_pool": "contiguous copy (MPS max_pool2d fix)"},
     )
 
 

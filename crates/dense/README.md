@@ -21,6 +21,7 @@ reference for what was ported, and is not extended.
 | Camera provider `colmap` | external program: COLMAP (BSD-3-Clause), started as a child process |
 | Camera provider `alicevision` | external programs: AliceVision (MPL-2.0), started as child processes |
 | Mask provider `external-sam` | external program: SAM 2.1 in Python with PyTorch (Apache-2.0, BSD-3-Clause) |
+| Mask provider `sam` (feature `sam-onnx`, off by default) | this crate (`src/photos/sam/`); the network runs in ONNX Runtime (MIT), loaded as a shared library at run time through the `ort` crate; the model (SAM 2.1 Hiera-tiny, Apache-2.0) from `--sam-model DIR` or fetched once from Hugging Face |
 | Inputs from a scene (`inputs`), dense stereo (`stereo`, GPU), surface (`mesh`), photo check (`check`) | this crate |
 | Run driver, events, cancellation, settings schema, start points and provider description | this crate |
 | In a browser (`web/`) | this crate as WebAssembly: the dense stages from an inputs folder; no external programs |
@@ -978,6 +979,22 @@ licenses are listed here as they are added.
 | fs4 | MIT OR Apache-2.0 | free disk space before a run (not on wasm32) |
 | web-time | MIT OR Apache-2.0 | clock that also works in a browser |
 | libc (Unix only) | MIT OR Apache-2.0 | signalling the process group of an external tool (`src/photos/process.rs`) |
+| ort 2.0.0-rc.13 (feature `sam-onnx` only, not on wasm32) | MIT OR Apache-2.0 | binding to ONNX Runtime for the `sam` mask provider; loads the runtime library at run time (`load-dynamic`), links nothing at build time |
+| ureq 3 with rustls, ring, webpki-roots (feature `sam-onnx` only, not on wasm32) | MIT OR Apache-2.0; rustls Apache-2.0 OR ISC OR MIT; ring Apache-2.0 AND ISC; webpki-roots CDLA-Permissive-2.0 | fetching the default SAM model on first use (`src/photos/sam/fetch.rs`) |
+
+Runtime and model of the `sam` provider, neither part of the build: ONNX
+Runtime (MIT; the shared library given with `--sam-runtime` or
+`ORT_DYLIB_PATH`) and SAM 2.1 Hiera-tiny converted to ONNX (Apache-2.0,
+Copyright Meta Platforms, Inc. and affiliates; `huggingface.co/cstr/sam2.1-hiera-tiny-ONNX`,
+written by `tools/sam2_export_onnx.py`).
+
+**SAM masks and PyTorch MPS.** Masks from `--masks external-sam` with
+`--sam-device mps` (the default) made before 2026-10-06 came from a partly
+wrong encoder: PyTorch 2.7 on MPS computes the pooled query of SAM 2's Hiera
+encoder wrongly (see `scripts/turntable_mesh/README.md`; `segment.py` now
+works around it). Every score "with SAM masks" in this file was made with those
+masks. The `sam` provider computes like PyTorch on the CPU (Bunny: 69 of 73
+masks identical to the reference script on the CPU, lowest IoU 0.999996).
 
 Browser package only (`web/`): wasm-bindgen, wasm-bindgen-futures and js-sys
 (MIT OR Apache-2.0) for the bindings, console_error_panic_hook (Apache-2.0 OR

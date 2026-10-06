@@ -247,6 +247,17 @@ The scanner is used for scoring only, never as input.
 All four meshes are closed. Lucy's thin wings and raised arm are partly lost. Surface
 extraction adds about 20 s and the photo check about 20 s.
 
+**SAM masks made on MPS before 2026-10-06 came from a partly wrong encoder.**
+PyTorch 2.7 on Apple MPS returns wrong values from `max_pool2d` for the strided
+query view that SAM 2's Hiera encoder pools at every stage change, so every
+encoder block after the first stage was wrong; on the CPU it is right.
+`segment.py` now pools a contiguous copy (`contiguous_query_pool`, applied when
+the model is loaded; the SAM source is not edited), and its MPS masks then
+equal the CPU masks (Bunny: 71 of 73 identical, lowest IoU 0.999996; before the
+fix median IoU 0.977, lowest 0.844). Every published score "with SAM masks" in
+this repository, including the table above and the dense-stage tables of
+`crates/dense/README.md`, was made with the earlier MPS masks.
+
 What the scored experiments on the Dragon showed (each changes one thing):
 
 | Change | Effect on F1 @0.5%, above support | Decision |

@@ -40,6 +40,13 @@ optional = true
 default-features = false
 features = ["std", "load-dynamic", "api-20", "coreml"]
 
+# Fetching the default SAM model on first use (src/photos/sam/fetch.rs), only with the feature `sam-onnx`.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.ureq]
+version = "3.4"
+optional = true
+default-features = false
+features = ["rustls"]
+
 # Signalling the process group of an external tool (src/photos/process.rs).
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -48,7 +55,7 @@ libc = "0.2"
 # The C interface of the run driver (src/capi.rs, include/crisp3ds_dense.h).
 capi = []
 # The `sam` mask provider's ONNX backend: `--masks sam --sam-model DIR --sam-runtime libonnxruntime`.
-sam-onnx = ["dep:ort"]
+sam-onnx = ["dep:ort", "dep:ureq"]
 
 [profile.release]
 opt-level = 3

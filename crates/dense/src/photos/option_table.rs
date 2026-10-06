@@ -242,7 +242,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         choices: &[],
         variable: Some("CRISP3DS_SAM_MODEL"),
         repeated: false,
-        meaning: "Model directory: model.json and the ONNX graphs, as crates/dense/tools/sam2_export_onnx.py writes them",
+        meaning: "Model directory: model.json and the ONNX graphs, as crates/dense/tools/sam2_export_onnx.py writes them (default: SAM 2.1 Hiera-tiny from huggingface.co/cstr/sam2.1-hiera-tiny-ONNX, fetched into the cache on first use and checked against pinned SHA-256)",
     },
     OptionSpec {
         flag: "sam-runtime",
