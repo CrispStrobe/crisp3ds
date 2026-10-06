@@ -80,6 +80,9 @@ pub struct Gates {
     pub maximum_reversed_steps: i64,
     pub maximum_optical_axis_miss_percent: f64,
     pub duplicate_step_deg: f64,
+    /// The photos are one closed turn: the closure gate applies.
+    pub full_turn: bool,
+    pub maximum_closing_step_ratio: f64,
 }
 
 impl Gates {
@@ -95,6 +98,8 @@ impl Gates {
             "maximum_reversed_steps": self.maximum_reversed_steps,
             "maximum_optical_axis_miss_percent": self.maximum_optical_axis_miss_percent,
             "duplicate_step_deg": self.duplicate_step_deg,
+            "full_turn": self.full_turn,
+            "maximum_closing_step_ratio": self.maximum_closing_step_ratio,
         })
     }
 }
@@ -280,7 +285,8 @@ quality gates (a failed gate means exit code 2 and no scene):
   --minimum-registered-fraction 0.8   --minimum-observations-per-view 20   --maximum-view-reprojection-p95 4.0
   --minimum-positive-depth-fraction 0.999   --maximum-radius-spread-percent 5   --maximum-out-of-plane-percent 5
   --maximum-angular-gap-deg 30   --maximum-reversed-steps 0   --maximum-optical-axis-miss-percent 25
-  --duplicate-step-deg 0.5 (warning only)";
+  --duplicate-step-deg 0.5 (warning only)
+  --maximum-closing-step-ratio 2.5   unless --open-turn: what is left from the last photo to the first, over the median step";
 
 const SWITCHES: &[&str] = &["open-turn", "keep-intermediates", "sam-multimask", "sam-preserve-holes", "sam-automatic-cues"];
 /// Options that may be given several times.
@@ -351,6 +357,7 @@ const VALUED: &[&str] = &[
     "maximum-reversed-steps",
     "maximum-optical-axis-miss-percent",
     "duplicate-step-deg",
+    "maximum-closing-step-ratio",
 ];
 /// Names of the reference command line that live on under a provider's namespace.
 const ALIASES: &[(&str, &str)] = &[
@@ -630,6 +637,8 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
             maximum_reversed_steps: integer("maximum-reversed-steps", 0)?,
             maximum_optical_axis_miss_percent: number("maximum-optical-axis-miss-percent", 25.0)?,
             duplicate_step_deg: number("duplicate-step-deg", 0.5)?,
+            full_turn: !switch("open-turn", false),
+            maximum_closing_step_ratio: number("maximum-closing-step-ratio", 2.5)?,
         },
     };
     super::coarse::validate_envelope(&options.envelope)?;

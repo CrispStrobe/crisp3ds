@@ -213,6 +213,7 @@ pub fn ring_statistics(cameras: &[SceneCamera], duplicate_step_deg: f64) -> Valu
     let (nearest, farthest) = distance.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &d| (lo.min(d), hi.max(d)));
     json!({
         "registered": count, "degenerate": false, "fitted_radius": radius,
+        "first_capture": cameras[0].index, "last_capture": cameras[count - 1].index,
         "radius_spread_percent": (farthest - nearest) / radius * 100.0,
         "out_of_plane_percent": centred.iter().map(|&c| dot(c, normal).abs()).fold(0.0, f64::max) / radius * 100.0,
         "largest_angular_gap_deg": largest_gap, "unwrapped_sweep_deg": angle[count - 1] - angle[0],
@@ -284,6 +285,26 @@ pub fn decide_gates(audit: &Value, ring: &Value, limits: &Value) -> (bool, Vec<S
     if miss > limit("maximum_optical_axis_miss_percent") {
         let l = shown("maximum_optical_axis_miss_percent");
         reasons.push(format!("a camera's optical axis misses the ring axis by {miss:.1}% of the radius; limit {l}%"));
+    }
+    // A capture declared a full turn must close: what is left from the last photo back to the first,
+    // per capture step, is a step like the others. Step angles that are all a few percent too large or
+    // too small leave every other number plausible and show only here.
+    if limits.get("full_turn").and_then(Value::as_bool) == Some(true) {
+        let photos = audit.get("input_images").and_then(Value::as_f64).unwrap_or(0.0);
+        let span = ring["last_capture"].as_f64().unwrap_or(0.0) - ring["first_capture"].as_f64().unwrap_or(0.0);
+        let (slots, median) = ((photos - span).max(1.0), ring["step_deg_per_capture"]["median"].as_f64().unwrap_or(f64::NAN));
+        let closing = (360.0 - value("unwrapped_sweep_deg")) / slots;
+        let ratio = limits.get("maximum_closing_step_ratio").and_then(Value::as_f64).unwrap_or(2.5);
+        if closing < -0.25 * median {
+            reasons.push(format!(
+                "the cameras turn {:.1} degrees from the first photo to the last, past a full turn (median step {median:.2}); pass --open-turn if the photos are not one closed turn",
+                value("unwrapped_sweep_deg")
+            ));
+        } else if closing > ratio * median {
+            reasons.push(format!(
+                "the turn does not close: {closing:.1} degrees per step are left from the last photo to the first, the median step is {median:.2}; pass --open-turn if the photos are not one closed turn"
+            ));
+        }
     }
     let outward = ring["cameras_looking_outward"].as_u64().unwrap_or(0);
     if outward > 0 {
@@ -493,6 +514,32 @@ pub(crate) mod tests {
         // Column-major storage: the second row of the matrix is elements 1, 4, 7.
         assert_eq!(cameras[0].rotation[1], [0.0, 0.0, -1.0]);
         assert_eq!(cameras[0].rotation[2], [0.0, 1.0, 0.0]);
+    }
+
+    #[test]
+    fn a_declared_full_turn_must_close() {
+        let full = with(&limits(), json!({"full_turn": true, "maximum_closing_step_ratio": 2.5}));
+        let audit = with(&good_audit(), json!({"registered_cameras": 73, "input_images": 73}));
+        let steps = |step: f64| (0..73).map(|n| n as f64 * step).collect::<Vec<_>>();
+        // 73 photos, 72 steps of 4.94 degrees: 4.5 degrees are left, a step like the others.
+        let ring = ring_statistics(&orbit(&steps(4.9375), None), 0.5);
+        assert_eq!(decide_gates(&audit, &ring, &full), (true, vec![]));
+        // The first and the last photo at the same place close too.
+        assert!(decide_gates(&audit, &ring_statistics(&orbit(&steps(5.0), None), 0.5), &full).0);
+        // The Bunny solution that scored 0.64: 363.6 degrees from the first photo to the last.
+        let wrong = ring_statistics(&orbit(&steps(363.645 / 72.0), None), 0.5);
+        let (passed, reasons) = decide_gates(&audit, &wrong, &full);
+        assert!(
+            !passed && reasons[0].starts_with("the cameras turn 363.6 degrees from the first photo to the last, past a full turn"),
+            "{reasons:?}"
+        );
+        assert!(decide_gates(&audit, &wrong, &limits()).0, "without the declaration nothing else notices");
+        // Steps 4 % too small leave a hole at the seam.
+        let short = ring_statistics(&orbit(&steps(4.74), None), 0.5);
+        assert!(decide_gates(&audit, &short, &full).1[0].starts_with("the turn does not close: 18.7 degrees"));
+        // Photos missing at the end are counted as steps.
+        let partial: Vec<_> = orbit(&steps(4.9375), None).into_iter().take(70).collect();
+        assert!(decide_gates(&audit, &ring_statistics(&partial, 0.5), &full).0);
     }
 
     #[test]
