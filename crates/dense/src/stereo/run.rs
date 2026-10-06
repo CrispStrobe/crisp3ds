@@ -14,7 +14,7 @@ use crate::gpu::Gpu;
 use crate::hull::{build_hull, Hull, HullState, VoxelList};
 use crate::inputs::{parallel_map, round_half_even, Inputs, Plane};
 use crate::npz::{self, Array, Data, Npz};
-use crate::repair::{repair_masks, Coverer};
+use crate::repair::{repair_masks_with, Coverer};
 
 use super::level::{build_level, level_sizes};
 use super::levels::{match_levels, LevelContext};
@@ -210,7 +210,8 @@ pub async fn run_with(
         let mut rounds = Vec::new();
         for _ in 0..config.repair_rounds {
             control.check()?;
-            rounds.push(repair_masks(gpu, &mut inputs, &state, config).await?);
+            rounds.push(repair_masks_with(gpu, &mut inputs, &state, config, &|| control.check()).await?);
+            control.check()?;
             state = build_hull(gpu, &inputs, config, &mut voxel).await?;
             report["hull_repaired"] = hull_report(&state, t)?;
         }

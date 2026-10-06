@@ -13,7 +13,7 @@
 //! against a reference scan; those stay in the Python driver.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use web_time::{Duration, Instant};
@@ -186,6 +186,10 @@ struct PreviewMesher {
     config: DenseConfig,
     step: usize,
     threads: usize,
+    /// Stops a preview mesh in progress: the run's cancel file, and `stop`, which `settle` sets when the
+    /// run is cancelled or has failed, so that the run ends without waiting for a mesh nobody will see.
+    control: Control,
+    stop: Arc<AtomicBool>,
 }
 
 impl PreviewMesher {
@@ -194,7 +198,16 @@ impl PreviewMesher {
     }
 
     fn mesh(&self, volume: &Path, label: &str) {
-        let result = crate::mesh::run(volume, &volume.with_extension(""), &self.config, self.step, &self.events, Some(label), self.threads);
+        let result = crate::mesh::run_with(
+            volume,
+            &volume.with_extension(""),
+            &self.config,
+            self.step,
+            &self.events,
+            Some(label),
+            self.threads,
+            &self.control,
+        );
         let log = match &result {
             Ok(report) => serde_json::to_string_pretty(report).unwrap_or_default(),
             Err(error) => format!("{error:#}"),
@@ -234,6 +247,7 @@ impl PreviewMesher {
     /// Returns when no preview is waiting or being meshed. `abandon` drops the waiting ones.
     fn settle(&self, abandon: bool) {
         if abandon {
+            self.stop.store(true, Ordering::Relaxed);
             let mut state = self.lock();
             state.abandoned = true;
             state.waiting.clear();
@@ -431,7 +445,10 @@ pub async fn run_async(options: &RunOptions, observer: Option<Observer>, cancel:
         }
     });
     let events = EventLog::for_run(&output, Some(watching));
+    let stop = Arc::new(AtomicBool::new(false));
     let mesher = Arc::new(PreviewMesher {
+        control: Control::new(Some(stop.clone()), Some(output.join("cancel")), None, None)?,
+        stop,
         queue,
         events: events.stage("stereo"),
         config: config.clone(),

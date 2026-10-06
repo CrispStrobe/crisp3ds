@@ -178,6 +178,17 @@ pub struct RepairRound {
 /// support) and is darker than the midpoint between this photo's object range
 /// and its backdrop. Rewrites `inputs.masks`.
 pub async fn repair_masks(gpu: &Gpu, inputs: &mut Inputs, state: &HullState, config: &DenseConfig) -> anyhow::Result<RepairRound> {
+    repair_masks_with(gpu, inputs, state, config, &|| Ok(())).await
+}
+
+/// [`repair_masks`] that can be stopped: `check` is called before every view's coverage pass.
+pub async fn repair_masks_with(
+    gpu: &Gpu,
+    inputs: &mut Inputs,
+    state: &HullState,
+    config: &DenseConfig,
+    check: &dyn Fn() -> anyhow::Result<()>,
+) -> anyhow::Result<RepairRound> {
     let (near_ring, far_ring) = (5usize, 15usize);
     let hull = &state.hull;
     let axes = [hull.axis(0), hull.axis(1), hull.axis(2)];
@@ -205,6 +216,7 @@ pub async fn repair_masks(gpu: &Gpu, inputs: &mut Inputs, state: &HullState, con
     let coverer = Coverer::new(gpu).await?;
     let mut covers = Vec::with_capacity(inputs.count());
     for n in 0..inputs.count() {
+        check()?;
         covers.push(coverer.cover(&list, &inputs.cameras[n], inputs.masks[n].width, inputs.masks[n].height).await?);
     }
     let repaired: Vec<(Plane<u8>, f64)> = parallel_map(inputs.count(), |n| {
