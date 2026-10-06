@@ -1831,3 +1831,22 @@ fieldset.panel > legend {
   overflow-wrap: anywhere;
   font-size: 0.8rem;
 }
+
+/* Phone width: the navigation gets a row of its own, so nothing overlaps. */
+@media (max-width: 560px) {
+  .topbar {
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+
+  .theme-toggle {
+    margin-left: auto;
+  }
+
+  .topnav {
+    order: 3;
+    flex-basis: 100%;
+    margin-left: 0;
+    overflow-x: auto;
+  }
+}
