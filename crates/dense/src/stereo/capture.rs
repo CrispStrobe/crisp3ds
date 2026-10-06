@@ -68,11 +68,43 @@ pub struct CaptureLens {
 
 /// Writes `photos/shot_NNN.png`, `lens.json` and `truth.json` into a fresh directory.
 /// The camera circles the unit sphere at six radii, twenty degrees above its equator.
+/// The unit sphere, and for a capture of known handedness three bumps of different sizes on its
+/// +x, +y and +z axes (centres and radii), large enough that much of the surface carries the asymmetry:
+/// a mirror image of this object is not a rotation of it.
+pub const BUMPS: [([f64; 3], f64); 3] = [([1.0, 0.0, 0.0], 0.7), ([0.0, 1.0, 0.0], 0.5), ([0.0, 0.0, 1.0], 0.3)];
+
+/// Nearest hit of a ray with the object (the sphere, with the bumps when `asymmetric`), as a ray parameter.
+fn hit(origin: [f64; 3], direction: [f64; 3], asymmetric: bool) -> Option<f64> {
+    let spheres = std::iter::once(([0.0; 3], 1.0)).chain(BUMPS.iter().copied().filter(|_| asymmetric));
+    let mut best: Option<f64> = None;
+    for (centre, radius) in spheres {
+        let o = [origin[0] - centre[0], origin[1] - centre[1], origin[2] - centre[2]];
+        let a: f64 = direction.iter().map(|d| d * d).sum();
+        let b: f64 = (0..3).map(|i| direction[i] * o[i]).sum();
+        let c: f64 = o.iter().map(|v| v * v).sum::<f64>() - radius * radius;
+        let discriminant = b * b - a * c;
+        if discriminant > 0.0 {
+            let t = (-b - discriminant.sqrt()) / a;
+            if t > 0.0 && best.is_none_or(|old| t < old) {
+                best = Some(t);
+            }
+        }
+    }
+    best
+}
+
 pub fn write(output: &Path, views: usize, width: usize, height: usize) -> anyhow::Result<()> {
+    write_object(output, views, width, height, false)
+}
+
+/// [`write`] of the sphere, or with `asymmetric` of the sphere with three bumps ([`BUMPS`]).
+pub fn write_object(output: &Path, views: usize, width: usize, height: usize, asymmetric: bool) -> anyhow::Result<()> {
     ensure!(views >= 8 && width >= 160 && height >= 120, "a capture needs at least 8 views of 160 x 120 pixels");
     ensure!(!output.exists(), "output directory exists: {}", output.display());
     std::fs::create_dir_all(output.join("photos")).with_context(|| output.display().to_string())?;
-    let focal = 0.9 * height as f64 / (2.0 * (1.0f64 / 6.0).asin().tan());
+    // The object (radius 1, with the bumps up to 1.7 from the centre) fills nine tenths of the frame height.
+    let reach = if asymmetric { 1.75 } else { 1.0 };
+    let focal = 0.9 * height as f64 / (2.0 * (reach / 6.0f64).asin().tan());
     let lens =
         CaptureLens { fx: focal, fy: focal * 1.002, cx: width as f64 / 2.0 - 0.7, cy: height as f64 / 2.0 + 0.4, k: [-0.06, 0.02, -0.004] };
     let (distance, elevation) = (6.0, 20.0);
@@ -95,15 +127,9 @@ pub fn write(output: &Path, views: usize, width: usize, height: usize) -> anyhow
                         (u, v) = (xd / gain, yd / gain);
                     }
                     let direction = [0, 1, 2].map(|a| u * rotation[0][a] + v * rotation[1][a] + rotation[2][a]);
-                    let b: f64 = (0..3).map(|a| direction[a] * centre[a]).sum();
-                    let a: f64 = direction.iter().map(|d| d * d).sum();
-                    let c: f64 = centre.iter().map(|d| d * d).sum::<f64>() - 1.0;
-                    let discriminant = b * b - a * c;
-                    sum += if discriminant > 0.0 {
-                        let t = (-b - discriminant.sqrt()) / a;
-                        texture([0, 1, 2].map(|i| centre[i] + direction[i] * t))
-                    } else {
-                        0.86
+                    sum += match hit(centre, direction, asymmetric) {
+                        Some(t) => texture([0, 1, 2].map(|i| centre[i] + direction[i] * t)),
+                        None => 0.86,
                     };
                 }
                 pixels.extend([(255.0 * sum / 4.0 + 0.5) as u8; 3]);
@@ -120,7 +146,10 @@ pub fn write(output: &Path, views: usize, width: usize, height: usize) -> anyhow
         "provenance": {"source": "crisp3ds-dense synthetic --capture: the lens the photos were rendered with"},
     });
     std::fs::write(output.join("lens.json"), serde_json::to_string_pretty(&calibration)? + "\n")?;
-    let truth = json!({"views": truth, "orbit_radius": distance, "elevation_degrees": elevation, "object": "unit sphere at the origin"});
+    let object = if asymmetric { "unit sphere at the origin with bumps" } else { "unit sphere at the origin" };
+    let bumps: Vec<Value> = BUMPS.iter().filter(|_| asymmetric).map(|(c, r)| json!({"centre": c, "radius": r})).collect();
+    let truth = json!({"views": truth, "orbit_radius": distance, "elevation_degrees": elevation, "object": object, "bumps": bumps,
+                       "camera_convention": "x right, y down, z forward (right-handed); rotation maps world to camera"});
     std::fs::write(output.join("truth.json"), serde_json::to_string_pretty(&truth)? + "\n")?;
     Ok(())
 }

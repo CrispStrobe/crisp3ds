@@ -479,9 +479,13 @@ default. The flat base assumes the object stands on the turntable; it is now
 cut only when the silhouette hull below the support height is the shallow
 cone a support plane leaves (no camera sees through the plane, so the hull
 reaches below it only by about tan(elevation) times the footprint radius).
-Floating means deeper than 15 % of the object's height and 1.5 times that
-cone. The four objects: 2.7 to 5.5 % of their height, support kept; the demo
-sphere seen from a 10-degree ring: 26 %, no support, no cut. Where nothing is
+Floating means deeper than 15 % of the object's height. The four objects:
+2.7 to 5.5 % of their height, support kept; the demo sphere from a 10-degree
+ring and the asymmetric test object from a 20-degree ring: 26 %, no support,
+no cut. (The cone itself cannot be the test: under a floating sphere the
+hull is a cone of the same slope. A wide, flat object whose cone is deeper
+than 15 % of its height keeps the hull cone under it instead of a flat
+base.) Where nothing is
 measured, the surface used to lie on the silhouette hull, which stands
 outside the object by the mask tolerance and by what a ring of views cannot
 carve. It is now moved inside by the hull's measured overshoot: the median
