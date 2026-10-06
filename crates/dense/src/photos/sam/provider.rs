@@ -33,10 +33,18 @@ fn default_model() -> Option<PathBuf> {
 /// Whether a model directory (or the default model, fetched on first use) and the runtime library allow a run;
 /// what will run if so. Looks at files only: no network.
 pub fn readiness(model: Option<&Path>, runtime: Option<&Path>) -> Result<String, String> {
-    let runtime_ready = || match runtime.map(Path::to_path_buf).or_else(|| std::env::var_os("ORT_DYLIB_PATH").map(PathBuf::from)) {
-        None => Err("ONNX Runtime's shared library is not given (--sam-runtime FILE or ORT_DYLIB_PATH)".to_string()),
-        Some(library) if !library.stored_file() => Err(format!("{}: ONNX Runtime's shared library not found", library.display())),
-        Some(_) => Ok(()),
+    // The library a format's backend opens: ONNX Runtime for onnx, libcrispembed-sam2 for gguf.
+    let runtime_ready = |format: &str| {
+        let (variable, what) = if format == "gguf" {
+            ("CRISPEMBED_SAM2_LIB", "libcrispembed-sam2")
+        } else {
+            ("ORT_DYLIB_PATH", "ONNX Runtime's shared library")
+        };
+        match runtime.map(Path::to_path_buf).or_else(|| std::env::var_os(variable).map(PathBuf::from)) {
+            None => Err(format!("{what} is not given (--sam-runtime FILE or {variable})")),
+            Some(library) if !library.stored_file() => Err(format!("{}: {what} not found", library.display())),
+            Some(_) => Ok(()),
+        }
     };
     let Some(directory) = model else {
         if let Some(reason) = backend::unavailable("onnx") {
@@ -45,21 +53,22 @@ pub fn readiness(model: Option<&Path>, runtime: Option<&Path>) -> Result<String,
         let Some(cache) = default_model() else {
             return Err("no model directory (--sam-model DIR) and no cache directory to fetch the default model into".to_string());
         };
-        runtime_ready()?;
+        runtime_ready("onnx")?;
         return Ok(format!("sam2.1_hiera_tiny (onnx), from {} (fetched on first use)", cache.display()));
     };
     let model = ModelInfo::read(directory).map_err(|error| format!("{error:#}"))?;
     if let Some(reason) = backend::unavailable(&model.format) {
         return Err(reason);
     }
-    if model.format == "onnx" {
-        runtime_ready()?;
-    }
+    runtime_ready(&model.format)?;
     Ok(format!("{} ({})", model.name, model.format))
 }
 
 /// Compares the files of a model directory with the SHA-256 its `model.json` records.
 pub fn verify_files(model: &ModelInfo) -> anyhow::Result<()> {
+    if model.files.is_null() {
+        return Ok(()); // a GGUF given as a file: no record to compare with
+    }
     for file in [&model.encoder, &model.decoder] {
         let name = file_name(file);
         let Some(expected) = model.files[&name]["sha256"].as_str() else { bail!("model.json records no SHA-256 for {name}") };
@@ -290,7 +299,8 @@ mod tests {
     /// The whole provider on real photos: set `CRISP3DS_SAM_TEST_MODEL` to a model directory,
     /// `CRISP3DS_SAM_TEST_WORK` to the `work` directory of a `photos --keep-intermediates` run
     /// (`photos/`, `coarse-masks/`, and `sam/masks/` from `--masks external-sam` to compare with),
-    /// and `ORT_DYLIB_PATH` to ONNX Runtime's shared library.
+    /// and `ORT_DYLIB_PATH` to ONNX Runtime's shared library; or the model to a `.gguf` file and
+    /// `CRISPEMBED_SAM2_LIB` to CrispEmbed's `libcrispembed-sam2` (feature `sam-ggml`).
     #[test]
     fn masks_agree_with_the_reference_route_when_a_model_is_given() {
         let (Some(model), Some(work)) = (std::env::var_os("CRISP3DS_SAM_TEST_MODEL"), std::env::var_os("CRISP3DS_SAM_TEST_WORK")) else {

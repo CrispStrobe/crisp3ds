@@ -78,7 +78,7 @@ leads to: dense stages on its cameras, scanner scores on the test objects.
 | Provider | How | Desktop | Phone | Browser | Status |
 | --- | --- | --- | --- | --- | --- |
 | `threshold` | dark object on a light backdrop: threshold, largest component, hole cleanup; the stereo stage's multi-view repair does the rest | yes | yes | yes | Works natively (`--masks threshold`, Otsu level by default). Measured against SAM on four objects: same scanner F1 above the support (within 0.002) or higher; 0.014 to 0.019 lower over the whole surface on three of them, because the contact shadow joins the mask at the base |
-| `sam` | SAM 2.1 with automatic prompts | yes | later | later | Native: `--masks sam` in builds with the cargo feature `sam-onnx` (ONNX Runtime as a shared library; the model fetched once from Hugging Face or given with `--sam-model`). Masks equal to PyTorch on the CPU (Bunny: 69 of 73 identical, lowest IoU 0.999996). Scanner F1 within about 0.02 of `threshold` on four objects (0.912/0.966, 0.921/0.947, 0.804/0.850, 0.809/0.848 at 0.5 %, whole / above support): an option, not the default. Also through PyTorch (`--masks external-sam`, the reference script); masks it made on Apple MPS before 2026-10-06 came from a partly wrong encoder. ggml route (CrispEmbed): not started |
+| `sam` | SAM 2.1 with automatic prompts | yes | later | later | Native: `--masks sam` in builds with the cargo feature `sam-onnx` (ONNX Runtime as a shared library; the model fetched once from Hugging Face or given with `--sam-model`) or `sam-ggml` (CrispEmbed's ggml engine, a GGUF model; Metal on Apple machines). Masks equal to PyTorch on the CPU (Bunny: 69 of 73 identical, lowest IoU 0.999996). Scanner F1 within about 0.02 of `threshold` on four objects (0.912/0.966, 0.921/0.947, 0.804/0.850, 0.809/0.848 at 0.5 %, whole / above support): an option, not the default. Also through PyTorch (`--masks external-sam`, the reference script); masks it made on Apple MPS before 2026-10-06 came from a partly wrong encoder. Through ggml the masks agree as closely (CPU: 69 of 73 identical; Metal: lowest IoU 0.9991) |
 | `import` | masks the user already has | yes | yes | yes | Works (`--masks import:DIR`) |
 
 ### Undistortion
@@ -123,12 +123,13 @@ SAM is optional on every platform, so no build carries a SAM runtime by default.
 
 | Platform | Recommended backend | Why |
 | --- | --- | --- |
-| macOS, Windows, Linux | ONNX Runtime behind the feature `sam-onnx`, loaded as a shared library (`ort`, `load-dynamic`) | official builds for all three; nothing linked at build time; the masks equal PyTorch's on the CPU |
-| iOS, Android | none by default | ONNX Runtime exists for both (xcframework, AAR) but adds 20 to 30 MB and 130 MB of model for a provider that does not beat `threshold` on dark objects; not built or measured |
-| Browser | none by default | onnxruntime-web (`ort-web`) or a ggml WASM build would be the routes; neither built |
+| macOS | ggml behind the feature `sam-ggml`: CrispEmbed's `libcrispembed-sam2` (2.6 MB, Metal), opened at run time, F16 GGUF (63 MB) | masks equal to PyTorch's; 1.1 to 1.5 s per photo on Metal against 2.4 s for ONNX Runtime on the CPU; a sixth of the memory |
+| Windows, Linux | ggml (`sam-ggml`, CPU, or Vulkan/CUDA as the library is built) or ONNX Runtime (`sam-onnx`) | both give PyTorch's masks on the CPU; ggml needs no 33 MB runtime and less memory, ONNX Runtime is faster on the CPU (2.4 against 3.3 s per photo, measured on macOS only) |
+| iOS, Android | none by default | SAM does not beat `threshold` on dark objects; if wanted, the ggml library (Metal on iOS) is the smaller route; neither built nor measured |
+| Browser | none by default | `crispembed-sam2` builds for WebAssembly (1.0 MB module, SIMD) but has not been run; onnxruntime-web is the alternative |
 
-A ggml backend in CrispEmbed (one C library for desktop, phones and WASM) is
-the candidate if SAM ever becomes worth shipping everywhere.
+Both backends sit behind the same provider and selection code, so the choice
+is a build option and a file, not a different mask.
 
 ## Order of work
 
@@ -144,7 +145,7 @@ the candidate if SAM ever becomes worth shipping everywhere.
 6. `turntable` provider: prototype against the test objects, then Rust; the
    default camera provider since it matched `colmap` on four objects.
 7. Native SAM: done through ONNX Runtime (`--masks sam`, feature `sam-onnx`); it does not beat `threshold` on
-   dark objects, so it stays optional. A ggml backend (CrispEmbed) would avoid shipping ONNX Runtime; not started.
+   dark objects, so it stays optional. A second backend, CrispEmbed's ggml engine (`sam-ggml`), gives the same masks with Metal and a sixth of the memory.
 8. Photo upload and capture for phones; signed releases.
 
 Development tools that stay in Python: the scanner evaluator

@@ -66,12 +66,12 @@ pub const MASKS_SAM: Provider = Provider {
     module: "masks",
     name: "sam",
     selector: "--masks sam",
-    summary: "SAM 2.1 prompted by the threshold masks, in this process (builds with the feature sam-onnx): ONNX Runtime as a shared library; the model from --sam-model DIR, else fetched once from Hugging Face into the cache",
+    summary: "SAM 2.1 prompted by the threshold masks, in this process: ONNX Runtime (feature sam-onnx; the model from --sam-model DIR, else fetched once from Hugging Face) or CrispEmbed's ggml engine (feature sam-ggml; a GGUF model and libcrispembed-sam2), each a shared library opened at run time",
     desktop: true,
     mobile: false,
     wasm: false,
     external: &[],
-    license: "this crate (AGPL-3.0-only); SAM 2.1 model Apache-2.0; ONNX Runtime MIT; ort and ureq crates MIT OR Apache-2.0",
+    license: "this crate (AGPL-3.0-only); SAM 2.1 model Apache-2.0; ONNX Runtime MIT; CrispEmbed and ggml MIT; ort and ureq crates MIT OR Apache-2.0, libloading ISC",
     default: false,
 };
 

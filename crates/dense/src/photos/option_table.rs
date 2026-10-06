@@ -242,7 +242,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         choices: &[],
         variable: Some("CRISP3DS_SAM_MODEL"),
         repeated: false,
-        meaning: "Model directory: model.json and the ONNX graphs, as crates/dense/tools/sam2_export_onnx.py writes them (default: SAM 2.1 Hiera-tiny from huggingface.co/cstr/sam2.1-hiera-tiny-ONNX, fetched into the cache on first use and checked against pinned SHA-256)",
+        meaning: "The model: a directory with model.json and the ONNX graphs (crates/dense/tools/sam2_export_onnx.py), or a GGUF file for the ggml backend (cstr/sam2.1-hiera-tiny-GGUF). Default: SAM 2.1 Hiera-tiny from huggingface.co/cstr/sam2.1-hiera-tiny-ONNX, fetched into the cache on first use and checked against pinned SHA-256",
     },
     OptionSpec {
         flag: "sam-runtime",
@@ -252,7 +252,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         choices: &[],
         variable: Some("CRISP3DS_SAM_RUNTIME"),
         repeated: false,
-        meaning: "ONNX Runtime's shared library (default: the file ORT_DYLIB_PATH names)",
+        meaning: "The runtime library: ONNX Runtime's for ONNX models (default: ORT_DYLIB_PATH), CrispEmbed's libcrispembed-sam2 for GGUF models (default: CRISPEMBED_SAM2_LIB)",
     },
     OptionSpec {
         flag: "sam-candidates",
@@ -269,10 +269,10 @@ pub const OPTIONS: &[OptionSpec] = &[
         scope: "masks:sam",
         kind: "choice",
         default: Some("cpu"),
-        choices: &["cpu", "coreml"],
+        choices: &["cpu", "coreml", "gpu"],
         variable: None,
         repeated: false,
-        meaning: "Where the network runs: the CPU, or Core ML on Apple devices (parts it cannot take stay on the CPU)",
+        meaning: "Where the network runs: the CPU; coreml (ONNX): Core ML on Apple devices, parts it cannot take stay on the CPU; gpu (GGUF): the GPU backend libcrispembed-sam2 was built with (Metal, Vulkan, CUDA)",
     },
     OptionSpec {
         flag: "contrast-gamma",

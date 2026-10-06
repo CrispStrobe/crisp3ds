@@ -40,6 +40,11 @@ optional = true
 default-features = false
 features = ["std", "load-dynamic", "api-20", "coreml"]
 
+# Opening CrispEmbed's libcrispembed-sam2 for the SAM ggml backend (src/photos/sam/ggml.rs), only with the feature `sam-ggml`.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.libloading]
+version = "0.9"
+optional = true
+
 # Fetching the default SAM model on first use (src/photos/sam/fetch.rs), only with the feature `sam-onnx`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.ureq]
 version = "3.4"
@@ -56,6 +61,8 @@ libc = "0.2"
 capi = []
 # The `sam` mask provider's ONNX backend: `--masks sam --sam-model DIR --sam-runtime libonnxruntime`.
 sam-onnx = ["dep:ort", "dep:ureq"]
+# The `sam` mask provider's ggml backend: CrispEmbed's libcrispembed-sam2, opened at run time, with a GGUF model.
+sam-ggml = ["dep:libloading"]
 
 [profile.release]
 opt-level = 3

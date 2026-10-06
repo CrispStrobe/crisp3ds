@@ -1,8 +1,10 @@
 //! The network behind the `sam` mask provider, as a small interface: a model
-//! directory described by `model.json` and a backend that turns the prepared
-//! image and the prompts into mask logits. Which backends exist is decided
-//! at build time by cargo features (`sam-onnx`: ONNX Runtime through the
-//! `ort` crate); everything else of the provider is independent of them.
+//! (a directory described by `model.json` with ONNX graphs, or one GGUF file)
+//! and a backend that turns the prepared image and the prompts into mask
+//! logits. Which backends exist is decided at build time by cargo features
+//! (`sam-onnx`: ONNX Runtime through the `ort` crate; `sam-ggml`: CrispEmbed's
+//! ggml engine through its C API); everything else of the provider is
+//! independent of them.
 
 use crate::photos::fs::Stored as _;
 use std::path::{Path, PathBuf};
@@ -19,7 +21,7 @@ pub struct ModelInfo {
     pub directory: PathBuf,
     pub name: String,
     pub license: String,
-    /// `onnx`: two graphs (`encoder`, `decoder`).
+    /// `onnx`: two graphs (`encoder`, `decoder`); `gguf`: one file for both (`encoder` = `decoder`).
     pub format: String,
     /// Side of the square network input.
     pub image_size: usize,
@@ -80,8 +82,33 @@ impl ModelInfo {
         })
     }
 
-    /// Reads `<directory>/model.json` and checks that the files it names are there.
+    /// A GGUF file (CrispEmbed's `convert-sam2-to-gguf.py`): SAM 2.1 with its fixed input and normalisation.
+    pub fn gguf(file: &Path) -> Self {
+        let name = file.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+        ModelInfo {
+            directory: file.parent().map(Path::to_path_buf).unwrap_or_default(),
+            name,
+            license: "Apache-2.0 (SAM 2, Copyright Meta Platforms, Inc. and affiliates)".to_string(),
+            format: "gguf".to_string(),
+            image_size: 1024,
+            mask_size: 256,
+            mean: [0.485, 0.456, 0.406],
+            std: [0.229, 0.224, 0.225],
+            encoder: file.to_path_buf(),
+            decoder: file.to_path_buf(),
+            stability: Some((0.05, 0.98)),
+            files: Value::Null,
+        }
+    }
+
+    /// Reads `<directory>/model.json` and checks that the files it names are there; a `.gguf` file is a model too.
     pub fn read(directory: &Path) -> anyhow::Result<Self> {
+        if directory.extension().is_some_and(|e| e.eq_ignore_ascii_case("gguf")) {
+            if !directory.stored_file() {
+                bail!("{}: no such GGUF file", directory.display());
+            }
+            return Ok(Self::gguf(directory));
+        }
         let path = directory.join("model.json");
         let text = crate::photos::fs::read_to_string(&path)
             .with_context(|| format!("{} (a SAM model directory holds model.json)", path.display()))?;
@@ -121,9 +148,9 @@ pub trait SamBackend {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BackendOptions {
     pub threads: usize,
-    /// `cpu`, or an accelerator the backend knows (`coreml`).
+    /// `cpu`, or an accelerator the backend knows (`coreml` for ONNX, `gpu` for ggml).
     pub accelerator: String,
-    /// The runtime library, for backends that load one (ONNX Runtime's shared library).
+    /// The runtime library: ONNX Runtime's shared library, or `libcrispembed-sam2` for a GGUF model.
     pub runtime: Option<PathBuf>,
 }
 
@@ -132,6 +159,8 @@ pub fn compiled() -> &'static [&'static str] {
     &[
         #[cfg(feature = "sam-onnx")]
         "onnx",
+        #[cfg(feature = "sam-ggml")]
+        "gguf",
     ]
 }
 
@@ -142,6 +171,7 @@ pub fn unavailable(format: &str) -> Option<String> {
     }
     Some(match format {
         "onnx" => "this build has no ONNX backend: build crisp3ds-dense with `--features sam-onnx`".to_string(),
+        "gguf" => "this build has no ggml backend: build crisp3ds-dense with `--features sam-ggml`".to_string(),
         other => format!("this build has no backend for SAM models of format `{other}`"),
     })
 }
@@ -154,6 +184,8 @@ pub fn open(model: &ModelInfo, options: &BackendOptions) -> anyhow::Result<Box<d
     match model.format.as_str() {
         #[cfg(feature = "sam-onnx")]
         "onnx" => Ok(Box::new(super::onnx::OnnxBackend::open(model, options)?)),
+        #[cfg(feature = "sam-ggml")]
+        "gguf" => Ok(Box::new(super::ggml::GgmlBackend::open(model, options)?)),
         _ => {
             let _ = options;
             bail!("no backend for SAM models of format `{}`", model.format)
@@ -200,7 +232,16 @@ pub mod tests {
         if compiled().is_empty() {
             assert!(open(&model, &options).err().unwrap().to_string().contains("--features sam-onnx"));
         }
-        assert!(unavailable("gguf").unwrap().contains("gguf") || compiled().contains(&"gguf"));
+        assert_eq!(unavailable("gguf").is_none(), compiled().contains(&"gguf"));
+        if !compiled().contains(&"gguf") {
+            assert!(unavailable("gguf").unwrap().contains("--features sam-ggml"));
+        }
+        // A GGUF file is a model of its own: SAM 2.1's fixed input, the file as encoder and decoder.
+        assert!(ModelInfo::read(&folder.join("missing.gguf")).unwrap_err().to_string().contains("no such GGUF file"));
+        crate::photos::fs::write(folder.join("sam2.1-hiera-tiny-f16.gguf"), b"").unwrap();
+        let gguf = ModelInfo::read(&folder.join("sam2.1-hiera-tiny-f16.gguf")).unwrap();
+        assert_eq!((gguf.format.as_str(), gguf.image_size, gguf.mask_size), ("gguf", 1024, 256));
+        assert_eq!((gguf.encoder.clone(), gguf.name.as_str()), (gguf.decoder.clone(), "sam2.1-hiera-tiny-f16"));
         crate::photos::fs::remove_dir_all(&folder).unwrap();
     }
 }

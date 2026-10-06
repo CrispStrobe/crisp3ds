@@ -276,9 +276,10 @@ masks, sam provider (--[no-]sam-preserve-holes and --[no-]sam-automatic-cues app
   --sam-model DIR                 model.json with the ONNX graphs, as tools/sam2_export_onnx.py writes them [CRISP3DS_SAM_MODEL];
                                   default: fetched on first use from huggingface.co/cstr/sam2.1-hiera-tiny-ONNX into the
                                   cache (CRISP3DS_CACHE_DIR, else the platform's) and checked against pinned SHA-256
-  --sam-runtime FILE              ONNX Runtime's shared library (libonnxruntime.dylib, .so, onnxruntime.dll)
-                                  [CRISP3DS_SAM_RUNTIME, else ORT_DYLIB_PATH]
-  --sam-accelerator cpu|coreml (cpu)
+  --sam-runtime FILE              ONNX Runtime's shared library (libonnxruntime.dylib, .so, onnxruntime.dll), or for a
+                                  .gguf model CrispEmbed's libcrispembed-sam2 [CRISP3DS_SAM_RUNTIME, else ORT_DYLIB_PATH
+                                  or CRISPEMBED_SAM2_LIB]
+  --sam-accelerator cpu|coreml|gpu (cpu)   coreml for ONNX models, gpu for GGUF models
   --sam-candidates single|several (single)   SAM's own single mask, or the best-scored of its three proposals
 cameras, every provider:
   --contrast-gamma G (0.5; 1 disables)   --clahe-clip C (2.0; 0 disables)   --clahe-grid N (8)

@@ -8,6 +8,7 @@
 //! | `select` | cleaning the candidate masks and choosing one |
 //! | `backend` | the model directory (`model.json`) and the interface to the network |
 //! | `onnx` | ONNX Runtime backend (cargo feature `sam-onnx`) |
+//! | `ggml` | CrispEmbed's ggml engine through `libcrispembed-sam2` (cargo feature `sam-ggml`) |
 //! | `fetch` | the default model, downloaded on first use and checked against pinned SHA-256 (`sam-onnx`) |
 //! | `provider` | the mask provider: files, progress, report |
 //!
@@ -17,6 +18,8 @@
 pub mod backend;
 #[cfg(feature = "sam-onnx")]
 pub mod fetch;
+#[cfg(feature = "sam-ggml")]
+pub mod ggml;
 pub mod image;
 #[cfg(feature = "sam-onnx")]
 pub mod onnx;

@@ -441,10 +441,37 @@ surface / above the support, turntable cameras, native dense stages:
 | Lucy | 0.819 / 0.862 | 0.824 / 0.860 | 0.809 / 0.848 |
 
 On these dark objects SAM does not beat the threshold: it is an option for
-other captures, and `threshold` stays the default. Time on an Apple M1 (CPU,
-4 threads, machine shared with other jobs): about 2.4 s per photo, nearly all
-in the encoder, peak memory 2.4 GB; Core ML, fp16 and int8 are not measured
-yet.
+other captures, and `threshold` stays the default.
+
+**Second backend: ggml (feature `sam-ggml`).** The same provider runs SAM 2.1
+in CrispEmbed's ggml engine (`src/sam2.cpp` there), opened at run time from
+`libcrispembed-sam2` (CrispEmbed's CMake option `CRISPEMBED_SAM2_SHARED`; with
+`-DBUILD_SHARED_LIBS=OFF -DGGML_METAL=ON` it is one 2.6 MB library that needs
+only system frameworks). The model is a GGUF file given to `--sam-model`
+(`cstr/sam2.1-hiera-tiny-GGUF`, F16 63 MB); `--sam-runtime` or
+`CRISPEMBED_SAM2_LIB` names the library, `--sam-accelerator gpu` uses the GPU
+backend it was built with (Metal on Apple machines), `cpu` the CPU:
+
+```sh
+cargo build --release --features sam-ggml
+crisp3ds-dense run --photos data/bunny/rgb --calibration scripts/turntable_mesh/calibrations/3dlf-pro.json \
+    --masks sam --sam-model sam2.1-hiera-tiny-f16.gguf --sam-runtime libcrispembed-sam2.dylib \
+    --sam-accelerator gpu --output runs/bunny-sam
+```
+
+Masks of the 73 Bunny photos against the reference script on the CPU (both with
+`--sam-candidates several`), and time per photo on an Apple M1 shared with other
+jobs (load average 50 to 175 during these runs, so the times are upper bounds):
+
+| Backend | Masks: median / lowest IoU, identical | Time per photo (encoder) | Peak memory |
+| --- | --- | --- | --- |
+| ONNX Runtime 1.30, CPU, F32 | 1.0 / 0.999996, 69 of 73 | 2.4 s (2.3 s) | 2.4 GB |
+| ggml, CPU, F32 | 1.0 / 0.999996, 69 of 73 | 3.3 s (3.2 s) | 0.72 GB |
+| ggml, Metal, F16 | 0.99996 / 0.99912, none | 1.5 s (1.3 s; 1.1 s on a quieter machine) | 0.38 GB |
+
+CrispEmbed's own check (`test-sam2-diff`, every encoder stage against PyTorch on
+the CPU): F32 and F16 cosine at least 0.999999 on the CPU and 0.999994 on Metal;
+Q8_0 drifts (worst mask IoU 0.9895) and Q4_K is unusable, so neither is offered.
 
 ### Camera providers through the dense stages
 
@@ -1077,10 +1104,14 @@ licenses are listed here as they are added.
 | libc (Unix only) | MIT OR Apache-2.0 | signalling the process group of an external tool (`src/photos/process.rs`) |
 | ort 2.0.0-rc.13 (feature `sam-onnx` only, not on wasm32) | MIT OR Apache-2.0 | binding to ONNX Runtime for the `sam` mask provider; loads the runtime library at run time (`load-dynamic`), links nothing at build time |
 | ureq 3 with rustls, ring, webpki-roots (feature `sam-onnx` only, not on wasm32) | MIT OR Apache-2.0; rustls Apache-2.0 OR ISC OR MIT; ring Apache-2.0 AND ISC; webpki-roots CDLA-Permissive-2.0 | fetching the default SAM model on first use (`src/photos/sam/fetch.rs`) |
+| libloading 0.9 (feature `sam-ggml` only, not on wasm32) | ISC | opening CrispEmbed's `libcrispembed-sam2` at run time (`src/photos/sam/ggml.rs`) |
 
 Runtime and model of the `sam` provider, neither part of the build: ONNX
 Runtime (MIT; the shared library given with `--sam-runtime` or
-`ORT_DYLIB_PATH`) and SAM 2.1 Hiera-tiny converted to ONNX (Apache-2.0,
+`ORT_DYLIB_PATH`) or CrispEmbed's `libcrispembed-sam2` (CrispEmbed MIT, with
+ggml MIT; `--sam-runtime` or `CRISPEMBED_SAM2_LIB`), and SAM 2.1 Hiera-tiny
+converted to ONNX or GGUF (Apache-2.0, `cstr/sam2.1-hiera-tiny-GGUF` for the
+GGUF;
 Copyright Meta Platforms, Inc. and affiliates; `huggingface.co/cstr/sam2.1-hiera-tiny-ONNX`,
 written by `tools/sam2_export_onnx.py`).
 
