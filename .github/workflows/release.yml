@@ -158,6 +158,8 @@ jobs:
           ! grep -E '(src|href)="/' dist/index.html
           name="Crisp-3D-Studio_web-$FILE_VERSION"
           mkdir -p ../../release-out && mv dist "$name"
+          # The notices on their own as well: the license, the store permission and every third-party license.
+          cp "$name/THIRD-PARTY-NOTICES.txt" ../../release-out/THIRD-PARTY-NOTICES.txt
           zip -qr "../../release-out/$name.zip" "$name"
           ls -la ../../release-out
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -509,33 +511,13 @@ jobs:
           sha256sum -- * > SHA256SUMS.txt
           cat SHA256SUMS.txt
           { echo '### Files'; echo '```'; cat SHA256SUMS.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-      - name: Release notes
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: docs/release-notes.md
+          path: source
+      - name: Release notes (docs/release-notes.md)
         run: |
-          python_archive=$(cd release && ls crisp3ds-dense-pipeline-*.tar.gz)
-          cat > notes.md <<EOF
-          **Prerelease $VERSION. Read this before installing.**
-
-          - **Unsigned builds.** Nothing here is signed with a developer certificate or notarised. macOS (ad-hoc signature only) will refuse to open the app until you allow it under System Settings > Privacy & Security, or remove the quarantine flag (\`xattr -dr com.apple.quarantine "Crisp 3D Studio.app"\`). Windows SmartScreen will warn about the installer. The Android file is a debug build signed with a throwaway debug key; the iOS file runs in the simulator only.
-          - **The desktop app reconstructs by itself; no Python is needed.** The engine is built in and runs on the computer's GPU (Metal, DirectX 12 or Vulkan). From cameras and masks that already exist (an inputs folder, or a camera solution with its prepared images and raw masks) it needs nothing else.
-          - **From plain turntable photos it needs AliceVision or COLMAP on the computer.** The app makes the masks itself (dark object on a light backdrop) and runs AliceVision or COLMAP for the cameras; tell it where they are under Folders > Tools, where each has a Check button. Neither is bundled. Masks from SAM 2.1 are optional and need a Python with PyTorch. A lens calibration file for the camera is required.
-          - **In a browser with WebGPU, the web build reconstructs too.** "This browser" on the Connection screen runs the same engine in the page from an inputs folder on the device (cameras, photos, masks); nothing is uploaded. It needs a current Chrome or Edge and enough memory: the engine may use up to 4 GiB, and a set of 73 photos of 2 megapixels takes 1.9 GiB.
-          - **Tried on one Mac only.** The desktop app was run on an Apple M1, and the browser engine in Chromium on the same Mac. The Windows and Linux builds compile and pass their tests in CI, where no GPU is available; they have not been run by a person.
-          - **CUDA is lightly tested.** The pipeline is tested on CPU in CI and used with Apple MPS. \`--device cuda\` was checked once on a Tesla T4 with the synthetic scene (same depths as CPU); no real photo set has been run on an NVIDIA GPU.
-          - **Phone builds are untested.** The Android and iOS simulator builds contain the same engine and have never been installed or run. Treat them as clients of an engine on another machine at most.
-          - **License: AGPL-3.0-only.**
-
-          | File | What it is |
-          | --- | --- |
-          | \`Crisp-3D-Studio_*-macos-arm64.dmg\`, \`.app.tar.gz\` | Studio desktop app, Apple Silicon |
-          | \`Crisp-3D-Studio_*-windows-x64-setup.exe\` | Studio desktop app, Windows installer (per user) |
-          | \`Crisp-3D-Studio_*-linux-x64.AppImage\`, \`.deb\` | Studio desktop app, Linux |
-          | \`Crisp-3D-Studio_web-*.zip\` | Studio as static files, with the demo recording and the engine for browsers; serve from any path (over http or https, not opened as a file) or with \`engine_server.py --static\` |
-          | \`crisp3ds-dense-pipeline-*.tar.gz\` | The Python reference pipeline and its HTTP engine (source), contract and test fixture; needed only for scoring against a reference scan and for comparisons |
-          | \`Crisp-3D-Studio_*-android-arm64-debug.apk\` | Android debug build (if present) |
-          | \`Crisp-3D-Studio_*-ios-simulator-arm64.app.zip\` | iOS simulator build (if present) |
-          | \`SHA256SUMS.txt\` | Checksums of all of the above |
-          EOF
-          sed -i 's/^          //' notes.md
+          sed "s/{VERSION}/$VERSION/g" source/docs/release-notes.md > notes.md
           cat notes.md
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -551,7 +533,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           gh release create "$TAG" release/* --draft --prerelease --verify-tag \
-            --title "Crisp3DS $VERSION" --notes-file notes.md --generate-notes
+            --title "Crisp 3D Studio $VERSION" --notes-file notes.md --generate-notes
       - name: Nothing was released
         if: needs.meta.outputs.tag == '' || env.DRY_RUN == 'true'
         run: echo "No release was created (dry run, or not a tag). The files are in the release-all artifact." >> "$GITHUB_STEP_SUMMARY"
