@@ -37,12 +37,15 @@ default; `--open-turn` is for photos that do not close one.
    every evaluation. A pair without image motion gets a step of zero (the
    Bunny's photos 13 and 14); a step far from the median is replaced by it.
 4. **The turn closes.** Unless `--open-turn`, the steps, the one from the last
-   photo back to the first included, are scaled to add up to 360 degrees,
-   when they add up to between 0.6 and 1.4 turns. The bound was 0.85 to 1.15
-   until the Happy Buddha's steps added up to 0.78 turn (its rotation is
-   poorly separated from translation; the adjustment then corrects the poses).
-   The sums of the other test sets lie between 0.97 and 1.07 turns, so their
-   cameras are unchanged.
+   photo back to the first included, are scaled to add up to 360 degrees.
+   Steps that add up to less than 0.75 or more than 1.15 turns stop the run
+   with that reason instead: the motion was not found. Correct solutions
+   measured 0.78 (the Happy Buddha, whose rotation is poorly separated from
+   translation; the adjustment then corrects the poses) to 1.07 (25 photos at
+   15 degrees); a wrong axis gave 1.19 (a smooth bottle seen from a steep
+   camera, `docs/OTHER-IMAGE-SETS.md`), and scaling it to one turn let it pass
+   every later gate. The window was 0.6 to 1.4 for a while; all test sets
+   have the same cameras under both.
 5. **Tracks.** Matches that agree with these poses are joined; tracks of at
    least three photos are triangulated.
 6. **Bundle adjustment** (`adjust.rs`) of all poses and points with the lens
@@ -154,7 +157,7 @@ each: `checkpoint-renders/photos-to-stl-native-<object>.png`.
 
 Default command (`threshold` masks, these cameras): the Bunny and Dragon
 with 73 photos and the Thai statue at `ac36992`, the rest with the order check
-and the 0.6-turn bound (which leave those three unchanged); 3DLF photos, scanner F1 at 0.5 / 1 / 2 % of the scan's
+and the closing window (which leave those three unchanged); 3DLF photos, scanner F1 at 0.5 / 1 / 2 % of the scan's
 diagonal (evaluation only).
 
 | Set | Photos (step) | Registered, gates | F1, whole surface | F1, above the support |
@@ -166,7 +169,7 @@ diagonal (evaluation only).
 | Dragon, every 2nd | 37 (10 deg) | 37, pass | 0.791 / 0.920 / 0.978 | 0.838 / 0.953 / 0.991 |
 | Dragon, every 3rd | 25 (15 deg) | 25, **refused by the camera audit** (too few landmarks per view) | | |
 | Thai statue | 73 (5 deg) | 73, pass | 0.872 / 0.933 / 0.953 | 0.935 / 0.995 / 1.000 |
-| Happy Buddha | 73 (5 deg) | 73, pass (with the 0.6-turn bound; refused by the closure gate before) | 0.779 / 0.912 / 0.967 | 0.817 / 0.944 / 0.985 |
+| Happy Buddha | 73 (5 deg) | 73, pass (raw steps 0.78 turn, inside the closing window; refused by the closure gate before the window existed) | 0.779 / 0.912 / 0.967 | 0.817 / 0.944 / 0.985 |
 | Asian dragon | 73 (5 deg) | 73, pass | mesh looks right; the scan evaluator cannot isolate the object from the platform in this scan | |
 | Bunny, Dragon, names shuffled | 73 | refused by the order check | | |
 

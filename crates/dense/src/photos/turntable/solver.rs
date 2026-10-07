@@ -48,6 +48,11 @@ pub struct Settings {
     pub open_turn: bool,
 }
 
+/// Turns that the steps of a closed capture may add up to before they are scaled to one. Measured on
+/// correct solutions: 0.78 (the Happy Buddha, rotation and translation hard to tell apart) to 1.07 (25
+/// photos at 15 degrees); a wrong axis gave 1.19 (a smooth bottle seen from a steep camera).
+const CLOSING_TURNS: (f64, f64) = (0.75, 1.15);
+
 /// The step motion of the turntable model: rotation by `angle` about the axis through `centre`.
 fn step_motion(axis: V3, centre: V3, angle: f64) -> (M3, V3) {
     let rotation = rodrigues(scale(axis, angle));
@@ -309,7 +314,20 @@ pub fn solve(matches: &Matches, camera: &Camera, settings: &Settings) -> anyhow:
     let raw_sum: f64 = steps.iter().sum();
     let turns = raw_sum / (2.0 * std::f64::consts::PI);
     // A full turn closes: all steps, the one back to the first photo included, add up to 360 degrees.
-    let closed = !settings.open_turn && turns > 0.6 && turns < 1.4;
+    // Steps found from the matches add up to close to one turn when the axis is right; far from it
+    // the motion was not found, and scaling the steps to 360 degrees would only hide that (the
+    // adjustment then settles on wrong cameras that pass every later gate).
+    if !settings.open_turn && !(CLOSING_TURNS.0..=CLOSING_TURNS.1).contains(&turns) {
+        bail!(
+            "the steps found add up to {:.0} degrees, not about one turn ({:.0} to {:.0}): the turntable's motion was not found \
+             (an axis tilted further than the search reaches, or too few features on the object); pass --open-turn if the \
+             photos are not one closed turn",
+            raw_sum.to_degrees(),
+            360.0 * CLOSING_TURNS.0,
+            360.0 * CLOSING_TURNS.1
+        );
+    }
+    let closed = !settings.open_turn;
     if closed {
         for step in &mut steps {
             *step /= turns;

@@ -89,8 +89,10 @@ dense stages.
   order check and every gate pass), but the cameras are wrong: the steps
   came out 19 % too large before closing the turn, and the mesh is a hollow
   shell (F1 0.21 / 0.40 / 0.59). The 0.6 to 1.4 turn window for closing a
-  turn let that through; the axis search (tilts up to 50 degrees) is at its
-  edge for cameras looking down this steeply.
+  turn let that through; it is now 0.75 to 1.15 and refuses such a solution
+  (1.19 turns). The axis search (tilts up to 50 degrees) is at its edge for
+  cameras looking down this steeply; a wider search, checked against YCB's
+  supplied poses, is open.
 - **Lens with tangential terms** (YCB, p1 = 0.006). Photos undistorted with the
   full model beforehand gave the same score as dropping p1 and p2, so the
   missing tangential term is not what limits these runs; the calibration format
