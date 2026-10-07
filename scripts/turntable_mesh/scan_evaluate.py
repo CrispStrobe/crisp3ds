@@ -560,13 +560,20 @@ def render_overlay(path, mesh_points, mesh_normals, mesh_distance, reference_poi
 
 def evaluate(mesh_triangles, reference_vertices, reference_faces, *, seed=215, samples=200000,
              random_starts=96, keep=0.8, platform_margin=0.006, above_margin=0.03,
-             handedness="auto", polish_points=20000, overlay=None):
-    """Return the result dictionary; `overlay` is an optional PNG path."""
+             handedness="auto", polish_points=20000, overlay=None, platform=True):
+    """Return the result dictionary; `overlay` is an optional PNG path. `platform=False` is for
+    references without a support (complete object meshes such as YCB's Google scans): nothing is
+    removed, and 'above_margin' then equals 'all'."""
     if samples < 4 or samples % 2:
         raise ValueError("samples must be an even number of at least 4")
     rng = np.random.default_rng(seed)
-    keep_faces, normal, offset, platform = remove_platform(
-        reference_vertices, reference_faces, rng, margin=platform_margin)
+    if platform:
+        keep_faces, normal, offset, platform = remove_platform(
+            reference_vertices, reference_faces, rng, margin=platform_margin)
+    else:
+        keep_faces = np.ones(len(reference_faces), bool)
+        normal, offset = np.array([0.0, 0.0, 1.0]), -1e12
+        platform = {"method": "none: the reference is a complete object without a support", "margin_above_plane": 0.0}
     object_faces = reference_faces[keep_faces]
     reference_triangles = reference_vertices[object_faces]
     used = reference_vertices[np.unique(object_faces)]
@@ -675,7 +682,7 @@ def evaluate(mesh_triangles, reference_vertices, reference_faces, *, seed=215, s
         "reference_object": {
             "bbox_min": used.min(0).tolist(), "bbox_max": used.max(0).tolist(),
             "bbox_diagonal": diagonal,
-            "height_over_platform_plane": platform["kept_height_range"][1],
+            "height_over_platform_plane": platform["kept_height_range"][1] if "kept_height_range" in platform else None,
             "diagonal_definition": "axis-aligned bounding box of the platform-free reference in "
                                    "the scanner frame",
         },
@@ -734,6 +741,8 @@ def main():
                         help="removal height over the plane, fraction of the scan diagonal")
     parser.add_argument("--above-margin", type=float, default=0.03,
                         help="extra height for the restricted metrics, fraction of the object diagonal")
+    parser.add_argument("--no-platform", action="store_true",
+                        help="the reference has no support to remove (a complete object mesh)")
     parser.add_argument("--handedness", choices=("auto", "proper", "mirrored"), default="auto",
                         help="auto fits the mesh and its mirror image and scores the better fit")
     args = parser.parse_args()
@@ -745,7 +754,7 @@ def main():
         mesh_triangles, vertices, faces, seed=args.seed, samples=args.samples,
         random_starts=args.random_starts, keep=args.icp_keep,
         platform_margin=args.platform_margin, above_margin=args.above_margin,
-        handedness=args.handedness, overlay=args.output / "overlay.png")
+        handedness=args.handedness, overlay=args.output / "overlay.png", platform=not args.no_platform)
     result["inputs"] = {
         "mesh": {"path": str(args.mesh), "bytes": args.mesh.stat().st_size,
                  "sha256": sha256_file(args.mesh)},
