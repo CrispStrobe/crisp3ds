@@ -199,16 +199,14 @@ impl PreviewMesher {
     }
 
     fn mesh(&self, volume: &Path, label: &str) {
-        let result = crate::mesh::run_with(
-            volume,
-            &volume.with_extension(""),
-            &self.config,
-            self.step,
-            &self.events,
-            Some(label),
-            self.threads,
-            &self.control,
-        );
+        let output = volume.with_extension("");
+        let (config, events, control) = (&self.config, &self.events, &self.control);
+        let result = match crate::mesh::field::Volume::take_handed_over(volume) {
+            // A coarse preview is meshed on a coarser grid, not as every step-th cell of the full one:
+            // the same coarseness for a fraction of the memory, which a browser run needs.
+            Some(held) => crate::mesh::run_preview(held, &output, config, self.step, events, Some(label), self.threads, control),
+            None => crate::mesh::run_with(volume, &output, config, self.step, events, Some(label), self.threads, control),
+        };
         let log = match &result {
             Ok(report) => serde_json::to_string_pretty(report).unwrap_or_default(),
             Err(error) => format!("{error:#}"),
@@ -252,6 +250,7 @@ impl PreviewMesher {
             let mut state = self.lock();
             state.abandoned = true;
             state.waiting.clear();
+            crate::mesh::field::Volume::drop_handed_over();
         }
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -478,6 +477,8 @@ pub async fn run_async(options: &RunOptions, observer: Option<Observer>, cancel:
     mesher.close();
     #[cfg(not(target_arch = "wasm32"))]
     let _ = worker.join();
+    // Nothing handed over may outlive the run (a stopped run leaves volumes nobody meshes).
+    crate::mesh::field::Volume::drop_handed_over();
     for entry in crate::storage::list(output.join("stereo/preview")).unwrap_or_default() {
         if entry.extension().is_some_and(|e| e == "npz") {
             let _ = crate::storage::remove_file(entry);
@@ -643,7 +644,8 @@ async fn stages(
     let stage = driver.begin("stereo", command, Some(options.stereo_timeout))?;
     // The fused volume goes to the surface stage in memory; `volume.npz` is written only when it is
     // kept, and `depths.npz` (for --reuse-depths) not in a browser, where no later run could read it.
-    let files = stereo::run::Files { volume: options.keep_volume, depths: cfg!(not(target_arch = "wasm32")) };
+    let files =
+        stereo::run::Files { volume: options.keep_volume, depths: cfg!(not(target_arch = "wasm32")), preview_volumes_in_memory: true };
     let mut fused = None;
     let result = match stage.control.check() {
         Ok(()) => stereo::run::run_fused(&arguments, config, &gpu, &stage.events, &stage.control, files).await.map(|(_, volume)| {

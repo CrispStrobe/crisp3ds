@@ -39,7 +39,86 @@ pub struct Volume {
     pub support: Option<Support>,
 }
 
+/// Preview volumes handed from the stereo stage to the preview mesher of the same run, by the path
+/// their `preview_volume` event names; nothing is written to that path.
+static HANDED_OVER: std::sync::Mutex<Vec<(std::path::PathBuf, Volume)>> = std::sync::Mutex::new(Vec::new());
+
 impl Volume {
+    /// Leaves a volume for [`Volume::take_handed_over`] under `path`.
+    pub fn hand_over(path: &Path, volume: Volume) {
+        let mut handed = HANDED_OVER.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        handed.retain(|(p, _)| p != path);
+        handed.push((path.to_path_buf(), volume));
+    }
+
+    /// The volume left under `path`, once.
+    pub fn take_handed_over(path: &Path) -> Option<Volume> {
+        let mut handed = HANDED_OVER.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let at = handed.iter().position(|(p, _)| p == path)?;
+        Some(handed.swap_remove(at).1)
+    }
+
+    /// The volume on a grid `factor` times coarser: each block of `factor`^3 voxels becomes one, in the
+    /// hull when any of its voxels is, with the sums of their signed distances and weights (so the mean
+    /// signed distance is the weighted mean of the block). The surface stage needs about `factor`^3
+    /// times less memory on it; used for the coarse live previews.
+    pub fn coarsened(self, factor: usize) -> Volume {
+        if factor <= 1 {
+            return self;
+        }
+        let shape = self.shape.map(|s| s.div_ceil(factor));
+        let mut blocks: std::collections::HashMap<[u16; 3], (f32, f32)> = std::collections::HashMap::with_capacity(self.index.len() / 4);
+        for ((voxel, &total), &weight) in self.index.iter().zip(&self.total).zip(&self.weight) {
+            let block = voxel.map(|v| (usize::from(v) / factor) as u16);
+            let entry = blocks.entry(block).or_insert((0.0, 0.0));
+            entry.0 += total;
+            entry.1 += weight;
+        }
+        let mut entries: Vec<([u16; 3], (f32, f32))> = blocks.into_iter().collect();
+        entries.sort_unstable_by_key(|(block, _)| *block);
+        Volume {
+            shape,
+            index: entries.iter().map(|(block, _)| *block).collect(),
+            total: entries.iter().map(|(_, (total, _))| *total).collect(),
+            weight: entries.iter().map(|(_, (_, weight))| *weight).collect(),
+            origin: self.origin,
+            voxel: self.voxel * factor as f64,
+            truncation: self.truncation.max(self.voxel * factor as f64),
+            support: self.support,
+        }
+    }
+
+    /// Drops every volume left and not taken (a run that ends early).
+    pub fn drop_handed_over() {
+        HANDED_OVER.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).clear();
+    }
+
+    /// A volume as `write_volume` followed by [`Volume::read`] would give it.
+    pub fn from_parts(
+        hull: &crate::hull::Hull,
+        indices: &[u32],
+        total: Vec<f32>,
+        weight: Vec<f32>,
+        truncation: f64,
+        support: Option<&crate::fusion::Support>,
+    ) -> Self {
+        let support = support.map(|s| Support {
+            point: Array::new(&[3], Data::F32(s.point.to_vec())),
+            down: s.down.iter().map(|&v| f64::from(v)).collect(),
+            height: f64::from(s.height.unwrap_or(f32::NAN)),
+        });
+        Volume {
+            shape: hull.shape,
+            index: indices.iter().map(|&linear| hull.unravel(linear).map(|v| v as u16)).collect(),
+            total,
+            weight,
+            origin: Array::new(&[3], Data::F32(hull.origin.to_vec())),
+            voxel: f64::from(hull.voxel as f32),
+            truncation: f64::from(truncation as f32),
+            support,
+        }
+    }
+
     /// The volume of a fusion result, exactly as writing it to `volume.npz` and reading it back would
     /// give it (the same single-precision origin, voxel size, truncation and support).
     pub fn from_fused(hull: &crate::hull::Hull, fused: crate::fusion::Fused) -> Self {

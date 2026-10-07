@@ -95,6 +95,8 @@ pub struct Previews<'a> {
     directory: Option<std::path::PathBuf>,
     events: &'a EventLog,
     config: &'a DenseConfig,
+    /// Hand the volumes to the preview mesher in memory instead of writing them.
+    hand_over: bool,
 }
 
 impl Previews<'_> {
@@ -116,8 +118,14 @@ impl Previews<'_> {
     ) -> anyhow::Result<()> {
         let Some(directory) = &self.directory else { return Ok(()) };
         let (partial, target) = (directory.join(format!("{name}.partial")), directory.join(format!("{name}.npz")));
-        write_volume(&partial, false, hull, indices, total, weight, self.config.truncation_voxels * hull.voxel, support)?;
-        crate::storage::rename(&partial, &target)?;
+        let truncation = self.config.truncation_voxels * hull.voxel;
+        if self.hand_over {
+            let volume = crate::mesh::field::Volume::from_parts(hull, indices, total.to_vec(), weight.to_vec(), truncation, support);
+            crate::mesh::field::Volume::hand_over(&target, volume);
+        } else {
+            write_volume(&partial, false, hull, indices, total, weight, truncation, support)?;
+            crate::storage::rename(&partial, &target)?;
+        }
         self.events.artifact("preview_volume", &target, label, meta)
     }
 
@@ -165,12 +173,16 @@ pub async fn run_with(
 pub struct Files {
     pub volume: bool,
     pub depths: bool,
+    /// Preview volumes go to the preview mesher of the same run in memory
+    /// (`mesh::field::Volume::hand_over`); their `preview_volume` events name
+    /// a path where no file is written.
+    pub preview_volumes_in_memory: bool,
 }
 
 impl Files {
-    /// Both, as the `stereo` command and `run_with` do.
+    /// All files, as the `stereo` command and `run_with` do.
     pub fn all() -> Self {
-        Files { volume: true, depths: true }
+        Files { volume: true, depths: true, preview_volumes_in_memory: false }
     }
 }
 
@@ -204,7 +216,12 @@ pub async fn run_fused(
     report["views"] = json!(count);
     report["load_seconds"] = json!(t.elapsed().as_secs_f64());
     let picks = [count / 7, (count / 2).saturating_sub(3), (4 * count) / 5];
-    let previews = Previews { directory: arguments.previews.then(|| output.join("preview")), events, config };
+    let previews = Previews {
+        directory: arguments.previews.then(|| output.join("preview")),
+        events,
+        config,
+        hand_over: files.preview_volumes_in_memory,
+    };
     if let Some(directory) = &previews.directory {
         crate::storage::create_dir(directory)?;
     }

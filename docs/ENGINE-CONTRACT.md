@@ -66,7 +66,7 @@ Artifact kinds, in the order they normally appear:
 | `mask_sheet` | PNG | Photos-to-inputs step: segmentation masks over the photos |
 | `sparse_overlay` | PNG | Photos-to-inputs step: recovered sparse points drawn on photos |
 | `input_sheet` | PNG | Evenly spaced photos with their mask outlines |
-| `preview_volume` | NPZ | Internal. Ignore it; a `preview_mesh` follows |
+| `preview_volume` | NPZ | Internal. Ignore it; a `preview_mesh` follows. Inside a native `run` the volume is handed to the preview mesher in memory and no file is written at the path |
 | `preview_mesh` | binary STL | Coarse surface so far: the silhouette hull, the hull after mask repair, then the surface after each pyramid level except the last |
 | `mask_repair_sheet` | PNG | Pixels that multi-view repair added to the masks, in green |
 | `hull_mask_sheet` | PNG | Hull against masks: red where a mask is not covered, blue where the hull lies outside a mask |

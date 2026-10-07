@@ -107,9 +107,28 @@ pub fn run_volume(
     run_source(Source::Memory(Box::new(volume)), output, config, step, events, label, threads, control)
 }
 
+/// A coarse preview from a volume in memory: the volume is coarsened by `step`
+/// (`Volume::coarsened`) and meshed cell by cell, instead of meshing every
+/// `step`-th cell of the full grid: the same coarseness for about `step`^3
+/// times less memory. Reported as a preview surface like [`run_with`] with that step.
+#[allow(clippy::too_many_arguments)]
+pub fn run_preview(
+    volume: Volume,
+    output: &Path,
+    config: &DenseConfig,
+    step: usize,
+    events: &EventLog,
+    label: Option<&str>,
+    threads: usize,
+    control: &crate::control::Control,
+) -> Result<Report> {
+    run_source(Source::Coarse(Box::new(volume)), output, config, step, events, label, threads, control)
+}
+
 enum Source<'a> {
     File(&'a Path),
     Memory(Box<Volume>),
+    Coarse(Box<Volume>),
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -161,14 +180,15 @@ fn extract(
     control: &crate::control::Control,
 ) -> Result<Report> {
     let started = Instant::now();
-    let volume = match volume_path {
-        Source::File(path) => Volume::read(path)?,
-        Source::Memory(volume) => *volume,
+    let (volume, grid_step) = match volume_path {
+        Source::File(path) => (Volume::read(path)?, step),
+        Source::Memory(volume) => (*volume, step),
+        Source::Coarse(volume) => (volume.coarsened(step), 1),
     };
     control.check()?;
     let field = field::field(&volume, config, &|| control.check())?;
     control.check()?;
-    let grid_mesh = cubes::extract(&field.value, field.dims, step);
+    let grid_mesh = cubes::extract(&field.value, field.dims, grid_step);
     control.check()?;
     let field_report = field.report;
     drop(field.value);

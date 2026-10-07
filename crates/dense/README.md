@@ -1133,8 +1133,16 @@ only with `keep_volume`, `depths.npz` is not written in a browser (natively it
 is, for `--reuse-depths`), and the depth maps are released after fusion. The
 Bunny from photos in Chrome, no live previews: peak 1568 MiB (from 2038),
 nothing added after "Depth fused", 325 s, 1 045 330 triangles, closed, genus 7.
-With live previews it peaks at 2685 MiB: each preview volume is still written
-as a file and meshed while the matching data is held.
+Live previews no longer write files either: the preview volumes go to the
+preview mesher in memory (`mesh::field::Volume::hand_over`; the
+`preview_volume` events name a path where nothing is written), and a coarse
+preview is meshed on the volume coarsened by the preview step
+(`mesh::run_preview`: blocks of step^3 voxels with summed evidence) instead of
+on every step-th cell of the full grid, the same coarseness for an eighth of
+the memory at step 2. The preview meshes change slightly (the Bunny's level-0
+preview 252 996 triangles instead of 259 370, smoother, same shape); the final
+mesh is byte-identical. Bunny from photos in Chrome with live previews: peak
+1844 MiB (was 2685), four preview meshes, 470 s.
 
 ### Threads in the browser: a second package
 
