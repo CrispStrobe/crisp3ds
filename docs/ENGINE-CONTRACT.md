@@ -68,6 +68,7 @@ Artifact kinds, in the order they normally appear:
 | `input_sheet` | PNG | Evenly spaced photos with their mask outlines |
 | `preview_volume` | NPZ | Internal. Ignore it; a `preview_mesh` follows. Inside a native `run` the volume is handed to the preview mesher in memory and no file is written at the path |
 | `preview_mesh` | binary STL | Coarse surface so far: the silhouette hull, the hull after mask repair, then the surface after each pyramid level except the last |
+| `inspection_sheet` | PNG | `inspect/NN-step.png` after every preview surface and the final surface: the same three views (photo beside the surface through that camera) and the same automatically chosen detail crop per view each time; field `step` (`00-hull`, `01-hull-repaired`, `1N-level-N`, `90-final`). Last, `inspect/steps.png` (`step: "steps"`): one row per step. Drawn when the setting `inspection_sheets` is on (default) and, in a browser, while WebAssembly memory is below 2.5 GiB; per-level rows need live previews, and level rows show the preview's coarseness (`preview_step`) |
 | `mask_repair_sheet` | PNG | Pixels that multi-view repair added to the masks, in green |
 | `hull_mask_sheet` | PNG | Hull against masks: red where a mask is not covered, blue where the hull lies outside a mask |
 | `depth_sheet` | PNG | Per level: photo, depth, depth shading for three views. `level` says which; the last one is the merged final depth |

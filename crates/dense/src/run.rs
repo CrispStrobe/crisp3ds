@@ -194,6 +194,8 @@ struct PreviewMesher {
     /// run is cancelled or has failed, so that the run ends without waiting for a mesh nobody will see.
     control: Control,
     stop: Arc<AtomicBool>,
+    /// Draws an inspection sheet of every preview surface, once the run's views are known.
+    inspector: std::sync::OnceLock<Arc<crate::inspect::Inspector>>,
 }
 
 impl PreviewMesher {
@@ -210,6 +212,12 @@ impl PreviewMesher {
             Some(held) => crate::mesh::run_preview(held, &output, config, self.step, events, Some(label), self.threads, control),
             None => crate::mesh::run_with(volume, &output, config, self.step, events, Some(label), self.threads, control),
         };
+        if let (Ok(_), Some(inspector)) = (&result, self.inspector.get()) {
+            if crate::inspect::memory_allows() {
+                let step = volume.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+                let _ = inspector.add(&step, label, &output.join("mesh.stl"), &self.events);
+            }
+        }
         let log = match &result {
             Ok(report) => serde_json::to_string_pretty(report).unwrap_or_default(),
             Err(error) => format!("{error:#}"),
@@ -449,6 +457,7 @@ pub async fn run_async(options: &RunOptions, observer: Option<Observer>, cancel:
         control: Control::new(Some(stop.clone()), Some(output.join("cancel")), None, None)?,
         stop,
         queue,
+        inspector: std::sync::OnceLock::new(),
         events: events.stage("stereo"),
         config: config.clone(),
         step: options.preview_step.max(1),
@@ -621,6 +630,13 @@ async fn stages(
             inputs
         }
     };
+    let inspector = (config.inspection_sheets && crate::inspect::memory_allows())
+        .then(|| crate::inputs::load_views(&inputs).and_then(|rows| crate::inspect::Inspector::new(&rows, &output.join("inspect"))))
+        .and_then(|made| made.ok())
+        .map(Arc::new);
+    if let Some(inspector) = &inspector {
+        let _ = driver.previews.inspector.set(inspector.clone());
+    }
     if input_sheet(&inputs, &output.join("input-sheet.png")).is_ok() {
         driver.events.stage("inputs").artifact("input_sheet", &output.join("input-sheet.png"), "Photos with mask outlines", json!({}))?;
     }
@@ -674,6 +690,12 @@ async fn stages(
         stage.control.log(serde_json::to_string_pretty(report)?);
     }
     let mesh = driver.end(stage, result)?;
+    if let Some(inspector) = &inspector {
+        let events = driver.events.stage("mesh");
+        // A sheet is a picture for people; one that cannot be drawn does not fail the run.
+        let _ = inspector.add("90-final", "Final surface", &output.join("mesh/mesh.stl"), &events);
+        let _ = inspector.overview(&events);
+    }
 
     if options.check {
         let stl = output.join("mesh/mesh.stl");

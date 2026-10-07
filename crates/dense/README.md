@@ -555,6 +555,18 @@ Bunny from its inputs, stereo stage: natively 44-49 s before, 41-44 s after
 (two runs each, four threads); in Chrome 69.3 s before, 58.7 s after (last
 pass 19.0 to 13.6 s), the same 1 045 002 triangles.
 
+**Inspection sheets (`inspect/`).** Every run draws a sheet of each surface
+it produces: the silhouette hull, the hull after mask repair, the surface after
+each level (the live previews) and the final surface, each as three views
+(the photo beside the surface rendered through that photo's camera) and one
+detail crop per view, the square of the photo with the most fine detail inside
+the mask (largest mean squared Laplacian), the same for every step.
+`inspect/steps.png` puts one row per step under the photos. They are
+announced as `inspection_sheet` artifacts with their `step`; the setting
+`inspection_sheets` (native-only, on) turns them off; in a browser they are
+skipped once WebAssembly memory reaches 2.5 GiB. The level rows show the
+preview's coarseness; `--preview-step 1` draws them at full resolution.
+
 ### Camera providers through the dense stages
 
 A provider is judged by the reconstruction it leads to. `colmap` against

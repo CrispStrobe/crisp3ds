@@ -383,6 +383,13 @@
       "meaning": "Voxels kept below that level",
       "kind": "number",
       "default": 1.0
+    },
+    {
+      "name": "inspection_sheets",
+      "group": "Run",
+      "meaning": "Draw an inspection sheet of every surface a run produces (inspect/), the same views and detail crops each time",
+      "kind": "boolean",
+      "default": true
     }
   ]
 }

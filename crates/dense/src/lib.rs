@@ -15,6 +15,7 @@ pub mod fusion;
 pub mod gpu;
 pub mod hull;
 pub mod inputs;
+pub mod inspect;
 pub mod mesh;
 pub mod npz;
 // Its providers that start external programs are left out of a browser build (see photos/mod.rs).
