@@ -173,6 +173,12 @@ impl LevelView {
 
 /// `Stereo.build_level(size)`.
 pub fn build_level(inputs: &Inputs, size: i64) -> Vec<LevelView> {
+    build_level_sharpened(inputs, size, 0.0)
+}
+
+/// [`build_level`] with the matching images sharpened by an unsharp mask of `amount` (grey plus
+/// `amount` times its difference from a Gaussian blur of one pixel); 0 leaves them as they are.
+pub fn build_level_sharpened(inputs: &Inputs, size: i64, amount: f64) -> Vec<LevelView> {
     let factor = (size as f64 / inputs.longest as f64).min(1.0);
     parallel_map(inputs.count(), |n| {
         let bounds = inputs.boxes[n];
@@ -183,8 +189,8 @@ pub fn build_level(inputs: &Inputs, size: i64) -> Vec<LevelView> {
         let [ox, oy] = inputs.gray_origin[n];
         let within = [bounds[0] - ox, bounds[1] - oy, bounds[2] - ox, bounds[3] - oy];
         let mut gray = resize(&crop(&inputs.gray[n], within), width, height, Filter::Bilinear);
-        if let Some((amount, sigma)) = detail_enhancement() {
-            unsharp(&mut gray, amount, sigma);
+        if amount > 0.0 {
+            unsharp(&mut gray, amount as f32, 1.0);
         }
         let mask_crop = crop(&inputs.masks[n], bounds);
         let mask_float =
@@ -200,14 +206,6 @@ pub fn build_level(inputs: &Inputs, size: i64) -> Vec<LevelView> {
         };
         LevelView { width, height, camera, gray, mask }
     })
-}
-
-/// Diagnostic, under evaluation: `CRISP3DS_MATCH_DETAIL=amount,sigma` sharpens the matching images
-/// (unsharp mask: grey plus `amount` times its difference from a Gaussian blur of `sigma` pixels).
-fn detail_enhancement() -> Option<(f32, f64)> {
-    let text = std::env::var("CRISP3DS_MATCH_DETAIL").ok()?;
-    let (amount, sigma) = text.split_once(',')?;
-    Some((amount.trim().parse().ok()?, sigma.trim().parse().ok()?))
 }
 
 fn unsharp(plane: &mut Plane<f32>, amount: f32, sigma: f64) {

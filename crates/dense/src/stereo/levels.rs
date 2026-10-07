@@ -17,7 +17,7 @@ use crate::hull::HullState;
 use crate::inputs::{parallel_map, round_half_even, Inputs, Plane};
 
 use super::depth::{consistent, hull_front, initial, merge_fallback};
-use super::level::{build_level, coverage, LevelView};
+use super::level::{build_level_sharpened, coverage, LevelView};
 use super::matcher::Matcher;
 use super::previews::depth_sheet;
 use super::run::Previews;
@@ -62,7 +62,7 @@ pub async fn match_levels(
     let mut rows: Vec<Value> = Vec::new();
     for (li, &size) in sizes.iter().enumerate() {
         let t = Instant::now();
-        level = build_level(inputs, size);
+        level = build_level_sharpened(inputs, size, config.match_sharpening);
         let buffers = matcher.upload(&level);
         let window = DenseConfig::level(&config.windows, li);
         let aggregate = DenseConfig::level(&config.aggregates, li);

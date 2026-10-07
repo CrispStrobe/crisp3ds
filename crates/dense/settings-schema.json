@@ -19,6 +19,13 @@
       "default": true
     },
     {
+      "name": "match_sharpening",
+      "group": "Pyramid",
+      "meaning": "Unsharp mask on the matching images (amount over a one-pixel blur); 0 leaves them as they are",
+      "kind": "number",
+      "default": 0.6
+    },
+    {
       "name": "crop_padding",
       "group": "Pyramid",
       "meaning": "Pixels kept around each mask box",

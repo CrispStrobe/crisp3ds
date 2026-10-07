@@ -51,6 +51,7 @@ pub struct DenseConfig {
     pub behind_weight: f64,
     pub free_weight: f64,
     pub native_level: bool,
+    pub match_sharpening: f64,
     pub support_from_sparse: bool,
     pub support_evidence: bool,
     pub mesh_smooth: f64,
@@ -108,6 +109,7 @@ impl Default for DenseConfig {
             behind_weight: 0.25,
             free_weight: 1.0,
             native_level: true,
+            match_sharpening: 0.6,
             support_from_sparse: true,
             support_evidence: true,
             mesh_smooth: 1.0,
@@ -141,7 +143,8 @@ impl DenseConfig {
 
 /// Settings this crate has and the Python reference does not. The reference is
 /// no longer extended; new behaviour is developed here.
-pub const NATIVE_ONLY: [&str; 5] = ["native_level", "support_from_sparse", "support_evidence", "mesh_hull_overshoot", "inspection_sheets"];
+pub const NATIVE_ONLY: [&str; 6] =
+    ["native_level", "match_sharpening", "support_from_sparse", "support_evidence", "mesh_hull_overshoot", "inspection_sheets"];
 
 /// Name, group, meaning, kind and default of every setting, as JSON
 /// (`{"settings": [...]}`), for generated settings forms. Written from the

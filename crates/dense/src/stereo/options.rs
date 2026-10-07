@@ -88,6 +88,7 @@ pub fn validate(c: &DenseConfig) -> anyhow::Result<()> {
     need(nonempty, "per-level lists must not be empty")?;
     need((1..=5).contains(&c.sizes.len()) && c.sizes.iter().all(|s| (32..=4096).contains(s)), "sizes must be 1..5 values in 32..4096")?;
     need(c.sizes.windows(2).all(|w| w[0] <= w[1]), "sizes must increase")?;
+    need((0.0..=4.0).contains(&c.match_sharpening), "match_sharpening must be in 0..4")?;
     need(2 <= c.best_of && c.best_of <= c.neighbours && c.neighbours <= 16, "need 2 <= best_of <= neighbours <= 16")?;
     need(0.0 < c.minimum_angle && c.minimum_angle < c.maximum_angle && c.maximum_angle < 90.0, "invalid neighbour angles")?;
     need((16..=512).contains(&c.planes), "planes must be 16..512")?;

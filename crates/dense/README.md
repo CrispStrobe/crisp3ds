@@ -583,6 +583,48 @@ Scanner F1 at 0.5 / 1 / 2 %, before and after:
 The largest drop anywhere is 0.0024 (Buddha `above_margin` at 1 %). Cost: one
 more matching pass at native size (Buddha 98 s against 88 s).
 
+**Sharpened matching images (`match_sharpening`, native-only, 0.6).** The
+photos are soft (below), so the matching images get an unsharp mask (grey plus
+0.6 times its difference from a one-pixel Gaussian blur) before NCC; the
+masks, the fusion and the sheets use the photos as they are. On top of the
+native level, F1 at 0.5 % `all` / `above_margin`: Lucy +0.007 / +0.007, Happy
+Buddha +0.004 / +0.005, Dragon +0.003 / +0.004, Thai statue +0.001 / +0.001,
+Armadillo +0.000 / +0.001, Bunny -0.002 / +0.002; the largest drop at any
+threshold is 0.0026 (Bunny `all` at 1 %). Consistent coverage at the Buddha's
+1024-px level rises from 0.569 to 0.582.
+
+**Happy Buddha resolution study.** How much detail the photos carry inside the
+object (every eighth photo; Laplacian variance, and the share of spectral
+energy above a quarter and an eighth of the sampling frequency in a 128-px
+patch at the object's centre):
+
+| object | object box (px) | Laplacian variance | energy above fs/4 | above fs/8 |
+| --- | --- | --- | --- | --- |
+| Bunny | 685 x 812 | 2.8 | 0.009 | 0.030 |
+| Armadillo | 578 x 764 | 5.9 | 0.005 | 0.011 |
+| Dragon | 715 x 730 | 4.1 | 0.008 | 0.032 |
+| Lucy | 460 x 980 | 4.6 | 0.002 | 0.008 |
+| Thai statue | 494 x 958 | 6.6 | 0.004 | 0.016 |
+| Happy Buddha | 405 x 992 | 4.0 | 0.012 | 0.034 |
+
+All six are equally soft: 97 to 99 % of the energy lies below an eighth of the
+sampling frequency, so the photos carry the detail of an image four times
+smaller. The Buddha is not softer than the others; it is tall and thin with
+fine relief (necklace beads, robe hems about 10 px wide), which a soft photo
+and an 11-px matching window cannot resolve. What helped: matching once more
+at native pixels (+0.007) and sharpening the matching images (+0.004 more);
+an extra refinement pass at 1024 px with half the depth step (+0.001) and
+windows 13 or 15 (+0.004, not adopted, see above) helped less. The closed
+underside the scan does not have (6 % of the Buddha's mesh area) costs 0.025
+of F1 `all` at 0.5 % and 1 % (0.773 to 0.798 on fresh samples): an evaluation
+artefact; the flat base is cut where the support is and stays. A synthetic
+capture (sphere with bumps, 960 x 720, 48 views) shows what sharper photos
+would give: median distance to the true surface 0.0009 of the radius with
+sharp photos, 0.0013 blurred by 1.5 px, 0.0038 by 3 px (95th percentile
+0.013, 0.015, 0.031). The 3DLF photos sit between the last two by Laplacian
+variance, so a camera with two to three times sharper optics would cut the
+surface error by about half to two thirds; more pixels alone would not.
+
 ### Camera providers through the dense stages
 
 A provider is judged by the reconstruction it leads to. `colmap` against
