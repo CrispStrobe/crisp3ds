@@ -625,6 +625,20 @@ sharp photos, 0.0013 blurred by 1.5 px, 0.0038 by 3 px (95th percentile
 variance, so a camera with two to three times sharper optics would cut the
 surface error by about half to two thirds; more pixels alone would not.
 
+**Preset `detail` (`run --preset detail`, `RunOptions.preset`).** Searches 12
+inverse-depth steps either side of the coarser surface at the finest levels
+instead of 5. The diagnosis behind it: the necklace, belly lines and robe hems
+of the Happy Buddha are in the photos but not in the finest depth maps, which
+have holes exactly there; relief the coarser surface lacks lies outside the
+narrow search band, the best score lands on its edge and the pixel is
+rejected. Field smoothing is not the cause (Taubin off changes nothing; a
+weaker field Gaussian adds noise, not detail, and costs the Armadillo 0.007),
+nor are the variance gate (2 to 13 % of the crop pixels) or the score
+threshold (0.45 instead of 0.55: +0.001). With the wider band the Buddha's
+consistent coverage at native pixels rises from 0.53 to 0.66 and F1 at 0.5 %
+by +0.011 whole and +0.017 above the support, but stray depth costs 0.006 at
+2 %, so it is a choice, not the default. `describe()` lists the presets.
+
 ### Camera providers through the dense stages
 
 A provider is judged by the reconstruction it leads to. `colmap` against

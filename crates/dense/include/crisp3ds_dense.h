@@ -15,6 +15,7 @@
  *     "photo_options": ["--calibration", "lens.json", "--masks", "threshold"],
  *                                                  // (words of `crisp3ds-dense photos`)
  *     "config": "/path/to/config.json",
+ *     "preset": "detail",                         // optional named settings, see describe()
  *     "overrides": ["grid=320"],
  *     "settings": {"sizes": [256, 512]},           // names as in the settings list
  *     "threads": 2, "stereo_timeout": 3600, "minimum_free_gib": 2.0,

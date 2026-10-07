@@ -56,7 +56,9 @@ pub struct RunOptions {
     pub photo_options: Vec<String>,
     /// JSON with settings (a `config.json` or a previous `result.json`).
     pub config: Option<PathBuf>,
-    /// `key=value` overrides, applied after `config`.
+    /// A named set of settings applied before `overrides` (`detail`; see [`PRESETS`]).
+    pub preset: Option<String>,
+    /// `key=value` overrides, applied after `config` and the preset.
     pub overrides: Vec<String>,
     /// Settings by name, as `GET /api/settings` lists them; applied after `overrides`.
     pub settings: serde_json::Map<String, Value>,
@@ -90,6 +92,7 @@ impl Default for RunOptions {
             photos: None,
             photo_options: Vec::new(),
             config: None,
+            preset: None,
             overrides: Vec::new(),
             settings: serde_json::Map::new(),
             threads: 2,
@@ -108,7 +111,14 @@ impl Default for RunOptions {
 impl RunOptions {
     /// The resolved settings: defaults, `config`, `overrides`, `settings`.
     pub fn configuration(&self) -> anyhow::Result<DenseConfig> {
-        let mut overrides = self.overrides.clone();
+        let mut overrides: Vec<String> = match self.preset.as_deref() {
+            None => Vec::new(),
+            Some(name) => match PRESETS.iter().find(|(n, _, _)| *n == name) {
+                Some((_, settings, _)) => settings.iter().map(|s| s.to_string()).collect(),
+                None => anyhow::bail!("unknown preset {name:?}; known: {}", PRESETS.iter().map(|p| p.0).collect::<Vec<_>>().join(", ")),
+            },
+        };
+        overrides.extend(self.overrides.iter().cloned());
         for (key, value) in &self.settings {
             let text = match value {
                 Value::Array(items) => items.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(","),
@@ -120,6 +130,15 @@ impl RunOptions {
         stereo::options::build(self.config.as_deref(), &overrides)
     }
 }
+
+/// Named sets of settings: name, settings, what they trade.
+pub const PRESETS: &[(&str, &[&str], &str)] = &[(
+    "detail",
+    &["band_first=8,8,12"],
+    "Searches 12 inverse-depth steps either side of the coarser surface at the finest levels instead of 5: more consistent depth \
+     on fine relief (Happy Buddha coverage at native pixels 0.53 to 0.66, F1 at 0.5 % +0.011 whole, +0.017 above the support) \
+     at the cost of more stray depth (F1 at 2 % -0.006)",
+)];
 
 /// Contact sheet of evenly spaced photos with their mask outlines (`input_sheet`).
 pub fn input_sheet(inputs: &Path, path: &Path) -> anyhow::Result<()> {
@@ -818,12 +837,14 @@ pub fn describe_with(photo_options: &[String]) -> Value {
             ],
         }));
     }
-    json!({"schema": "crisp3ds_start_points_v1", "platform": table["platform"], "start_points": points})
+    let presets: Vec<Value> =
+        PRESETS.iter().map(|(name, settings, meaning)| json!({"name": name, "settings": settings, "meaning": meaning})).collect();
+    json!({"schema": "crisp3ds_start_points_v1", "platform": table["platform"], "start_points": points, "presets": presets})
 }
 
 pub const USAGE: &str = "usage: crisp3ds-dense run --output DIR (--photos DIR --calibration JSON [--masks PROVIDER] [--cameras PROVIDER] \
 [options of `crisp3ds-dense photos`] | --inputs DIR | --scene FILE --prepared DIR --raw-masks DIR) \
-[--config FILE] [--set KEY=VALUE]... [--threads N] [--stereo-timeout SECONDS] [--minimum-free-gib G] [--reuse-depths FILE] \
+[--config FILE] [--preset detail] [--set KEY=VALUE]... [--threads N] [--stereo-timeout SECONDS] [--minimum-free-gib G] [--reuse-depths FILE] \
 [--no-live-previews] [--preview-step N] [--skip-check] [--no-preview] [--keep-volume]";
 
 /// Options from the command line of `dense_pipeline.py` (the parts this driver covers).
@@ -845,6 +866,7 @@ pub fn parse(arguments: &[String]) -> anyhow::Result<RunOptions> {
             "--raw-masks" => options.raw_masks = Some(PathBuf::from(value()?)),
             "--config" => options.config = Some(PathBuf::from(value()?)),
             "--set" => options.overrides.push(value()?),
+            "--preset" => options.preset = Some(value()?),
             "--threads" => options.threads = number(value()?)? as usize,
             "--stereo-timeout" => options.stereo_timeout = number(value()?)?,
             "--minimum-free-gib" => options.minimum_free_gib = number(value()?)?,
