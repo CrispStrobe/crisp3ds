@@ -218,11 +218,14 @@ pub struct SupportEvidence {
 /// sphere seen from a low ring) has its real bottom there instead: the hull
 /// goes on by a large part of its height (26 % for the demo sphere from a
 /// 10-degree ring and for the asymmetric capture from a 20-degree ring).
-/// Floating therefore means deeper than 15 % of the height. The cone is
-/// reported but not used: below a floating sphere the hull is a cone of the
-/// same slope, so it cannot tell the two apart. A wide, flat object on a
-/// support whose cone is deeper than 15 % of its height keeps its underside
-/// unflattened (the hull cone stays under it).
+/// Floating therefore means deeper than 15 % of the height and deeper than
+/// the cone the cameras' elevation explains (by more than 15 %). With one low
+/// ring the two kinds of cone have nearly the same slope (the demo sphere 1.75
+/// times the cone, the asymmetric test object 1.29); cameras that look down
+/// steeply (YCB, about 52 degrees) make the support's own cone deep, more than
+/// 15 % of a box's height, but no deeper than tan(elevation) times the
+/// footprint radius, so the support is kept. A wide, flat object on a support
+/// keeps it for the same reason.
 pub fn support_evidence(hull: &Hull, cameras: &[Camera], support: &Support) -> SupportEvidence {
     let none = SupportEvidence { depth: 0.0, height: 0.0, cone: 0.0, elevation: 0.0, floating: false };
     let Some(level) = support.height else { return none };
@@ -255,7 +258,7 @@ pub fn support_evidence(hull: &Hull, cameras: &[Camera], support: &Support) -> S
     let elevation = elevations.get(elevations.len() / 2).copied().unwrap_or(0.0);
     let cone = elevation.max(0.0).tan() * (footprint as f32 / std::f32::consts::PI).sqrt();
     let height = -top;
-    let floating = depth > 0.15 * height;
+    let floating = depth > 0.15 * height && depth > 1.15 * cone;
     SupportEvidence { depth: depth.max(0.0), height, cone, elevation: elevation.to_degrees(), floating }
 }
 
