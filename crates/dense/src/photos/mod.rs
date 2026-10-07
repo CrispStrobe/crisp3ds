@@ -37,6 +37,8 @@ pub mod markers;
 pub mod option_table;
 pub mod options;
 pub mod providers;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod rendered;
 pub mod ring;
 pub mod sam;
 pub mod scene_writer;
