@@ -68,10 +68,10 @@ dense stages.
   (accuracy is 1.6 to 2.8 mm against completeness 0.5 to 1.0 mm). Fix (dense
   stages): leave hull surface that no view measures out of the mesh when the
   views cover less than a full turn, or close it at the measured surface.
-- **Non-ring camera paths** pass only with the ring gates loosened by hand
-  (`--open-turn`, radius spread, out-of-plane, angular gap, reversed steps,
-  optical-axis miss). Fix (photos options): a `--capture orbit` that applies
-  the audit gates and none of the ring gates.
+- **Non-ring camera paths**: `--capture orbit` keeps the camera audit and
+  drops the ring gates (`turntable`, the default, keeps them; the turntable
+  provider refuses `orbit`). DTU 65 and 63 with `colmap` and no other flag:
+  49 of 49 registered, overall 1.31 and 1.43 mm.
 - **Masks that are not the object** (DTU scan 24, where the masks cover most of
   the frame; YCB with `threshold`, which takes the turntable's chessboard).
   Imported masks are needed there.
@@ -82,8 +82,15 @@ dense stages.
   (neighbours and photos four apart share equally many matches). Tried and
   not kept: a lower feature contrast threshold, and steps fixed to 360 degrees
   over the photos (the turn closed, but the adjustment did not hold the ring).
-  Fix: features in the mask dilated to the turntable top, or a mask of the
-  turntable as a second region.
+  Tried next and not kept: features also in a band beside and below the
+  mask, keeping off-mask matches only if they move between photos (the
+  background stands still), and locating the scene by points inside the
+  masks. The bottle then registers (60 of 60, 1 114 features per photo, the
+  order check and every gate pass), but the cameras are wrong: the steps
+  came out 19 % too large before closing the turn, and the mesh is a hollow
+  shell (F1 0.21 / 0.40 / 0.59). The 0.6 to 1.4 turn window for closing a
+  turn let that through; the axis search (tilts up to 50 degrees) is at its
+  edge for cameras looking down this steeply.
 - **Lens with tangential terms** (YCB, p1 = 0.006). Photos undistorted with the
   full model beforehand gave the same score as dropping p1 and p2, so the
   missing tangential term is not what limits these runs; the calibration format
