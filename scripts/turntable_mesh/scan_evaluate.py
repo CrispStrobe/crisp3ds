@@ -642,6 +642,9 @@ def evaluate(mesh_triangles, reference_vertices, reference_faces, *, seed=215, s
     cut = platform["margin_above_plane"] + above_margin * diagonal
     mesh_normals_in_reference = mesh_normals @ rotation.T
 
+    oriented = mesh_normals @ rotation.T  # already mirrored with the points when the fit is
+    underside = (mesh_height < 0.02 * platform["kept_height_range"][1]) & (oriented @ normal < -0.7)
+
     def scored(mesh_mask, reference_mask):
         return score(mesh_distance[mesh_mask], reference_distance[reference_mask], diagonal)
 
@@ -699,6 +702,15 @@ def evaluate(mesh_triangles, reference_vertices, reference_faces, *, seed=215, s
                 "reference_sample_fraction_kept": float(
                     (reference_height > cut)[~reference_fit].mean()),
                 **scored(~mesh_fit & (mesh_height > cut), ~reference_fit & (reference_height > cut)),
+            },
+            # The scan is open where the object stood; the reconstruction is closed there. This second
+            # whole-surface score leaves the closed underside out of precision (mesh samples within 2 % of
+            # the object's height over the platform plane whose normal points down); 'all' is unchanged.
+            "all_without_underside": {
+                "definition": "as 'all', without mesh samples below 2 % of the object height over the platform "
+                              "plane whose normal points down (cosine with the plane normal below -0.7)",
+                "mesh_sample_fraction_removed": float(underside[~mesh_fit].mean()),
+                **scored(~mesh_fit & ~underside, ~reference_fit),
             },
             "fit_half_for_comparison_only": scored(mesh_fit, reference_fit),
         },

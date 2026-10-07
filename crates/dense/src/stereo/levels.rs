@@ -174,6 +174,16 @@ pub async fn match_levels(
             rows.push(row);
             depths = agreed;
         }
+        if std::env::var("CRISP3DS_LEVEL_DEPTHS").is_ok() {
+            // Diagnostic: every level's consistent depth, with the level's canvas geometry.
+            super::run::write_depths(&output.join(format!("depths-level-{li}.npz")), &depths)?;
+            let cameras: Vec<serde_json::Value> =
+                level.iter().map(|v| json!({"width": v.width, "height": v.height, "k": v.camera.k})).collect();
+            crate::storage::write(
+                output.join(format!("depths-level-{li}.json")),
+                serde_json::to_string(&json!({"views": cameras, "boxes": inputs.boxes}))?,
+            )?;
+        }
         let sheet = output.join(format!("depth-level-{li}.png"));
         depth_sheet(&sheet, &level, &depths, picks)?;
         events.artifact("depth_sheet", &sheet, &format!("Depth at level {} (photo, depth, shading)", li + 1), json!({"level": li}))?;

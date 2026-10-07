@@ -26,6 +26,7 @@ const PAPER: [u8; 3] = [246, 247, 249];
 const INK: [u8; 3] = [26, 36, 49];
 
 struct View {
+    name: String,
     camera: ViewCamera,
     /// Whole object: centre and scale of the panel.
     whole: ([f64; 2], f64),
@@ -124,6 +125,7 @@ impl Inspector {
             let detail_scale = (PANEL.0 as f64 / side as f64).min(PANEL.1 as f64 / side as f64);
             let image = Rgb::open(Path::new(&row.image))?;
             views.push(View {
+                name: row.name.clone(),
                 camera: ViewCamera { rotation: row.rotation, translation: row.translation, k: row.k },
                 whole: (centre, scale),
                 detail: (detail_centre, detail_scale),
@@ -132,6 +134,15 @@ impl Inspector {
             });
         }
         crate::storage::create_dir_all(directory)?;
+        // Where the views and crops are, for tools that draw other things (depth maps) at the same places.
+        let record: Vec<serde_json::Value> = views
+            .iter()
+            .map(|v| {
+                let side = PANEL.0 as f64 / v.detail.1;
+                json!({"view": v.name, "centre": v.whole.0, "scale": v.whole.1, "detail_centre": v.detail.0, "detail_side": side})
+            })
+            .collect();
+        crate::storage::write(directory.join("crops.json"), serde_json::to_string_pretty(&json!({"views": record}))? + "\n")?;
         Ok(Inspector { directory: directory.to_path_buf(), views, rows: Mutex::new(Vec::new()) })
     }
 
@@ -201,6 +212,39 @@ impl Inspector {
         )?;
         Ok(Some(path))
     }
+}
+
+/// `crisp3ds-dense inspect --inputs DIR --output DIR --mesh STEP=LABEL=FILE ...`: sheets of any meshes with
+/// the views and crops of the inputs directory, and their overview, as a run draws them.
+pub fn main(arguments: &[String]) -> anyhow::Result<()> {
+    const USAGE: &str = "usage: crisp3ds-dense inspect --inputs DIR --output DIR --mesh STEP=LABEL=FILE [--mesh ...]";
+    let (mut inputs, mut output, mut meshes) = (None, None, Vec::new());
+    let mut rest = arguments.iter();
+    while let Some(flag) = rest.next() {
+        let value = rest.next().ok_or_else(|| anyhow::anyhow!("{flag} needs a value\n{USAGE}"))?;
+        match flag.as_str() {
+            "--inputs" => inputs = Some(PathBuf::from(value)),
+            "--output" => output = Some(PathBuf::from(value)),
+            "--mesh" => {
+                let parts: Vec<&str> = value.splitn(3, '=').collect();
+                if parts.len() != 3 {
+                    bail!("--mesh needs STEP=LABEL=FILE\n{USAGE}");
+                }
+                meshes.push((parts[0].to_string(), parts[1].to_string(), PathBuf::from(parts[2])));
+            }
+            _ => bail!("unknown argument {flag}\n{USAGE}"),
+        }
+    }
+    let (Some(inputs), Some(output)) = (inputs, output) else { bail!("--inputs and --output are required\n{USAGE}") };
+    let inspector = Inspector::new(&crate::inputs::load_views(&inputs)?, &output)?;
+    let events = EventLog::none();
+    for (step, label, mesh) in &meshes {
+        println!("{}", inspector.add(step, label, mesh, &events)?.display());
+    }
+    if let Some(path) = inspector.overview(&events)? {
+        println!("{}", path.display());
+    }
+    Ok(())
 }
 
 /// Whether sheets may be drawn: always natively; in a browser while the module's memory is below 2.5 GiB.
