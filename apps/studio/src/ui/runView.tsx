@@ -86,6 +86,7 @@ export function RunView({ source, heading, backHref, themeTick }: Props) {
             {source.kind === "replay" && <span class="tag">Recording</span>}
             {source.memoryNote?.() !== undefined && <span class="memory-note">{source.memoryNote()}</span>}
           </p>
+          <Attribution source={source} />
         </div>
         {source.cancel !== undefined && running && (
           <button
@@ -324,5 +325,24 @@ function ReplayBar({ controls }: { controls: ReplayControls }) {
         ))}
       </div>
     </div>
+  );
+}
+
+/** Where the photos of this run come from, when the run says so (runs from downloaded example objects). */
+function Attribution({ source }: { source: RunSource }) {
+  const [text, setText] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void source.attribution?.().then((value) => alive && setText(value));
+    return () => {
+      alive = false;
+    };
+  }, [source]);
+  if (text === null) return null;
+  return (
+    <details class="raw attribution">
+      <summary>Source and license of the photos</summary>
+      <pre>{text}</pre>
+    </details>
   );
 }

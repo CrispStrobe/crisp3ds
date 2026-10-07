@@ -239,6 +239,7 @@ interface Held {
   /** Peak WebAssembly memory seen for this run, bytes. */
   peak: number;
   ended: boolean;
+  attribution?: string;
   listeners: Set<() => void>;
 }
 
@@ -472,7 +473,8 @@ export class BrowserEngine implements Engine {
     // Photo sets are large: intermediate surfaces only when asked for.
     const options: Record<string, unknown> = { live_previews: this.previews ?? false, photo_options: ["--masks", masks, "--cameras", cameras, ...extra] };
     if (typeof body.settings === "object" && body.settings !== null) options.settings = body.settings;
-    this.runs.set(id, { id, events: [], status: "running", started: this.clock(), stage: null, fraction: 0, peak: 0, ended: false, listeners: new Set() });
+    const attribution = typeof body.attribution === "string" && body.attribution.trim() !== "" ? body.attribution.trim() : undefined;
+    this.runs.set(id, { id, events: [], status: "running", started: this.clock(), stage: null, fraction: 0, peak: 0, ended: false, listeners: new Set(), attribution });
     this.worker?.postMessage({ type: "run-photos", id, photos: this.photos.files, calibration: this.calibration.text, options });
     return id;
   }
@@ -589,6 +591,10 @@ export class BrowserRunSource implements RunSource {
 
   async fetchJson(path: string, options: FetchOptions = {}): Promise<unknown> {
     return JSON.parse(new TextDecoder().decode(await this.fetchBytes(path, options)));
+  }
+
+  attribution(): Promise<string | null> {
+    return Promise.resolve(this.engine.held(this.title)?.attribution ?? null);
   }
 
   /** Peak memory of the engine for this run, for the status line. */

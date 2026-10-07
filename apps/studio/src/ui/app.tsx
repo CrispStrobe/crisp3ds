@@ -10,6 +10,7 @@ import { Connection } from "./connection";
 import { Icon } from "./icons";
 import { NewRun } from "./newRun";
 import { applyTheme, loadPrefs, savePrefs, speedFromPref, type ThemeChoice } from "./prefs";
+import { Examples } from "./examples";
 import { Notices } from "./notices";
 import { Runs } from "./runs";
 import { RunView } from "./runView";
@@ -23,7 +24,8 @@ export type Route =
   | { screen: "new" }
   | { screen: "run"; id: string }
   | { screen: "shell" }
-  | { screen: "notices" };
+  | { screen: "notices" }
+  | { screen: "examples" };
 
 export function parseRoute(hash: string): Route {
   const [path = "", query = ""] = hash.replace(/^#\/?/, "").split("?");
@@ -31,6 +33,7 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === "replay") return { screen: "replay", bundle: new URLSearchParams(query).get("bundle") };
   if (parts[0] === "shell") return { screen: "shell" };
   if (parts[0] === "notices") return { screen: "notices" };
+  if (parts[0] === "examples") return { screen: "examples" };
   if (parts[0] === "engine") {
     if (parts[1] === "new") return { screen: "new" };
     if (parts[1] === "run" && parts[2] !== undefined) return { screen: "run", id: decodeURIComponent(parts[2]) };
@@ -170,7 +173,7 @@ export function App() {
   }, [route.screen, route.screen === "replay" ? route.bundle : route.screen === "run" ? route.id : "", engine]);
 
   const update = (change: Partial<typeof prefs>) => setPrefs(savePrefs(change));
-  const needsEngine = route.screen === "runs" || route.screen === "new" || route.screen === "run";
+  const needsEngine = route.screen === "runs" || route.screen === "new" || route.screen === "run" || route.screen === "examples";
   const showRuns = useLocal || mode === "browser" || prefs.engineUrl !== "";
 
   let title = "Studio";
@@ -180,6 +183,7 @@ export function App() {
   else if (route.screen === "run") title = route.id;
   else if (route.screen === "shell") title = "Engine settings";
   else if (route.screen === "notices") title = "Licenses";
+  else if (route.screen === "examples") title = "Example objects";
   useEffect(() => {
     document.title = title === "Studio" ? "Crisp 3D Studio" : `${title} - Crisp 3D Studio`;
   }, [title]);
@@ -226,6 +230,7 @@ export function App() {
             browser={offerBrowser ? { built: browserEngine !== null, webgpu, inUse: mode === "browser" } : null} />
         )}
         {route.screen === "notices" && <Notices />}
+        {route.screen === "examples" && engine !== null && <Examples engine={engine} bridge={mode === "native" && shell !== null ? shell.bridge : null} />}
         {route.screen === "shell" &&
           (shell !== null && hasLocal ? (
             <ShellSettingsScreen shell={shell} info={shellInfo} status={local.status} mode={mode} onChange={local.refresh} />

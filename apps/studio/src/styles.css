@@ -1900,3 +1900,47 @@ fieldset.panel > legend {
   background: var(--panel);
   pointer-events: none;
 }
+
+/* Example objects: a plain list, no pictures. */
+.example-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.example {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.example-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.example-text progress {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.example-confirm {
+  flex-basis: 100%;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.attribution pre {
+  white-space: pre-wrap;
+  font-size: 0.8rem;
+}

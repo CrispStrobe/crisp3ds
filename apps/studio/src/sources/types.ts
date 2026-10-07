@@ -72,6 +72,8 @@ export interface RunSource {
   fileSize?(path: string, signal?: AbortSignal): Promise<number | undefined>;
   /** A short note on what the run costs where it runs (the browser engine: its peak memory). */
   memoryNote?(): string | undefined;
+  /** Where the photos of the run come from and under which license, when it was recorded. */
+  attribution?(): Promise<string | null>;
   /** Present when the run can be cancelled from here. */
   cancel?(): Promise<void>;
   /** Present for recordings. */

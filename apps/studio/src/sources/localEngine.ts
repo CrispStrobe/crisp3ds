@@ -262,6 +262,15 @@ export class LocalRunSource implements RunSource {
     return buffer;
   }
 
+  /** ATTRIBUTION.txt of the run, which the shell writes for runs from downloaded photos. */
+  async attribution(): Promise<string | null> {
+    try {
+      return new TextDecoder().decode(await this.fetchBytes("ATTRIBUTION.txt")).trim() || null;
+    } catch {
+      return null;
+    }
+  }
+
   async fetchJson(path: string, options: FetchOptions = {}): Promise<unknown> {
     return JSON.parse(new TextDecoder().decode(await this.fetchBytes(path, options)));
   }

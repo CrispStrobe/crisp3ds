@@ -382,6 +382,34 @@ async fn native_import(app: AppHandle, request: tauri::ipc::Request<'_>) -> Resu
     }
 }
 
+/// Removes a downloaded example object (`<data>/examples/<id>`).
+#[tauri::command]
+async fn native_delete_example(app: AppHandle, id: String) -> Result<(), String> {
+    #[cfg(native_engine)]
+    {
+        built_in(&app).delete_example(&id)
+    }
+    #[cfg(not(native_engine))]
+    {
+        let _ = (app, id);
+        Err(UNAVAILABLE.into())
+    }
+}
+
+/// Free bytes on the disk of the data folder, or null where the platform does not say.
+#[tauri::command]
+async fn native_free_space(app: AppHandle) -> Result<Option<u64>, String> {
+    #[cfg(native_engine)]
+    {
+        Ok(built_in(&app).free_bytes())
+    }
+    #[cfg(not(native_engine))]
+    {
+        let _ = app;
+        Err(UNAVAILABLE.into())
+    }
+}
+
 /// `%E2%82%AC` -> `€`: what `encodeURIComponent` wrote.
 fn percent_decode(text: &str) -> Option<String> {
     let bytes = text.as_bytes();
@@ -585,6 +613,8 @@ pub fn run() {
         native_data,
         native_calibrations,
         native_import,
+        native_delete_example,
+        native_free_space,
         check_tool,
         autopilot_log,
         autopilot_await,
@@ -612,6 +642,8 @@ pub fn run() {
         native_data,
         native_calibrations,
         native_import,
+        native_delete_example,
+        native_free_space,
         check_tool
     ]);
 

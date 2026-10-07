@@ -47,6 +47,23 @@ pub struct DataEntry {
     pub calibration: bool,
 }
 
+#[cfg(unix)]
+fn free_space(path: &Path) -> Option<u64> {
+    use std::os::unix::ffi::OsStrExt;
+    let name = std::ffi::CString::new(path.as_os_str().as_bytes()).ok()?;
+    let mut stats: libc::statvfs = unsafe { std::mem::zeroed() };
+    // SAFETY: `name` is a valid C string and `stats` a properly sized, writable struct.
+    if unsafe { libc::statvfs(name.as_ptr(), &mut stats) } != 0 {
+        return None;
+    }
+    Some(stats.f_bavail as u64 * stats.f_frsize as u64)
+}
+
+#[cfg(not(unix))]
+fn free_space(_path: &Path) -> Option<u64> {
+    None
+}
+
 /// Whether a folder has at least three images directly in it. Looks at a bounded number of entries.
 fn holds_photos(folder: &Path) -> bool {
     let Ok(entries) = std::fs::read_dir(folder) else { return false };
@@ -102,6 +119,9 @@ pub struct StartBody {
     pub cameras_import: Option<String>,
     /// Description of the printed marker mat (a file), for the `markers` cameras provider.
     pub markers_mat: Option<String>,
+    /// Where the photos come from and under which license, as text: written next to the run
+    /// (ATTRIBUTION.txt) so it stays with the result.
+    pub attribution: Option<String>,
     /// Tuning options of the photos stage, one word per element. Never a place or a program.
     pub photo_options: Vec<String>,
     pub settings: Map<String, Value>,
@@ -419,11 +439,35 @@ impl Native {
             }
             Ok(text.to_string())
         };
-        let (folder, name) = (plain(folder, "folder")?, plain(name, "name")?);
-        let target = self.data().join(&folder);
+        // The folder may be nested (examples/dragon/photos); every part is a plain name.
+        let parts: Vec<String> = folder.split('/').map(|part| plain(part, "folder")).collect::<Result<_, _>>()?;
+        if parts.len() > 4 {
+            return Err("folder: too deep".into());
+        }
+        let folder = parts.join("/");
+        let name = plain(name, "name")?;
+        let target = parts.iter().fold(self.data(), |path, part| path.join(part));
         std::fs::create_dir_all(&target).map_err(|error| format!("Could not create {folder}: {error}"))?;
         std::fs::write(target.join(&name), bytes).map_err(|error| format!("Could not write {name}: {error}"))?;
         Ok(format!("{folder}/{name}"))
+    }
+
+/// Removes a downloaded example object: `<data>/examples/<id>` and nothing else.
+    pub fn delete_example(&self, id: &str) -> Result<(), String> {
+        let plain = !id.is_empty() && id.len() <= 64 && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+        if !plain {
+            return Err(format!("{id:?} is not the name of an example object"));
+        }
+        let folder = self.data().join("examples").join(id);
+        if folder.exists() {
+            std::fs::remove_dir_all(&folder).map_err(|error| format!("Could not remove {id}: {error}"))?;
+        }
+        Ok(())
+    }
+
+    /// Free bytes on the disk of the data folder, where the platform says.
+    pub fn free_bytes(&self) -> Option<u64> {
+        free_space(&self.data())
     }
 
     pub fn grant(&self, path: &Path) {
@@ -592,7 +636,17 @@ impl Native {
     pub fn start(self: &Arc<Self>, body: StartBody) -> Result<String, String> {
         let id = self.new_id(body.name.as_deref());
         let options = self.options(&body, &id)?;
-        self.start_with(id, options, crisp3ds_dense::run::run)
+        let attribution = body.attribution.as_deref().map(str::trim).filter(|text| !text.is_empty()).map(str::to_string);
+        if attribution.as_ref().is_some_and(|text| text.len() > 16 * 1024) {
+            return Err("attribution: too long".into());
+        }
+        let folder = options.output.clone();
+        let id = self.start_with(id, options, crisp3ds_dense::run::run)?;
+        // The run folder is the engine's to create; once the run has started, the note goes in.
+        if let Some(text) = attribution {
+            let _ = std::fs::write(folder.join("ATTRIBUTION.txt"), format!("{text}\n"));
+        }
+        Ok(id)
     }
 
     /// The same with the pipeline passed in, so tests can run without a GPU.
@@ -827,10 +881,26 @@ mod tests {
         let (engine, root) = engine("import");
         assert_eq!(engine.import("photos-1", "IMG_0001.HEIC", b"x").unwrap(), "photos-1/IMG_0001.HEIC");
         assert_eq!(std::fs::read(root.join("data/photos-1/IMG_0001.HEIC")).unwrap(), b"x");
-        for (folder, name) in [("..", "a"), ("a/b", "c"), ("ok", "../x"), ("ok", ".hidden"), ("", "a"), ("ok", "a\\b")] {
+        assert_eq!(engine.import("examples/dragon/photos", "d_0.png", b"y").unwrap(), "examples/dragon/photos/d_0.png");
+        assert!(root.join("data/examples/dragon/photos/d_0.png").is_file());
+        for (folder, name) in [("..", "a"), ("a/../b", "c"), ("a//b", "c"), ("/abs", "c"), ("a/b/c/d/e", "f"), ("ok", "../x"), ("ok", ".hidden"), ("", "a"), ("ok", "a\\b")] {
             assert!(engine.import(folder, name, b"x").is_err(), "{folder:?} {name:?} was accepted");
         }
         assert!(!root.join("x").exists() && !root.join("data/x").exists());
+    }
+
+    #[test]
+    fn examples_are_deleted_by_name_only_and_the_attribution_goes_with_the_run() {
+        let (engine, root) = engine("examples");
+        std::fs::create_dir_all(root.join("data/examples/dragon/rgb")).unwrap();
+        std::fs::write(root.join("data/examples/dragon/rgb/a.png"), "x").unwrap();
+        for bad in ["", "..", "../runs", "a/b", "dragon.png"] {
+            assert!(engine.delete_example(bad).is_err(), "{bad:?} was accepted");
+        }
+        engine.delete_example("dragon").unwrap();
+        assert!(!root.join("data/examples/dragon").exists() && root.join("data").exists());
+        engine.delete_example("never-downloaded").unwrap();
+        assert!(engine.free_bytes().is_none_or(|bytes| bytes > 0));
     }
 
     #[test]

@@ -177,6 +177,18 @@ export function Connection({ prefs, onChange, localEngine, browser }: Props) {
             )}
           </section>
         )}
+        {(localEngine?.native === true || (browser !== null && browser.built && browser.webgpu)) && (
+          <section class="card" aria-labelledby="c-examples">
+            <h2 id="c-examples">Example objects</h2>
+            <p>
+              Real photo sets of seven figures (73 photos each, about 110 MB): downloaded on request from a public dataset, then
+              reconstructed {localEngine?.native === true ? "on this computer" : "in this browser"}.
+            </p>
+            <a class="button" href="#/examples" onClick={() => onChange({ engineChoice: localEngine?.native === true ? "native" : "browser" })}>
+              Choose an object
+            </a>
+          </section>
+        )}
         <section class="card" aria-labelledby="c-demo">
           <h2 id="c-demo">Demo recording</h2>
           <p>A recorded run on a synthetic sphere, included with this app. Needs no engine.</p>
