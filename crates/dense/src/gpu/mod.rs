@@ -192,33 +192,61 @@ impl Gpu {
 
     /// Copies the first `count` elements of a storage buffer back to the CPU.
     pub async fn read<T: Pod>(&self, buffer: &wgpu::Buffer, count: usize) -> anyhow::Result<Vec<T>> {
+        let pending = self.begin_read::<T>(buffer, count);
+        self.finish_read(pending).await
+    }
+
+    /// The first half of [`Gpu::read`]: the copy to a staging buffer is queued now, behind the work
+    /// already recorded, and submitted; [`Gpu::finish_read`] waits for that copy alone. Work queued
+    /// in between runs on the GPU while the caller does other things, and does not delay the read.
+    pub fn begin_read<T: Pod>(&self, buffer: &wgpu::Buffer, count: usize) -> PendingRead<T> {
         let bytes = (count * std::mem::size_of::<T>()) as u64;
-        if bytes == 0 {
-            return Ok(Vec::new());
-        }
-        let padded = bytes.div_ceil(4) * 4;
+        let padded = (bytes.div_ceil(4) * 4).max(4);
         let staging = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("readback"),
             size: padded,
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        self.record(|encoder| encoder.copy_buffer_to_buffer(buffer, 0, &staging, 0, padded));
-        self.flush();
+        #[cfg(target_arch = "wasm32")]
+        let index = {
+            if bytes > 0 {
+                self.record(|encoder| encoder.copy_buffer_to_buffer(buffer, 0, &staging, 0, padded));
+            }
+            self.flush();
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        let index = {
+            let mut encoder = self.device.create_command_encoder(&Default::default());
+            if bytes > 0 {
+                encoder.copy_buffer_to_buffer(buffer, 0, &staging, 0, padded);
+            }
+            self.queue.submit([encoder.finish()])
+        };
         let mapped = Mapped::default();
         let signal = mapped.clone();
         staging.slice(..).map_async(wgpu::MapMode::Read, move |result| signal.complete(result));
-        // A native device completes the mapping while it is polled; a browser completes it from its event loop.
+        PendingRead { staging, mapped, count, bytes, index, element: std::marker::PhantomData }
+    }
+
+    /// The second half of [`Gpu::read`].
+    pub async fn finish_read<T: Pod>(&self, pending: PendingRead<T>) -> anyhow::Result<Vec<T>> {
+        let PendingRead { staging, mapped, count, bytes, index, .. } = pending;
+        // A native device completes the mapping while it is polled (here only up to the copy's own
+        // submission); a browser completes it from its event loop.
         #[cfg(not(target_arch = "wasm32"))]
-        self.device.poll(wgpu::PollType::wait_indefinitely()).map_err(|e| anyhow!("GPU poll: {e}"))?;
+        self.device.poll(wgpu::PollType::Wait { submission_index: Some(index), timeout: None }).map_err(|e| anyhow!("GPU poll: {e}"))?;
+        #[cfg(target_arch = "wasm32")]
+        let () = index;
         mapped.await.map_err(|e| anyhow!("GPU readback: {e}"))?;
         if let Some(error) = self.uncaptured.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take() {
             return Err(anyhow!("GPU: {error}"));
         }
-        let view = staging.slice(..).get_mapped_range().map_err(|e| anyhow!("GPU readback: {e}"))?;
         let mut out = vec![T::zeroed(); count];
-        bytemuck::cast_slice_mut::<T, u8>(&mut out).copy_from_slice(&view[..bytes as usize]);
-        drop(view);
+        if bytes > 0 {
+            let view = staging.slice(..).get_mapped_range().map_err(|e| anyhow!("GPU readback: {e}"))?;
+            bytemuck::cast_slice_mut::<T, u8>(&mut out).copy_from_slice(&view[..bytes as usize]);
+        }
         staging.unmap();
         Ok(out)
     }
@@ -284,6 +312,19 @@ impl Gpu {
         }
         Ok(())
     }
+}
+
+/// A readback in flight ([`Gpu::begin_read`]).
+pub struct PendingRead<T> {
+    staging: wgpu::Buffer,
+    mapped: Mapped,
+    count: usize,
+    bytes: u64,
+    #[cfg(not(target_arch = "wasm32"))]
+    index: wgpu::SubmissionIndex,
+    #[cfg(target_arch = "wasm32")]
+    index: (),
+    element: std::marker::PhantomData<T>,
 }
 
 /// Completion of a buffer mapping, as a future.

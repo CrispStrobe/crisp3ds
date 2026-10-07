@@ -341,8 +341,13 @@ mod tests {
         assert!(checked > 3000, "{checked}");
         assert!(different * 500 <= checked, "{different} of {checked} voxels differ");
         assert_eq!(wrong_side, 0);
-        // The ring looks down by 10 degrees; the support is the sphere's lowest measured level.
+        // The ring looks down by 10 degrees. The sphere floats: the hull goes on far below its lowest
+        // measured level, so there is no support.
         assert!(fused.support.down[2] < -0.99, "{:?}", fused.support.down);
+        assert_eq!(fused.support.height, None, "a floating sphere has no support");
+        // Without that test the support is the sphere's lowest measured level.
+        let assumed = DenseConfig { support_evidence: false, ..config.clone() };
+        let fused = crate::gpu::block_on(tsdf(&gpu, &state.hull, &inputs.cameras, &level, &depths, rim, &assumed)).unwrap();
         let height = fused.support.height.expect("support height");
         let lowest = fused.support.point[2] - height;
         assert!(lowest < -0.5 && lowest > -1.1, "{lowest}");

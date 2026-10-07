@@ -61,6 +61,13 @@ struct PeakParams {
 }
 
 /// The views of one pyramid level on the device.
+/// The depth map of one view on its way back from the GPU.
+pub struct Pending {
+    width: usize,
+    height: usize,
+    read: crate::gpu::PendingRead<f32>,
+}
+
 pub struct LevelBuffers {
     gray: Vec<wgpu::Buffer>,
     mask: Vec<wgpu::Buffer>,
@@ -250,7 +257,7 @@ impl<'a> Matcher<'a> {
         refine: bool,
         init: &wgpu::Buffer,
         values: [f32; 4],
-    ) -> anyhow::Result<Plane<f32>> {
+    ) -> anyhow::Result<Pending> {
         let work = self.work.as_ref().ok_or_else(|| anyhow!("no cost volume"))?;
         let (width, height) = (reference.width, reference.height);
         let pixels = width * height;
@@ -268,7 +275,13 @@ impl<'a> Matcher<'a> {
         let params =
             self.gpu.uniform("peak params", &PeakParams { size: [width as u32, height as u32, hypotheses as u32, refine as u32], values });
         self.gpu.run(&self.peak, &[&params, &work.volume, init, &work.depth], pixels as u64).await?;
-        Ok(Plane { width, height, data: self.gpu.read::<f32>(&work.depth, pixels).await? })
+        Ok(Pending { width, height, read: self.gpu.begin_read::<f32>(&work.depth, pixels) })
+    }
+
+    /// The depth map of a view whose work was queued by [`Matcher::begin_refine`] or [`Matcher::begin_sweep`].
+    pub async fn finish(&self, pending: Pending) -> anyhow::Result<Plane<f32>> {
+        let Pending { width, height, read } = pending;
+        Ok(Plane { width, height, data: self.gpu.finish_read(read).await? })
     }
 
     /// `Stereo.sweep`: a full inverse-depth sweep between the view's hull bounds.
@@ -285,6 +298,23 @@ impl<'a> Matcher<'a> {
         aggregate: f64,
         min_score: f64,
     ) -> anyhow::Result<(Plane<f32>, f64)> {
+        let (pending, step) = self.begin_sweep(buffers, level, view, neighbours, bounds, window, aggregate, min_score).await?;
+        Ok((self.finish(pending).await?, step))
+    }
+
+    /// [`Matcher::sweep`] with its work queued and its readback started, not awaited.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn begin_sweep(
+        &mut self,
+        buffers: &LevelBuffers,
+        level: &[LevelView],
+        view: usize,
+        neighbours: &[usize],
+        bounds: (f64, f64),
+        window: i64,
+        aggregate: f64,
+        min_score: f64,
+    ) -> anyhow::Result<(Pending, f64)> {
         let (near, far) = bounds;
         let planes = self.config.planes as usize;
         let inverse = linspace(1.0 / near, 1.0 / far, planes);
@@ -312,6 +342,25 @@ impl<'a> Matcher<'a> {
         aggregate: f64,
         min_score: f64,
     ) -> anyhow::Result<Plane<f32>> {
+        let pending = self.begin_refine(buffers, level, view, neighbours, init, step, half, window, aggregate, min_score).await?;
+        self.finish(pending).await
+    }
+
+    /// [`Matcher::refine`] with its work queued and its readback started, not awaited.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn begin_refine(
+        &mut self,
+        buffers: &LevelBuffers,
+        level: &[LevelView],
+        view: usize,
+        neighbours: &[usize],
+        init: &Plane<f32>,
+        step: f64,
+        half: i64,
+        window: i64,
+        aggregate: f64,
+        min_score: f64,
+    ) -> anyhow::Result<Pending> {
         let reference = &level[view];
         let offsets: Vec<f32> = (-half..=half).map(|n| n as f32 * step as f32).collect();
         let init_buffer = self.gpu.upload("init", &init.data);

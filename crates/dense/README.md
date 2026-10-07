@@ -543,6 +543,18 @@ objects stays within 0.003 everywhere (Lucy +0.004 `all`, the others within
 ±0.0016) but looks the same on the sheets and changes a default shared with
 the Python reference, so it is not adopted.
 
+**GPU and CPU overlap in matching.** A readback is now split
+(`Gpu::begin_read` queues the copy and submits it, `Gpu::finish_read` waits for
+that submission only), and the matcher keeps one view in flight: view i's work
+is queued and its readback started before view i-1's depth map is collected
+and finished on the CPU (hull-front test, progress). Initial surfaces are
+computed in groups of 16 with threads and one view at a time without (a
+single-threaded browser), so each is computed while the GPU works on the
+previous view. Results are byte-identical (Bunny: `depths.npz` and the mesh).
+Bunny from its inputs, stereo stage: natively 44-49 s before, 41-44 s after
+(two runs each, four threads); in Chrome 69.3 s before, 58.7 s after (last
+pass 19.0 to 13.6 s), the same 1 045 002 triangles.
+
 ### Camera providers through the dense stages
 
 A provider is judged by the reconstruction it leads to. `colmap` against

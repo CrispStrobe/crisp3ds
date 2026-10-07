@@ -76,50 +76,68 @@ pub async fn match_levels(
             // Initial surfaces of a group of views at a time: CPU work in parallel, bounded memory.
             let mut inits: Vec<Plane<f32>> = Vec::new();
             let mut inits_from = 0usize;
-            for i in 0..count {
-                control.check()?;
-                let mut d = if li == 0 {
-                    let (d, view_step) =
-                        matcher.sweep(&buffers, &level, i, &neighbours[i], state.bounds[i], window, aggregate, config.min_score).await?;
+            // One view in flight: view i's work is queued and its readback started before view i-1's
+            // depth is collected and finished on the CPU, so the GPU computes while the CPU waits
+            // for a readback, builds initial surfaces or tests the hull's front. Every view's work
+            // depends only on the previous pass, so the results do not depend on this order.
+            let mut in_flight: Option<(usize, super::matcher::Pending)> = None;
+            for i in 0..=count {
+                if i < count {
+                    control.check()?;
+                }
+                let next = if i == count {
+                    None
+                } else if li == 0 {
+                    let (pending, view_step) = matcher
+                        .begin_sweep(&buffers, &level, i, &neighbours[i], state.bounds[i], window, aggregate, config.min_score)
+                        .await?;
                     steps[i] = view_step;
                     if shared_step {
                         steps = vec![view_step; count];
                     }
-                    d
+                    Some(pending)
                 } else {
                     if i >= inits_from + inits.len() {
                         let t_init = Instant::now();
                         inits_from = i;
                         let sigma = if p == 0 { 1.5 } else { 1.0 };
-                        inits = parallel_map((count - i).min(16), |n| initial(&depths[i + n], &level[i + n].mask, sigma));
+                        inits = parallel_map((count - i).min(init_group()), |n| initial(&depths[i + n], &level[i + n].mask, sigma));
                         initial_seconds += t_init.elapsed().as_secs_f64();
                     }
                     let fine = steps[i] / scale / if p == 0 { 1.0 } else { 2.0 };
                     let half = if p == 0 { DenseConfig::level(&config.band_first, li) } else { config.band_later };
-                    matcher
-                        .refine(
-                            &buffers,
-                            &level,
-                            i,
-                            &neighbours[i],
-                            &inits[i - inits_from],
-                            fine,
-                            half,
-                            window,
-                            aggregate,
-                            config.min_score,
-                        )
-                        .await?
+                    Some(
+                        matcher
+                            .begin_refine(
+                                &buffers,
+                                &level,
+                                i,
+                                &neighbours[i],
+                                &inits[i - inits_from],
+                                fine,
+                                half,
+                                window,
+                                aggregate,
+                                config.min_score,
+                            )
+                            .await?,
+                    )
                 };
+                let previous = in_flight.take();
+                if let Some(pending) = next {
+                    in_flight = Some((i, pending));
+                }
+                let Some((v, pending)) = previous else { continue };
+                let mut d = matcher.finish(pending).await?;
                 if config.hull_front && li == (config.hull_front_level as usize).min(sizes.len() - 1) && p == 0 {
                     // Thin parts are narrower than the coarse window, so they inherit the
                     // depth of whatever lies behind them. Test the hull's front surface
                     // too: a photo-consistent nearer surface occludes anything matched behind it.
-                    let front = hull_front(&level[i], &state.hull, state.bounds[i], config.hull_front_stride as usize);
+                    let front = hull_front(&level[v], &state.hull, state.bounds[v], config.hull_front_stride as usize);
                     let half = DenseConfig::level(&config.band_first, li);
                     let minimum = config.min_score.max(config.hull_front_min_score);
                     let d2 = matcher
-                        .refine(&buffers, &level, i, &neighbours[i], &front, steps[i] / scale, half, window, aggregate, minimum)
+                        .refine(&buffers, &level, v, &neighbours[v], &front, steps[v] / scale, half, window, aggregate, minimum)
                         .await?;
                     let margin = (1.0 - config.hull_front_margin) as f32;
                     for (value, &candidate) in d.data.iter_mut().zip(&d2.data) {
@@ -130,11 +148,11 @@ pub async fn match_levels(
                     }
                 }
                 raw.push(d);
-                if i % 10 == 9 {
-                    let done = (li as f64 + (p as f64 + (i + 1) as f64 / count as f64) / passes as f64) / sizes.len() as f64;
+                if v % 10 == 9 {
+                    let done = (li as f64 + (p as f64 + (v + 1) as f64 / count as f64) / passes as f64) / sizes.len() as f64;
                     events.progress(
                         0.08 + 0.84 * done,
-                        &format!("Matching level {} of {}, view {} of {}", li + 1, sizes.len(), i + 1, count),
+                        &format!("Matching level {} of {}, view {} of {}", li + 1, sizes.len(), v + 1, count),
                     )?;
                 }
             }
@@ -190,4 +208,20 @@ pub async fn match_levels(
     report["levels"] = json!(rows);
     report["gpu_peak_binding_bytes"] = json!(gpu.peak_binding());
     Ok((level, depths))
+}
+
+/// Views whose initial surfaces are computed together. With threads, a group is spread over them;
+/// without (a single-threaded browser) one view at a time, so that each initial surface is
+/// computed while the GPU works on the previous view.
+fn init_group() -> usize {
+    #[cfg(target_arch = "wasm32")]
+    {
+        #[cfg(target_feature = "atomics")]
+        if rayon::current_num_threads() > 1 {
+            return 16;
+        }
+        1
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    16
 }
