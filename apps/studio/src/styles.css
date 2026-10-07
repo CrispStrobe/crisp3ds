@@ -1944,3 +1944,29 @@ fieldset.panel > legend {
   white-space: pre-wrap;
   font-size: 0.8rem;
 }
+
+/* Inspection sheets: one per step, flipped through. */
+.inspection {
+  margin-top: 16px;
+}
+
+.inspection-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.inspection-frame {
+  background: var(--viewer-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  overflow: auto;
+  max-height: 80vh;
+}
+
+.inspection-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}

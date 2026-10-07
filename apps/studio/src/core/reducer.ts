@@ -50,6 +50,31 @@ export const SHEET_KINDS = [
 ] as const;
 export type SheetKind = (typeof SHEET_KINDS)[number];
 
+/** One step of the inspection: the same views after each surface (`inspection_sheet`, field `step`). */
+export interface Inspection {
+  seq: number;
+  path: string;
+  /** `00-hull`, `01-hull-repaired`, `1N-level-N`, `90-final`, or `steps` for the overview of all. */
+  step: string;
+  label: string;
+}
+
+/** A readable name for an inspection step when the event gives no label. */
+export function inspectionTitle(step: string): string {
+  if (step === "steps") return "All steps";
+  if (/^\d+-hull$/.test(step)) return "Silhouette hull";
+  if (/^\d+-hull-repaired$/.test(step)) return "Hull after mask repair";
+  const level = /^\d+-level-(\d+)$/.exec(step);
+  if (level !== null) return `Surface after level ${Number(level[1]) + 1}`;
+  if (/^\d+-final$/.test(step)) return "Final surface";
+  return step;
+}
+
+/** Inspection steps in the order of the pipeline, the overview last. */
+export function orderInspections(steps: Inspection[]): Inspection[] {
+  return [...steps].sort((a, b) => (a.step === "steps" ? 1 : 0) - (b.step === "steps" ? 1 : 0) || a.step.localeCompare(b.step, undefined, { numeric: true }) || a.seq - b.seq);
+}
+
 export interface Sheet {
   seq: number;
   kind: SheetKind;
@@ -94,6 +119,7 @@ export interface RunState {
   stages: StageState[];
   meshes: MeshStep[];
   sheets: Sheet[];
+  inspections: Inspection[];
   reports: ReportRef[];
   metrics: Metric[];
   errors: RunError[];
@@ -113,6 +139,7 @@ export function initialState(): RunState {
     stages: KNOWN_STAGES.map((name) => ({ name, status: "pending", fraction: 0, message: "" })),
     meshes: [],
     sheets: [],
+    inspections: [],
     reports: [],
     metrics: [],
     errors: [],
@@ -256,6 +283,12 @@ function artifact(state: RunState, next: RunState, event: RunEvent): RunState {
       time: event.time,
     };
     next.sheets = bySeq(replaceByPath(state.sheets, sheet));
+    return next;
+  }
+  if (kind === "inspection_sheet") {
+    const step = typeof event.step === "string" && event.step !== "" ? event.step : (path.split("/").pop() ?? path).replace(/\.png$/, "");
+    const label = typeof event.label === "string" && event.label !== "" ? event.label : inspectionTitle(step);
+    next.inspections = orderInspections([...state.inspections.filter((item) => item.path !== path), { seq: event.seq, path, step, label }]);
     return next;
   }
   if (kind === "report") {

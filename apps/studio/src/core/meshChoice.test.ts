@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { chooseMesh, LatestOnly } from "./meshChoice";
-import type { MeshStep } from "./reducer";
+import { event } from "../testing/fixture";
+import { initialState, inspectionTitle, reduce, type MeshStep } from "./reducer";
 
 const step = (seq: number, kind: MeshStep["kind"], path: string, triangles?: number): MeshStep =>
   ({ seq, kind, path, label: path, triangles, stage: kind === "final_mesh" ? "mesh" : "stereo" }) as MeshStep;
@@ -54,5 +55,30 @@ describe("loads that finish out of order", () => {
     // The level preview is slow to parse; the final surface was asked for after it and is quick.
     await Promise.all([load(level.path, 30), load(final.path, 5)]);
     expect(shown).toEqual([final.path]);
+  });
+});
+
+describe("inspection sheets", () => {
+  it("are kept per step in pipeline order, the overview last, with readable names", () => {
+    let state = reduce(initialState(), event("run_started"));
+    const sheet = (step: string, seq: number, label?: string) =>
+      event("artifact", { stage: step === "90-final" || step === "steps" ? "mesh" : "stereo", kind: "inspection_sheet", path: `inspect/${step}.png`, step, ...(label ? { label } : {}) }, seq);
+    state = reduce(state, sheet("10-level-0", 3));
+    state = reduce(state, sheet("00-hull", 1));
+    state = reduce(state, sheet("steps", 9));
+    state = reduce(state, sheet("90-final", 8, "Final surface (36 168 triangles)"));
+    state = reduce(state, sheet("01-hull-repaired", 2));
+    state = reduce(state, sheet("11-level-1", 4));
+    expect(state.inspections.map((item) => [item.step, item.label])).toEqual([
+      ["00-hull", "Silhouette hull"],
+      ["01-hull-repaired", "Hull after mask repair"],
+      ["10-level-0", "Surface after level 1"],
+      ["11-level-1", "Surface after level 2"],
+      ["90-final", "Final surface (36 168 triangles)"],
+      ["steps", "All steps"],
+    ]);
+    expect(state.sheets).toEqual([]);
+    expect(state.ignored).toBe(0);
+    expect(inspectionTitle("weird")).toBe("weird");
   });
 });

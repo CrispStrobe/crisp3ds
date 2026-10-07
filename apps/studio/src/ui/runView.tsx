@@ -7,6 +7,7 @@ import { RunStore, type RunSnapshot } from "../sources/runStore";
 import { describe } from "../sources/transport";
 import type { LinkStatus, ReplayControls, RunSource } from "../sources/types";
 import { Gallery } from "./gallery";
+import { InspectionPanel } from "./inspection";
 import { Icon } from "./icons";
 import { MeshPanel } from "./meshPanel";
 import { savePrefs, speedToPref } from "./prefs";
@@ -170,6 +171,7 @@ export function RunView({ source, heading, backHref, themeTick }: Props) {
             <MeshPanel source={source} meshes={run.meshes} runStatus={run.status} themeTick={themeTick} />
             <ReportsPanel source={source} run={run} />
           </div>
+          <InspectionPanel source={source} steps={run.inspections} />
           <Gallery source={source} run={run} />
         </>
       )}
