@@ -95,6 +95,12 @@ impl Photo {
 pub fn open_photo(path: &Path) -> anyhow::Result<Photo> {
     let context = || format!("{} (the native stage reads PNG and JPEG photos)", path.display());
     let bytes = crate::photos::fs::read(path).with_context(context)?;
+    decode_photo(path, &bytes)
+}
+
+/// [`open_photo`] of bytes already read; `path` names them in errors.
+pub fn decode_photo(path: &Path, bytes: &[u8]) -> anyhow::Result<Photo> {
+    let context = || format!("{} (the native stage reads PNG and JPEG photos)", path.display());
     let reader = image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format().with_context(context)?;
     let mut decoder = reader.into_decoder().with_context(context)?;
     let orientation = decoder.orientation().with_context(context)?;
@@ -196,16 +202,22 @@ pub fn step_coarse_shadow(
     let (staged, masks) = (out.join("work/photos"), out.join("work/coarse-masks"));
     crate::photos::fs::create_dir_all(&staged)?;
     crate::photos::fs::create_dir_all(&masks)?;
-    let rows = util::parallel(
+    // The photo is read apart from the rest: in a browser with threads the host's photos can only
+    // be read on the calling thread (`util::parallel_with_input`).
+    let rows = util::parallel_with_input(
         photos.len(),
         threads,
         |index| {
             let source = &photos[index];
+            crate::photos::fs::read(source).with_context(|| format!("{} (the native stage reads PNG and JPEG photos)", source.display()))
+        },
+        |index, bytes| {
+            let source = &photos[index];
             let name = capture_name(index);
-            let photo = open_photo(source)?;
+            let photo = decode_photo(source, &bytes)?;
             let byte_exact = suffix(source) == "png" && photo.upright;
             if byte_exact {
-                crate::photos::fs::copy(source, staged.join(&name)).with_context(|| source.display().to_string())?;
+                crate::photos::fs::write(staged.join(&name), bytes).with_context(|| source.display().to_string())?;
             } else {
                 crate::photos::fs::save_image(&photo.rgb, staged.join(&name))?;
             }

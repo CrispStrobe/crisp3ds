@@ -128,6 +128,8 @@ pub fn input_sheet(inputs: &Path, path: &Path) -> anyhow::Result<()> {
     let rows = load_views(inputs)?;
     let shown = COUNT.min(rows.len());
     let picks: Vec<usize> = (0..shown).map(|n| (n as f64 * (rows.len() as f64 / shown as f64)) as usize).collect();
+    let files: Vec<PathBuf> = picks.iter().flat_map(|&n| [PathBuf::from(&rows[n].image), PathBuf::from(&rows[n].mask)]).collect();
+    let held = crate::inputs::hold_for_pool(&files)?;
     let tiles: Vec<anyhow::Result<Rgb>> = crate::inputs::parallel_map(picks.len(), |n| {
         let row = &rows[picks[n]];
         let mut photo = Rgb::open(Path::new(&row.image))?;
@@ -152,6 +154,7 @@ pub fn input_sheet(inputs: &Path, path: &Path) -> anyhow::Result<()> {
         let height = (crate::inputs::round_half_even(420.0 * photo.height as f64 / photo.width as f64) as usize).max(1);
         Ok(photo.resize(420, height))
     });
+    crate::inputs::release(held);
     let tiles: Vec<Rgb> = tiles.into_iter().collect::<anyhow::Result<_>>()?;
     let height = tiles.first().map(|t| t.height).ok_or_else(|| anyhow!("no views"))?;
     let mut sheet = Rgb::filled(420 * COLUMNS, height * tiles.len().div_ceil(COLUMNS), [30; 3]);

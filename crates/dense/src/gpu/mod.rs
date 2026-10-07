@@ -26,6 +26,11 @@ pub const WORKGROUP: u32 = 64;
 pub const ROW_GROUPS: u32 = 16384;
 pub const ROW: u32 = ROW_GROUPS * WORKGROUP;
 
+/// Commands recorded per submit in a browser (see `Gpu::pending`). `CRISP3DS_GPU_BATCH` is not
+/// read: a browser has no environment; change it here to measure.
+#[cfg(target_arch = "wasm32")]
+const BATCH: usize = usize::MAX;
+
 pub struct Gpu {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -34,6 +39,13 @@ pub struct Gpu {
     peak: std::sync::atomic::AtomicU64,
     /// First error the device reported outside an error scope.
     uncaptured: std::sync::Arc<std::sync::Mutex<Option<String>>>,
+    /// In a browser, dispatches are recorded into one command encoder and submitted
+    /// [`BATCH`] at a time, and before every readback or write: every submit is a round trip to
+    /// the GPU process there (one per dispatch made 12 700 of them in the Bunny's stereo stage),
+    /// while holding everything until the readback leaves the GPU idle as the work is recorded.
+    /// Natively each dispatch is submitted at once, inside its error scope, as before.
+    #[cfg(target_arch = "wasm32")]
+    pending: std::sync::Mutex<(Option<wgpu::CommandEncoder>, usize)>,
 }
 
 impl Gpu {
@@ -75,7 +87,16 @@ impl Gpu {
         device.on_uncaptured_error(std::sync::Arc::new(move |error| {
             sink.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get_or_insert_with(|| error.to_string());
         }));
-        Ok(Gpu { device, queue, info: adapter.get_info(), limits, peak: std::sync::atomic::AtomicU64::new(0), uncaptured })
+        Ok(Gpu {
+            device,
+            queue,
+            info: adapter.get_info(),
+            limits,
+            peak: std::sync::atomic::AtomicU64::new(0),
+            uncaptured,
+            #[cfg(target_arch = "wasm32")]
+            pending: std::sync::Mutex::new((None, 0)),
+        })
     }
 
     pub fn describe(&self) -> String {
@@ -125,14 +146,48 @@ impl Gpu {
         })
     }
 
+    /// A queue write takes effect before the next submit, so recorded dispatches go first.
     pub fn write<T: Pod>(&self, buffer: &wgpu::Buffer, data: &[T]) {
+        self.flush();
         self.queue.write_buffer(buffer, 0, bytemuck::cast_slice(data));
     }
 
     pub fn clear(&self, buffer: &wgpu::Buffer) {
-        let mut encoder = self.device.create_command_encoder(&Default::default());
-        encoder.clear_buffer(buffer, 0, None);
-        self.queue.submit([encoder.finish()]);
+        self.record(|encoder| encoder.clear_buffer(buffer, 0, None));
+    }
+
+    /// Records into the pending encoder (browser) or submits at once (native).
+    fn record(&self, commands: impl FnOnce(&mut wgpu::CommandEncoder)) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut pending = self.pending.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            commands(pending.0.get_or_insert_with(|| self.device.create_command_encoder(&Default::default())));
+            pending.1 += 1;
+            if pending.1 >= BATCH {
+                pending.1 = 0;
+                if let Some(encoder) = pending.0.take() {
+                    self.queue.submit([encoder.finish()]);
+                }
+            }
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let mut encoder = self.device.create_command_encoder(&Default::default());
+            commands(&mut encoder);
+            self.queue.submit([encoder.finish()]);
+        }
+    }
+
+    /// Submits what was recorded (nothing to do natively).
+    pub fn flush(&self) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut pending = self.pending.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            pending.1 = 0;
+            if let Some(encoder) = pending.0.take() {
+                self.queue.submit([encoder.finish()]);
+            }
+        }
     }
 
     /// Copies the first `count` elements of a storage buffer back to the CPU.
@@ -148,9 +203,8 @@ impl Gpu {
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let mut encoder = self.device.create_command_encoder(&Default::default());
-        encoder.copy_buffer_to_buffer(buffer, 0, &staging, 0, padded);
-        self.queue.submit([encoder.finish()]);
+        self.record(|encoder| encoder.copy_buffer_to_buffer(buffer, 0, &staging, 0, padded));
+        self.flush();
         let mapped = Mapped::default();
         let signal = mapped.clone();
         staging.slice(..).map_async(wgpu::MapMode::Read, move |result| signal.complete(result));
@@ -218,14 +272,12 @@ impl Gpu {
         if y > self.limits.max_compute_workgroups_per_dimension {
             return Err(anyhow!("kernel {}: {count} invocations exceed one dispatch", kernel.label));
         }
-        let mut encoder = self.device.create_command_encoder(&Default::default());
-        {
+        self.record(|encoder| {
             let mut pass = encoder.begin_compute_pass(&Default::default());
             pass.set_pipeline(&kernel.pipeline);
             pass.set_bind_group(0, &group, &[]);
             pass.dispatch_workgroups(x, y, 1);
-        }
-        self.queue.submit([encoder.finish()]);
+        });
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(error) = scope.pop().await {
             return Err(anyhow!("kernel {}: {error}", kernel.label));

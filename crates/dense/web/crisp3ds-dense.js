@@ -163,18 +163,13 @@ function startFromPhotos(root, photos, calibration, options, onEvent) {
     if (name.includes("/")) throw new Error(`photo names are file names, not paths: ${name}`);
   }
   const prefix = `${root}/photos/`;
-  // Single-threaded, the photos stay here, in JavaScript memory; the engine lists the folder and
-  // asks for one photo at a time. With threads the photos are read on the pool's workers, which
-  // cannot call back into this thread's JavaScript, so they go into the engine's tree instead.
-  const lazy = threads === 1;
-  if (lazy) {
-    sources.set(prefix, new Map(entries));
-    listed.add(prefix);
-    engine.setFileSource(lookup);
-    engine.setFileLister(list);
-  } else {
-    for (const [name, bytes] of entries) engine.putFile(`${prefix}${name}`, bytes);
-  }
+  // The photos stay here, in JavaScript memory; the engine lists the folder and asks for one photo
+  // at a time, on the thread that runs it (with threads too: work on the pool gets what that
+  // thread read for it, `util::parallel_with_input` and `inputs::hold_for_pool`).
+  sources.set(prefix, new Map(entries));
+  listed.add(prefix);
+  engine.setFileSource(lookup);
+  engine.setFileLister(list);
   const lens = calibration instanceof Uint8Array ? calibration
     : new TextEncoder().encode(typeof calibration === "string" ? calibration : JSON.stringify(calibration));
   engine.putFile(`${root}/calibration.json`, lens);
@@ -194,7 +189,7 @@ function startFromPhotos(root, photos, calibration, options, onEvent) {
   // the engine's memory nearly empty instead of holding the scene behind their own buffers.
   const scene = `${root}/run/frontend/inputs`;
   const relay = (event) => {
-    if (lazy && event.type === "stage_finished" && event.stage === "cameras") {
+    if (event.type === "stage_finished" && event.stage === "cameras") {
       const files = new Map();
       for (const [path] of JSON.parse(engine.listFiles(scene))) files.set(path.slice(scene.length + 1), engine.getFile(path));
       engine.removeTree(scene);

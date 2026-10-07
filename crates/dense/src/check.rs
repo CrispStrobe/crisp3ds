@@ -146,6 +146,8 @@ pub fn preview(rows: &[&ViewRow], triangles: &[Triangle], label: &str, output: &
     if crate::storage::exists(output) {
         bail!("{} exists", output.display());
     }
+    let files: Vec<PathBuf> = rows.iter().flat_map(|r| [PathBuf::from(&r.mask), PathBuf::from(&r.image)]).collect();
+    let held = crate::inputs::hold_for_pool(&files)?;
     let panels: Vec<anyhow::Result<(Rgb, Rgb)>> = parallel_map(rows.len(), |n| {
         let row = rows[n];
         let mask = read_gray(Path::new(&row.mask))?;
@@ -161,6 +163,7 @@ pub fn preview(rows: &[&ViewRow], triangles: &[Triangle], label: &str, output: &
         let photo = Rgb::open(Path::new(&row.image))?.scaled_view(centre, scale, SIZE.0, SIZE.1, PAPER);
         Ok((photo, shade(triangles, &camera(row), centre, scale, SIZE.0, SIZE.1)))
     });
+    crate::inputs::release(held);
     let mut canvas = Rgb::filled(rows.len() * SIZE.0, 2 * (SIZE.1 + HEADER), PAPER);
     for (column, panel) in panels.into_iter().enumerate() {
         let (photo, shaded) = panel?;
@@ -227,10 +230,22 @@ fn checked(options: &Options, events: &EventLog, control: &crate::control::Contr
         }
     }
     let overlay = options.preview_views > 0;
+    let mut files: Vec<PathBuf> = Vec::new();
+    for &n in &checked {
+        let row = &rows[n];
+        for set in &sets {
+            files.push(set.map(|d| d.join(format!("{}.png", row.name))).unwrap_or_else(|| PathBuf::from(&row.mask)));
+        }
+        if overlay && named.contains(&n) {
+            files.push(PathBuf::from(&row.image));
+        }
+    }
+    let held = crate::inputs::hold_for_pool(&files)?;
     let scored: Vec<anyhow::Result<Scored>> = parallel_map(checked.len(), |n| {
         control.check()?;
         score_view(&triangles, &rows[checked[n]], &sets, overlay && named.contains(&checked[n]))
     });
+    crate::inputs::release(held);
     let scored: Vec<Scored> = scored.into_iter().collect::<anyhow::Result<_>>()?;
     control.check()?;
     if overlay {

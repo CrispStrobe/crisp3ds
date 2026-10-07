@@ -7,7 +7,7 @@
 //! `np.percentile` (linear interpolation, evaluated in float64 on float32
 //! differences) and is applied in float32.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context};
 use serde::Deserialize;
@@ -108,10 +108,56 @@ pub struct Inputs {
 }
 
 /// Runs `work(index)` for every index on up to [`THREADS`] threads; results in order.
-/// Without threads (wasm32) it is a plain loop.
+/// Without threads (wasm32) it is a plain loop; in the threaded browser package
+/// (`+atomics`, rayon's pool started by the host) it runs on that pool. There
+/// `work` may read files of the in-memory tree but not files the host hands
+/// over through its source: those callbacks exist only on the calling thread.
 #[cfg(target_arch = "wasm32")]
 pub fn parallel_map<T: Send>(count: usize, work: impl Fn(usize) -> T + Sync) -> Vec<T> {
+    #[cfg(target_feature = "atomics")]
+    if count > 1 && rayon::current_num_threads() > 1 {
+        use rayon::prelude::*;
+        let work = &work;
+        return (0..count).into_par_iter().map(|n| work(n)).collect();
+    }
     (0..count).map(work).collect()
+}
+
+/// Files that [`parallel_map`] closures read, made readable on the pool: in the
+/// threaded browser package a pool worker cannot call the host's file source,
+/// so files the tree does not hold yet are read here, on the calling thread, and
+/// stored in the tree. Returns the ones copied, for [`release`] once the work is
+/// done. Elsewhere it does nothing.
+pub fn hold_for_pool(paths: &[PathBuf]) -> anyhow::Result<Vec<PathBuf>> {
+    #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
+    if rayon::current_num_threads() > 1 {
+        let mut stored: std::collections::HashMap<PathBuf, std::collections::HashSet<String>> = Default::default();
+        let mut held = Vec::new();
+        for path in paths {
+            let parent = path.parent().map(Path::to_path_buf).unwrap_or_default();
+            let names = stored.entry(parent.clone()).or_insert_with(|| {
+                crate::storage::memory_files(&parent).into_iter().filter_map(|(key, _)| key.rsplit('/').next().map(String::from)).collect()
+            });
+            let name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+            if names.contains(&name) {
+                continue;
+            }
+            let bytes = crate::storage::read(path).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+            crate::storage::write_owned(path, bytes)?;
+            names.insert(name);
+            held.push(path.clone());
+        }
+        return Ok(held);
+    }
+    let _ = paths;
+    Ok(Vec::new())
+}
+
+/// Removes what [`hold_for_pool`] copied into the tree.
+pub fn release(held: Vec<PathBuf>) {
+    for path in held {
+        let _ = crate::storage::remove_file(path);
+    }
 }
 
 /// Runs `work(index)` for every index on up to [`THREADS`] threads; results in order.
@@ -300,7 +346,10 @@ impl Inputs {
             })
             .collect();
 
+        let files: Vec<PathBuf> = rows.iter().flat_map(|r| [PathBuf::from(&r.image), PathBuf::from(&r.mask)]).collect();
+        let held = hold_for_pool(&files)?;
         let loaded: Vec<anyhow::Result<Loaded>> = parallel_map(rows.len(), |n| load_view(&rows[n], &config.stretch_percentiles));
+        release(held);
         let (mut gray, mut masks, mut boxes) = (Vec::new(), Vec::new(), Vec::new());
         let pad = config.crop_padding;
         for view in loaded {

@@ -129,6 +129,37 @@ pub fn sha256_file(path: &Path) -> anyhow::Result<String> {
     Ok(sha256(&crate::photos::fs::read(path).with_context(|| path.display().to_string())?))
 }
 
+/// [`parallel`] for work whose input files must be read first: `load(index)`
+/// reads them, `work(index, input)` does the rest. Natively both run on the
+/// worker threads, as with [`parallel`]. In the threaded browser package `load`
+/// runs on the calling thread for every batch before the pool gets it, because a
+/// pool worker cannot call the host's file source (photos handed over lazily).
+pub fn parallel_with_input<I: Send, T: Send>(
+    count: usize,
+    threads: usize,
+    load: impl Fn(usize) -> anyhow::Result<I> + Sync,
+    work: impl Fn(usize, I) -> anyhow::Result<T> + Sync,
+    watch: &mut dyn FnMut(usize) -> anyhow::Result<()>,
+) -> anyhow::Result<Vec<T>> {
+    #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
+    if threads > 1 && rayon::current_num_threads() > 1 {
+        use rayon::prelude::*;
+        let mut out = Vec::with_capacity(count);
+        let batch = threads.min(rayon::current_num_threads());
+        for start in (0..count).step_by(batch) {
+            let end = (start + batch).min(count);
+            let inputs: Vec<I> = (start..end).map(&load).collect::<anyhow::Result<_>>()?;
+            let done: Vec<anyhow::Result<T>> = (start..end).into_par_iter().zip(inputs).map(|(n, input)| work(n, input)).collect();
+            for result in done {
+                out.push(result?);
+            }
+            watch(end)?;
+        }
+        return Ok(out);
+    }
+    parallel(count, threads, |n| work(n, load(n)?), watch)
+}
+
 /// Runs `work(index)` for every index on `threads` threads and returns the
 /// results in order. `watch(done)` is called on the calling thread after every
 /// finished item (and at least twice a second); returning an error stops the

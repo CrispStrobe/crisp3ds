@@ -1178,11 +1178,42 @@ page loads must then allow embedding. Verified in headless Chrome: without
 headers the test page reloads once and runs with 4 threads; with `--threads 1`
 it runs single-threaded.
 
-What threads cannot do: JavaScript callbacks belong to the thread that
-registered them, so a pool worker cannot read a file that the host hands over
-lazily. The threaded package therefore copies the photos into the tree and
-keeps the scene there (`createRun` does this by itself), and events emitted on
-a pool worker, if any, would not reach `onEvent`.
+Files the host hands over lazily: a JavaScript callback can be called only on
+the thread that registered it, so pool workers never call the file source.
+Work that reads such files gets them from the calling thread instead:
+`photos::util::parallel_with_input` reads each batch's photos before the pool
+decodes them (the `coarse` step), and `inputs::hold_for_pool` copies the
+files a `parallel_map` reads (views in `inputs::load`, the input sheet, the
+check's masks and photos) into the tree for the duration and releases them.
+Photos and the scene therefore stay in JavaScript memory with threads too.
+Events emitted on a pool worker, if any, would not reach `onEvent`.
+
+`inputs::parallel_map` runs on the pool in the threaded package: initial
+surfaces, cross-view agreement, mask repair, hull dilation and bounds, the
+check and `.npz` deflate. In a browser `Gpu` records dispatches into one
+command encoder and submits it at the next readback, clear or write instead
+of once per dispatch (12 732 submits in the Bunny's stereo stage before, 1 149
+after); natively every dispatch is still submitted at once inside its error
+scope, so native results are unchanged (Bunny from photos, before and after:
+`cameras.json`, `sparse_points.npy`, `depths.npz` and `mesh.stl` byte for
+byte identical, twice). An A/B of 1, 8, 32 and unbounded dispatches per submit,
+two rounds each, gave stereo times between 84 and 112 s with no order among
+them: on this machine the gain is below the noise of shared GPU and CPU.
+
+Bunny from photos with these changes, the two packages back to back (load
+average 8 to 33, so times are high and only roughly comparable):
+
+| | Default package | Threaded package, 4 workers |
+| --- | --- | --- |
+| Whole run | 432 s | 264 s |
+| Photos stage (features, matching) | 234 s (97 s, 64 s) | 129 s (34 s, 25 s) |
+| Stereo | 160 s | 116 s |
+| Mesh, check | 23 s, 15 s | 12 s, 7 s |
+| Peak WebAssembly memory | 1566 MiB | 1801 MiB |
+| Triangles | 1 045 330 | 1 045 330 |
+
+The threaded peak was 2458 MiB while photos and scene stayed in the tree; the
+remaining 235 MiB above the default package are the views worked on at once.
 
 Measured on the Bunny from its 73 photos in Chrome (headless, WebGPU on
 Metal), the two packages back to back while the machine was shared with
