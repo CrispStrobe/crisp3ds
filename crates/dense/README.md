@@ -523,6 +523,26 @@ are mirror images of the objects as photographed (a left-handed scan export,
 or a mirrored frame in the scanner software); the evaluator says so in its
 warning and scores the reflected fit, as before.
 
+**Happy Buddha, diagnosed (no setting changed).** From its photos with the
+default providers: F1 `all` 0.783 / 0.912 / 0.966, `above_margin` 0.821 /
+0.944 / 0.984. Where the misses are (scan against mesh, height above the
+plate): the lowest 5 % (closed underside and pedestal, 12 % of the mesh area,
+69 % of it farther than 0.5 % of the diagonal), 5 to 25 % (pedestal and feet,
+35 % far), the top quarter (raised arms and hands, 19 % far); the robe and
+belly in between are 9 to 12 % far. As on the Dragon, an affine refit after
+the evaluator's similarity finds axis scales 1.011 / 0.999 / 0.990 and lifts
+F1 at 0.5 % from 0.773 to 0.788, and the fit is mirrored (rms 0.52 against
+0.97), both properties of the scan. Depth: the finest level keeps 0.57 of the
+mask with consistent depth (median over views) against 0.76 at 512 px; the
+level fallback brings it to 0.75, so the soft face and robe are mostly
+512-px depth. Tried, scores at 0.5 % `all` / `above_margin`: last window 13
+(0.787 / 0.824) or 15 (0.786 / 0.823), coarser aggregation 1 / 1.5 / 3 (0.784
+/ 0.822), finest tolerance 0.003 (0.784 / 0.823), two votes and best of two
+(0.782 / 0.823), votes 3 / 3 / 2 (0.783 / 0.822). Window 13 on all five other
+objects stays within 0.003 everywhere (Lucy +0.004 `all`, the others within
+±0.0016) but looks the same on the sheets and changes a default shared with
+the Python reference, so it is not adopted.
+
 ### Camera providers through the dense stages
 
 A provider is judged by the reconstruction it leads to. `colmap` against
