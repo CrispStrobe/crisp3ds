@@ -182,7 +182,10 @@ pub fn build_level(inputs: &Inputs, size: i64) -> Vec<LevelView> {
         // The grey plane may hold only the canvas part of the photo; outside it and outside the photo is zero.
         let [ox, oy] = inputs.gray_origin[n];
         let within = [bounds[0] - ox, bounds[1] - oy, bounds[2] - ox, bounds[3] - oy];
-        let gray = resize(&crop(&inputs.gray[n], within), width, height, Filter::Bilinear);
+        let mut gray = resize(&crop(&inputs.gray[n], within), width, height, Filter::Bilinear);
+        if let Some((amount, sigma)) = detail_enhancement() {
+            unsharp(&mut gray, amount, sigma);
+        }
         let mask_crop = crop(&inputs.masks[n], bounds);
         let mask_float =
             Plane { width: mask_crop.width, height: mask_crop.height, data: mask_crop.data.iter().map(|&m| m as f32).collect() };
@@ -197,6 +200,49 @@ pub fn build_level(inputs: &Inputs, size: i64) -> Vec<LevelView> {
         };
         LevelView { width, height, camera, gray, mask }
     })
+}
+
+/// Diagnostic, under evaluation: `CRISP3DS_MATCH_DETAIL=amount,sigma` sharpens the matching images
+/// (unsharp mask: grey plus `amount` times its difference from a Gaussian blur of `sigma` pixels).
+fn detail_enhancement() -> Option<(f32, f64)> {
+    let text = std::env::var("CRISP3DS_MATCH_DETAIL").ok()?;
+    let (amount, sigma) = text.split_once(',')?;
+    Some((amount.trim().parse().ok()?, sigma.trim().parse().ok()?))
+}
+
+fn unsharp(plane: &mut Plane<f32>, amount: f32, sigma: f64) {
+    let radius = (3.0 * sigma).ceil() as i64;
+    let weights: Vec<f32> = (-radius..=radius).map(|i| (-(i * i) as f64 / (2.0 * sigma * sigma)).exp() as f32).collect();
+    let total: f32 = weights.iter().sum();
+    let (w, h) = (plane.width as i64, plane.height as i64);
+    let blur = |source: &[f32], horizontal: bool| -> Vec<f32> {
+        let mut out = vec![0f32; source.len()];
+        for y in 0..h {
+            for x in 0..w {
+                let mut sum = 0f32;
+                for (k, &weight) in weights.iter().enumerate() {
+                    let o = k as i64 - radius;
+                    let (xx, yy) = if horizontal { ((x + o).clamp(0, w - 1), y) } else { (x, (y + o).clamp(0, h - 1)) };
+                    sum += weight * source[(yy * w + xx) as usize];
+                }
+                out[(y * w + x) as usize] = sum / total;
+            }
+        }
+        out
+    };
+    let blurred = blur(&blur(&plane.data, true), false);
+    for (value, smooth) in plane.data.iter_mut().zip(blurred) {
+        *value += amount * (*value - smooth);
+    }
+}
+
+/// With `native` and a canvas larger than the finest size, one more level at the canvas's own size:
+/// the photos' native pixels (the finest level otherwise matches a downscaled canvas).
+pub fn with_native_level(mut sizes: Vec<i64>, longest: i64, native: bool) -> Vec<i64> {
+    if native && sizes.last().is_some_and(|&last| last < longest) {
+        sizes.push(longest);
+    }
+    sizes
 }
 
 /// Pyramid sizes capped at the canvas; a cap may merge levels.
@@ -259,5 +305,8 @@ mod tests {
         assert_eq!(out.data, vec![0, 3, 4, 0, 0, 0]);
         assert_eq!(level_sizes(&[256, 512, 1024], 876), vec![256, 512, 876]);
         assert_eq!(level_sizes(&[64, 128], 60), vec![60]);
+        assert_eq!(with_native_level(vec![256, 512, 1024], 1070, true), vec![256, 512, 1024, 1070]);
+        assert_eq!(with_native_level(vec![256, 512, 876], 876, true), vec![256, 512, 876]);
+        assert_eq!(with_native_level(vec![256, 512, 1024], 1070, false), vec![256, 512, 1024]);
     }
 }

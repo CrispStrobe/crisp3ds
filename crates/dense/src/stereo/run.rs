@@ -312,7 +312,7 @@ pub async fn run_fused(
     // From here on only the canvas part of each photo is read.
     inputs.crop_gray();
 
-    let sizes = level_sizes(&config.sizes, inputs.longest);
+    let sizes = crate::stereo::level::with_native_level(level_sizes(&config.sizes, inputs.longest), inputs.longest, config.native_level);
     if arguments.only.as_deref() == Some("levels") {
         // Diagnostic: checksums of every level image, mask and camera for parity checks against Pillow.
         let mut levels = Vec::new();

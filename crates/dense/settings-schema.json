@@ -12,6 +12,13 @@
       ]
     },
     {
+      "name": "native_level",
+      "group": "Pyramid",
+      "meaning": "Match once more at the photos' native pixels when the canvas is larger than the finest size",
+      "kind": "boolean",
+      "default": true
+    },
+    {
       "name": "crop_padding",
       "group": "Pyramid",
       "meaning": "Pixels kept around each mask box",

@@ -567,6 +567,22 @@ announced as `inspection_sheet` artifacts with their `step`; the setting
 skipped once WebAssembly memory reaches 2.5 GiB. The level rows show the
 preview's coarseness; `--preview-step 1` draws them at full resolution.
 
+**A level at the photos' native pixels (`native_level`, native-only, on).**
+The finest level matched a canvas downscaled to 1024 px where the object's
+canvas is larger. Now one more level at the canvas's own size follows (its
+window, passes and tolerances those of the last level). Objects whose canvas
+is at most 1024 px are unchanged (Bunny, Armadillo, Dragon: identical scores).
+Scanner F1 at 0.5 / 1 / 2 %, before and after:
+
+| | `all` before | `all` after | `above_margin` before | `above_margin` after |
+| --- | --- | --- | --- | --- |
+| Lucy (canvas about 1040 px) | 0.823 / 0.943 / 0.967 | 0.840 / 0.943 / 0.967 | 0.860 / 0.985 / 0.999 | 0.876 / 0.984 / 0.999 |
+| Thai statue | 0.873 / 0.932 / 0.952 | 0.882 / 0.932 / 0.952 | 0.935 / 0.995 / 1.000 | 0.946 / 0.995 / 1.000 |
+| Happy Buddha (1070 px) | 0.783 / 0.912 / 0.966 | 0.790 / 0.911 / 0.973 | 0.821 / 0.944 / 0.984 | 0.829 / 0.941 / 0.991 |
+
+The largest drop anywhere is 0.0024 (Buddha `above_margin` at 1 %). Cost: one
+more matching pass at native size (Buddha 98 s against 88 s).
+
 ### Camera providers through the dense stages
 
 A provider is judged by the reconstruction it leads to. `colmap` against
