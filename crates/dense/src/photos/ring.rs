@@ -258,6 +258,11 @@ pub fn decide_gates(audit: &Value, ring: &Value, limits: &Value) -> (bool, Vec<S
         reasons.dedup();
         reasons
     };
+    // Photos not taken on a ring (`--capture orbit`): the ring statistics describe nothing.
+    if limits.get("ring_gates").and_then(Value::as_bool) == Some(false) {
+        let reasons = finish(reasons);
+        return (reasons.is_empty(), reasons);
+    }
     if ring.get("degenerate").and_then(Value::as_bool).unwrap_or(true) {
         reasons.push("camera centres do not define a ring".into());
         return (false, finish(reasons));
@@ -425,6 +430,13 @@ pub(crate) mod tests {
             (0..36).map(|n| [0.2 * ((n * 7) as f64).sin(), 0.2 * ((n * 13) as f64).cos(), 0.2 * ((n * 5) as f64).sin()]).collect();
         let scattered = ring_statistics(&orbit(&arange(0.0, 360.0, 10.0), Some(&noise)), 0.5);
         let (passed, reasons) = decide_gates(&good_audit(), &scattered, &limits());
+        // Not a ring at all (--capture orbit): the ring gates do not apply, the audit still does.
+        assert_eq!(decide_gates(&good_audit(), &scattered, &with(&limits(), json!({"ring_gates": false}))), (true, vec![]));
+        let degenerate = json!({"degenerate": true});
+        assert!(decide_gates(&good_audit(), &degenerate, &with(&limits(), json!({"ring_gates": false}))).0);
+        let mut weak = good_audit();
+        weak["coverage"] = json!(0.5);
+        assert!(!decide_gates(&weak, &degenerate, &with(&limits(), json!({"ring_gates": false}))).0);
         assert!(!passed);
         assert!(reasons.iter().any(|r| r.contains("radius spread") || r.contains("ring plane")), "{reasons:?}");
     }

@@ -650,7 +650,10 @@ def evaluate(mesh_triangles, reference_vertices, reference_faces, *, seed=215, s
     mesh_normals_in_reference = mesh_normals @ rotation.T
 
     oriented = mesh_normals @ rotation.T  # already mirrored with the points when the fit is
-    underside = (mesh_height < 0.02 * platform["kept_height_range"][1]) & (oriented @ normal < -0.7)
+    if "kept_height_range" in platform:
+        underside = (mesh_height < 0.02 * platform["kept_height_range"][1]) & (oriented @ normal < -0.7)
+    else:  # no platform: nothing is an underside resting on it
+        underside = np.zeros(len(mesh_height), bool)
 
     def scored(mesh_mask, reference_mask):
         return score(mesh_distance[mesh_mask], reference_distance[reference_mask], diagonal)

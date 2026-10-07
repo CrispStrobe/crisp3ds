@@ -85,6 +85,16 @@ pub const OPTIONS: &[OptionSpec] = &[
         meaning: "Camera provider: turntable, markers, colmap, alicevision or import:PATH",
     },
     OptionSpec {
+        flag: "capture",
+        scope: "cameras",
+        kind: "choice",
+        default: Some("turntable"),
+        choices: &["turntable", "orbit"],
+        variable: None,
+        repeated: false,
+        meaning: "How the photos were taken: turntable (one ring of photos around the object; the ring gates apply) or orbit (any path around it, as a robot arm or a hand-held camera takes them; only the camera audit applies)",
+    },
+    OptionSpec {
         flag: "stop-after",
         scope: "run",
         kind: "choice",

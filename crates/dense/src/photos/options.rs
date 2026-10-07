@@ -90,6 +90,9 @@ pub struct Gates {
     pub duplicate_step_deg: f64,
     /// The photos are one closed turn: the closure gate applies.
     pub full_turn: bool,
+    /// The cameras lie on one ring (`--capture turntable`): the ring gates apply. Off for
+    /// `--capture orbit`, which keeps the camera audit only.
+    pub ring: bool,
     pub maximum_closing_step_ratio: f64,
 }
 
@@ -107,6 +110,7 @@ impl Gates {
             "maximum_optical_axis_miss_percent": self.maximum_optical_axis_miss_percent,
             "duplicate_step_deg": self.duplicate_step_deg,
             "full_turn": self.full_turn,
+            "ring_gates": self.ring,
             "maximum_closing_step_ratio": self.maximum_closing_step_ratio,
         })
     }
@@ -286,6 +290,8 @@ cameras, every provider:
                                   the images features are detected in and that are undistorted into the scene
   --random-seed N (0)
   --open-turn                     the photos do not close a full turn (default: they do, and the closure gate applies)
+  --capture turntable|orbit       turntable (default): one ring of photos, the ring gates apply; orbit: any camera path
+                                  (robot arm, hand-held), only the camera audit applies; not with --cameras turntable
 cameras, alicevision provider:
   --alicevision PATH              install prefix with bin/aliceVision_* (run directly), or a wrapper script called as
                                   `wrapper TOOL args` [CRISP3DS_ALICEVISION]
@@ -551,6 +557,11 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
     if !["exhaustive", "sequential", "ring"].contains(&colmap.matching.as_str()) || ![0, 3, 4].contains(&colmap.cli) || colmap.overlap < 1 {
         bail!("--colmap-matching must be exhaustive, sequential or ring, --colmap-cli auto, 3 or 4, --colmap-overlap at least 1");
     }
+    let ring_capture = match word("capture").as_str() {
+        "turntable" => true,
+        "orbit" => false,
+        other => bail!("--capture {other}: expected turntable or orbit"),
+    };
     let options = Options {
         photos,
         photo_count,
@@ -614,9 +625,13 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
             maximum_optical_axis_miss_percent: number("maximum-optical-axis-miss-percent")?,
             duplicate_step_deg: number("duplicate-step-deg")?,
             full_turn: !switch("open-turn"),
+            ring: ring_capture,
             maximum_closing_step_ratio: number("maximum-closing-step-ratio")?,
         },
     };
+    if !options.gates.ring && options.cameras == CameraChoice::Turntable {
+        bail!("--capture orbit: the turntable camera provider needs photos taken on a turntable; choose --cameras colmap (or alicevision, markers, import) for other camera paths");
+    }
     super::coarse::validate_envelope(&options.envelope)?;
     if let Some(calibration) = &options.calibration {
         super::calibration::load_calibration(calibration)?;
@@ -720,6 +735,12 @@ pub(crate) mod tests {
         let options = resolve(&arguments(&folder, &[]), &none).unwrap();
         assert_eq!((options.photo_count, options.dark_threshold, options.envelope.as_str()), (3, Threshold::Otsu, "auto"));
         assert_eq!((&options.masks, &options.cameras, options.threshold_shadow), (&MaskChoice::Threshold, &CameraChoice::Turntable, 0.25));
+        assert!(options.gates.ring);
+        let orbit = resolve(&arguments(&folder, &["--capture", "orbit", "--cameras", "colmap"]), &none).unwrap();
+        assert!(!orbit.gates.ring && orbit.to_json()["gates"]["ring_gates"] == false);
+        let refused = resolve(&arguments(&folder, &["--capture", "orbit"]), &none).unwrap_err().to_string();
+        assert!(refused.contains("turntable camera provider"), "{refused}");
+        assert!(resolve(&arguments(&folder, &["--capture", "spiral"]), &none).is_err());
         let prompted = resolve(&arguments(&folder, &["--masks", "external-sam"]), &none).unwrap();
         assert_eq!((prompted.dark_threshold, prompted.threshold_shadow), (Threshold::Level(70), 0.0));
         // The SAM providers get a larger hole-cleanup budget unless one is given; the others keep 0.02.
