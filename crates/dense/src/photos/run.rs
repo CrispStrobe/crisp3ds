@@ -284,6 +284,9 @@ impl Run<'_> {
                 // With a marker mat the dark markers are hidden first (markers/provider.rs).
                 let hide = super::markers::provider::mask_preparation(options)?;
                 let shadow = options.threshold_shadow;
+                if options.masks == super::options::MaskChoice::Background {
+                    return staging::step_coarse_background(out, &photos, &options.envelope, threads, watch);
+                }
                 staging::step_coarse_shadow(
                     out,
                     &photos,

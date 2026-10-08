@@ -23,6 +23,8 @@ pub const SAM_HOLE_CLEANUP_BUDGET: f64 = 0.05;
 pub enum MaskChoice {
     /// Dark object on a light backdrop: threshold, largest dark region, hole cleanup. No network.
     Threshold,
+    /// Centred foreground against a peripheral colour backdrop.
+    Background,
     /// Masks made elsewhere, one per photo; the hole cleanup still runs.
     Import(PathBuf),
     /// SAM 2.1 through `scripts/turntable_mesh/segment.py` in an external interpreter, then the cleanup.
@@ -35,6 +37,7 @@ impl MaskChoice {
     pub fn name(&self) -> &'static str {
         match self {
             MaskChoice::Threshold => "threshold",
+            MaskChoice::Background => "background",
             MaskChoice::Import(_) => "import",
             MaskChoice::ExternalSam => "external-sam",
             MaskChoice::Sam => "sam",
@@ -165,6 +168,8 @@ pub struct TurntableOptions {
     pub span: usize,
     /// Debug input: features and matches made elsewhere (`crisp3ds_turntable_matches_v1`).
     pub matches: Option<PathBuf>,
+    /// Include moving turntable features while retaining object-only scene bounds.
+    pub surface: bool,
 }
 
 /// Options of the `markers` camera provider.
@@ -250,7 +255,8 @@ cameras come from interchangeable providers; undistortion, gates and the scene
 are this program's. Exit code 0: complete; 2: cameras rejected by a gate (or a
 usage error); 1: a step failed. See docs/PHOTOS-TO-INPUTS.md.
 
---masks threshold               dark object on a light backdrop: threshold, largest dark region, contact shadow taken
+--masks background              centred object against a backdrop; RGB/colour contrast, no network
+        threshold               dark object on a light backdrop: threshold, largest dark region, contact shadow taken
                                 out, hole cleanup; no network, no external program (default)
         import:DIR              masks made elsewhere: one 8-bit PNG per photo, white object, named capture_NNNN.png in
                                 capture order or like the photo; the hole cleanup still runs
@@ -444,6 +450,7 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
     };
     let masks = match choice("masks") {
         (name, None) if name == "threshold" => MaskChoice::Threshold,
+        (name, None) if name == "background" => MaskChoice::Background,
         (name, None) if name == "external-sam" => MaskChoice::ExternalSam,
         (name, None) if name == "sam" => MaskChoice::Sam,
         (name, Some(folder)) if name == "import" && !folder.is_empty() => MaskChoice::Import(absolute(&folder)),
@@ -520,6 +527,7 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
         features: integer("turntable-features")?.clamp(100, 100_000) as usize,
         span: integer("turntable-span")?.clamp(1, 32) as usize,
         matches: text("turntable-matches").map(|p| absolute(&p)),
+        surface: word("turntable-region") == "surface",
     };
     let markers = MarkersOptions {
         mat: pick("markers-mat", "CRISP3DS_MARKERS_MAT").map(|p| absolute(&p)),
@@ -672,7 +680,7 @@ impl Options {
                 "sensor_database": av.sensor_database, "memory_gib": av.memory_gib, "initial_field_of_view": av.initial_field_of_view,
                 "describer_types": av.describer_types, "describer_preset": av.describer_preset, "matching_method": av.matching_method,
                 "sfm_option": av.sfm_option},
-            "turntable": {"features": self.turntable.features, "span": self.turntable.span, "matches": self.turntable.matches},
+            "turntable": {"features": self.turntable.features, "span": self.turntable.span, "matches": self.turntable.matches, "surface": self.turntable.surface},
             "open_turn": self.open_turn,
             "markers": {"mat": self.markers.mat, "minimum_per_photo": self.markers.minimum_per_photo, "aspect": self.markers.aspect,
                         "aspect_auto": self.markers.aspect_auto},

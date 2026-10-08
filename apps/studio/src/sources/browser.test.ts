@@ -189,7 +189,7 @@ describe("the engine in this browser", () => {
     const photosPoint = health.startPoints!.find((point) => point.id === "photos")!;
     expect(photosPoint.fields.map((field) => field.key)).toEqual(["photos", "calibration"]);
     expect(photosPoint.providers.map((choice) => [choice.module, choice.default, choice.options.filter((o) => o.available).map((o) => o.id)])).toEqual([
-      ["masks", "threshold", ["threshold"]],
+      ["masks", "threshold", ["threshold", "background"]],
       ["cameras", "turntable", ["turntable"]],
     ]);
     await expect(engine.startRun({ photos: "x" })).rejects.toThrow(/choose the photos/);

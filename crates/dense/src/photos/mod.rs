@@ -28,6 +28,7 @@
 //! `segment.py` in an external interpreter (`--masks external-sam`).
 
 pub mod audit;
+pub mod background;
 pub mod calibration;
 pub mod cleanup;
 pub mod coarse;

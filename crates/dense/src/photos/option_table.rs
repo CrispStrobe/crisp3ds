@@ -72,7 +72,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         choices: &[],
         variable: Some("CRISP3DS_MASKS"),
         repeated: false,
-        meaning: "Mask provider: threshold, import:DIR, external-sam or sam",
+        meaning: "Mask provider: threshold, background, import:DIR, external-sam or sam",
     },
     OptionSpec {
         flag: "cameras",
@@ -533,6 +533,11 @@ pub const OPTIONS: &[OptionSpec] = &[
         variable: None,
         repeated: false,
         meaning: "Most features kept per photo",
+    },
+    OptionSpec {
+        flag: "turntable-region", scope: "cameras:turntable", kind: "choice",
+        default: Some("object"), choices: &["object", "surface"], variable: None, repeated: false,
+        meaning: "Feature region: object, or moving turntable around it (experimental)",
     },
     OptionSpec {
         flag: "turntable-span",

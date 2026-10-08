@@ -21,3 +21,5 @@ pub mod matching;
 pub mod solver;
 
 pub mod provider;
+
+pub mod planar;

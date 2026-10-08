@@ -36,6 +36,19 @@ pub const MASKS_THRESHOLD: Provider = Provider {
     default: true,
 };
 
+pub const MASKS_BACKGROUND: Provider = Provider {
+    module: "masks",
+    name: "background",
+    selector: "--masks background",
+    summary: "Centred object against a backdrop: peripheral RGB/colour contrast, excludes black frame padding; no network (experimental)",
+    desktop: true,
+    mobile: true,
+    wasm: true,
+    external: &[],
+    license: "this crate (AGPL-3.0-only)",
+    default: false,
+};
+
 pub const MASKS_IMPORT: Provider = Provider {
     module: "masks",
     name: "import",
@@ -146,8 +159,9 @@ pub const CAMERAS_TURNTABLE: Provider = Provider {
     default: true,
 };
 
-pub const PROVIDERS: [Provider; 9] = [
+pub const PROVIDERS: [Provider; 10] = [
     MASKS_THRESHOLD,
+    MASKS_BACKGROUND,
     MASKS_IMPORT,
     MASKS_EXTERNAL_SAM,
     MASKS_SAM,
@@ -197,7 +211,7 @@ mod tests {
         let table = listing();
         assert_eq!(table["schema"], "crisp3ds_photo_providers_v1");
         let expected: [(&str, &[&str]); 2] = [
-            ("masks", &["threshold", "import", "external-sam", "sam"]),
+            ("masks", &["threshold", "background", "import", "external-sam", "sam"]),
             ("cameras", &["turntable", "markers", "colmap", "alicevision", "import"]),
         ];
         for (module, names) in expected {

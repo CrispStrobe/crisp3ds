@@ -33,6 +33,7 @@ pub trait MaskProvider {
 pub fn mask_provider(options: &Options) -> Box<dyn MaskProvider> {
     match &options.masks {
         MaskChoice::Threshold => Box::new(ThresholdMasks),
+        MaskChoice::Background => Box::new(BackgroundMasks),
         MaskChoice::Import(folder) => Box::new(ImportMasks { folder: folder.clone() }),
         MaskChoice::ExternalSam => Box::new(ExternalSam),
         MaskChoice::Sam => Box::new(super::sam::provider::NativeSam),
@@ -258,5 +259,22 @@ mod tests {
             .to_string()
             .contains("no mask for photo thing_10.jpg"));
         std::fs::remove_dir_all(&root).unwrap();
+    }
+}
+
+/// Background separation is written by staging, beside the original photos.
+pub struct BackgroundMasks;
+impl MaskProvider for BackgroundMasks {
+    fn info(&self) -> &'static Provider {
+        &super::providers::MASKS_BACKGROUND
+    }
+    fn check(&self, _: &Options) -> anyhow::Result<()> {
+        Ok(())
+    }
+    fn segment(&self, run: &mut Run, _: &Value, _: f64, _: f64) -> anyhow::Result<PathBuf> {
+        Ok(run.out.join("work/coarse-masks"))
+    }
+    fn dropped_warning(&self) -> Option<&'static str> {
+        None
     }
 }

@@ -199,6 +199,31 @@ pub fn step_coarse_shadow(
     prepare: Option<&Preparation>,
     watch: &mut dyn FnMut(usize) -> anyhow::Result<()>,
 ) -> anyhow::Result<Value> {
+    step_coarse_mode(out, photos, envelope, threshold, shadow, threads, prepare, false, watch)
+}
+
+pub fn step_coarse_background(
+    out: &Path,
+    photos: &[PathBuf],
+    envelope: &str,
+    threads: usize,
+    watch: &mut dyn FnMut(usize) -> anyhow::Result<()>,
+) -> anyhow::Result<Value> {
+    step_coarse_mode(out, photos, envelope, Threshold::Level(70), 0.0, threads, None, true, watch)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn step_coarse_mode(
+    out: &Path,
+    photos: &[PathBuf],
+    envelope: &str,
+    threshold: Threshold,
+    shadow: f64,
+    threads: usize,
+    prepare: Option<&Preparation>,
+    background: bool,
+    watch: &mut dyn FnMut(usize) -> anyhow::Result<()>,
+) -> anyhow::Result<Value> {
     let (staged, masks) = (out.join("work/photos"), out.join("work/coarse-masks"));
     crate::photos::fs::create_dir_all(&staged)?;
     crate::photos::fs::create_dir_all(&masks)?;
@@ -231,7 +256,9 @@ pub fn step_coarse_shadow(
                     threshold = Threshold::Level(level);
                 }
             }
-            let (mut mask, info) = coarse_mask(&gray, threshold, window).map_err(|e| anyhow!("{}: {e}", file_name(source)))?;
+            let (mut mask, info) =
+                (if background { super::background::mask(&photo.rgb, window) } else { coarse_mask(&gray, threshold, window) })
+                    .map_err(|e| anyhow!("{}: {e}", file_name(source)))?;
             let shadow_pixels = super::coarse::drop_shadow(&gray, &mut mask, info.threshold, shadow);
             save_mask(&masks.join(format!("{name}.png")), &mask)?;
             let row = json!({

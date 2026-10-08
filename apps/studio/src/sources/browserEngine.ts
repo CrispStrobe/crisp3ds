@@ -129,6 +129,7 @@ const BROWSER_START: StartPoint[] = [
         settings: [],
         options: [
           { id: "threshold", label: "threshold", meaning: "Dark object on a light backdrop: grey threshold, largest dark region, contact shadow taken out.", available: true, external: [], settings: [], inputs: [] },
+          { id: "background", label: "background", meaning: "Centred object against a backdrop: colour contrast, retains light parts (experimental).", available: true, external: [], settings: [], inputs: [] },
           { id: "import", label: "import", meaning: "Masks made elsewhere.", available: false, reason: "Not in the browser yet: the engine package cannot take a folder of masks.", external: [], settings: [], inputs: [] },
         ],
       },

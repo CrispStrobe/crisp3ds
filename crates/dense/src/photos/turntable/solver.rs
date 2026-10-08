@@ -34,9 +34,24 @@ impl Matches {
         }
         let keypoints: Vec<Vec<P2>> = serde_json::from_value(value["keypoints"].clone())?;
         let mut pairs = Vec::new();
-        for pair in value["pairs"].as_array().into_iter().flatten() {
+        for pair in value["pairs"].as_array().ok_or_else(|| anyhow::anyhow!("matches pairs must be an array"))? {
             let list: Vec<(u32, u32)> = serde_json::from_value(pair["matches"].clone())?;
-            pairs.push((pair["first"].as_u64().unwrap_or(0) as usize, pair["second"].as_u64().unwrap_or(0) as usize, list));
+            let first =
+                pair["first"].as_u64().and_then(|n| usize::try_from(n).ok()).ok_or_else(|| anyhow::anyhow!("invalid first view index"))?;
+            let second = pair["second"]
+                .as_u64()
+                .and_then(|n| usize::try_from(n).ok())
+                .ok_or_else(|| anyhow::anyhow!("invalid second view index"))?;
+            pairs.push((first, second, list));
+        }
+        if keypoints.iter().flatten().flatten().any(|v| !v.is_finite())
+            || pairs.iter().any(|(i, j, list)| {
+                *i >= keypoints.len()
+                    || *j >= keypoints.len()
+                    || list.iter().any(|&(a, b)| a as usize >= keypoints[*i].len() || b as usize >= keypoints[*j].len())
+            })
+        {
+            bail!("matches contain invalid coordinates or feature indices");
         }
         Ok(Matches { keypoints, pairs })
     }
@@ -46,6 +61,9 @@ impl Matches {
 pub struct Settings {
     /// The photos do not close a full turn: do not scale the steps to 360 degrees.
     pub open_turn: bool,
+    /// Expanded search for downward views, used only with experimental surface features.
+    pub wide_axis: bool,
+    pub planar: Option<super::planar::Seed>,
 }
 
 /// Turns that the steps of a closed capture may add up to before they are scaled to one. Measured on
@@ -244,7 +262,10 @@ pub fn solve(matches: &Matches, camera: &Camera, settings: &Settings) -> anyhow:
     };
     let across = |axis: V3, v: V3| unit(sub(v, scale(axis, dot(axis, v))));
     let mut start = (f64::INFINITY, [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], nominal);
-    for tilt in [-50.0f64, -40.0, -30.0, -20.0, -10.0, 0.0, 10.0, 20.0, 30.0, 40.0, 50.0] {
+    for tilt in [-80.0f64, -70.0, -60.0, -50.0, -40.0, -30.0, -20.0, -10.0, 0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0] {
+        if !settings.wide_axis && tilt.abs() > 50.0 {
+            continue;
+        }
         let axis = [0.0, tilt.to_radians().cos(), tilt.to_radians().sin()];
         let centre = across(axis, mean);
         for typical in [nominal, -nominal] {
@@ -254,10 +275,16 @@ pub fn solve(matches: &Matches, camera: &Camera, settings: &Settings) -> anyhow:
             }
         }
     }
+    if let Some(seed) = &settings.planar {
+        start = (0.0, seed.axis, seed.centre, median_f64(&mut seed.steps.clone()));
+    }
     let (_, mut axis, mut centre, signed) = start;
     // Refinement: the axis direction (two angles) and the direction to the axis (one angle about it),
     // one after the other over shrinking ranges, the step angles re-fitted inside every evaluation.
     for range in [12.0f64, 6.0, 3.0, 1.5, 0.7, 0.3, 0.1] {
+        if settings.planar.is_some() {
+            break;
+        }
         let range = range.to_radians();
         for parameter in 0..3 {
             let moved_to = |x: f64| -> (V3, V3) {
@@ -280,7 +307,7 @@ pub fn solve(matches: &Matches, camera: &Camera, settings: &Settings) -> anyhow:
         }
     }
     let mut angles: Vec<f64> = sample.iter().map(|pairs| best_angle(pairs, axis, centre, signed, true).1).collect();
-    let typical = median_f64(&mut angles);
+    let typical = if let Some(seed) = &settings.planar { median_f64(&mut seed.steps.clone()) } else { median_f64(&mut angles) };
     let axes = &moving;
 
     // The angle of every step with the axis fixed, from all its matches.
@@ -297,6 +324,9 @@ pub fn solve(matches: &Matches, camera: &Camera, settings: &Settings) -> anyhow:
         }
         let pairs: Vec<(P2, P2)> = a.iter().copied().zip(b.iter().copied()).collect();
         steps.push(best_angle(&pairs, axis, centre, typical, true).1);
+    }
+    if let Some(seed) = &settings.planar {
+        steps = seed.steps.clone();
     }
     // Work with positive steps: an axis pointing the other way turns the same way.
     if typical < 0.0 {
@@ -386,7 +416,7 @@ pub fn solve(matches: &Matches, camera: &Camera, settings: &Settings) -> anyhow:
     let mut sorted = errors.clone();
     sorted.sort_by(f64::total_cmp);
     let report = json!({
-        "photos": n, "pairs_with_motion": axes.len(), "axis": axis, "direction_to_axis": centre,
+        "planar_seed_pairs": settings.planar.as_ref().map(|s|s.pairs), "planar_seed_inlier_fraction": settings.planar.as_ref().map(|s|s.inlier_fraction), "photos": n, "pairs_with_motion": axes.len(), "axis": axis, "direction_to_axis": centre,
         "step_median_deg": typical.to_degrees(), "turn_sum_deg": raw_sum.to_degrees(), "closed_to_full_turn": closed,
         "steps_deg": steps.iter().map(|s| (s.to_degrees() * 1000.0).round() / 1000.0).collect::<Vec<_>>(),
         "first_tracks": {"verified_matches": first_tracks.0, "points": first_tracks.1, "observations": first_tracks.2},
@@ -419,11 +449,29 @@ mod tests {
     use super::*;
     use crate::photos::markers::linalg::rotation_angle_deg;
 
+    #[test]
+    fn malformed_match_indices_are_refused_before_indexing() {
+        let valid = json!({"schema":"crisp3ds_turntable_matches_v1", "keypoints":[[[1.,2.]],[[3.,4.]]], "pairs":[{"first":0,"second":1,"matches":[[0,0]]}]});
+        assert!(Matches::from_json(&valid).is_ok());
+        for (field, value) in [("first", json!(-1)), ("second", json!(9)), ("matches", json!([[0, 8]]))] {
+            let mut bad = valid.clone();
+            bad["pairs"][0][field] = value;
+            assert!(Matches::from_json(&bad).is_err());
+        }
+        let mut bad = valid;
+        bad["pairs"][0].as_object_mut().unwrap().remove("first");
+        assert!(Matches::from_json(&bad).is_err());
+    }
+
     /// A turntable capture as matches: a blob of points about a tilted axis, uneven steps (one of them
     /// zero), a distorting lens, one wrong match in ten.
     fn capture(photos: usize, turn: f64) -> (Matches, Camera, Vec<M3>, Vec<V3>) {
+        capture_tilt(photos, turn, 20.0)
+    }
+
+    fn capture_tilt(photos: usize, turn: f64, tilt: f64) -> (Matches, Camera, Vec<M3>, Vec<V3>) {
         let camera = Camera { fx: 2300.0, fy: 2302.0, cx: 870.0, cy: 560.0, k: [-0.1, 0.2, -0.5] };
-        let axis = unit([0.02, 20f64.to_radians().cos(), 20f64.to_radians().sin()]);
+        let axis = unit([0.02, tilt.to_radians().cos(), tilt.to_radians().sin()]);
         let centre = [0.01, 0.05, 1.0];
         let nominal = turn * 2.0 * std::f64::consts::PI / photos as f64;
         let mut steps: Vec<f64> = (0..photos).map(|i| nominal * (1.0 + 0.1 * ((i * 7) as f64).sin())).collect();
@@ -453,10 +501,20 @@ mod tests {
     }
 
     #[test]
+    fn steep_capture_recovers_without_relaxing_closure() {
+        let (matches, camera, truth, _) = capture_tilt(24, 1.0, 65.0);
+        let solved = solve(&matches, &camera, &Settings { open_turn: false, wide_axis: true, planar: None }).unwrap();
+        assert!(solved.report["reprojection_px"]["median"].as_f64().unwrap() < 0.01);
+        for (actual, expected) in solved.rotations.iter().zip(truth) {
+            assert!(rotation_angle_deg(actual, &expected) < 0.01);
+        }
+    }
+
+    #[test]
     fn turntable_capture_is_recovered_from_its_matches() {
         for (turn, open) in [(1.0, false), (0.6, true)] {
             let (matches, camera, rotations, translations) = capture(24, turn);
-            let solved = solve(&matches, &camera, &Settings { open_turn: open }).unwrap();
+            let solved = solve(&matches, &camera, &Settings { open_turn: open, wide_axis: false, planar: None }).unwrap();
             assert_eq!(solved.report["closed_to_full_turn"], !open);
             assert!(solved.points.len() > 300 && solved.report["reprojection_px"]["median"].as_f64().unwrap() < 0.01, "{}", solved.report);
             // Both in the first camera's frame; the scale is free.
@@ -470,6 +528,6 @@ mod tests {
             assert!(norm(sub(solved.translations[6], solved.translations[5])) < 1e-4);
         }
         let (matches, camera, _, _) = capture(6, 1.0);
-        assert!(solve(&matches, &camera, &Settings { open_turn: false }).is_err());
+        assert!(solve(&matches, &camera, &Settings { open_turn: false, wide_axis: false, planar: None }).is_err());
     }
 }
