@@ -63,6 +63,7 @@ pub fn step_publish_masks(
     crate::photos::fs::create_dir(&target).with_context(|| target.display().to_string())?;
     let names: Vec<String> = (0..photo_count).map(capture_name).collect();
     let (mut rows, mut areas, mut dropped, mut pixels) = (Vec::new(), Vec::new(), Vec::new(), 0usize);
+    let mut filling = Vec::new();
     for (done, name) in names.iter().enumerate() {
         let source = cleaned.join(format!("{name}.png"));
         let mask = super::staging::open_binary_mask(&source).map_err(|_| anyhow!("mask is empty or not 0/255: {name}"))?;
@@ -81,6 +82,9 @@ pub fn step_publish_masks(
         areas.push(area as f64);
         dropped.push(lost as f64 / area.max(1) as f64);
         pixels = mask.width * mask.height;
+        if area as f64 / pixels as f64 > 0.9 {
+            filling.push(name);
+        }
         watch(done + 1)?;
     }
     let median = median_f64(&mut areas.clone());
@@ -91,6 +95,7 @@ pub fn step_publish_masks(
         "maximum_area_pixels": areas.iter().cloned().fold(0.0, f64::max) as u64,
         "maximum_dropped_coarse_fraction": dropped.iter().cloned().fold(0.0, f64::max),
         "views_dropping_over_3_percent_of_coarse": over, "views": rows,
+        "views_filling_over_90_percent_of_photo": filling,
     });
     util::write_json(&out.join("masks-report.json"), &report, 1)?;
     mask_sheet(out, &names)?;

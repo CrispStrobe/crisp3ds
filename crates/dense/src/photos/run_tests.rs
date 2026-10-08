@@ -12,6 +12,37 @@ fn words(items: &[&str]) -> Vec<String> {
     items.iter().map(|s| s.to_string()).collect()
 }
 
+#[test]
+fn threshold_backdrop_masks_stop_before_cameras_and_keep_the_sheet() {
+    let root = crate::photos::options::tests::scratch("backdrop-mask-gate");
+    synthetic(&root);
+    for n in 0..COUNT {
+        let photo = image::RgbImage::from_fn(SIZE.0, SIZE.1, |x, y| {
+            image::Rgb(if (44..52).contains(&x) && (32..40).contains(&y) { [205; 3] } else { [30; 3] })
+        });
+        photo.save(root.join(format!("photos/shot_{n}_rgb.png"))).unwrap();
+    }
+    let (finished, events) = start(&root, "rejected", &["--stop-after", "masks"]);
+    assert_eq!(finished.code, 1);
+    assert_eq!(finished.report["status"], "failed");
+    assert!(finished.report["reasons"][0].as_str().unwrap().contains("90% of every photo"));
+    assert!(root.join("rejected/mask-contact-sheet.png").is_file());
+    assert!(root.join("rejected/masks-report.json").is_file());
+    assert!(!root.join("rejected/inputs").exists());
+    assert!(events.iter().any(|e| e["type"] == "artifact" && e["kind"] == "mask_sheet"));
+    assert!(events.iter().any(|e| e["type"] == "error" && e["stage"] == "masks"));
+    assert!(!events.iter().any(|e| e["stage"] == "cameras" && e["type"] == "stage_started"));
+    // A single clear foreground view keeps the conservative every-photo gate open.
+    let normal = image::RgbImage::from_fn(SIZE.0, SIZE.1, |x, y| {
+        image::Rgb(if (30..60).contains(&x) && (25..50).contains(&y) { [30; 3] } else { [205; 3] })
+    });
+    normal.save(root.join("photos/shot_0_rgb.png")).unwrap();
+    let (mixed, _) = start(&root, "mixed", &["--stop-after", "masks"]);
+    assert_eq!(mixed.code, 0);
+    assert_eq!(mixed.report["masks"]["views_filling_over_90_percent_of_photo"].as_array().unwrap().len(), COUNT - 1);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 /// Sixteen small photos of a dark blob, a lens file and an AliceVision scene with exact cameras on a ring.
 fn synthetic(root: &Path) {
     let _ = std::fs::remove_dir_all(root);

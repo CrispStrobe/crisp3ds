@@ -229,7 +229,11 @@ on. Exit code 1 means a step failed (tool error, deadline, disk, cancel).
   order.
 - A **dark object on a light backdrop**. The coarse masks are a grey-level
   threshold and the hole cleanup only fills dark holes; a light object on a
-  dark backdrop is not supported.
+  dark backdrop is not supported. If threshold masks cover more than 90% of
+  every photo, the run stops before camera recovery and keeps
+  `mask-contact-sheet.png` and `masks-report.json` for inspection. Use a light
+  backdrop, SAM, or your own masks. This conservative gate does not detect
+  every bad mask and does not apply to the other mask providers.
 - A **known lens**: a radial k1, k2, k3 model. The lens is locked during camera
   recovery; it is never refined. Earlier free-lens solutions on these sets
   folded the radial model while still showing low residuals.

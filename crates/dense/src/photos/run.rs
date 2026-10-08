@@ -332,6 +332,14 @@ impl Run<'_> {
         let fraction = round_to(masks["median_area_fraction"].as_f64().unwrap_or(0.0), 5);
         staged.emit("metric", json!({"name": "mask_area_median_fraction", "value": fraction}))?;
         staged.artifact("mask_sheet", &out.join("mask-contact-sheet.png"), "Masks on photos (red: dark pixels left out)", json!({}))?;
+        if provider.info().name == "threshold"
+            && masks["views_filling_over_90_percent_of_photo"].as_array().is_some_and(|views| views.len() == count)
+        {
+            bail!(
+                "threshold masks cover more than 90% of every photo ({count} photos); the dark backdrop may have been selected. \
+                 Inspect mask-contact-sheet.png; use a light backdrop, --masks sam, or your own masks with --masks import:DIR"
+            );
+        }
         staged.emit("stage_finished", json!({"seconds": stage_started.elapsed().as_secs_f64()}))?;
         Ok(photo_map)
     }
