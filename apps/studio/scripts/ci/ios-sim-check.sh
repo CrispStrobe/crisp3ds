@@ -49,20 +49,30 @@ xcrun simctl uninstall "$udid" "$BUNDLE" >/dev/null 2>&1 || true
 xcrun simctl install "$udid" "$APP"
 data=$(xcrun simctl get_app_container "$udid" "$BUNDLE" data)
 mkdir -p "$data/Documents/data"
-cp -R "$SPHERE" "$data/Documents/data/sphere"
+# An inputs folder (cameras.json), or a photos object: rgb/ and a lens calibration next to it.
+if [ -f "$SPHERE/cameras.json" ]; then
+  cp -R "$SPHERE" "$data/Documents/data/sphere"
+  options='name: "sphere"'
+else
+  cp -R "$SPHERE/rgb" "$data/Documents/data/rgb"
+  mkdir -p "$data/Documents/data/calibrations"
+  cp "$SPHERE"/*.json "$data/Documents/data/calibrations/"
+  lens=$(basename "$(ls "$SPHERE"/*.json | head -n 1)" .json)
+  options="name: \"$(basename "$SPHERE")\", photos: \"rgb\", calibration: \"$lens\", providers: { masks: \"threshold\", cameras: \"turntable\" }, settings: null"
+fi
 log="$data/Library/Application Support/$BUNDLE/autopilot.log"
 rm -f "$log"
 
 script="$OUT/.autopilot-$tag.js"
 {
-  echo 'window.AUTOPILOT = { name: "sphere", marks: true, hold: 4000, linger: 3000, timeout: 600000 };'
+  echo "window.AUTOPILOT = { $options, marks: true, hold: 4000, linger: 3000, timeout: 3000000 };"
   cat "$HERE/../autopilot-run.js"
 } > "$script"
 SIMCTL_CHILD_CRISP3DS_STUDIO_AUTOPILOT="$script" xcrun simctl launch --terminate-running-process "$udid" "$BUNDLE" >/dev/null
 
 shots=""
 seen=""
-deadline=$(( $(date +%s) + 900 ))
+deadline=$(( $(date +%s) + 3600 ))
 while :; do
   if [ -f "$log" ]; then
     for name in $(sed -n 's/^\[autopilot\] MARK //p' "$log"); do

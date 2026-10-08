@@ -58,11 +58,21 @@ n=0; until [ -d "$CONTAINER/Data/Library" ] || [ $n -ge 60 ]; do sleep 1; n=$((n
 sleep 3; kill "$PID" 2>/dev/null || true; wait "$PID" 2>/dev/null || true; PID=""
 SUPPORT="$CONTAINER/Data/Library/Application Support/$BUNDLE"
 mkdir -p "$SUPPORT/data"
-cp -R "$SPHERE" "$SUPPORT/data/sphere"
+# An inputs folder (cameras.json), or a photos object: rgb/ and a lens calibration next to it.
+if [ -f "$SPHERE/cameras.json" ]; then
+  cp -R "$SPHERE" "$SUPPORT/data/sphere"
+  options='name: "sphere"'
+else
+  cp -R "$SPHERE/rgb" "$SUPPORT/data/rgb"
+  mkdir -p "$SUPPORT/data/calibrations"
+  cp "$SPHERE"/*.json "$SUPPORT/data/calibrations/"
+  lens=$(basename "$(ls "$SPHERE"/*.json | head -n 1)" .json)
+  options="name: \"$(basename "$SPHERE")\", photos: \"rgb\", calibration: \"$lens\", providers: { masks: \"threshold\", cameras: \"turntable\" }, settings: null"
+fi
 log="$SUPPORT/autopilot.log"
 rm -f "$log"
 {
-  echo 'window.AUTOPILOT = { name: "sphere", marks: true, hold: 4000, linger: 3000, timeout: 600000 };'
+  echo "window.AUTOPILOT = { $options, marks: true, hold: 4000, linger: 3000, timeout: 3000000 };"
   cat "$STUDIO/scripts/autopilot-run.js"
 } > "$CONTAINER/Data/autopilot.js"
 
@@ -86,7 +96,7 @@ CRISP3DS_STUDIO_AUTOPILOT="$CONTAINER/Data/autopilot.js" "$APP/Contents/MacOS/cr
 PID=$!
 shots=""
 seen=""
-deadline=$(( $(date +%s) + 900 ))
+deadline=$(( $(date +%s) + 3600 ))
 while :; do
   if ! kill -0 "$PID" 2>/dev/null && ! grep -q "AUTOPILOT DONE\|AUTOPILOT FAILED" "$log" 2>/dev/null; then
     echo "the app exited on its own:"; tail -20 "$WORK/stdout.txt"; exit 1

@@ -21,6 +21,11 @@ name: app checks
 on:
   workflow_dispatch:
     inputs:
+      scene:
+        description: 'What the apps reconstruct (and the screenshots show): the synthetic sphere, or the rendered rhino figurine (example object, downloaded from its dataset)'
+        type: choice
+        options: [sphere, rhino]
+        default: sphere
       upload_screenshots:
         description: 'Replace the App Store screenshot sets of the 0.2.0 versions (otherwise a dry run)'
         type: boolean
@@ -77,9 +82,17 @@ jobs:
           key: app-checks-ios-${{ hashFiles('apps/studio/src-tauri/Cargo.lock', 'crates/dense/Cargo.lock') }}
       - run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
       - run: npm ci
-      - name: The synthetic sphere (inputs for the run)
-        working-directory: crates/dense
-        run: cargo run --release --locked --bin crisp3ds-dense -- synthetic --output "$RUNNER_TEMP/sphere"
+      - name: The scene (the synthetic sphere, or the rhino's photos from its dataset)
+        env:
+          SCENE: ${{ inputs.scene || 'sphere' }}
+        run: |
+          if [ "$SCENE" = rhino ]; then
+            python scripts/ci/fetch-example.py https://huggingface.co/datasets/cstr/gso-turntable-photos/resolve/main/manifest.json rhino "$RUNNER_TEMP/rhino"
+            echo "SCENE_DIR=$RUNNER_TEMP/rhino" >> "$GITHUB_ENV"
+          else
+            (cd ../../crates/dense && cargo run --release --locked --bin crisp3ds-dense -- synthetic --output "$RUNNER_TEMP/sphere")
+            echo "SCENE_DIR=$RUNNER_TEMP/sphere" >> "$GITHUB_ENV"
+          fi
       - name: Simulator build (debug)
         run: |
           npx tauri ios init --ci
@@ -89,9 +102,9 @@ jobs:
           test -n "$app"
           echo "APP=$PWD/$app" >> "$GITHUB_ENV"
       - name: iPhone 6.9"
-        run: sh scripts/ci/ios-sim-check.sh "$APP" "Pro Max" "$RUNNER_TEMP/sphere" "$GITHUB_WORKSPACE/checks"
+        run: sh scripts/ci/ios-sim-check.sh "$APP" "Pro Max" "$SCENE_DIR" "$GITHUB_WORKSPACE/checks"
       - name: iPad 13"
-        run: sh scripts/ci/ios-sim-check.sh "$APP" "iPad Pro 13" "$RUNNER_TEMP/sphere" "$GITHUB_WORKSPACE/checks"
+        run: sh scripts/ci/ios-sim-check.sh "$APP" "iPad Pro 13" "$SCENE_DIR" "$GITHUB_WORKSPACE/checks"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
@@ -130,13 +143,21 @@ jobs:
             crates/dense/target
           key: app-checks-macos-${{ hashFiles('apps/studio/src-tauri/Cargo.lock', 'crates/dense/Cargo.lock') }}
       - run: npm ci
-      - name: The synthetic sphere (inputs for the run)
-        working-directory: crates/dense
-        run: cargo run --release --locked --bin crisp3ds-dense -- synthetic --output "$RUNNER_TEMP/sphere"
+      - name: The scene (the synthetic sphere, or the rhino's photos from its dataset)
+        env:
+          SCENE: ${{ inputs.scene || 'sphere' }}
+        run: |
+          if [ "$SCENE" = rhino ]; then
+            python scripts/ci/fetch-example.py https://huggingface.co/datasets/cstr/gso-turntable-photos/resolve/main/manifest.json rhino "$RUNNER_TEMP/rhino"
+            echo "SCENE_DIR=$RUNNER_TEMP/rhino" >> "$GITHUB_ENV"
+          else
+            (cd ../../crates/dense && cargo run --release --locked --bin crisp3ds-dense -- synthetic --output "$RUNNER_TEMP/sphere")
+            echo "SCENE_DIR=$RUNNER_TEMP/sphere" >> "$GITHUB_ENV"
+          fi
       - name: Store variant (debug, sandboxed edition)
         run: npx tauri build --debug --no-bundle --ci --config src-tauri/tauri.appstore.conf.json -- --no-default-features --features native-engine --locked
       - name: Launch in the App Sandbox, run, photograph the window
-        run: sh scripts/ci/mac-check.sh src-tauri/target/debug/crisp3ds-studio "$RUNNER_TEMP/sphere" "$GITHUB_WORKSPACE/checks"
+        run: sh scripts/ci/mac-check.sh src-tauri/target/debug/crisp3ds-studio "$SCENE_DIR" "$GITHUB_WORKSPACE/checks"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
