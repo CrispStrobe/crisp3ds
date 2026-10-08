@@ -9,7 +9,9 @@
 //! perspective-correct and the lens model is exact. Lambert and ambient light,
 //! a hard shadow from the one light, optional blur and noise.
 //!
-//! Writes `photos/shot_NNN.png`, `lens.json` (the lens the photos were made
+//! Writes `photos/shot_NNN.png`, `masks/shot_NNN.png` (the exact object silhouette, where at least
+//! half of a pixel's samples meet the object; for `--masks import:DIR` when the masks are not the
+//! question), `lens.json` (the lens the photos were made
 //! with, `crisp3ds_lens_calibration_v1`), `truth.json` (cameras, placement)
 //! and `reference.ply` (the mesh as placed, for `scan_evaluate --no-platform`;
 //! evaluation only). Without `--mesh`, `--sphere` renders a tessellated unit
@@ -365,9 +367,9 @@ pub struct Settings {
     pub threads: usize,
     /// Distance from the object's centre; `None` picks it from `fill`.
     pub distance: Option<f64>,
+    /// Grey level of the backdrop (0 to 1).
+    pub backdrop: f64,
 }
-
-const BACKDROP: [f64; 3] = [0.86, 0.86, 0.87];
 
 /// Albedo of the disc under the object: light, with faint blotches and a fine grain.
 fn disc_albedo(p: V3) -> [f64; 3] {
@@ -428,6 +430,7 @@ pub fn render(mesh: &Mesh, settings: &Settings, output: &Path, source: &str) -> 
         radius / half.atan().sin()
     });
     std::fs::create_dir_all(output.join("photos")).with_context(|| output.display().to_string())?;
+    std::fs::create_dir_all(output.join("masks")).with_context(|| output.display().to_string())?;
     let mut truth_views = Vec::new();
     for n in 0..settings.views {
         let (rotation, translation) =
@@ -443,7 +446,8 @@ pub fn render(mesh: &Mesh, settings: &Settings, output: &Path, source: &str) -> 
             1 => vec![(0.5, 0.5)],
             _ => vec![(0.25, 0.25), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75)],
         };
-        let shade = |x: f64, y: f64| -> [f64; 3] {
+        // Colour of the ray through (x, y), and whether it meets the object first.
+        let shade = |x: f64, y: f64| -> ([f64; 3], bool) {
             let (u, v) = lens.ray(x, y);
             let direction = unit([0, 1, 2].map(|a| u * rotation[0][a] + v * rotation[1][a] + rotation[2][a]));
             let object = bvh.hit(&corners, centre, direction, f64::INFINITY, false);
@@ -488,18 +492,18 @@ pub fn render(mesh: &Mesh, settings: &Settings, output: &Path, source: &str) -> 
                         _ => [crate::stereo::capture::texture(scale(point, 1.0 / radius)); 3],
                     };
                     let light = lit(point, normal);
-                    albedo.map(|c| c * light)
+                    (albedo.map(|c| c * light), true)
                 }
                 (_, Some((_, p))) => {
                     let light = lit(p, [0.0, 0.0, 1.0]);
-                    disc_albedo(p).map(|c| c * light)
+                    (disc_albedo(p).map(|c| c * light), false)
                 }
-                _ => BACKDROP,
+                _ => ([settings.backdrop, settings.backdrop, settings.backdrop * 1.01], false),
             }
         };
-        let rows: Vec<Vec<f32>> = {
+        let rows: Vec<(Vec<f32>, Vec<u8>)> = {
             let next = std::sync::atomic::AtomicUsize::new(0);
-            let mut rows: Vec<Option<Vec<f32>>> = (0..h).map(|_| None).collect();
+            let mut rows: Vec<Option<(Vec<f32>, Vec<u8>)>> = (0..h).map(|_| None).collect();
             let done = std::sync::Mutex::new(&mut rows);
             std::thread::scope(|scope| {
                 for _ in 0..settings.threads.max(1) {
@@ -509,24 +513,28 @@ pub fn render(mesh: &Mesh, settings: &Settings, output: &Path, source: &str) -> 
                             break;
                         }
                         let mut row = vec![0f32; w * 3];
+                        let mut coverage = vec![0u8; w];
                         for x in 0..w {
-                            let mut sum = [0.0; 3];
+                            let (mut sum, mut hits) = ([0.0; 3], 0);
                             for &(sx, sy) in &offsets {
-                                let c = shade(x as f64 - 0.5 + sx, y as f64 - 0.5 + sy);
+                                let (c, hit) = shade(x as f64 - 0.5 + sx, y as f64 - 0.5 + sy);
                                 for i in 0..3 {
                                     sum[i] += c[i];
                                 }
+                                hits += hit as usize;
                             }
                             for i in 0..3 {
                                 row[x * 3 + i] = (sum[i] / offsets.len() as f64) as f32;
                             }
+                            coverage[x] = if 2 * hits >= offsets.len() { 255 } else { 0 };
                         }
-                        done.lock().unwrap()[y] = Some(row);
+                        done.lock().unwrap()[y] = Some((row, coverage));
                     });
                 }
             });
             rows.into_iter().map(|r| r.expect("rendered")).collect()
         };
+        let (rows, coverage): (Vec<Vec<f32>>, Vec<Vec<u8>>) = rows.into_iter().unzip();
         let mut pixels: Vec<f32> = rows.concat();
         if settings.blur > 0.0 {
             for channel in 0..3 {
@@ -559,6 +567,7 @@ pub fn render(mesh: &Mesh, settings: &Settings, output: &Path, source: &str) -> 
             .collect();
         let name = format!("shot_{n:03}.png");
         crate::storage::save_png(output.join("photos").join(&name), w, h, 3, &bytes)?;
+        crate::storage::save_png(output.join("masks").join(&name), w, h, 1, &coverage.concat())?;
         truth_views.push(json!({"photo": name, "centre": centre, "rotation": rotation}));
     }
     let calibration = json!({
@@ -628,7 +637,7 @@ fn blur(source: &[f32], width: usize, height: usize, sigma: f64) -> Vec<f32> {
 
 const USAGE: &str = "usage: crisp3ds-dense render (--mesh MODEL.obj | --sphere) --output DIR [--views N (72)] [--elevation DEG (20)]
        [--width W (1749)] [--height H (1155)] [--fill F (0.7)] [--calibration LENS.json] [--distance D]
-       [--samples 1|4 (4)] [--blur SIGMA_PX (0)] [--noise SIGMA (0)] [--flat] [--threads N (4)]";
+       [--samples 1|4 (4)] [--blur SIGMA_PX (0)] [--noise SIGMA (0)] [--backdrop GREY (0.86)] [--flat] [--threads N (4)]";
 
 /// The `render` command.
 pub fn main(arguments: &[String]) -> anyhow::Result<()> {
@@ -646,6 +655,7 @@ pub fn main(arguments: &[String]) -> anyhow::Result<()> {
         samples: 4,
         threads: 4,
         distance: None,
+        backdrop: 0.86,
     };
     let mut rest = arguments.iter();
     while let Some(flag) = rest.next() {
@@ -665,6 +675,7 @@ pub fn main(arguments: &[String]) -> anyhow::Result<()> {
             "--blur" => settings.blur = value()?.parse()?,
             "--noise" => settings.noise = value()?.parse()?,
             "--threads" => settings.threads = value()?.parse()?,
+            "--backdrop" => settings.backdrop = value()?.parse()?,
             "--flat" => settings.flat = true,
             other => bail!("unknown argument {other}\n{USAGE}"),
         }
