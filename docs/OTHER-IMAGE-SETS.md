@@ -17,7 +17,7 @@ plane, distances under 20 mm).
 | --- | --- | --- | --- | --- | --- |
 | DTU MVS, masks and cameras of the IDR preprocessing | research use; not redistributable | structured-light points, observability masks | robot arm, 49 or 64 views on part of a sphere, 1600 x 1200, rectified | IDR subset 2.1 GB, points 7 GB, masks 6.9 GB | `colmap`; `import` of supplied poses (dense stages only); not `turntable` |
 | YCB / BigBIRD Berkeley RGB-D | YCB CC BY 4.0 | Google scanner meshes (16k, 64k) | five cameras over a turntable, 3 degree steps, 1280 x 1024, light booth, glass turntable carrying a chessboard | 0.6 to 1 GB per object | `turntable`, `colmap`; lens with tangential terms |
-| Google Scanned Objects | CC BY 4.0 | the meshes themselves | none: photos would be rendered by us | about 1000 objects | any, on rendered photos |
+| Google Scanned Objects | CC BY 4.0 | the meshes themselves | none: photos rendered by `crisp3ds-dense render` | about 1000 objects, 5 to 15 MB each | any, on rendered photos |
 | BlendedMVS | CC BY 4.0 | textured meshes, rendered depth | aerial and object orbits, 768 x 576 renders blended with photos | low-resolution set 27.5 GB | `colmap`, `import` |
 | OmniObject3D | CC BY-NC-SA 4.0 | scanned meshes | phone video orbits with masks and COLMAP poses; Blender renders | large, behind a login | `colmap`, `import` |
 | Tanks and Temples (training) | CC BY 4.0 | laser scans | video around large objects and scenes, no masks | 1 to 5 GB per scene | `colmap`, `import`; masks missing |
@@ -25,8 +25,10 @@ plane, distances under 20 mm).
 | CO3D | CC BY-NC 4.0 | none (COLMAP point clouds) | phone orbits with masks | 1.4 TB in all | no geometric score possible |
 | MVImgNet | research use | none | phone orbits | 6.5 M frames | no geometric score possible |
 
-Run here: DTU (four scans) and YCB (three objects). Downloads 16.5 GB on the
-VPS (`/mnt/storage/datasets/eval-e/`), of which about 1.6 GB came to the Mac.
+Run here: DTU (four scans), YCB (three objects) and six Google Scanned
+Objects rendered as turntable captures (next section). Downloads 16.5 GB on the
+VPS (`/mnt/storage/datasets/eval-e/`), of which about 1.6 GB came to the Mac;
+the six GSO models are 70 MB.
 
 ## Results
 
@@ -52,6 +54,82 @@ shared with other jobs (load average 4 to 80), so they are rough.
 All runs where the gates passed registered every photo. Where a camera solution
 was wrong, the ring and audit gates refused it; no wrong solution reached the
 dense stages.
+
+## Google Scanned Objects, rendered
+
+Six GSO models (Copyright 2020 Google LLC, CC BY 4.0, as each model's
+`model.config` and `metadata.pbtxt` state; Downs et al., ICRA 2022,
+<https://arxiv.org/abs/2204.11918>; downloaded from Gazebo Fuel, owner
+GoogleResearch) rendered by `crisp3ds-dense render` as a 3DLF-like capture: 72
+views on one ring at 20 degrees elevation (5 degree steps), 1749 x 1155, the
+3DLF lens (`calibration/3dlf-pro.json`) with its distortion, 4 samples per
+pixel, one light that turns with the camera and casts a hard shadow, 1 px
+Gaussian blur, noise sigma 0.01, light disc and backdrop. Then the default
+command from the photos (`threshold` masks, `turntable` cameras), scored with
+`scan_evaluate --no-platform` against the mesh as placed (`reference.ply`).
+The renderer also knows the true cameras: solved camera centres are fitted to
+them by a proper similarity and compared (centre error in % of the orbit
+radius, orientation error after the fit). Every scored run chose the proper
+handedness, and orientation errors of 0.06 to 0.21 degrees under a proper fit
+confirm no solution was a mirror image. "Exact masks" replaces the threshold
+masks with the renderer's silhouettes (`--masks import:DIR`) to separate the
+masks from the rest. Times: M1 shared with other jobs (load 6 to 19), four
+threads. Scripts: `scripts/gso_eval/` (`pipeline.sh` per case;
+`compare_sheet.py` draws four views of photo, exact mesh and reconstruction
+coloured by its distance to the mesh, green 0, yellow 1 %, red 2 % of the
+diagonal; `camera_error.py`; `summarize.py`).
+
+| Object | Kind | Masks | Registered | Cameras: centre % / orientation deg | F1 0.5 / 1 / 2 % | Run | What the sheet shows |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Schleich African Black Rhino | dark figurine, thin legs and horns | threshold | 72 / 72 | 0.13 / 0.08 | **0.867 / 0.959 / 0.990** | 161 s | clean; horns, ears and legs right; a little shadow debris between the legs |
+| Vans Honey Nut Crunch box | printed box, flat faces | threshold | 72 / 72 | 0.10 / 0.06 | 0.833 / 0.890 / 0.969 | 242 s | faces flat and placed right; grooves along horizontal print lines, dents in the plain yellow band at the top |
+| Nintendo Mario figure | colourful toy, white gloves | threshold | 72 / 72 | 0.25 / 0.21 | 0.710 / 0.832 / 0.907 | 160 s | body right; the white gloves and the lit nose are cut away |
+| Nintendo Mario figure | | exact | 72 / 72 | 0.19 / 0.15 | 0.830 / 0.947 / 0.979 | 147 s | gloves and face whole; small errors in folds (eyes, straps) |
+| Reebok Zig Cooperstown shoe | black and white shoe | threshold | 72 / 72 | 0.22 / 0.15 | 0.431 / 0.645 / 0.814 | 143 s | black upper right; the white logo stripes and white sole parts cut through; ankle opening capped |
+| Reebok Zig Cooperstown shoe | | exact | 72 / 72 | 0.22 / 0.13 | 0.597 / 0.735 / 0.843 | 161 s | no holes; the inside of the shoe and the cleated sole, never seen, stay closed or flat |
+| ACE coffee mug | patterned mug with a handle | threshold | 72 / 72 | 0.19 / 0.12 | 0.448 / 0.595 / 0.717 | 219 s | outside and handle (with its hole) right; the opening is capped at the rim, the inside not carved |
+| Threshold bead cereal bowl | plain white, rotationally symmetric | threshold | refused | | | 31 s | refused by the closure gate (steps add up to 180 degrees); the threshold mask also takes the shadowed disc and drops the lit inside |
+
+Render times were 93 to 161 s per capture of 72 views.
+
+Where it breaks, with a diagnosis for each:
+
+- **Light parts of an object with `threshold` masks** (Mario's gloves and
+  nose, the shoe's white stripes and sole, the white bowl). The threshold
+  provider assumes a dark object on a light backdrop; object pixels brighter
+  than its level are left out of the mask and the hull carves them away,
+  while the hard cast shadow on the disc is taken in (it is carved later,
+  since it moves over the disc from photo to photo). With exact masks, Mario
+  goes from 0.710 to 0.830 at 0.5 % and the shoe from 0.431 to 0.597: the
+  masks cost most of the loss. A mask provider for light or mixed objects
+  (colour against the backdrop, or SAM) is the fix; the cameras were right in
+  both cases.
+- **Concavities the ring never sees into** (the mug's inside, the shoe's
+  inside, the shoe's cleated sole). From 20 degrees above, the inner far wall
+  of the mug shows only near the rim and the bottom never shows; the result
+  is capped at the opening, as the hull is. About half of the mug's reference
+  surface is inside, which bounds completeness and so F1. A view from above
+  would be needed; this is the capture, not the solver.
+- **Print with edges along the ring's epipolar lines** (the box's horizontal
+  text lines and panel edges). On one horizontal ring the epipolar lines are
+  nearly horizontal, so a horizontal edge gives no disparity and the depth
+  wanders along it (grooves up to about 2 % of the diagonal); the plain yellow
+  band at the top has no texture at all and dents. A second ring at another
+  elevation, or a smoothness prior on plain regions, would address it.
+- **Symmetric and plain** (the bowl). A rotationally symmetric white object
+  shows no rotation between photos; the solver found half a turn and the
+  closure gate refused it, as it should. No wrong camera solution reached the
+  dense stages in any of the seven runs.
+- **Thin parts** (the rhino's horns, ears and legs, the mug's handle) came
+  out right at this resolution when the masks are right; the rhino's thin
+  tail is partly lost.
+
+Robustness on the rhino (same render otherwise; default command):
+
+| Change | Registered | Cameras: centre % / orientation deg | F1 0.5 / 1 / 2 % |
+| --- | --- | --- | --- |
+| baseline: 72 views, blur 1 px | 72 / 72 | 0.13 / 0.08 | 0.867 / 0.959 / 0.990 |
+| 36 views (10 degree steps) | 36 / 36 | 0.12 / 0.07 | 0.848 / 0.945 / 0.989 |
 
 ## What breaks, and what would fix it
 

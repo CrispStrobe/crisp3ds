@@ -804,6 +804,27 @@ degrees and position error at most 0.6 mm at 420 mm (0.004 degrees and
 finds 800, corners 0.035 px from the truth in the median; the object
 reconstructed by the dense stages 0.08 % smaller than its true 64 mm width.
 
+### Rendered captures of textured meshes: `crisp3ds-dense render`
+
+```sh
+crisp3ds-dense render (--mesh MODEL.obj | --sphere) --output DIR [--views N (72)] [--elevation DEG (20)]
+    [--width W (1749)] [--height H (1155)] [--fill F (0.7)] [--calibration LENS.json] [--distance D]
+    [--samples 1|4 (4)] [--blur SIGMA_PX (0)] [--noise SIGMA (0)] [--backdrop GREY (0.86)] [--flat] [--threads N (4)]
+```
+
+A textured `.obj` (Google Scanned Objects load as they come, z up) on a light
+disc in front of a backdrop, seen from one ring of cameras through the lens of
+`--calibration` (its distortion included): every pixel's ray is undistorted
+and cast against the mesh through a bounding volume hierarchy. One light above,
+left of and in front of the camera turns with it, as a fixed light over a
+turntable does; Lambert and ambient shading with a hard shadow. Writes
+`photos/shot_NNN.png`, `masks/shot_NNN.png` (the exact silhouette, for
+`--masks import:DIR` when the masks are not under test), `lens.json`,
+`truth.json` (cameras, placement) and `reference.ply` (the mesh in the cameras'
+frame, for `scan_evaluate --no-platform`). Evaluation on six GSO objects is in
+`docs/OTHER-IMAGE-SETS.md`; the scripts that fetch, render, run, score and draw
+the sheets are in `scripts/gso_eval/`.
+
 ### Tests
 
 `cargo test` covers calibration scaling, envelope and threshold logic,
