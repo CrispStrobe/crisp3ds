@@ -26,6 +26,11 @@ fn root(parent: &mut [u32], mut node: u32) -> u32 {
 /// Keeps the connected component with the most triangles (the one containing the lowest
 /// vertex index if several tie) and renumbers its vertices in their original order.
 pub fn largest_component(vertices: &[Vertex], faces: &[Face]) -> Result<Component> {
+    largest_component_with(vertices, faces).map(|(component, _)| component)
+}
+
+/// [`largest_component`] and, for every kept vertex, its index in `vertices`.
+pub fn largest_component_with(vertices: &[Vertex], faces: &[Face]) -> Result<(Component, Vec<u32>)> {
     ensure!(!faces.is_empty(), "the field has no zero crossing, so there is no surface to extract");
     let mut parent: Vec<u32> = (0..vertices.len() as u32).collect();
     for face in faces {
@@ -51,16 +56,18 @@ pub fn largest_component(vertices: &[Vertex], faces: &[Face]) -> Result<Componen
     }
     let mut renumbered = vec![u32::MAX; vertices.len()];
     let mut kept_vertices = Vec::new();
+    let mut origin = Vec::new();
     for (v, &l) in label.iter().enumerate() {
         if l as usize == best {
             renumbered[v] = kept_vertices.len() as u32;
             kept_vertices.push(vertices[v]);
+            origin.push(v as u32);
         }
     }
     let kept_faces: Vec<Face> =
         faces.iter().filter(|f| label[f[0] as usize] as usize == best).map(|f| f.map(|v| renumbered[v as usize])).collect();
     let discarded_faces = faces.len() - kept_faces.len();
-    Ok(Component { vertices: kept_vertices, faces: kept_faces, components, discarded_faces })
+    Ok((Component { vertices: kept_vertices, faces: kept_faces, components, discarded_faces }, origin))
 }
 
 /// Distinct neighbours of every vertex in compressed rows: `(start, neighbour)`.

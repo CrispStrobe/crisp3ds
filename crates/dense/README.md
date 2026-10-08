@@ -508,6 +508,37 @@ to +0.0030 over the whole surface and by -0.0012 to +0.0014 above the
 support; the tops (Bunny's back, Armadillo's shell, Lucy's wings and torch)
 look the same on the sheets.
 
+**Views that do not go around the object (`mesh_open_unseen`, native-only,
+on).** On a capture from one side (DTU's robot arm: 49 views over about 100
+degrees, no back views) the silhouette hull's unseen back stayed in the mesh
+as a slab and dominated the accuracy. The stereo stage now marks the volume
+`partial_views` when the unit vectors from the hull's centroid to the cameras
+average to more than 0.6 (DTU 0.86 and 0.89; a ring at 10 to 35 degrees of
+elevation stays below 0.6, so turntable captures are not affected; captures
+that look down steeply, such as YCB at about 52 degrees, would be marked, by
+the arithmetic, not yet run; their flat base is kept in the mesh). Surface extraction of such a volume orients the closed
+largest component, then drops the triangles none of whose vertices touches a
+voxel with measured or extrapolated evidence or the flat base; the mesh is
+open there (`closed` false in `result.json`). Chosen against closing the
+unseen part with a membrane (a harmonic field between the known voxels and
+the outside of the hull, solved on a grid four times coarser), and against
+also keeping hull surface that at least 3 or 8 cameras face. DTU protocol, mm
+(accuracy / completeness / overall), supplied IDR masks:
+
+| | closed (before) | open (adopted) | membrane | open plus faced hull |
+| --- | --- | --- | --- | --- |
+| scan 65, DTU poses | 1.906 / 0.949 / 1.428 | 1.549 / 0.925 / 1.237 | 1.403 / 1.166 / 1.285 | 1.553 / 0.929 / 1.241 |
+| scan 63, DTU poses | 1.719 / 0.424 / 1.072 | 1.642 / 0.421 / 1.032 | 1.658 / 0.429 / 1.043 | |
+| scan 65, `--cameras colmap --capture orbit` | 1.650 / 1.033 / 1.342 | 1.570 / 1.038 / 1.304 | | |
+| scan 63, `--cameras colmap --capture orbit` | 1.909 / 0.874 / 1.392 | 1.744 / 0.874 / 1.309 | | |
+
+F1 at 1 mm rises with it (65 poses 0.688 to 0.714, 63 poses 0.812 to 0.820;
+colmap 0.667 to 0.672 and 0.589 to 0.600). The membrane is the most accurate
+on scan 65 but caves in the skull's white dome, which no view matched and
+where the hull was right, so completeness suffers; the open mesh keeps it.
+Full-turn captures are unchanged: Bunny and Dragon from their photos give
+byte-identical meshes before and after.
+
 **Handedness of the 3DLF scans.** Every reconstruction of the four test
 objects fits its Revopoint scan only as a mirror image, with the AliceVision,
 COLMAP and turntable cameras alike (Dragon, trimmed rms 0.60 mirrored against

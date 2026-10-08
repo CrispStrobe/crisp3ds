@@ -35,7 +35,7 @@ shared with other jobs (load average 4 to 80), so they are rough.
 
 | Set | Object | Photos | Masks | Cameras | Score | Time | What the sheet shows |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| DTU | scan 65, skull | 49 | IDR (import) | DTU poses (dense only) | overall 1.48 mm (acc 1.94, comp 1.02); F1 1 mm 0.69 | 153 s | face and teeth right; the unseen back of the hull stays as a slab; ripples on the white dome |
+| DTU | scan 65, skull | 49 | IDR (import) | DTU poses (dense only) | overall 1.48 mm (acc 1.94, comp 1.02); F1 1 mm 0.69 | 153 s | face and teeth right; the unseen back of the hull stays as a slab (before `mesh_open_unseen`, which gives overall 1.24 mm); ripples on the white dome |
 | DTU | scan 65 | 49 | IDR (import) | `colmap` (PyCOLMAP stand-in), ring gates loosened | overall 1.30 mm (acc 1.60, comp 1.00); F1 1 mm 0.67 | 193 s | as above; aligned to DTU by camera centres (residual 0.73 mm) |
 | DTU | scan 65 | 17 (every 3rd) | IDR (import) | DTU poses | overall 2.81 mm (acc 3.97, comp 1.66) | 46 s | coarser, more hull left |
 | DTU | scan 63, fruit (coloured, glossy) | 49 | IDR (import) | DTU poses | overall 1.19 mm (acc 1.89, comp 0.48); F1 1 mm 0.78 | 106 s | apples, pear and pumpkin clean; base debris |
@@ -64,10 +64,14 @@ dense stages.
   the support with the cone the camera elevation explains, instead of with a
   fixed share of the height.
 - **Captures that do not surround the object** (DTU). The unseen back of the
-  hull remains as a slab inside the observability mask, which costs accuracy
-  (accuracy is 1.6 to 2.8 mm against completeness 0.5 to 1.0 mm). Fix (dense
-  stages): leave hull surface that no view measures out of the mesh when the
-  views cover less than a full turn, or close it at the measured surface.
+  hull remained as a slab inside the observability mask, which cost accuracy
+  (accuracy 1.6 to 2.8 mm against completeness 0.5 to 1.0 mm). Fixed
+  (`mesh_open_unseen`, on): when the views do not go around the object, hull
+  surface without measured or extrapolated evidence is left out of the mesh,
+  which is then open. Overall, before / after: scan 65 on DTU poses 1.43 /
+  1.24 mm, scan 63 1.07 / 1.03 mm; with `--cameras colmap --capture orbit`
+  1.34 / 1.30 and 1.39 / 1.31 mm. Closing the unseen part with a membrane
+  instead scored between the two (numbers in `crates/dense/README.md`).
 - **Non-ring camera paths**: `--capture orbit` keeps the camera audit and
   drops the ring gates (`turntable`, the default, keeps them; the turntable
   provider refuses `orbit`). DTU 65 and 63 with `colmap` and no other flag:

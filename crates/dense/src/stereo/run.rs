@@ -43,6 +43,22 @@ pub fn write_volume(
     truncation: f64,
     support: Option<&Support>,
 ) -> anyhow::Result<()> {
+    write_volume_with(path, compress, hull, indices, total, weight, truncation, support, false)
+}
+
+/// [`write_volume`] with the `partial_views` member (written only when true).
+#[allow(clippy::too_many_arguments)]
+pub fn write_volume_with(
+    path: &Path,
+    compress: bool,
+    hull: &Hull,
+    indices: &[u32],
+    total: &[f32],
+    weight: &[f32],
+    truncation: f64,
+    support: Option<&Support>,
+    partial_views: bool,
+) -> anyhow::Result<()> {
     let f32s = |values: &[f32]| Array::new(&[values.len()], Data::F32(values.to_vec()));
     let index = index_array(hull, indices);
     let (total, weight) = (f32s(total), f32s(weight));
@@ -62,6 +78,10 @@ pub fn write_volume(
     let extra = support.map(|s| (f32s(&s.point), f32s(&s.down), Array::scalar_f32(s.height.unwrap_or(f32::NAN))));
     if let Some((point, down, height)) = &extra {
         arrays.extend([("support_point", point), ("support_down", down), ("support_height", height)]);
+    }
+    let partial = Array::scalar_f32(1.0);
+    if partial_views {
+        arrays.push(("partial_views", &partial));
     }
     npz::write(path, &arrays, compress)
 }
@@ -373,7 +393,7 @@ pub async fn run_fused(
     drop(depths);
     drop(level);
     if files.volume {
-        write_volume(
+        write_volume_with(
             &output.join("volume.npz"),
             true,
             &state.hull,
@@ -382,8 +402,10 @@ pub async fn run_fused(
             &fused.weight,
             fused.truncation,
             Some(&fused.support),
+            fused.partial_views,
         )?;
     }
+    report["partial_views"] = json!(fused.partial_views);
     report["write_seconds"] = json!(t.elapsed().as_secs_f64());
     let volume = crate::mesh::field::Volume::from_fused(&state.hull, fused);
     finish(report, output, started).map(|report| (report, Some(volume)))

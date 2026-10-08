@@ -192,6 +192,23 @@ fn extract(
     control.check()?;
     let field_report = field.report;
     drop(field.value);
+    // Views that do not go around the object: which grid vertices lie at voxels with measured or
+    // extrapolated evidence. Surface elsewhere (the hull's unseen back) is left out below.
+    let seen: Option<Vec<bool>> = field.known.as_ref().map(|known| {
+        let dims = field.dims;
+        grid_mesh
+            .vertices
+            .iter()
+            .map(|v| {
+                let base = v.map(|c| c.floor().max(0.0) as usize);
+                (0..8).any(|corner| {
+                    let p = [0, 1, 2].map(|a| (base[a] + (corner >> a & 1)).min(dims[a] - 1));
+                    known[(p[0] * dims[1] + p[1]) * dims[2] + p[2]]
+                })
+            })
+            .collect()
+    });
+    drop(field.known);
 
     // Grid coordinates to scene coordinates, in float32 like the reference (voxel centres
     // sit at half-integers of the unpadded grid).
@@ -213,9 +230,21 @@ fn extract(
             })
         })
         .collect();
-    let part = surface::largest_component(&vertices, &grid_mesh.faces)?;
+    let (part, origin) = surface::largest_component_with(&vertices, &grid_mesh.faces)?;
     drop((vertices, grid_mesh));
     let (mut vertices, mut faces) = (part.vertices, part.faces);
+    // An open mesh has no meaningful signed volume: orient the closed component first, then cut.
+    let mut oriented = false;
+    if let Some(seen) = seen {
+        if surface::topology(&vertices, &faces).signed_volume < 0.0 {
+            faces.iter_mut().for_each(|f| f.swap(0, 2));
+        }
+        oriented = true;
+        faces.retain(|f| f.iter().any(|&v| seen[origin[v as usize] as usize]));
+        let open = surface::largest_component(&vertices, &faces)?;
+        (vertices, faces) = (open.vertices, open.faces);
+    }
+    drop(origin);
     if config.mesh_taubin_cycles > 0 && step == 1 {
         // One cycle at a time (a cycle depends only on the vertices before it), so that a stop takes effect between them.
         for _ in 0..config.mesh_taubin_cycles {
@@ -224,7 +253,7 @@ fn extract(
         }
     }
     let mut info = surface::topology(&vertices, &faces);
-    if info.signed_volume < 0.0 {
+    if !oriented && info.signed_volume < 0.0 {
         faces.iter_mut().for_each(|f| f.swap(0, 2));
         info = surface::topology(&vertices, &faces);
     }

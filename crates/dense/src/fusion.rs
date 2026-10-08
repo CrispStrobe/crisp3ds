@@ -32,6 +32,8 @@ pub struct Fused {
     pub weight: Vec<f32>,
     pub truncation: f64,
     pub support: Support,
+    /// The views do not go around the object (`partial_views`).
+    pub partial_views: bool,
 }
 
 #[repr(C)]
@@ -190,7 +192,36 @@ pub async fn tsdf(
             }
         }
     }
-    Ok(Fused { indices, total, weight, truncation, support: Support { point: middle, down, height } })
+    // The object's centre for `partial_views`: the hull's centroid (the cameras' mean lies off-centre
+    // whenever the views do not surround the object).
+    let mut centroid = [0.0f64; 3];
+    for &linear in indices.iter().step_by(7) {
+        let [i, j, k] = hull.unravel(linear);
+        for (a, value) in [axes[0][i], axes[1][j], axes[2][k]].into_iter().enumerate() {
+            centroid[a] += f64::from(value);
+        }
+    }
+    let sampled = indices.len().div_ceil(7).max(1) as f64;
+    let partial = partial_views(cameras, &centroid.map(|v| (v / sampled) as f32));
+    Ok(Fused { indices, total, weight, truncation, support: Support { point: middle, down, height }, partial_views: partial })
+}
+
+/// Whether the views leave part of the object unseen: the directions from the object to the cameras,
+/// as unit vectors, average to a long vector when they all lie on one side (DTU's arc of views from
+/// the front: about 0.8) and nearly cancel for a ring around it (a turntable at 10 to 20 degrees of
+/// elevation: below 0.35). Partial above 0.6.
+pub fn partial_views(cameras: &[Camera], centre: &[f32; 3]) -> bool {
+    let mut sum = [0.0f64; 3];
+    for camera in cameras {
+        let c = camera.centre();
+        let d = [c[0] - centre[0], c[1] - centre[1], c[2] - centre[2]].map(f64::from);
+        let n = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt().max(1e-12);
+        for a in 0..3 {
+            sum[a] += d[a] / n;
+        }
+    }
+    let count = cameras.len().max(1) as f64;
+    (sum[0] * sum[0] + sum[1] * sum[1] + sum[2] * sum[2]).sqrt() / count > 0.6
 }
 
 /// What the hull below a support height says about whether the object stands on anything.
@@ -298,6 +329,32 @@ mod tests {
     use crate::inputs::Inputs;
     use crate::stereo::level::build_level;
     use crate::stereo::{options, synthetic};
+
+    /// A camera at `centre` (identity rotation: only the centre matters here).
+    fn at(centre: [f32; 3]) -> Camera {
+        Camera { rotation: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], translation: centre.map(|v| -v), k: [1.0; 4] }
+    }
+
+    /// A ring at 10 to 50 degrees of elevation surrounds the object; an arc of views from one side
+    /// (DTU: about 100 degrees of azimuth) does not.
+    #[test]
+    fn partial_views_tells_an_arc_from_a_ring() {
+        let ring = |elevation: f32, from: f32, to: f32, count: usize| -> Vec<Camera> {
+            (0..count)
+                .map(|n| {
+                    let azimuth = (from + (to - from) * n as f32 / count as f32).to_radians();
+                    let e = elevation.to_radians();
+                    at([5.0 * e.cos() * azimuth.cos(), 5.0 * e.cos() * azimuth.sin(), 5.0 * e.sin()])
+                })
+                .collect()
+        };
+        for elevation in [10.0, 20.0, 35.0] {
+            assert!(!partial_views(&ring(elevation, 0.0, 360.0, 48), &[0.0; 3]), "ring at {elevation}");
+        }
+        let mut arc = ring(15.0, -50.0, 50.0, 25);
+        arc.extend(ring(40.0, -50.0, 50.0, 24));
+        assert!(partial_views(&arc, &[0.0; 3]));
+    }
 
     /// GPU fusion of exact sphere depth against the scalar votes (`CRISP3DS_GPU_TESTS=1`).
     #[test]

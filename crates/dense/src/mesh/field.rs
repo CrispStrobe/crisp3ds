@@ -37,6 +37,8 @@ pub struct Volume {
     /// Truncation distance in scene units.
     pub truncation: f64,
     pub support: Option<Support>,
+    /// The views do not go around the object; see `fusion::partial_views`.
+    pub partial_views: bool,
 }
 
 /// Preview volumes handed from the stereo stage to the preview mesher of the same run, by the path
@@ -85,6 +87,7 @@ impl Volume {
             voxel: self.voxel * factor as f64,
             truncation: self.truncation.max(self.voxel * factor as f64),
             support: self.support,
+            partial_views: self.partial_views,
         }
     }
 
@@ -116,6 +119,7 @@ impl Volume {
             voxel: f64::from(hull.voxel as f32),
             truncation: f64::from(truncation as f32),
             support,
+            partial_views: false,
         }
     }
 
@@ -138,6 +142,7 @@ impl Volume {
             voxel: f64::from(hull.voxel as f32),
             truncation: f64::from(fused.truncation as f32),
             support,
+            partial_views: fused.partial_views,
         }
     }
 
@@ -187,6 +192,7 @@ impl Volume {
             voxel: npz.get("voxel")?.scalar()?,
             truncation: npz.get("truncation")?.scalar()?,
             support,
+            partial_views: npz.contains("partial_views") && npz.get("partial_views")?.scalar()? > 0.5,
         })
     }
 }
@@ -205,6 +211,9 @@ pub struct FieldReport {
 pub struct Field {
     /// Padded grid, negative inside.
     pub value: Vec<f32>,
+    /// With views that do not go around the object (`mesh_open_unseen`): the padded voxels with
+    /// measured or extrapolated evidence; surface elsewhere is left out of the mesh.
+    pub known: Option<Vec<bool>>,
     pub dims: Dims,
     pub report: FieldReport,
 }
@@ -317,6 +326,13 @@ pub fn field(volume: &Volume, config: &DenseConfig, check: &dyn Fn() -> Result<(
             }
         }
     }
+    let mut known = (volume.partial_views && config.mesh_open_unseen).then(|| {
+        let mut known = vec![false; total_voxels];
+        for (i, &p) in place.iter().enumerate() {
+            known[p as usize] = observed[i] || filled[i];
+        }
+        known
+    });
     drop((confidence, work, numerator, place));
     if overshoot > 0.0 {
         // Unmeasured voxels (extrapolated or not) take at least the prior moved inward by the overshoot.
@@ -364,6 +380,16 @@ pub fn field(volume: &Volume, config: &DenseConfig, check: &dyn Fn() -> Result<(
                 }
             }
         });
+        if let Some(known) = known.as_mut() {
+            // The flat base is inferred from the support, not unseen hull: it stays in the mesh.
+            known.par_chunks_mut(dims[1] * dims[2]).enumerate().for_each(|(x, slab)| {
+                for (y, row) in slab.chunks_exact_mut(dims[2]).enumerate() {
+                    for (z, k) in row.iter_mut().enumerate() {
+                        *k |= plane(x, y, z) > -1.0;
+                    }
+                }
+            });
+        }
     }
 
     // The maximum leaves creases that would give ambiguous cells.
@@ -371,5 +397,5 @@ pub fn field(volume: &Volume, config: &DenseConfig, check: &dyn Fn() -> Result<(
         check()?;
         gaussian_filter(&mut value, dims, config.mesh_final_smooth);
     }
-    Ok(Field { value, dims, report })
+    Ok(Field { value, known, dims, report })
 }

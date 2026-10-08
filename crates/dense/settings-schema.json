@@ -392,6 +392,13 @@
       "default": true
     },
     {
+      "name": "mesh_open_unseen",
+      "group": "Surface",
+      "meaning": "When the views do not go around the object, leave surface no view measured out of the mesh (open mesh) instead of keeping the silhouette hull there",
+      "kind": "boolean",
+      "default": true
+    },
+    {
       "name": "mesh_base_margin",
       "group": "Surface",
       "meaning": "Voxels kept below that level",
