@@ -420,6 +420,19 @@ impl Run<'_> {
             return Ok(2);
         }
         let registered = solution.views.len();
+        // Re-read original capture files for colour, without retaining a second staged
+        // photo set throughout camera recovery (important for browser memory).
+        let texture_photos = photo_map["photos"]
+            .as_array()
+            .context("photo map has no photos")?
+            .iter()
+            .map(|row| {
+                Ok((
+                    row["capture"].as_str().context("photo map has no capture")?.to_string(),
+                    options.photos.join(row["source"].as_str().context("photo map has no source")?),
+                ))
+            })
+            .collect::<anyhow::Result<std::collections::BTreeMap<_, _>>>()?;
         let scene = self.internal(
             "cameras",
             "scene",
@@ -428,7 +441,17 @@ impl Run<'_> {
             0.98,
             "Undistorting photos and masks, writing the scene",
             registered,
-            |watch| write_scene(&solution, &out.join("work/contrast"), &out.join("masks"), &out.join("inputs"), threads, watch),
+            |watch| {
+                write_scene(
+                    &solution,
+                    &out.join("work/contrast"),
+                    Some(&texture_photos),
+                    &out.join("masks"),
+                    &out.join("inputs"),
+                    threads,
+                    watch,
+                )
+            },
         )?;
         self.report["scene"] = scene;
         let overlay = self.internal("cameras", "overlay", small, 0.98, 1.0, "Sparse points on photos", registered, |watch| {

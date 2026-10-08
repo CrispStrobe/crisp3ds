@@ -21,6 +21,15 @@ pipeline with textures passes the native memory-tree test, but real browser
 execution/memory and real-device sharing have not yet been measured for this
 option.
 
+New photo-stage scenes include `texture_image` in each camera row: original
+capture RGB, undistorted into `texture_images/` with the recovered lens. Texture
+export prefers this image; feature gamma/CLAHE stays confined to matching inputs.
+Older scenes without the optional field remain readable and use `image`, which
+may have been contrast-enhanced. Re-run their photo stage to obtain original
+colour. `original_rgb_views` in the texture report counts selected views with
+this separate source. This correction does not change cameras, depth matching,
+or STL geometry; captured lighting and view seams remain.
+
 The exporter selects up to twelve evenly spaced recovered views. It rejects
 back-facing, masked-out and occluded candidates using the reconstructed mesh's
 perspective-correct depth buffer at 2048 pixels on the longest side. Triangle

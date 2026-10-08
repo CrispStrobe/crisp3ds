@@ -184,7 +184,12 @@ the COLMAP 4 option names (no COLMAP 4 executable has been run).
   photos by bilinear sampling of the 8-bit values, masks by nearest sampling.
   `prepareDenseScene` is no longer called. The scene is `inputs/` with
   `cameras.json`, `images/view_ID.png`, `masks/view_ID.png` and
-  `sparse_points.npy`; image and mask paths are relative.
+  `sparse_points.npy`; image and mask paths are relative. Original capture RGB
+  is undistorted with the same recovered lens into `texture_images/view_ID.png`;
+  each camera row names it as `texture_image`. It is decoded with the same EXIF
+  orientation handling as staging. Gamma/CLAHE images remain the matching inputs;
+  texture export reads the unenhanced RGB. Originals are re-read in bounded batches
+  after camera recovery, rather than keeping another staged set in memory.
 
 ### Output of the native step
 

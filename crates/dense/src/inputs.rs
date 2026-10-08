@@ -72,6 +72,9 @@ impl Camera {
 pub struct ViewRow {
     pub name: String,
     pub image: String,
+    /// Optional unenhanced, undistorted RGB for texture export; dense matching uses `image`.
+    #[serde(default)]
+    pub texture_image: Option<String>,
     pub mask: String,
     #[serde(default)]
     pub width: usize,
@@ -312,7 +315,7 @@ pub fn load_views(directory: &Path) -> anyhow::Result<Vec<ViewRow>> {
         .with_context(|| directory.join("cameras.json").display().to_string())?;
     let mut rows = serde_json::from_str::<CameraFile>(&text).context("cameras.json")?.views;
     for row in &mut rows {
-        for path in [&mut row.image, &mut row.mask] {
+        for path in [&mut row.image, &mut row.mask].into_iter().chain(row.texture_image.iter_mut()) {
             if !Path::new(path.as_str()).is_absolute() {
                 *path = directory.join(path.as_str()).to_string_lossy().to_string();
             }

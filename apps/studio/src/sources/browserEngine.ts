@@ -75,7 +75,7 @@ export function relativeFiles(entries: { path: string; file: File }[]): [string,
 
 /** Reads what the form needs from the picked folder's cameras.json. Throws a sentence if it is not an inputs folder. */
 export function describeInputs(name: string, files: [string, File][], camerasJson: string): PickedInputs {
-  let views: { width?: unknown; height?: unknown; image?: unknown; mask?: unknown }[];
+  let views: { width?: unknown; height?: unknown; image?: unknown; texture_image?: unknown; mask?: unknown }[];
   try {
     const parsed = JSON.parse(camerasJson) as { views?: unknown };
     if (!Array.isArray(parsed.views)) throw new Error();
@@ -89,7 +89,7 @@ export function describeInputs(name: string, files: [string, File][], camerasJso
   const outside: string[] = [];
   for (const view of views) {
     if (typeof view.width === "number" && typeof view.height === "number") pixels += view.width * view.height;
-    for (const named of [view.image, view.mask]) {
+    for (const named of [view.image, view.mask, view.texture_image]) {
       if (typeof named === "string" && !present.has(named.replace(/^\.\//, ""))) outside.push(named);
     }
   }

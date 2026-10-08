@@ -1,0 +1,241 @@
+{
+  "views": 60,
+  "all_camera_parameters_identical": true,
+  "matching_images_byte_identical": true,
+  "original_texture_pixels_equal_source_capture": true,
+  "staged_photos_removed": true,
+  "schema": "crisp3ds_original_texture_rgb_v1",
+  "geometry_changed": false,
+  "input_matching_images": "Gamma/CLAHE; unchanged by this fix",
+  "texture_images": "Unenhanced capture RGB, undistorted with the same recovered lens",
+  "legacy_inputs": "Fallback to image if optional texture_image absent",
+  "originals_read_in_bounded_batches": true,
+  "validation": {
+    "rust_release_gpu_tests": 198,
+    "studio_browser_input_tests": 17,
+    "studio_build": true,
+    "threaded_wasm_build": true
+  },
+  "limitations": [
+    "New output stores a separate calibrated RGB set, increasing saved run size",
+    "No browser end-to-end memory measurement for this change yet",
+    "Does not fix depth or surface distortion",
+    "Old inputs must re-run the photo stage to get original RGB"
+  ],
+  "actual_drill_export": {
+    "atlas_size": [
+      4096,
+      4096
+    ],
+    "attribution_embedded": false,
+    "coherent_selection": false,
+    "color": "Captured input photo appearance including lighting; original RGB when texture_image is supplied, otherwise the legacy matching image; not intrinsic albedo or generated PBR",
+    "exposure_balance": false,
+    "exposure_gains": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "geometry_changed": false,
+    "glb_bytes": 39526372,
+    "limits": [
+      "Per-face projection; optional coherent view selection and bounded global exposure correction do not remove spatial lighting differences or blend chart boundaries",
+      "Visibility tested at corners and centre against 2048-pixel mesh depth buffers",
+      "Unobserved faces are neutral grey; no invented texture",
+      "Mesh units/orientation are preserved; physical scale is not established"
+    ],
+    "original_rgb_views": 12,
+    "reference_used": false,
+    "seam_edges": null,
+    "seconds": 6.410647,
+    "selected_views": [
+      {
+        "crop": [
+          600,
+          365,
+          264,
+          202
+        ],
+        "image_size": [
+          1280,
+          1024
+        ],
+        "name": "view_0"
+      },
+      {
+        "crop": [
+          618,
+          350,
+          242,
+          243
+        ],
+        "image_size": [
+          1280,
+          1024
+        ],
+        "name": "view_5"
+      },
+      {
+        "crop": [
+          649,
+          339,
+          165,
+          271
+        ],
+        "image_size": [
+          1280,
+          1024
+        ],
+        "name": "view_10"
+      },
+      {
+        "crop": [
+          665,
+          341,
+          89,
+          277
+        ],
+        "image_size": [
+          1280,
+          1024
+        ],
+        "name": "view_15"
+      },
+      {
+        "crop": [
+          608,
+          356,
+          175,
+          266
+        ],
+        "image_size": [
+          1280,
+          1024
+        ],
+        "name": "view_20"
+      },
+      {
+        "crop": [
+          550,
+          381,
+          251,
+          229
+        ],
+        "image_size": [
+          1280,
+          1024
+        ],
+        "name": "view_25"
+      },
+      {
+        "crop": [
+          531,
+          391,
+          267,
+          201
+        ],
+        "image_size": [
+          1280,
+          1024
+        ],
+        "name": "view_30"
+      },
+      {
+        "crop": [
+          547,
+          347,
+          236,
+          253
+        ],
+        "image_size": [
+          1280,
+          1024
+        ],
+        "name": "view_35"
+      },
+      {
+        "crop": [
+          626,
+          360,
+          125,
+          226
+        ],
+        "image_size": [
+          1280,
+          1024
+        ],
+        "name": "view_40"
+      },
+      {
+        "crop": [
+          634,
+          296,
+          82,
+          292
+        ],
+        "image_size": [
+          1280,
+          1024
+        ],
+        "name": "view_45"
+      },
+      {
+        "crop": [
+          608,
+          307,
+          167,
+          245
+        ],
+        "image_size": [
+          1280,
+          1024
+        ],
+        "name": "view_50"
+      },
+      {
+        "crop": [
+          595,
+          338,
+          238,
+          237
+        ],
+        "image_size": [
+          1280,
+          1024
+        ],
+        "name": "view_55"
+      }
+    ],
+    "triangles": 1006012,
+    "untextured_area_fraction": 0.4928142145567202,
+    "untextured_triangles": 491926,
+    "vertices_with_uv_seams": 609042,
+    "geometry_verification": {
+      "triangle_coordinates_and_winding_byte_equal": true,
+      "triangles": 1006012
+    },
+    "glb_sha256": "dde80700d6eb01812accff0864f9f6819b524ec595223e4d10788065b4ef4ba0",
+    "validation": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    }
+  },
+  "rendered_review": {
+    "path": ".local-tools/quality-235/drill-original-colour-review.png",
+    "inspected": true,
+    "finding": "Original capture RGB is darker than the feature-enhanced export; the same holes and casing distortion remain visible. This is a colour-source correction, not a geometric improvement."
+  }
+}

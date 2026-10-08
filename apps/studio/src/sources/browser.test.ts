@@ -166,6 +166,7 @@ describe("the engine in this browser", () => {
     expect(describeInputs("bunny", files, named("./images/a.png")).views).toBe(1);
     expect(() => describeInputs("bunny", files, named("images/missing.png"))).toThrow(/names 1 file that is not in this folder \(the first: images\/missing\.png\)/);
     expect(() => describeInputs("bunny", files, named("/disk/prepared/1.png"))).toThrow(/full paths elsewhere on a disk/);
+    expect(() => describeInputs("bunny", files, JSON.stringify({ views: [{ image: "images/a.png", texture_image: "originals/a.png" }] }))).toThrow(/originals\/a\.png/);
     expect(() => describeInputs("x", files, "{}")).toThrow(/not an inputs folder/);
     expect(() => describeInputs("x", files, "not json")).toThrow(/not an inputs folder/);
   });

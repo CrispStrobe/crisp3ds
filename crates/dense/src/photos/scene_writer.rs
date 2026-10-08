@@ -11,7 +11,10 @@
 //! provider has to deliver undistorted images.
 
 use crate::photos::fs::Stored as _;
-use std::path::Path;
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{bail, Context};
 use serde_json::{json, Value};
@@ -56,10 +59,13 @@ pub fn undistort_map(solution: &Solution) -> (Vec<f32>, Vec<f32>) {
 
 /// Writes the scene into the fresh directory `output`. `photos` and `masks`
 /// hold one file per view under the view's source name. Returns `{"views",
-/// "sparse_points"}`. `watch(done)` is called after every view.
+/// "sparse_points"}`. `texture_photos`, when supplied, is original RGB in the
+/// same source frame; it is undistorted separately and never used for matching.
+/// `watch(done)` is called after every view.
 pub fn write_scene(
     solution: &Solution,
     photos: &Path,
+    texture_photos: Option<&BTreeMap<String, PathBuf>>,
     masks: &Path,
     output: &Path,
     threads: usize,
@@ -70,15 +76,28 @@ pub fn write_scene(
     }
     crate::photos::fs::create_dir_all(output.join("masks")).with_context(|| output.display().to_string())?;
     crate::photos::fs::create_dir_all(output.join("images"))?;
+    if texture_photos.is_some() {
+        crate::photos::fs::create_dir_all(output.join("texture_images"))?;
+    }
     let (width, height) = (solution.lens.width as usize, solution.lens.height as usize);
     let [fx, fy, cx, cy] = solution.lens.pixels;
     let (map_x, map_y) = undistort_map(solution);
     let mut order: Vec<usize> = (0..solution.views.len()).collect();
     order.sort_by(|&a, &b| solution.views[a].source.cmp(&solution.views[b].source));
-    let rows = util::parallel(
+    let rows = util::parallel_with_input(
         order.len(),
         threads,
         |n| {
+            // Host-backed browser files must be read on the calling thread.
+            texture_photos
+                .map(|sources| {
+                    let source = &solution.views[order[n]].source;
+                    let path = sources.get(source).with_context(|| format!("missing original RGB for {source}"))?;
+                    Ok((path.clone(), crate::photos::fs::read(path)?))
+                })
+                .transpose()
+        },
+        |n, original_bytes| {
             let view = &solution.views[order[n]];
             let name = format!("view_{}", view.id);
             let photo_path = photos.join(&view.source);
@@ -97,11 +116,21 @@ pub fn write_scene(
                 remap_rgb(photo.as_raw(), width, height, &map_x, &map_y),
             )?;
             util::save_gray(&output.join(format!("masks/{name}.png")), width, height, remap_mask(&mask, &map_x, &map_y))?;
-            Ok(json!({
+            let mut row = json!({
                 "name": name, "source": view.source, "image": format!("images/{name}.png"), "mask": format!("masks/{name}.png"),
                 "width": width, "height": height, "k": [fx, fy, cx + 0.5, cy + 0.5],
                 "rotation": view.rotation, "translation": view.translation,
-            }))
+            });
+            if let Some((path, bytes)) = original_bytes {
+                let original = super::staging::decode_photo(&path, &bytes)?.rgb;
+                if (original.width() as usize, original.height() as usize) != (width, height) {
+                    bail!("texture photo of {} is not {width}x{height}", view.source);
+                }
+                let relative = format!("texture_images/{name}.png");
+                util::save_rgb(&output.join(&relative), width, height, remap_rgb(original.as_raw(), width, height, &map_x, &map_y))?;
+                row["texture_image"] = json!(relative);
+            }
+            Ok(row)
         },
         watch,
     )?;
@@ -168,7 +197,7 @@ mod tests {
         let landmarks = vec![Landmark { position: [0.5, 0.25, 4.0], observations: vec![] }];
         let solution = Solution { lens, views, unregistered: vec![], landmarks, lens_locked: None, scale: None, object_points: None };
         let mut seen = 0;
-        let report = write_scene(&solution, &root.join("photos"), &root.join("masks"), &root.join("scene"), 2, &mut |done| {
+        let report = write_scene(&solution, &root.join("photos"), None, &root.join("masks"), &root.join("scene"), 2, &mut |done| {
             seen = done;
             Ok(())
         })
@@ -191,7 +220,28 @@ mod tests {
         let config = crate::config::DenseConfig { neighbours: 1, ..Default::default() };
         let inputs = crate::inputs::Inputs::load(&root.join("scene"), &config).unwrap();
         assert_eq!(inputs.count(), 2);
-        assert!(write_scene(&solution, &root.join("photos"), &root.join("masks"), &root.join("scene"), 2, &mut |_| Ok(())).is_err());
+        // Matching images stay identical; unenhanced colour has its own calibrated image.
+        std::fs::create_dir_all(root.join("originals")).unwrap();
+        for name in ["capture_0000.png", "capture_0001.png"] {
+            image::RgbImage::from_pixel(width, height, image::Rgb([19, 67, 183])).save(root.join("originals").join(name)).unwrap();
+        }
+        let sources = ["capture_0000.png", "capture_0001.png"]
+            .into_iter()
+            .map(|name| (name.to_string(), root.join("originals").join(name)))
+            .collect();
+        write_scene(&solution, &root.join("photos"), Some(&sources), &root.join("masks"), &root.join("colour-scene"), 2, &mut |_| Ok(()))
+            .unwrap();
+        let colour_rows = crate::inputs::load_views(&root.join("colour-scene")).unwrap();
+        assert_eq!(colour_rows[0].k, inputs.rows[0].k);
+        assert_eq!(colour_rows[0].rotation, inputs.rows[0].rotation);
+        assert_eq!(colour_rows[0].translation, inputs.rows[0].translation);
+        assert_eq!(image::open(&colour_rows[0].image).unwrap().to_rgb8(), image);
+        let original = image::open(colour_rows[0].texture_image.as_ref().unwrap()).unwrap().to_rgb8();
+        assert!(original.pixels().all(|pixel| pixel.0 == [19, 67, 183]));
+        assert!(inputs.rows[0].texture_image.is_none()); // Old scenes remain valid.
+        let colour_inputs = crate::inputs::Inputs::load(&root.join("colour-scene"), &config).unwrap();
+        assert!(colour_inputs.gray.iter().zip(&inputs.gray).all(|(a,b)| a.data == b.data));
+        assert!(write_scene(&solution, &root.join("photos"), None, &root.join("masks"), &root.join("scene"), 2, &mut |_| Ok(())).is_err());
         std::fs::remove_dir_all(&root).unwrap();
     }
 }

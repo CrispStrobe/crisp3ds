@@ -372,7 +372,7 @@ pub fn run_with_options(
         control.check()?;
         let row = source[slot * source.len() / count].clone();
         let c = camera(&row);
-        let photo = Rgb::open(Path::new(&row.image))?;
+        let photo = Rgb::open(Path::new(row.texture_image.as_deref().unwrap_or(&row.image)))?;
         let mask = crate::scene::read_gray(Path::new(&row.mask))?;
         ensure!((photo.width, photo.height) == (mask.width, mask.height), "image/mask dimensions differ in {}", row.name);
         let (mut x0, mut y0, mut x1, mut y1) = (photo.width, photo.height, 0, 0);
@@ -557,7 +557,7 @@ pub fn run_with_options(
     }
     let glb_bytes = bytes.len();
     crate::storage::write_new(output.join("mesh.glb"), bytes)?;
-    let report = json!({"triangles":triangles.len(),"vertices_with_uv_seams":positions.len(),"selected_views":tiles.iter().map(|t|json!({"name":t.row.name,"image_size":t.size,"crop":t.bounds})).collect::<Vec<_>>(),"atlas_size":[atlas.width,atlas.height],"untextured_triangles":chosen.iter().filter(|s|**s==count).count(),"untextured_area_fraction":untextured_area/total_area.max(1e-20),"glb_bytes":glb_bytes,"seconds":start.elapsed().as_secs_f64(),"reference_used":false,"geometry_changed":false,"coherent_selection":coherent,"seam_edges":seam_report,"exposure_balance":balance,"exposure_gains":gains,"attribution_embedded":attribution.is_some(),"color":"Measured photo appearance including captured lighting; not intrinsic albedo or generated PBR","limits":["Per-face projection; optional coherent view selection and bounded global exposure correction do not remove spatial lighting differences or blend chart boundaries","Visibility tested at corners and centre against 2048-pixel mesh depth buffers","Unobserved faces are neutral grey; no invented texture","Mesh units/orientation are preserved; physical scale is not established"]});
+    let report = json!({"triangles":triangles.len(),"vertices_with_uv_seams":positions.len(),"selected_views":tiles.iter().map(|t|json!({"name":t.row.name,"image_size":t.size,"crop":t.bounds})).collect::<Vec<_>>(),"atlas_size":[atlas.width,atlas.height],"untextured_triangles":chosen.iter().filter(|s|**s==count).count(),"untextured_area_fraction":untextured_area/total_area.max(1e-20),"glb_bytes":glb_bytes,"seconds":start.elapsed().as_secs_f64(),"reference_used":false,"geometry_changed":false,"coherent_selection":coherent,"seam_edges":seam_report,"exposure_balance":balance,"exposure_gains":gains,"attribution_embedded":attribution.is_some(),"original_rgb_views":tiles.iter().filter(|tile|tile.row.texture_image.is_some()).count(),"color":"Captured input photo appearance including lighting; original RGB when texture_image is supplied, otherwise the legacy matching image; not intrinsic albedo or generated PBR","limits":["Per-face projection; optional coherent view selection and bounded global exposure correction do not remove spatial lighting differences or blend chart boundaries","Visibility tested at corners and centre against 2048-pixel mesh depth buffers","Unobserved faces are neutral grey; no invented texture","Mesh units/orientation are preserved; physical scale is not established"]});
     crate::storage::write_new(output.join("result.json"), serde_json::to_vec_pretty(&report)?)?;
     Ok(report)
 }
@@ -718,6 +718,17 @@ mod tests {
                 .unwrap();
         assert_eq!(enhanced["untextured_triangles"], 1);
         assert_eq!(enhanced["geometry_changed"], false);
+        assert_eq!(before, crate::storage::read(root.join("mesh.stl")).unwrap());
+        // A feature-enhanced image must not override calibrated original RGB.
+        Rgb::filled(64, 64, [19, 67, 183]).save(&root.join("original.png")).unwrap();
+        let mut originals = cameras.clone();
+        originals["views"][0]["texture_image"] = json!("original.png");
+        crate::storage::write(root.join("cameras.json"), serde_json::to_vec(&originals).unwrap()).unwrap();
+        let original_report = run(root, &root.join("mesh.stl"), &root.join("original-output"), 4, 128).unwrap();
+        let atlas = Rgb::open(&root.join("original-output/atlas.png")).unwrap();
+        assert!(atlas.data.chunks_exact(3).any(|pixel| pixel == [19, 67, 183]));
+        assert!(!atlas.data.chunks_exact(3).any(|pixel| pixel == [210, 30, 20]));
+        assert_eq!(original_report["untextured_triangles"], report["untextured_triangles"]);
         assert_eq!(before, crate::storage::read(root.join("mesh.stl")).unwrap());
         assert!(run(root, &root.join("mesh.stl"), &root.join("output"), 4, 128).is_err());
         crate::storage::remove_dir_all(root).unwrap();
