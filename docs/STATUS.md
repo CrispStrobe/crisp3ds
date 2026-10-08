@@ -161,3 +161,13 @@ recovery still fails its unchanged support gate (24.8%, required 25%).
 No drill mesh is accepted. Reserved-track mustard camera diagnostics and
 all experiment limits are in the [quality review](../tests/evidence/quality-followup-review.json)
 and [diagnostic usage](../scripts/photo_regression/README.md).
+
+
+Drill continuation: enabling existing automatic SAM cues with background
+prompts and several candidates now recovers 60/60 cameras from the same
+cached own RGB matches, with the 25% support gate unchanged (25.42% support).
+The first textured GLB renders correctly, but its grey mesh is pitted/open
+and fails the detail target. Independent planes and a 12-degree minimum
+neighbor-angle control do not resolve the openings; no default changed.
+See [drill controls](../tests/evidence/drill-cues-and-detail-controls.json) and
+[other image sets](OTHER-IMAGE-SETS.md#drill-recovery-control-with-automatic-cues).

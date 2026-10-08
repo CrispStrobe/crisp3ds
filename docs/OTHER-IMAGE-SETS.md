@@ -361,3 +361,24 @@ grey source boundaries on cereal, with a 5120-square atlas instead of 4096.
 The cereal and mustard meshes still fail the geometric target. Previewing
 texture and grey shading in Studio makes this distinction directly inspectable.
 See [quality evidence](../tests/evidence/quality-followup-review.json).
+
+
+### Drill recovery control with automatic cues
+
+A subsequent run enables the existing automatic SAM cues with background
+prompts, several candidates and filled mask holes. The common foreground box
+and interior/exterior points remove much of the checkerboard contamination.
+The same cached RGB feature matches now recover all 60 cameras without
+relaxing the rotating-plane support gate (25.42%, required 25%). Median/p95
+fitted reprojection error is 0.325/1.213 px; this is not a held-out accuracy
+measurement. Remaining masks omit some chuck/battery foreground.
+
+This is the first completed drill mesh/GLB in these controls, not an accepted
+quality result. The band baseline is open, with 4,438 boundary edges and
+1,006,012 triangles. Cropped comparisons against six source photographs show
+pitting and lost molded detail. Independent planes alone leave similar
+artifacts (4,313 boundary edges); increasing the minimum neighbor angle to
+12 degrees does not make the mesh closed (4,922 boundary edges). Photo texture
+renders successfully but conceals some surface errors. No dense or SAM
+default changed. The object spans only roughly 200–300 source pixels, so
+triangle count does not measure recovered detail.

@@ -87,6 +87,9 @@ def shade(triangles, row, center, scale, size, supersample=2):
 
 
 def run(cameras, names, meshes, output, size=(560, 430), crops=None):
+    # Refuse an existing sheet before loading meshes or rasterising them.
+    if Path(output).exists():
+        raise FileExistsError(output)
     rows = {r["name"]: r for r in load_views(Path(cameras).parent)}
     rows = [rows[n] for n in names]
     loaded = [(label, read_stl(path)) for label, path in meshes]

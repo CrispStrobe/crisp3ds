@@ -1,0 +1,149 @@
+{
+  "schema": 1,
+  "date": "2026-10-08",
+  "engine_commit": "faa9e9bdf685141f537cbf42b701d0a357c41048",
+  "reference_used": false,
+  "supplied_extrinsics_depth_masks_used": false,
+  "capture": "60 drill RGB images, declared lens calibration, full distortion undistorted",
+  "front_end": {
+    "sam_prompt_mask": "background",
+    "sam_candidates": "several",
+    "sam_preserve_holes": false,
+    "sam_automatic_cues": true,
+    "turntable_region": "surface",
+    "cached_matches": "own RGB feature matches, reused unchanged",
+    "registered_views": 60,
+    "inlier_fraction": 0.25421124,
+    "required_inlier_fraction": 0.25,
+    "fitted_reprojection_median_px": 0.32530904236214747,
+    "fitted_reprojection_p95_px": 1.2129695884156921,
+    "seconds_with_cached_matches": 175.777,
+    "held_out_accuracy_measured": false
+  },
+  "cases": [
+    {
+      "name": "drill-common-mesh",
+      "settings": {
+        "slanted_refine": false,
+        "minimum_angle": 3.0,
+        "fusion_interpolate": false
+      },
+      "mesh": {
+        "triangles": 1006012,
+        "boundary_edges": 4438,
+        "components": 77,
+        "genus": 252,
+        "closed": false
+      },
+      "silhouette_iou_input_masks": {
+        "maximum": 0.9395859930694875,
+        "median": 0.9315545942201767,
+        "minimum": 0.6330401563610519,
+        "worst_view": "view_41"
+      },
+      "seconds": 21.461015334,
+      "stl_sha256": "037ba2739652498b0973d6297ad9641289a0a107a8941185bee5c859ed6605cf",
+      "glb_sha256": "0b04e0f61baff699c641f7d8898bcae5069f6422cf30e7d9dac6555742b40e6e",
+      "texture_preserves_triangle_coordinates_and_winding": true,
+      "khronos_validation": {
+        "numErrors": 0,
+        "numWarnings": 0
+      }
+    },
+    {
+      "name": "drill-independent",
+      "settings": {
+        "slanted_refine": true,
+        "minimum_angle": 3.0,
+        "fusion_interpolate": false
+      },
+      "mesh": {
+        "triangles": 982419,
+        "boundary_edges": 4313,
+        "components": 86,
+        "genus": 260,
+        "closed": false
+      },
+      "silhouette_iou_input_masks": {
+        "maximum": 0.9356519354691285,
+        "median": 0.926949990260916,
+        "minimum": 0.632171629501046,
+        "worst_view": "view_41"
+      },
+      "seconds": 139.723951042,
+      "stl_sha256": "4f3dbec3feaceb882cbaaff50029d0aaf24f0b8a0ae6592c7f3bcf348ff06590",
+      "glb_sha256": "7b693cde785b1f674e62a1fbac9114a8b55ead0fb324dc2311e866803e04ea2a",
+      "texture_preserves_triangle_coordinates_and_winding": true,
+      "khronos_validation": {
+        "numErrors": 0,
+        "numWarnings": 0
+      }
+    },
+    {
+      "name": "drill-independent-angle12",
+      "settings": {
+        "slanted_refine": true,
+        "minimum_angle": 12.0,
+        "fusion_interpolate": false
+      },
+      "mesh": {
+        "triangles": 1014124,
+        "boundary_edges": 4922,
+        "components": 81,
+        "genus": 342,
+        "closed": false
+      },
+      "silhouette_iou_input_masks": {
+        "maximum": 0.9482577522034982,
+        "median": 0.9390816477558622,
+        "minimum": 0.629009329187028,
+        "worst_view": "view_41"
+      },
+      "seconds": 62.329920708,
+      "stl_sha256": "b37d3ed5c4150f5ac2fe7fb678f49a0ca307cefc915a90830a199982990f65a3",
+      "glb_sha256": "365c3c68fb1b938edb27ec31e7842cf77fbe5ea9ea94242407768c513acb3e08",
+      "texture_preserves_triangle_coordinates_and_winding": true,
+      "khronos_validation": {
+        "numErrors": 0,
+        "numWarnings": 0
+      }
+    },
+    {
+      "name": "drill-independent-interpolated",
+      "settings": {
+        "slanted_refine": true,
+        "minimum_angle": 3.0,
+        "fusion_interpolate": true
+      },
+      "mesh": {
+        "triangles": 982791,
+        "boundary_edges": 4313,
+        "components": 88,
+        "genus": 258,
+        "closed": false
+      },
+      "silhouette_iou_input_masks": {
+        "maximum": 0.9355207238495636,
+        "median": 0.9271573369340886,
+        "minimum": 0.632216139226421,
+        "worst_view": "view_41"
+      },
+      "seconds": 28.72677475,
+      "stl_sha256": "c77d8a0e8b90c4d9cb7b2851798c00e5b4e0927088dac0aec5af1e2df1dfa805",
+      "glb_sha256": "e1e64c6b7cb3a8afe1c434a56927ad5dcd5a1030a610b3599424974c73793a05",
+      "texture_preserves_triangle_coordinates_and_winding": true,
+      "khronos_validation": {
+        "numErrors": 0,
+        "numWarnings": 0
+      }
+    }
+  ],
+  "defaults_changed": false,
+  "quality_accepted": false,
+  "scanner_metrics_measured": false,
+  "limits": [
+    "Masks still omit some chuck/battery foreground",
+    "Small object in original photos; triangle count is not detail recovery",
+    "Fitted reprojection and silhouette agreement are not independent geometric accuracy"
+  ]
+}
