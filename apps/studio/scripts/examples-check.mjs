@@ -20,9 +20,11 @@ try {
   await page.getByRole("link", { name: "Choose an object" }).click();
   await page.getByRole("heading", { name: "Example objects", level: 1 }).waitFor();
   await page.locator(".example").first().waitFor({ timeout: 60000 });
-  console.log("source shown:", (await page.locator(".attribution-card").innerText()).replace(/\s+/g, " ").slice(0, 400));
+  console.log("source shown:", (await page.locator(".attribution-card").first().innerText()).replace(/\s+/g, " ").slice(0, 500));
+  console.log("sections:", (await page.locator(".example-source h2").allInnerTexts()).join(" | "));
   console.log("objects:", (await page.locator(".example-text strong").allInnerTexts()).join(", "));
-  const row = page.locator(".example", { has: page.locator("strong", { hasText: new RegExp(`^${object}$`) }) });
+  // The object's name, or the start of it ("Rhino" for "Rhino figurine (...)").
+  const row = page.locator(".example", { has: page.locator("strong", { hasText: new RegExp(`^${object}`) }) }).first();
   console.log("row:", (await row.locator(".example-text").innerText()).replace(/\s+/g, " "));
   await row.getByRole("button", { name: /Download and reconstruct|Reconstruct/ }).first().click();
   const confirm = row.locator(".example-confirm");
@@ -42,6 +44,7 @@ try {
   if ((await load.count()) > 0) await load.click();
   await page.locator("#mesh-heading + .sub", { hasText: "Final surface" }).waitFor({ timeout: 300000 }).catch(() => undefined);
   console.log("surface:", await page.locator("#mesh-heading + .sub").innerText());
+  console.log("numbers:", (await page.locator(".metrics > div").allInnerTexts()).map((row) => row.replace(/\s+/g, " ")).filter((row) => /Registered|Input photos|Reprojection median|Silhouette iou/i.test(row)).join(" | "));
   await page.locator("details.attribution summary").click();
   console.log("kept with the run:", (await page.locator("details.attribution pre").innerText()).replace(/\s+/g, " ").slice(0, 300));
 } catch (problem) {

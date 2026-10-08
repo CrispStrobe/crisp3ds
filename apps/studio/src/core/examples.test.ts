@@ -64,7 +64,9 @@ describe("example objects", () => {
     expect(dragon.calibration.path).toBe("calibration/3dlf-pro.json");
     expect(dragon.bytes).toBe(Object.values(contents).reduce((sum, text) => sum + text.length, 0));
     expect(runAttribution(manifest, dragon)).toContain("DOI 10.17632/ngvgpsvd8b.1");
-    expect(runAttribution(manifest, dragon)).toContain("Stanford 3D Scanning Repository");
+    expect(runAttribution(manifest, dragon)).not.toContain("Stanford");
+    const withPurpose = parseExampleManifest(await manifestWith(contents), "https://huggingface.co/datasets/cstr/3dlf-scan-photos/resolve/main/manifest.json", "Prints of Stanford 3D Scanning Repository models.");
+    expect(runAttribution(withPurpose, withPurpose.objects[0]!)).toContain("Stanford 3D Scanning Repository");
     expect(() => parseExampleManifest({ schema: "other" }, "https://x/")).toThrow(/not a list/);
     const raw = await manifestWith(contents);
     expect(() => parseExampleManifest({ ...raw, attribution: undefined }, "https://x/")).toThrow(/where the photos come from/);

@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
   downloadExample,
-  EXAMPLES_MANIFEST,
-  EXAMPLES_PURPOSE,
+  EXAMPLE_SOURCES,
   parseExampleManifest,
   runAttribution,
   type DownloadProgress,
   type ExampleManifest,
   type ExampleObject,
+  type ExampleSource,
 } from "../core/examples";
 import { formatBytes } from "../core/format";
 import type { BrowserEngine } from "../sources/browserEngine";
@@ -21,8 +21,8 @@ interface Props {
   engine: Engine;
   /** The shell's command bridge, when the engine is the one built into the app. */
   bridge: Bridge | null;
-  /** Where the list comes from; the dataset repository by default. */
-  manifestUrl?: string;
+  /** Where the lists come from; the dataset repositories by default. */
+  sources?: ExampleSource[];
 }
 
 type Row = { state: "unknown" | "absent" | "partial" | "ready"; have: number } | { state: "downloading"; progress: DownloadProgress } | { state: "failed"; message: string };
@@ -32,7 +32,28 @@ type Row = { state: "unknown" | "absent" | "partial" | "ready"; have: number } |
  * with the app. Before anything is fetched the source, the license and the download size are
  * shown; the attribution is kept with every run made from them.
  */
-export function Examples({ engine, bridge, manifestUrl = EXAMPLES_MANIFEST }: Props) {
+export function Examples({ engine, bridge, sources = EXAMPLE_SOURCES }: Props) {
+  return (
+    <section class="page narrow examples">
+      <a class="back" href="#/">
+        Connection
+      </a>
+      <h1>Example objects</h1>
+      <p class="sub">
+        Turntable photo sets, one turn of about 72 photos each, that can be downloaded and reconstructed here. They do not come
+        with {engine.kind === "browser" ? "this page" : "the app"}: they are fetched on request from public dataset repositories,
+        each file checked against its published checksum, and kept {engine.kind === "browser" ? "in this browser" : "in the app's data folder"} until you delete them.
+      </p>
+      {sources.map((source) => (
+        <SourceSection key={source.id} engine={engine} bridge={bridge} source={source} />
+      ))}
+    </section>
+  );
+}
+
+/** One dataset repository: its attribution, then its objects. */
+function SourceSection({ engine, bridge, source }: { engine: Engine; bridge: Bridge | null; source: ExampleSource }) {
+  const manifestUrl = source.manifest;
   const [manifest, setManifest] = useState<ExampleManifest | null>(null);
   const [problem, setProblem] = useState("");
   const [rows, setRows] = useState<Record<string, Row>>({});
@@ -43,7 +64,7 @@ export function Examples({ engine, bridge, manifestUrl = EXAMPLES_MANIFEST }: Pr
     let alive = true;
     fetch(manifestUrl)
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`The list of example objects could not be loaded (${response.status}).`))))
-      .then((json) => alive && setManifest(parseExampleManifest(json, manifestUrl)))
+      .then((json) => alive && setManifest(parseExampleManifest(json, manifestUrl, source.purpose)))
       .catch((reason) => alive && setProblem(describe(reason)));
     return () => {
       alive = false;
@@ -99,24 +120,16 @@ export function Examples({ engine, bridge, manifestUrl = EXAMPLES_MANIFEST }: Pr
   };
 
   return (
-    <section class="page narrow examples">
-      <a class="back" href="#/">
-        Connection
-      </a>
-      <h1>Example objects</h1>
-      <p class="sub">
-        Real turntable photo sets, one turn of 73 photos each, that can be downloaded and reconstructed here. They do not come
-        with {engine.kind === "browser" ? "this page" : "the app"}: they are fetched on request from a public dataset repository,
-        each file checked against its published checksum, and kept {engine.kind === "browser" ? "in this browser" : "in the app's data folder"} until you delete them.
-      </p>
+    <section class="example-source" aria-labelledby={`ex-${source.id}`}>
+      <h2 id={`ex-${source.id}`}>{source.title}</h2>
       {problem !== "" && <p class="notice bad">{problem}</p>}
       {manifest === null && problem === "" && <p role="status">Loading the list...</p>}
       {manifest !== null && (
         <>
-          <section class="card attribution-card" aria-labelledby="ex-source">
-            <h2 id="ex-source">Source and license</h2>
+          <section class="card attribution-card" aria-label={`Source and license: ${source.title}`}>
+            <h3>Source and license</h3>
             <p>{manifest.attribution.text}</p>
-            <p class="help">{EXAMPLES_PURPOSE}</p>
+            {manifest.purpose !== "" && <p class="help">{manifest.purpose}</p>}
             <p class="help">
               {manifest.attribution.source !== undefined && (
                 <>

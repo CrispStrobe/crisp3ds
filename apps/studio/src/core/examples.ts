@@ -21,11 +21,32 @@
 
 export const EXAMPLES_SCHEMA = "crisp3ds_example_objects_v1";
 
-/** The repository the app's example objects come from. */
-export const EXAMPLES_MANIFEST = "https://huggingface.co/datasets/cstr/3dlf-scan-photos/resolve/main/manifest.json";
+/** A dataset repository the app offers objects from, with what is said about its objects besides the dataset's own attribution. */
+export interface ExampleSource {
+  id: string;
+  /** Heading of its list. */
+  title: string;
+  manifest: string;
+  /** Shown before download and kept with every run, after the dataset's attribution. */
+  purpose: string;
+}
 
-/** Said with every example object, besides the dataset's own attribution. */
-export const EXAMPLES_PURPOSE = "Photographs of 3D prints of models from the Stanford 3D Scanning Repository and similar sources, for evaluation and research. Stanford permits research use; commercial use or inclusion in a product for sale needs Stanford's permission.";
+/** The sources, in the order they are listed: the freely licensed synthetic renders first. */
+export const EXAMPLE_SOURCES: ExampleSource[] = [
+  {
+    id: "gso",
+    title: "Rendered household objects",
+    manifest: "https://huggingface.co/datasets/cstr/gso-turntable-photos/resolve/main/manifest.json",
+    purpose: "Rendered photos of scanned household objects (synthetic, not photographs). Brands and products shown belong to their owners.",
+  },
+  {
+    id: "3dlf",
+    title: "Photographed figures",
+    manifest: "https://huggingface.co/datasets/cstr/3dlf-scan-photos/resolve/main/manifest.json",
+    purpose:
+      "Photographs of 3D prints of models from the Stanford 3D Scanning Repository and similar sources, for evaluation and research. Stanford permits research use; commercial use or inclusion in a product for sale needs Stanford's permission.",
+  },
+];
 
 export interface ExampleFile {
   /** Path relative to the manifest's folder. */
@@ -56,6 +77,8 @@ export interface Attribution {
 
 export interface ExampleManifest {
   baseUrl: string;
+  /** What the source says about its objects (`ExampleSource.purpose`); empty when none. */
+  purpose: string;
   attribution: Attribution;
   objects: ExampleObject[];
 }
@@ -92,7 +115,7 @@ function captureIndex(path: string): number {
 }
 
 /** Reads a manifest. Throws a sentence when it cannot be used; drops objects that are not safe to fetch. */
-export function parseExampleManifest(json: unknown, manifestUrl: string): ExampleManifest {
+export function parseExampleManifest(json: unknown, manifestUrl: string, purpose = ""): ExampleManifest {
   const root = json as Record<string, unknown> | null;
   if (root === null || typeof root !== "object" || root.schema !== EXAMPLES_SCHEMA) throw new Error("This is not a list of example objects.");
   const base = new URL(text(root.base_url) ?? "./", manifestUrl);
@@ -119,7 +142,7 @@ export function parseExampleManifest(json: unknown, manifestUrl: string): Exampl
     if (bytes > MAX_OBJECT_BYTES) continue;
     objects.push({ id, name: text(row.title) ?? id, photos: photos.length, bytes, calibration, files: photos });
   }
-  return { baseUrl: base.href, attribution, objects };
+  return { baseUrl: base.href, purpose, attribution, objects };
 }
 
 /** What is kept with a run made from an example object. */
@@ -130,7 +153,7 @@ export function runAttribution(manifest: ExampleManifest, object: ExampleObject)
     manifest.attribution.text,
     manifest.attribution.source !== undefined ? `Original source: ${manifest.attribution.source}` : "",
     "",
-    EXAMPLES_PURPOSE,
+    manifest.purpose,
   ]
     .filter((line, index, all) => line !== "" || all[index - 1] !== "")
     .join("\n");

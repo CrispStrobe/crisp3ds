@@ -1970,3 +1970,7 @@ fieldset.panel > legend {
   width: 100%;
   height: auto;
 }
+
+.example-source {
+  margin-top: 24px;
+}

@@ -181,7 +181,7 @@ export function Connection({ prefs, onChange, localEngine, browser }: Props) {
           <section class="card" aria-labelledby="c-examples">
             <h2 id="c-examples">Example objects</h2>
             <p>
-              Real photo sets of seven figures (73 photos each, about 110 MB): downloaded on request from a public dataset, then
+              Rendered household objects and photographed figures (about 72 photos each): downloaded on request from public datasets, then
               reconstructed {localEngine?.native === true ? "on this computer" : "in this browser"}.
             </p>
             <a class="button" href="#/examples" onClick={() => onChange({ engineChoice: localEngine?.native === true ? "native" : "browser" })}>
