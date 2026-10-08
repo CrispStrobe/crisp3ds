@@ -92,6 +92,11 @@ diagonal; `camera_error.py`; `summarize.py`).
 
 Render times were 93 to 161 s per capture of 72 views.
 
+The rhino and the box are prepared as CC BY 4.0 example objects for the app
+(`scripts/gso_eval/prepare_dataset.py`: 72 PNG photos each, 230 MB, the
+manifest schema of `cstr/3dlf-scan-photos`, GSO attribution); the default
+command on that folder gives a mesh byte-identical to the rhino run above.
+
 Where it breaks, with a diagnosis for each:
 
 - **Light parts of an object with `threshold` masks** (Mario's gloves and
