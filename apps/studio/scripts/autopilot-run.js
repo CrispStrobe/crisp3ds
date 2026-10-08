@@ -183,6 +183,13 @@
       await log(`surface panel: ${(panel?.textContent ?? "(none)").replace(/\s+/g, " ").slice(0, 400)}`);
       throw problem;
     }
+    if (options.up !== undefined) {
+      const up = document.querySelector('select[aria-label="Up direction of the model"]');
+      if (!up || ![...up.options].some((choice) => choice.value === options.up)) throw new Error(`no up direction ${options.up}`);
+      up.value = options.up;
+      up.dispatchEvent(new Event("change", { bubbles: true }));
+      await log(`viewer up direction: ${options.up}`);
+    }
     await sleep(1500);
     // Whether the surface is drawn at all: a picture of an empty view would still pass a blank check.
     const probe = window.__crisp3dsProbe?.();

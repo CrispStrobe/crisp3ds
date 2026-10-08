@@ -5,10 +5,13 @@
 //   STUDIO_URL=https://crispstrobe.github.io/crisp3ds/ STUDIO_OBJECT=Dragon node scripts/examples-check.mjs
 
 import { chromium } from "playwright";
+import { statSync } from "node:fs";
 
 const base = process.env.STUDIO_URL ?? "http://127.0.0.1:1431/";
 const object = process.env.STUDIO_OBJECT ?? "Dragon";
-const browser = await chromium.launch({ channel: "chrome", headless: true, args: ["--enable-unsafe-webgpu", "--enable-features=WebGPU", "--use-angle=metal"] });
+const launch = ["--enable-unsafe-webgpu", "--enable-features=WebGPU"];
+if (process.platform === "darwin") launch.push("--use-angle=metal");
+const browser = await chromium.launch({ channel: "chrome", headless: true, args: launch });
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 const problems = [];
 page.on("pageerror", (error) => problems.push(`page error: ${error.message}`));
@@ -37,16 +40,26 @@ try {
   console.log(`downloaded and started after ${((Date.now() - started) / 1000).toFixed(1)} s: ${decodeURIComponent(page.url().split("/").pop())}`);
   const runStart = Date.now();
   await page.locator(".run-meta .badge.status-complete, .run-meta .badge.status-failed").waitFor({ timeout: 1800000 });
-  console.log(`run ${await page.locator(".run-meta .badge").first().innerText()} after ${((Date.now() - runStart) / 1000).toFixed(1)} s | ${(await page.locator(".run-meta").innerText()).replace(/\s+/g, " ")}`);
+  const status = await page.locator(".run-meta .badge").first().innerText();
+  console.log(`run ${status} after ${((Date.now() - runStart) / 1000).toFixed(1)} s | ${(await page.locator(".run-meta").innerText()).replace(/\s+/g, " ")}`);
+  if (status !== "Complete") throw new Error("the run did not complete: " + (await page.locator(".notice").first().innerText().catch(() => "")));
   console.log("notice:", (await page.locator(".notice").first().innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 400));
   console.log("stages:", (await page.locator(".stage").allInnerTexts()).map((text) => text.replace(/\s+/g, " ")).join(" | "));
   const load = page.getByRole("button", { name: /^Load final/ });
   if ((await load.count()) > 0) await load.click();
-  await page.locator("#mesh-heading + .sub", { hasText: "Final surface" }).waitFor({ timeout: 300000 }).catch(() => undefined);
+  await page.locator("#mesh-heading + .sub", { hasText: "Final surface" }).waitFor({ timeout: 300000 });
   console.log("surface:", await page.locator("#mesh-heading + .sub").innerText());
   console.log("numbers:", (await page.locator(".metrics > div").allInnerTexts()).map((row) => row.replace(/\s+/g, " ")).filter((row) => /Registered|Input photos|Reprojection median|Silhouette iou/i.test(row)).join(" | "));
   await page.locator("details.attribution summary").click();
   console.log("kept with the run:", (await page.locator("details.attribution pre").innerText()).replace(/\s+/g, " ").slice(0, 300));
+  const waiting = page.waitForEvent("download");
+  await page.getByRole("button", { name: /^Download STL/ }).click();
+  const download = await waiting;
+  const path = await download.path();
+  if (path === null) throw new Error("STL download failed: " + await download.failure());
+  const bytes = statSync(path).size;
+  if (bytes <= 84 || (bytes - 84) % 50 !== 0) throw new Error(`invalid binary STL size: ${bytes}`);
+  console.log(`downloaded ${download.suggestedFilename()}: ${bytes} bytes = ${(bytes - 84) / 50} triangles`);
 } catch (problem) {
   problems.push(String(problem?.message ?? problem).split("\n")[0]);
 } finally {

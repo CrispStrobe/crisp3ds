@@ -1256,6 +1256,12 @@ fieldset.panel > legend {
   font-size: 0.88rem;
 }
 
+/* Keep measured numbers readable when a long label shares a narrow card. */
+.facts dd.metric-number {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .fact-stage {
   margin-left: 8px;
   font-size: 0.75rem;

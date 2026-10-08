@@ -121,7 +121,7 @@ export function ReportsPanel({ source, run }: Props) {
                 {humanise(metric.name)}
                 {metric.stage !== null && <span class="fact-stage">{stageTitle(metric.stage)}</span>}
               </dt>
-              <dd>{formatMetricValue(metric.value)}</dd>
+              <dd class={typeof metric.value === "number" ? "metric-number" : undefined}>{formatMetricValue(metric.value)}</dd>
             </div>
           ))}
         </dl>

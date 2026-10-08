@@ -43,6 +43,9 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: '0'
+  # The rhino's recovered turntable frame has its upright direction along -Y.
+  # Use the viewer's own Up control before photographing it.
+  STUDIO_UP: ${{ inputs.scene == 'rhino' && '-Y' || '+Y' }}
 
 jobs:
   ios:

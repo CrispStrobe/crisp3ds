@@ -72,7 +72,7 @@ fi
 log="$SUPPORT/autopilot.log"
 rm -f "$log"
 {
-  echo "window.AUTOPILOT = { $options, marks: true, hold: 4000, linger: 3000, timeout: 3000000 };"
+  echo "window.AUTOPILOT = { $options, up: \"${STUDIO_UP:-+Y}\", marks: true, hold: 4000, linger: 3000, timeout: 3000000 };"
   cat "$STUDIO/scripts/autopilot-run.js"
 } > "$CONTAINER/Data/autopilot.js"
 
