@@ -99,5 +99,50 @@
         }
       ]
     }
-  ]
+  ],
+  "patent_screening": {
+    "date": "2026-10-08",
+    "conclusion": "Relevant patent records identified. No determination of claim coverage, infringement, enforceability, license coverage, or freedom to operate. Independent implementation is not patent clearance.",
+    "records": [
+      {
+        "publication": "US8285055B1",
+        "title": "Determining correspondence between image regions",
+        "assignee_as_reported": "Adobe Inc",
+        "url": "https://patents.google.com/patent/US8285055B1/en",
+        "reported_status": "Active; Google status is not an official legal-status determination.",
+        "relevance": "Claims describe iterative nearby-pixel mapping propagation and perturbation; compare against actual slanted-plane implementation, not just its PatchMatch label."
+      },
+      {
+        "publication": "US8571328B2",
+        "title": "Determining correspondence between image regions",
+        "assignee_as_reported": [
+          "Adobe Inc",
+          "Princeton University"
+        ],
+        "url": "https://patents.google.com/patent/US8571328B2/en",
+        "reported_status": "Active; Google status is not an official legal-status determination.",
+        "relevance": "Related generalized patch-correspondence claims; no claim chart performed."
+      },
+      {
+        "publication": "CN110176060B",
+        "title": "Dense three-dimensional reconstruction method and system based on multi-scale geometric consistency guidance",
+        "inventors": [
+          "Wenbing Tao",
+          "Qingshan Xu"
+        ],
+        "assignee_as_reported": "Huazhong University of Science and Technology",
+        "url": "https://patents.google.com/patent/CN110176060B/en",
+        "reported_status": "Expired - Fee Related in Google record; not independently confirmed in official register, reinstatement and family coverage not assessed.",
+        "relevance": "Closely corresponds to proposed ACMM-inspired multiscale depth correction and geometric consistency. Do not infer clearance from MIT code license or reported lapse."
+      }
+    ],
+    "next_step": "Before selecting flagged algorithm variants for shipping, compare independent claims with actual implementation and verify official status/families in intended markets. Continue stage diagnostics and unflagged engineering without claiming patent clearance.",
+    "license_distinction": "MIT and BSD-3-Clause texts lack an express patent-grant section. Apache-2.0 section 3 grants specified contributor-controlled patent claims, not unrelated third-party patent rights.",
+    "legal_sources": [
+      "https://www.apache.org/licenses/LICENSE-2.0.html",
+      "https://opensource.org/license/mit",
+      "https://opensource.org/license/bsd-3-clause",
+      "https://www.uspto.gov/sites/default/files/documents/CRS-LA-Gerasimow-IPR-US.pdf"
+    ]
+  }
 }
