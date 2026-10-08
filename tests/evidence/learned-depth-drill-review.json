@@ -1,0 +1,134 @@
+{
+  "schema": "crisp3ds_learned_depth_drill_review_v1",
+  "reconstruction_accepted": false,
+  "production_dependency_added": false,
+  "dense_defaults_changed": false,
+  "source": "60 original RGB photos, own SAM/hull-repaired masks, own recovered cameras; no supplied poses, masks, depth or scanner geometry in reconstruction",
+  "model": {
+    "model": "depth-anything/DA3-SMALL",
+    "revision": "e08cab65ca0ec38e7826075418411ab90cab4da3",
+    "license": "Apache-2.0 per pinned model card",
+    "files": {
+      "README.md": {
+        "bytes": 4694,
+        "sha256": "0a711be055e4eb5293e31586e3176c09ce12eb2e79593f6b96a41f7fe5b415d0"
+      },
+      "config.json": {
+        "bytes": 1202,
+        "sha256": "a486e29e82b7ab4a7d4cefc1ea4526cfe2ae438a572c8ca98917cfbcde7447d2"
+      },
+      "model.safetensors": {
+        "bytes": 137248940,
+        "sha256": "364492e38a3a06d221ac75da7f6621ada3f2361cd24fde11ba79091e9f40efcf"
+      }
+    },
+    "code_revision": "3d835ec1a5802d64a8b8b15f817a1ab54809bfe4",
+    "no_photos_uploaded": true,
+    "no_reference_inputs": true,
+    "use": "Private candidate experiment, not a dependency or adopted default"
+  },
+  "upstream_sources": {
+    "code": "https://github.com/ByteDance-Seed/Depth-Anything-3",
+    "small_weights": "https://huggingface.co/depth-anything/DA3-SMALL"
+  },
+  "license_screen": "Pinned code and Small weights declare Apache-2.0. Other model sizes were not adopted. Official API/export dependencies were bypassed: model core only; evo not imported. This is not patent clearance. No upstream model code or weights shipped with the app.",
+  "calibration": "Per-view robust affine inverse-depth fit to own filtered stereo, then joint own-camera reprojection consistency with stereo anchors and weak parameter regularization",
+  "joint_converged": true,
+  "joint_relative_cross_residual_before_median_p95": [
+    0.003847371410568734,
+    0.014332645349597387
+  ],
+  "joint_relative_cross_residual_after_median_p95": [
+    0.003278295340523596,
+    0.0127558435896593
+  ],
+  "cross_view_filter": {
+    "tolerance": 0.003,
+    "minimum_neighbours": 3,
+    "baseline_before_refilter": 823909,
+    "baseline_after_refilter": 774441,
+    "prior_before_filter": 1589269,
+    "prior_after_filter": 1057439
+  },
+  "shape_evaluation": {
+    "reference_used_only_posthoc": true,
+    "reference_sha256": "26ac2031ad9d4dd8300eb0794fa1b91a9c961fb21bd20871755144431604b360",
+    "source": "YCB Google scanner mesh, CC BY 4.0; retained reference",
+    "source_url": "https://ycb-benchmarks.s3.amazonaws.com/index.html",
+    "samples_per_surface": 60000,
+    "seed": 215,
+    "alignment": "Independent posthoc similarity fits including auto reflection for each case; shape only, not camera or physical-scale validation",
+    "support_removal": false,
+    "above_support_not_separately_measured": true,
+    "baseline": {
+      "f1": {
+        "0.005": 0.38627520762090867,
+        "0.01": 0.6055107555135145,
+        "0.02": 0.8089519863357781
+      },
+      "median_accuracy_fraction_diagonal": 0.010030360485814824,
+      "median_completeness_fraction_diagonal": 0.004874146943404591,
+      "mesh_sha256": "037ba2739652498b0973d6297ad9641289a0a107a8941185bee5c859ed6605cf",
+      "fit_includes_reflection": true
+    },
+    "joint_prior": {
+      "f1": {
+        "0.005": 0.2996664293659622,
+        "0.01": 0.5567199137827806,
+        "0.02": 0.821028780804677
+      },
+      "median_accuracy_fraction_diagonal": 0.008885410519147548,
+      "median_completeness_fraction_diagonal": 0.008751574609805688,
+      "mesh_sha256": "aa57413daf7596c456c7850a69c18ec218a7246a701bff61266bd08dea7b62ca",
+      "fit_includes_reflection": true
+    }
+  },
+  "controls": [
+    {
+      "id": "drill-da3-consistent",
+      "result": "Smoother body, but chuck distorted; original SAM masks clipped some parts, unlike production repaired masks; not a fair mask-matched depth-only comparison"
+    },
+    {
+      "id": "drill-da3-joint",
+      "result": "Production repaired masks, six-view full-orbit groups and joint calibration; still wrong shape, strict F1 decreases"
+    },
+    {
+      "id": "drill-da3-refined",
+      "result": "Ordinary photo refinement around learned prior reintroduces severe pitting"
+    },
+    {
+      "id": "drill-da3-geometric",
+      "result": "Frozen learned prior geometric cost 0.25 does not remove severe pitting"
+    },
+    {
+      "id": "drill-da3-planes",
+      "result": "Independent slanted-plane matching initialized with learned surface orientation does not remove severe pitting"
+    },
+    {
+      "id": "drill-da3-poisson",
+      "result": "Oriented-point reconstruction leaves wrong casing/chuck and invents an unsupported base; not accepted"
+    }
+  ],
+  "sheets_inspected": [
+    "drill-da3-control.png",
+    "drill-da3-joint-control.png",
+    "drill-da3-refined-control.png",
+    "drill-da3-geometric-control.png",
+    "drill-da3-planes-control.png",
+    "drill-da3-poisson-control.png"
+  ],
+  "sheet_directory": ".local-tools/quality-235",
+  "resource_limits": {
+    "cpu_threads": 2,
+    "gpu_jobs_serial": true,
+    "mps_memory_fraction": 0.25,
+    "disk_floor_gib": 8.8,
+    "twelve_view_attempt": "Stopped by MPS memory limit and disk guard; six-view retry succeeded; limits were not disabled"
+  },
+  "limits": [
+    "Smooth learned surfaces are not measured fine detail",
+    "Same-view reserved stereo anchors and cross-view residuals are not independent geometric accuracy",
+    "Model training overlap with evaluation objects is unknown",
+    "No six-object adoption or browser execution check for this research approach"
+  ]
+}

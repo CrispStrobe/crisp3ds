@@ -1687,6 +1687,23 @@ rejection; these are the reconstruction's own inferred depths. The ordinary
 only writes diagnostics and does not change geometry.
 
 
+Depth ambiguity experiment (2026-10-09): `peak_min_margin=0.02` rejects a band
+matching result when another local NCC maximum, more than two depth samples
+away, is within 0.02 of the winning score. A valley more than 0.02 below both
+maxima must separate them. Broad single peaks and an absence of competitors
+remain accepted; this is not a general depth-uncertainty estimate. The default
+is zero (disabled). It runs in the existing GPU peak reduction without adding
+a depth volume or copying the cost volume to the CPU; it applies to sweep and
+band refinement, not the optional independent-plane search.
+
+All six photo-derived object controls pass the numerical regression gate, with
+paired renders reviewed. Drill strict whole-object reference F1 improves
+0.386 to 0.409, but severe defects remain. Bunny's tight eye-region F1 changes
+0.582 to 0.586, without convincing recovery of eyes/nose; mean local surface
+error does not improve. See the [distinct-mode review](../../tests/evidence/distinct-depth-modes-review.json).
+Scanner geometry and supplied poses were used only in separate posthoc
+diagnostics. No default or patent-clearance claim follows from these results.
+
 Facial-detail experiments (2026-10-08): `slanted_refine=true` runs deterministic
 coordinate refinement independently at each pixel. `slanted_iterations` defaults
 to 6 (range 1–16). It reuses our plane scorer but does not borrow neighboring

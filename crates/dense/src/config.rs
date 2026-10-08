@@ -25,6 +25,7 @@ pub struct DenseConfig {
     pub band_first: Vec<i64>,
     pub band_later: i64,
     pub min_score: f64,
+    pub peak_min_margin: f64,
     pub min_variance: f64,
     pub window_fill: f64,
     pub tolerances: Vec<f64>,
@@ -90,6 +91,7 @@ impl Default for DenseConfig {
             band_first: vec![8, 8, 5],
             band_later: 5,
             min_score: 0.55,
+            peak_min_margin: 0.0,
             min_variance: 0.0001,
             window_fill: 0.6,
             tolerances: vec![0.006, 0.003, 0.002],
@@ -157,7 +159,8 @@ impl DenseConfig {
 
 /// Settings this crate has and the Python reference does not. The reference is
 /// no longer extended; new behaviour is developed here.
-pub const NATIVE_ONLY: [&str; 13] = [
+pub const NATIVE_ONLY: [&str; 14] = [
+    "peak_min_margin",
     "native_level",
     "match_sharpening",
     "fusion_interpolate",

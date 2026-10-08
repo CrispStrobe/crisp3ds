@@ -94,6 +94,7 @@ pub fn validate(c: &DenseConfig) -> anyhow::Result<()> {
     need((1..=5).contains(&c.sizes.len()) && c.sizes.iter().all(|s| (32..=4096).contains(s)), "sizes must be 1..5 values in 32..4096")?;
     need(c.sizes.windows(2).all(|w| w[0] <= w[1]), "sizes must increase")?;
     need((0.0..=4.0).contains(&c.match_sharpening), "match_sharpening must be in 0..4")?;
+    need((0.0..=1.0).contains(&c.peak_min_margin), "peak_min_margin must be finite and in 0..1")?;
     need((0..=64).contains(&c.patchmatch_iterations), "patchmatch_iterations must be in 0..64")?;
     need((-2.0..=1.0).contains(&c.patchmatch_normal_agreement), "patchmatch_normal_agreement must be in -2..1")?;
     need(2 <= c.best_of && c.best_of <= c.neighbours && c.neighbours <= 16, "need 2 <= best_of <= neighbours <= 16")?;
@@ -149,6 +150,14 @@ mod tests {
         assert!(set(&["best_of=9", "neighbours=4"]).is_err());
         assert!(set(&["repair_masks=maybe"]).is_err());
         assert!(set(&["grid"]).is_err());
+        assert!(set(&["peak_min_margin=-0.01"]).is_err());
+        assert!(set(&["peak_min_margin=1.01"]).is_err());
+        let mut invalid = DenseConfig::default();
+        invalid.peak_min_margin = f64::NAN;
+        assert!(validate(&invalid).is_err());
+        invalid.peak_min_margin = f64::INFINITY;
+        assert!(validate(&invalid).is_err());
+        assert_eq!(set(&["peak_min_margin=0.02"]).unwrap().peak_min_margin, 0.02);
     }
 
     #[test]

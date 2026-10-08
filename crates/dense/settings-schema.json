@@ -136,6 +136,13 @@
       "default": false
     },
     {
+      "name": "peak_min_margin",
+      "group": "Matching",
+      "meaning": "Experimental minimum NCC score margin over a distinct competing depth peak; a separating valley of more than 0.02 is required; 0 disables",
+      "kind": "number",
+      "default": 0.0
+    },
+    {
       "name": "slanted_iterations",
       "group": "Matching",
       "meaning": "Independent slanted-plane coordinate refinements; depth and normal steps halve each iteration",

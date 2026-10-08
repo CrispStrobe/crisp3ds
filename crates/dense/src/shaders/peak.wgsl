@@ -13,6 +13,8 @@ struct Params {
     size: vec4<u32>,
     // Step of inverse depth, shift (half-width of a refinement, 0 for a sweep), min_score, sweep base.
     values: vec4<f32>,
+    // Minimum margin over a distinct competing mode; zero preserves legacy selection.
+    confidence: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> params: Params;
@@ -46,6 +48,27 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         if (params.size.w == 1u) {
             usable = usable && init[p] > 0.0;
             base = 1.0 / max(init[p], 1e-6);
+        }
+        if (usable && params.confidence.x > 0.0) {
+            var competitor = -2.0;
+            for (var h = 0u; h < count; h++) {
+                if (abs(i32(h) - i32(index)) > 2) {
+                    let score = volume[h * pixels + p];
+                    let before = volume[u32(max(i32(h) - 1, 0)) * pixels + p];
+                    let after = volume[min(h + 1u, count - 1u) * pixels + p];
+                    if (score > -1.5 && score >= before && score >= after) {
+                        var valley = score;
+                        for (var k = min(h, index); k <= max(h, index); k++) {
+                            valley = min(valley, volume[k * pixels + p]);
+                        }
+                        // Broad unimodal shoulders are not separate depth explanations.
+                        if (valley < min(score, best) - 0.02) {
+                            competitor = max(competitor, score);
+                        }
+                    }
+                }
+            }
+            usable = best - competitor >= params.confidence.x;
         }
         if (usable) {
             let curve = left - 2.0 * best + right;

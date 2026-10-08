@@ -1,0 +1,117 @@
+{
+  "schema": "crisp3ds_peak_confidence_review_v1",
+  "adopted": false,
+  "dense_defaults_changed": false,
+  "third_party_source_or_dependencies_added": false,
+  "method": "Reject when best NCC peak exceeds no more than .02 the strongest supported hypothesis more than 2 depth steps away; initial prototype also rejected when there were no supported nonlocal hypotheses",
+  "gpu_analytic_test_passed": true,
+  "zero_control": {
+    "depth_arrays_equal": true,
+    "mesh_stl_byte_equal": true
+  },
+  "drill": {
+    "f1": {
+      "0.005": 0.42580139359408686,
+      "0.01": 0.6854936181447258,
+      "0.02": 0.8723081444898216
+    },
+    "median_accuracy_fraction_diagonal": 0.00718348312562442,
+    "median_completeness_fraction_diagonal": 0.005135786950708122,
+    "mesh_sha256": "2c57eb6c96b7bce558868a96695220a34957f43839383aa8d713697d67317bd3",
+    "fit_includes_reflection": true
+  },
+  "drill_baseline": {
+    "f1": {
+      "0.005": 0.38627520762090867,
+      "0.01": 0.6055107555135145,
+      "0.02": 0.8089519863357781
+    },
+    "median_accuracy_fraction_diagonal": 0.010030360485814824,
+    "median_completeness_fraction_diagonal": 0.004874146943404591,
+    "mesh_sha256": "037ba2739652498b0973d6297ad9641289a0a107a8941185bee5c859ed6605cf",
+    "fit_includes_reflection": true
+  },
+  "drill_evaluation_limits": "Independent posthoc similarity fits including auto reflection for each case; shape only, not camera or physical-scale validation",
+  "bunny": {
+    "metrics": {
+      "baseline": {
+        "all": {
+          "0.005": 0.9043777613012031,
+          "0.01": 0.9389483794424458,
+          "0.02": 0.9553517330714748
+        },
+        "above_support": {
+          "0.005": 0.964872367203772,
+          "0.01": 0.9953015659181709,
+          "0.02": 0.999897194622674
+        }
+      },
+      "confidence": {
+        "all": {
+          "0.005": 0.7670344290442631,
+          "0.01": 0.8749682141064862,
+          "0.02": 0.9387663253552452
+        },
+        "above_support": {
+          "0.005": 0.8251139704388026,
+          "0.01": 0.9267570091025903,
+          "0.02": 0.9796590300855889
+        }
+      }
+    },
+    "f1_deltas": {
+      "all": {
+        "0.005": -0.13734333225693995,
+        "0.01": -0.06398016533595963,
+        "0.02": -0.016585407716229628
+      },
+      "above_support": {
+        "0.005": -0.13975839676496937,
+        "0.01": -0.06854455681558058,
+        "0.02": -0.020238164537085157
+      }
+    },
+    "head": {
+      "baseline": {
+        "samples": [
+          14788,
+          16386
+        ],
+        "f1": {
+          "0.001": 0.5821332305667315,
+          "0.0025": 0.8872483716046821,
+          "0.005": 0.9691963116783837,
+          "0.01": 0.9965393227929701,
+          "0.02": 1.0
+        },
+        "symmetric_mean": 0.15633425118909025
+      },
+      "confidence": {
+        "samples": [
+          12970,
+          16386
+        ],
+        "f1": {
+          "0.001": 0.3892382512943611,
+          "0.0025": 0.6073470134043523,
+          "0.005": 0.7409251819200656,
+          "0.01": 0.8497577153662216,
+          "0.02": 0.9803914967599785
+        },
+        "symmetric_mean": 0.524233957242795
+      }
+    },
+    "passes_numeric_gate": false,
+    "hashes": {
+      "baseline": "ce80282cbaa6adc7a3877e07bb03e0fbc901d0815b88ee0a7c853a707a449431",
+      "confidence": "770ef9763c61e987a3bfa506e8080435164b41373af7dea63771994888b2c31a"
+    }
+  },
+  "finding": "Improves drill reference F1, but severely damages Bunny. Rejected as a general/default fix. Broad single peaks and missing competitors are confounded with distinct competing modes.",
+  "sheets_inspected": [
+    ".local-tools/quality-235/drill-peak-confidence-control.png",
+    ".local-tools/quality-235/bunny-peak-head.png"
+  ],
+  "reference_used_only_posthoc": true,
+  "remaining_objects_not_run": "Bunny already fails the mandatory default adoption gate"
+}

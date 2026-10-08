@@ -58,6 +58,7 @@ struct AggregateParams {
 struct PeakParams {
     size: [u32; 4],
     values: [f32; 4],
+    confidence: [f32; 4],
 }
 
 /// The views of one pyramid level on the device.
@@ -272,8 +273,14 @@ impl<'a> Matcher<'a> {
             self.gpu.run(&self.blur_rows, &bindings, (hypotheses * pixels) as u64).await?;
             self.gpu.run(&self.blur_columns, &bindings, (hypotheses * pixels) as u64).await?;
         }
-        let params =
-            self.gpu.uniform("peak params", &PeakParams { size: [width as u32, height as u32, hypotheses as u32, refine as u32], values });
+        let params = self.gpu.uniform(
+            "peak params",
+            &PeakParams {
+                size: [width as u32, height as u32, hypotheses as u32, refine as u32],
+                values,
+                confidence: [self.config.peak_min_margin as f32, 0.0, 0.0, 0.0],
+            },
+        );
         self.gpu.run(&self.peak, &[&params, &work.volume, init, &work.depth], pixels as u64).await?;
         Ok(Pending { width, height, read: self.gpu.begin_read::<f32>(&work.depth, pixels) })
     }
@@ -507,7 +514,7 @@ pub mod reference {
     }
 
     /// `_peak` and the depth formula shared by `sweep` and `refine`.
-    fn peak(volume: &[Vec<f32>], p: usize, base: f32, shift: f32, step: f32, min_score: f32) -> f32 {
+    pub(super) fn peak(volume: &[Vec<f32>], p: usize, base: f32, shift: f32, step: f32, min_score: f32, min_margin: f32) -> f32 {
         let mut index = 0;
         for h in 1..volume.len() {
             if volume[h][p] > volume[index][p] {
@@ -520,6 +527,25 @@ pub mod reference {
         let (best, left, right) = (volume[index][p], volume[index - 1][p], volume[index + 1][p]);
         if !(left > -1.5 && right > -1.5 && best >= min_score) {
             return 0.0;
+        }
+        if min_margin > 0.0 {
+            let mut competitor = -2.0f32;
+            for h in 0..volume.len() {
+                let score = volume[h][p];
+                if h.abs_diff(index) > 2
+                    && score > -1.5
+                    && score >= volume[h.saturating_sub(1)][p]
+                    && score >= volume[(h + 1).min(volume.len() - 1)][p]
+                {
+                    let valley = volume[h.min(index)..=h.max(index)].iter().map(|slice| slice[p]).fold(score, f32::min);
+                    if valley < score.min(best) - 0.02 {
+                        competitor = competitor.max(score);
+                    }
+                }
+            }
+            if best - competitor < min_margin {
+                return 0.0;
+            }
         }
         let curve = left - 2.0 * best + right;
         let offset = if curve < -1e-6 { (0.5 * (left - right) / curve).clamp(-0.5, 0.5) } else { 0.0 };
@@ -548,7 +574,9 @@ pub mod reference {
             .map(|inverse| aggregate(&score(level, view, neighbours, search, window, config, &|_| inverse), width, height, sigma))
             .collect();
         let step = ((1.0 / far - 1.0 / near) / (planes as f64 - 1.0)) as f32;
-        let data = (0..width * height).map(|p| peak(&volume, p, (1.0 / near) as f32, 0.0, step, min_score as f32)).collect();
+        let data = (0..width * height)
+            .map(|p| peak(&volume, p, (1.0 / near) as f32, 0.0, step, min_score as f32, config.peak_min_margin as f32))
+            .collect();
         Plane { width, height, data }
     }
 
@@ -577,7 +605,13 @@ pub mod reference {
             })
             .collect();
         let data = (0..width * height)
-            .map(|p| if init.data[p] > 0.0 { peak(&volume, p, base[p], half as f32, step as f32, min_score as f32) } else { 0.0 })
+            .map(|p| {
+                if init.data[p] > 0.0 {
+                    peak(&volume, p, base[p], half as f32, step as f32, min_score as f32, config.peak_min_margin as f32)
+                } else {
+                    0.0
+                }
+            })
             .collect();
         Plane { width, height, data }
     }
@@ -591,6 +625,76 @@ mod tests {
     use crate::stereo::depth::initial;
     use crate::stereo::level::build_level;
     use crate::stereo::{options, synthetic};
+
+    const PEAK_CURVES: [[f32; 9]; 8] = [
+        [0.1, 0.2, 0.3, 0.7, 0.9, 0.7, 0.3, 0.2, 0.1],
+        [0.1, 0.7, 0.9, 0.7, 0.1, 0.7, 0.89, 0.7, 0.1],
+        [0.895, 0.896, 0.897, 0.898, 0.9, 0.898, 0.897, 0.896, 0.895],
+        [0.99, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1],
+        [0.1, 0.2, 0.3, -2.0, 0.9, 0.7, 0.3, 0.2, 0.1],
+        [0.1, 0.7, 0.9, 0.7, 0.1, 0.7, 0.8, 0.7, 0.1],
+        [0.89, 0.7, 0.1, 0.7, 0.9, 0.7, 0.3, 0.2, 0.1],
+        [-2.0, -2.0, -2.0, 0.7, 0.9, 0.7, -2.0, -2.0, -2.0],
+    ];
+
+    fn peak_volume() -> Vec<Vec<f32>> {
+        (0..9).map(|h| PEAK_CURVES.iter().map(|curve| curve[h]).collect()).collect()
+    }
+
+    #[test]
+    fn confidence_rejects_distinct_modes_but_keeps_broad_peaks() {
+        let volume = peak_volume();
+        for (p, keep) in [true, false, true, false, false, true, false, true].into_iter().enumerate() {
+            let legacy = reference::peak(&volume, p, 0.5, 0.0, 0.01, 0.55, 0.0);
+            let filtered = reference::peak(&volume, p, 0.5, 0.0, 0.01, 0.55, 0.02);
+            if keep {
+                assert!(legacy > 0.0);
+                assert_eq!(filtered, legacy, "curve {p}");
+            } else {
+                assert_eq!(filtered, 0.0, "curve {p}");
+            }
+        }
+    }
+
+    #[test]
+    fn gpu_peak_confidence_matches_scalar_curves() {
+        if !crate::gpu::tests_enabled() {
+            return;
+        }
+        let gpu = Gpu::new().unwrap();
+        let kernel = crate::gpu::block_on(gpu.kernel("peak confidence", include_str!("../shaders/peak.wgsl"), "main")).unwrap();
+        let mut volume = peak_volume();
+        // Deterministic noisy curves exercise ties, invalid support and arbitrary modes.
+        let mut seed = 71u32;
+        for _ in 0..256 {
+            for row in &mut volume {
+                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                row.push(if seed % 13 == 0 { -2.0 } else { (seed >> 8) as f32 / 16777216.0 });
+            }
+        }
+        let pixels = volume[0].len();
+        let cost = gpu.upload("costs", &volume.concat());
+        let init = gpu.upload("initial", &vec![2.0f32; pixels]);
+        for margin in [0.0, 0.02] {
+            for refine in [0, 1] {
+                let params = gpu.uniform(
+                    "peak params",
+                    &PeakParams {
+                        size: [pixels as u32, 1, 9, refine],
+                        values: [0.01, 0.0, 0.55, 0.5],
+                        confidence: [margin, 0.0, 0.0, 0.0],
+                    },
+                );
+                let output = gpu.zeroed("depths", (pixels * 4) as u64);
+                crate::gpu::block_on(gpu.run(&kernel, &[&params, &cost, &init, &output], pixels as u64)).unwrap();
+                let found = crate::gpu::block_on(gpu.read::<f32>(&output, pixels)).unwrap();
+                for (p, actual) in found.into_iter().enumerate() {
+                    let expected = reference::peak(&volume, p, 0.5, 0.0, 0.01, 0.55, margin);
+                    assert!((actual - expected).abs() < 1e-5, "curve {p}, margin {margin}, refine {refine}: {actual} != {expected}");
+                }
+            }
+        }
+    }
 
     /// Fraction of pixels where two depth maps agree in validity and within `tolerance` (relative).
     fn agreement(a: &Plane<f32>, b: &Plane<f32>, tolerance: f32) -> (f64, usize) {

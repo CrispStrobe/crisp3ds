@@ -207,3 +207,42 @@ the existing camera gate; unmasked COLMAP could not initialize a model. No gate
 was relaxed and no dense default changed. [Recorded controls](../tests/evidence/drill-matching-controls.json)
 retain the rendered comparison paths and limitations; these are negative
 results, not an accepted quality improvement or six-object adoption validation.
+
+### Depth reliability experiments (2026-10-09)
+
+A private Apache-2.0 DA3-Small experiment produced smoother drill surfaces,
+but reduced strict reference F1 from 0.386 to 0.300 at 0.5% of the reference
+diagonal. The reference was used only for posthoc evaluation. Cross-view
+agreement and smooth appearance did not establish correct shape; the learned
+prior and its refinement controls were rejected. No model code, weights or
+new dependency was shipped. See the [learned-depth review](../tests/evidence/learned-depth-drill-review.json)
+for pinned sources, resource limits and evaluation qualifications.
+
+A first NCC uniqueness filter improved drill F1 but severely damaged Bunny,
+including its eye region. It confused broad single peaks with competing
+depths and failed the default adoption gate. It was rejected; see the
+[confidence review](../tests/evidence/peak-confidence-review.json).
+Dense defaults remain unchanged.
+
+The revised experimental `peak_min_margin=0.02` requires two distinct local
+maxima separated by a real score valley, preserving broad single peaks.
+All six RGB-derived object pairs pass the 0.003 F1 regression gate, with paired
+renders reviewed. Drill strict F1 improves 0.386 to 0.409; Bunny's tight eye
+region changes 0.582 to 0.586, without convincing eyes/nose recovery. The
+portable native implementation reproduces both experimental STLs byte for
+byte, and its disabled control reproduces the original drill STL. This is an
+opt-in reliability experiment, not an accepted drill reconstruction.
+The threaded browser executes all 60 photos through cameras, stereo, mesh,
+check and textured GLB export with this setting: 52.7 seconds and 1.07 GiB
+WASM high water in one local Chrome/Metal run with two workers. These are
+execution measurements, not browser/GPU RSS or a controlled speed comparison.
+
+Separate posthoc comparison with supplied YCB camera poses measures median
+0.376-degree rotation error relative to the first recovered camera, and 4.0 mm
+translation residual after one scale fit. Adjacent-view errors are smaller
+(median 0.079 degrees / 1.17 mm). The supplied calibration has its own error;
+these measurements do not establish which error causes the bad depths.
+Projecting our own cameras onto a rigid ring improves some neighbouring-pose
+statistics but worsens independent held-out foreground photo residuals; it
+was rejected. Supplied poses never entered reconstruction or the ring fit.
+See [distinct-mode and camera evidence](../tests/evidence/distinct-depth-modes-review.json).

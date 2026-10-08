@@ -1,0 +1,681 @@
+{
+  "schema": "crisp3ds_distinct_depth_modes_review_v1",
+  "date": "2026-10-09",
+  "experimental_setting": {
+    "peak_min_margin": 0.02,
+    "default": 0.0,
+    "default_changed": false
+  },
+  "method": "Reject a competing local NCC maximum within the requested margin of the best score, more than two depth indices away and separated by a valley more than .02 below both maxima; broad unimodal peaks and no competitor remain accepted",
+  "third_party_source_or_dependencies_added": false,
+  "patent_clearance_claimed": false,
+  "inputs": "Own RGB-derived masks and independently recovered cameras. Same retained inputs per baseline/candidate. No scanner geometry, supplied masks, poses or depths enter reconstruction.",
+  "six_object_evaluation": {
+    "samples_per_surface": 200000,
+    "seed": 233,
+    "alignment": "Frozen historical scan fit transferred through own camera-centre similarity, identical for both candidates; no candidate fitting",
+    "maximum_permitted_f1_drop": 0.003,
+    "threshold_fractions_diagonal": [
+      0.005,
+      0.01,
+      0.02
+    ],
+    "regions": [
+      "all",
+      "above_support"
+    ],
+    "all_numeric_gates_pass": true,
+    "objects": {
+      "bunny": {
+        "object": "bunny",
+        "variant": "peak-modes",
+        "reference_used_only_posthoc": true,
+        "adopted": false,
+        "margin": 0.02,
+        "alignment": "Frozen historical scanner fit transferred only through own camera-centre similarity, identical for both candidates; no current candidate-to-reference fitting",
+        "camera_mapping_relative_rms": 1.8780587196909495e-16,
+        "metrics": {
+          "baseline": {
+            "all": {
+              "0.005": 0.9043777613012031,
+              "0.01": 0.9389483794424458,
+              "0.02": 0.9553517330714748
+            },
+            "above_support": {
+              "0.005": 0.964872367203772,
+              "0.01": 0.9953015659181709,
+              "0.02": 0.999897194622674
+            }
+          },
+          "confidence": {
+            "all": {
+              "0.005": 0.9051996901134309,
+              "0.01": 0.9394535615432144,
+              "0.02": 0.9551170530121363
+            },
+            "above_support": {
+              "0.005": 0.9665567284042259,
+              "0.01": 0.9962514727411006,
+              "0.02": 0.9999334692174167
+            }
+          }
+        },
+        "f1_deltas": {
+          "all": {
+            "0.005": 0.0008219288122278678,
+            "0.01": 0.0005051821007685531,
+            "0.02": -0.0002346800593384657
+          },
+          "above_support": {
+            "0.005": 0.0016843612004538988,
+            "0.01": 0.0009499068229297247,
+            "0.02": 3.6274594742646826e-05
+          }
+        },
+        "passes_numeric_gate": true,
+        "head": {
+          "baseline": {
+            "samples": [
+              14788,
+              16386
+            ],
+            "f1": {
+              "0.001": 0.5821332305667315,
+              "0.0025": 0.8872483716046821,
+              "0.005": 0.9691963116783837,
+              "0.01": 0.9965393227929701,
+              "0.02": 1.0
+            },
+            "symmetric_mean": 0.15633425118909025
+          },
+          "confidence": {
+            "samples": [
+              14711,
+              16386
+            ],
+            "f1": {
+              "0.001": 0.5863763141109312,
+              "0.0025": 0.8920062651170807,
+              "0.005": 0.968676372138955,
+              "0.01": 0.9953218371179785,
+              "0.02": 1.0
+            },
+            "symmetric_mean": 0.15711111253195675
+          }
+        },
+        "hashes": {
+          "baseline": "ce80282cbaa6adc7a3877e07bb03e0fbc901d0815b88ee0a7c853a707a449431",
+          "confidence": "9684e394e62f9b18f75226ff7669ef535bd53f3cead6f9f62b970ebe2fb37cb1"
+        },
+        "triangles": {
+          "baseline": 1040560,
+          "confidence": 1037628
+        },
+        "seconds_before_render": 12.577575499999512
+      },
+      "armadillo": {
+        "object": "armadillo",
+        "variant": "peak-modes",
+        "reference_used_only_posthoc": true,
+        "adopted": false,
+        "margin": 0.02,
+        "alignment": "Frozen historical scanner fit transferred only through own camera-centre similarity, identical for both candidates; no current candidate-to-reference fitting",
+        "camera_mapping_relative_rms": 2.758023121295757e-16,
+        "metrics": {
+          "baseline": {
+            "all": {
+              "0.005": 0.9267945136921879,
+              "0.01": 0.9746217275601008,
+              "0.02": 0.9904292694746194
+            },
+            "above_support": {
+              "0.005": 0.9510585211176158,
+              "0.01": 0.9963961458082088,
+              "0.02": 0.9999283347758257
+            }
+          },
+          "confidence": {
+            "all": {
+              "0.005": 0.9289214245955023,
+              "0.01": 0.974693376726253,
+              "0.02": 0.9899984597476511
+            },
+            "above_support": {
+              "0.005": 0.9531381555848316,
+              "0.01": 0.9966541990524201,
+              "0.02": 0.9998540174132436
+            }
+          }
+        },
+        "f1_deltas": {
+          "all": {
+            "0.005": 0.002126910903314405,
+            "0.01": 7.164916615221006e-05,
+            "0.02": -0.00043080972696829534
+          },
+          "above_support": {
+            "0.005": 0.0020796344672158185,
+            "0.01": 0.00025805324421135367,
+            "0.02": -7.431736258201038e-05
+          }
+        },
+        "passes_numeric_gate": true,
+        "head": {},
+        "hashes": {
+          "baseline": "c8663aafc9074d4b1b0a236d28e6345036a403930c3cd83bb7f2e225508dfe64",
+          "confidence": "0f6809e90fa54bf6847fe548b002fe1113a7e2bf7dbd6978d071036566ae77d4"
+        },
+        "triangles": {
+          "baseline": 746840,
+          "confidence": 746592
+        },
+        "seconds_before_render": 7.680950790992938
+      },
+      "dragon": {
+        "object": "dragon",
+        "variant": "peak-modes",
+        "reference_used_only_posthoc": true,
+        "adopted": false,
+        "margin": 0.02,
+        "alignment": "Frozen historical scanner fit transferred only through own camera-centre similarity, identical for both candidates; no current candidate-to-reference fitting",
+        "camera_mapping_relative_rms": 2.5807870720845893e-16,
+        "metrics": {
+          "baseline": {
+            "all": {
+              "0.005": 0.8061477145158255,
+              "0.01": 0.9329137600701604,
+              "0.02": 0.9820877691250572
+            },
+            "above_support": {
+              "0.005": 0.8511981981876474,
+              "0.01": 0.9655718569116013,
+              "0.02": 0.9951430725345345
+            }
+          },
+          "confidence": {
+            "all": {
+              "0.005": 0.8058350188786426,
+              "0.01": 0.9336143183421329,
+              "0.02": 0.9825816543128227
+            },
+            "above_support": {
+              "0.005": 0.8508761371310458,
+              "0.01": 0.9658108776299147,
+              "0.02": 0.9952497728256495
+            }
+          }
+        },
+        "f1_deltas": {
+          "all": {
+            "0.005": -0.000312695637182836,
+            "0.01": 0.0007005582719725734,
+            "0.02": 0.0004938851877654971
+          },
+          "above_support": {
+            "0.005": -0.0003220610566015969,
+            "0.01": 0.00023902071831338745,
+            "0.02": 0.0001067002911150361
+          }
+        },
+        "passes_numeric_gate": true,
+        "head": {},
+        "hashes": {
+          "baseline": "39c80e5b43cb29ef212b2aecb14fb80c803aed45f579225fb3910d4832780d02",
+          "confidence": "83ac0590433ab8647ace7899a90b0b62b17273ac9800c0584afce7f8f4d95940"
+        },
+        "triangles": {
+          "baseline": 930322,
+          "confidence": 928264
+        },
+        "seconds_before_render": 9.48808241700317
+      },
+      "lucy": {
+        "object": "lucy",
+        "variant": "peak-modes",
+        "reference_used_only_posthoc": true,
+        "adopted": false,
+        "margin": 0.02,
+        "alignment": "Frozen historical scanner fit transferred only through own camera-centre similarity, identical for both candidates; no current candidate-to-reference fitting",
+        "camera_mapping_relative_rms": 4.414216307698287e-16,
+        "metrics": {
+          "baseline": {
+            "all": {
+              "0.005": 0.8456148395771705,
+              "0.01": 0.9432104860620212,
+              "0.02": 0.9675082522768106
+            },
+            "above_support": {
+              "0.005": 0.8819736855130265,
+              "0.01": 0.9835478112910413,
+              "0.02": 0.9993847084404445
+            }
+          },
+          "confidence": {
+            "all": {
+              "0.005": 0.8450990702818431,
+              "0.01": 0.9438116605058648,
+              "0.02": 0.9674763408816331
+            },
+            "above_support": {
+              "0.005": 0.8807658195202285,
+              "0.01": 0.9837350368134552,
+              "0.02": 0.9993847084404445
+            }
+          }
+        },
+        "f1_deltas": {
+          "all": {
+            "0.005": -0.0005157692953274839,
+            "0.01": 0.0006011744438436661,
+            "0.02": -3.1911395177441904e-05
+          },
+          "above_support": {
+            "0.005": -0.0012078659927979851,
+            "0.01": 0.000187225522413903,
+            "0.02": 0.0
+          }
+        },
+        "passes_numeric_gate": true,
+        "head": {},
+        "hashes": {
+          "baseline": "f86e1f3f871484ae29e62621befa577d7bfcf29c89b7802053a8d1ef78db115e",
+          "confidence": "38e562c077cf913cf360bc682dfea3c61e79a58c82a95c14c5a4f658a1c44e2b"
+        },
+        "triangles": {
+          "baseline": 379384,
+          "confidence": 379760
+        },
+        "seconds_before_render": 7.4418315420043655
+      },
+      "thai_statue": {
+        "object": "thai_statue",
+        "variant": "peak-modes",
+        "reference_used_only_posthoc": true,
+        "adopted": false,
+        "margin": 0.02,
+        "alignment": "Frozen historical scanner fit transferred only through own camera-centre similarity, identical for both candidates; no current candidate-to-reference fitting",
+        "camera_mapping_relative_rms": 6.352519710848839e-16,
+        "metrics": {
+          "baseline": {
+            "all": {
+              "0.005": 0.8830922209535408,
+              "0.01": 0.932272337918745,
+              "0.02": 0.9524572733510368
+            },
+            "above_support": {
+              "0.005": 0.9472214415044168,
+              "0.01": 0.9952174448843083,
+              "0.02": 1.0
+            }
+          },
+          "confidence": {
+            "all": {
+              "0.005": 0.8823826197872142,
+              "0.01": 0.9321210703511814,
+              "0.02": 0.9523585029203007
+            },
+            "above_support": {
+              "0.005": 0.9465293859267162,
+              "0.01": 0.9952691268879437,
+              "0.02": 1.0
+            }
+          }
+        },
+        "f1_deltas": {
+          "all": {
+            "0.005": -0.0007096011663265678,
+            "0.01": -0.0001512675675635622,
+            "0.02": -9.877043073613923e-05
+          },
+          "above_support": {
+            "0.005": -0.0006920555777005788,
+            "0.01": 5.1682003635367124e-05,
+            "0.02": 0.0
+          }
+        },
+        "passes_numeric_gate": true,
+        "head": {},
+        "hashes": {
+          "baseline": "57040cc19b777ba3a25f1a307e0ac5f4ba79d4f40000f4213fcdd5f293a8dbae",
+          "confidence": "9ba6902e533dce4484d273f8d4b4749739f9d118f29c9d730598a6ecea65a719"
+        },
+        "triangles": {
+          "baseline": 483868,
+          "confidence": 484092
+        },
+        "seconds_before_render": 7.319394250000187
+      },
+      "happy": {
+        "object": "happy",
+        "variant": "peak-modes",
+        "reference_used_only_posthoc": true,
+        "adopted": false,
+        "margin": 0.02,
+        "alignment": "Frozen historical scanner fit transferred only through own camera-centre similarity, identical for both candidates; no current candidate-to-reference fitting",
+        "camera_mapping_relative_rms": 8.149002810749376e-16,
+        "metrics": {
+          "baseline": {
+            "all": {
+              "0.005": 0.7951878117085831,
+              "0.01": 0.9080344902338436,
+              "0.02": 0.9716584792502314
+            },
+            "above_support": {
+              "0.005": 0.8356887609143892,
+              "0.01": 0.9413841642950503,
+              "0.02": 0.9906133442322393
+            }
+          },
+          "confidence": {
+            "all": {
+              "0.005": 0.7964311784422218,
+              "0.01": 0.9100176029126719,
+              "0.02": 0.9718224393153341
+            },
+            "above_support": {
+              "0.005": 0.836065735627453,
+              "0.01": 0.942071412757828,
+              "0.02": 0.9908354241732651
+            }
+          }
+        },
+        "f1_deltas": {
+          "all": {
+            "0.005": 0.0012433667336386733,
+            "0.01": 0.001983112678828225,
+            "0.02": 0.00016396006510266403
+          },
+          "above_support": {
+            "0.005": 0.0003769747130638601,
+            "0.01": 0.0006872484627776787,
+            "0.02": 0.00022207994102574347
+          }
+        },
+        "passes_numeric_gate": true,
+        "head": {},
+        "hashes": {
+          "baseline": "5d17c306401f87fde3b9b55af97b0ca3214fb00295e3ef9508aa8710b00150c6",
+          "confidence": "ed51c8cd2960f2efffd00c6f803f917d78f2ac8208a8a7c286075518f2035ea7"
+        },
+        "triangles": {
+          "baseline": 601302,
+          "confidence": 600568
+        },
+        "seconds_before_render": 8.32776429200021
+      }
+    }
+  },
+  "drill": {
+    "baseline": {
+      "f1": {
+        "0.005": 0.38627520762090867,
+        "0.01": 0.6055107555135145,
+        "0.02": 0.8089519863357781
+      },
+      "median_accuracy_fraction_diagonal": 0.010030360485814824,
+      "median_completeness_fraction_diagonal": 0.004874146943404591,
+      "reflection_in_fit": true
+    },
+    "distinct_modes": {
+      "f1": {
+        "0.005": 0.4087112149411413,
+        "0.01": 0.6345733235561849,
+        "0.02": 0.8186427635600201
+      },
+      "median_accuracy_fraction_diagonal": 0.008974876498926553,
+      "median_completeness_fraction_diagonal": 0.004724990994580413,
+      "reflection_in_fit": true
+    },
+    "evaluation_limits": "60000 samples per surface, half held out, seed215; 24 starts. Separate posthoc similarity fits with auto reflection; no separate above-support score. Shape only, not camera/physical-scale validation. Reflection does not prove handedness.",
+    "accepted_quality": false,
+    "finding": "Strict F1 improves modestly, but severe pitting/openings remain"
+  },
+  "portable_native_controls": [
+    {
+      "object": "bunny",
+      "margin": 0.02,
+      "sha256": "9684e394e62f9b18f75226ff7669ef535bd53f3cead6f9f62b970ebe2fb37cb1",
+      "expected_sha256": "9684e394e62f9b18f75226ff7669ef535bd53f3cead6f9f62b970ebe2fb37cb1",
+      "byte_equal": true
+    },
+    {
+      "object": "drill",
+      "margin": 0.02,
+      "sha256": "1ddc563f70f6549559d7f8fa99730e5cc680cd347bb1de2d30687c30ca88a079",
+      "expected_sha256": "1ddc563f70f6549559d7f8fa99730e5cc680cd347bb1de2d30687c30ca88a079",
+      "byte_equal": true
+    },
+    {
+      "object": "drill",
+      "margin": 0.0,
+      "sha256": "037ba2739652498b0973d6297ad9641289a0a107a8941185bee5c859ed6605cf",
+      "expected_sha256": "037ba2739652498b0973d6297ad9641289a0a107a8941185bee5c859ed6605cf",
+      "byte_equal": true
+    }
+  ],
+  "binary_sha256": {
+    "prototype": "f0b9b478cabe3131ee045c57e1bfe55082995afcabfa0a32e6bd3a9e660b7c4b",
+    "portable": "3c3a4cf35065a2db6041b2ad203b0d2a1914e35960e273e4490c560e4c48a893"
+  },
+  "validation": {
+    "release_library_tests": 200,
+    "gpu_tests_enabled": true,
+    "threaded_wasm_build_passed": true,
+    "gpu_scalar_peak_parity": "Eight targeted curves plus 256 deterministic noisy curves, disabled/enabled and sweep/refine modes",
+    "studio_settings_tests": 18,
+    "browser_execution": {
+      "camera_rows": 60,
+      "seconds": 52.65751500000059,
+      "peak_wasm_bytes": 1148125184,
+      "texture_bytes": 38288612,
+      "original_rgb_rows": 60,
+      "texture_original_rgb_views": 12,
+      "triangles": 964153,
+      "closed": false,
+      "limits": "One local Chrome/Metal threaded run, two workers. Linear WASM high water only, not process/browser/GPU RSS; execution validation, not shape acceptance."
+    }
+  },
+  "sheets_inspected": [
+    ".local-tools/quality-235/bunny-peak-modes-overview.png",
+    ".local-tools/quality-235/armadillo-peak-modes-overview.png",
+    ".local-tools/quality-235/dragon-peak-modes-overview.png",
+    ".local-tools/quality-235/lucy-peak-modes-overview.png",
+    ".local-tools/quality-235/thai_statue-peak-modes-overview.png",
+    ".local-tools/quality-235/happy-peak-modes-overview.png",
+    ".local-tools/quality-235/bunny-peak-modes-head.png",
+    ".local-tools/quality-235/drill-peak-modes-control.png"
+  ],
+  "bunny_detail_limits": "Tight eye-region F1 .5821 -> .5864 at .1% diagonal; mean symmetric local error .15633 -> .15711 reference units. No convincing eyes/nose recovery.",
+  "camera_diagnostic": {
+    "baseline": {
+      "evaluation_only": true,
+      "reference_used_only_posthoc": true,
+      "source_url": "https://ycb-benchmarks.s3.amazonaws.com/data/berkeley/035_power_drill/035_power_drill_berkeley_rgbd.tgz",
+      "convention": "H_NP3_from_NP5 @ inverse(H_table_from_reference_camera), then relative to first NP3 RGB camera",
+      "world_basis_anchor": "First RGB camera in each trajectory; no rotation fitting or reflection",
+      "calibration_sha256": "05d8f9cfb14f2337fa6ceecc8d174fd19ee32717660c732067b75d11c6b8d2c4",
+      "view_count": 60,
+      "rotation_error_degrees": {
+        "median": 0.3756485407947191,
+        "p95": 0.7509251473515081,
+        "max": 0.844636008154426
+      },
+      "translation_fit_scale": 0.4972083587474359,
+      "translation_residual_metres": {
+        "median": 0.003990011839717807,
+        "p95": 0.009581803235828346,
+        "max": 0.011827992258131352
+      },
+      "neighbour_gaps_in_frames": {
+        "1": {
+          "rotation_error_degrees": {
+            "median": 0.07931877764652467,
+            "p95": 0.17607385192493097,
+            "max": 0.19183151258002323
+          },
+          "translation_residual_metres": {
+            "median": 0.0011660582624924273,
+            "p95": 0.002522188919764822,
+            "max": 0.0027673362883034857
+          }
+        },
+        "2": {
+          "rotation_error_degrees": {
+            "median": 0.09583017987501412,
+            "p95": 0.2453027177108118,
+            "max": 0.36278476485259614
+          },
+          "translation_residual_metres": {
+            "median": 0.001357284307624294,
+            "p95": 0.0036013108770364746,
+            "max": 0.005308168444513354
+          }
+        },
+        "4": {
+          "rotation_error_degrees": {
+            "median": 0.15912004598318819,
+            "p95": 0.35431728862998635,
+            "max": 0.49557227823538197
+          },
+          "translation_residual_metres": {
+            "median": 0.002373872061551886,
+            "p95": 0.005382793186888897,
+            "max": 0.007294369489484747
+          }
+        },
+        "6": {
+          "rotation_error_degrees": {
+            "median": 0.2045442998212701,
+            "p95": 0.49366075160788964,
+            "max": 0.6251115555191143
+          },
+          "translation_residual_metres": {
+            "median": 0.00291765576218519,
+            "p95": 0.007536604517227871,
+            "max": 0.009146015104376607
+          }
+        }
+      },
+      "limits": [
+        "Supplied calibration and poses have their own measurement error",
+        "Translation uses one posthoc scale fit; absolute scale not validated",
+        "No supplied poses, depth or masks were used for the reconstructed trajectory"
+      ]
+    },
+    "rigid_ring": {
+      "evaluation_only": true,
+      "reference_used_only_posthoc": true,
+      "source_url": "https://ycb-benchmarks.s3.amazonaws.com/data/berkeley/035_power_drill/035_power_drill_berkeley_rgbd.tgz",
+      "convention": "H_NP3_from_NP5 @ inverse(H_table_from_reference_camera), then relative to first NP3 RGB camera",
+      "world_basis_anchor": "First RGB camera in each trajectory; no rotation fitting or reflection",
+      "calibration_sha256": "05d8f9cfb14f2337fa6ceecc8d174fd19ee32717660c732067b75d11c6b8d2c4",
+      "view_count": 60,
+      "rotation_error_degrees": {
+        "median": 0.39249468093604084,
+        "p95": 0.5821291065979252,
+        "max": 0.5931932765115927
+      },
+      "translation_fit_scale": 0.4972175952057963,
+      "translation_residual_metres": {
+        "median": 0.004752685752112992,
+        "p95": 0.007253113410934571,
+        "max": 0.007425985642718097
+      },
+      "neighbour_gaps_in_frames": {
+        "1": {
+          "rotation_error_degrees": {
+            "median": 0.040600293511719565,
+            "p95": 0.10217925838287426,
+            "max": 0.15985656381885424
+          },
+          "translation_residual_metres": {
+            "median": 0.0005166693615701297,
+            "p95": 0.0009335845094446628,
+            "max": 0.0014034391168637435
+          }
+        },
+        "2": {
+          "rotation_error_degrees": {
+            "median": 0.07135901214710262,
+            "p95": 0.14509423804544866,
+            "max": 0.21203877311698893
+          },
+          "translation_residual_metres": {
+            "median": 0.0010019209802890807,
+            "p95": 0.0013662989437222377,
+            "max": 0.0018795858055408717
+          }
+        },
+        "4": {
+          "rotation_error_degrees": {
+            "median": 0.13246169925440293,
+            "p95": 0.2194066900106175,
+            "max": 0.27129290810676837
+          },
+          "translation_residual_metres": {
+            "median": 0.0018131376258301902,
+            "p95": 0.0023619711309064133,
+            "max": 0.00272688821404793
+          }
+        },
+        "6": {
+          "rotation_error_degrees": {
+            "median": 0.18415976799070005,
+            "p95": 0.26508414282132364,
+            "max": 0.29977706001155374
+          },
+          "translation_residual_metres": {
+            "median": 0.002560674380215954,
+            "p95": 0.0035336789270119947,
+            "max": 0.003836503306324288
+          }
+        }
+      },
+      "limits": [
+        "Supplied calibration and poses have their own measurement error",
+        "Translation uses one posthoc scale fit; absolute scale not validated",
+        "No supplied poses, depth or masks were used for the reconstructed trajectory"
+      ]
+    },
+    "rigid_ring_used_only_own_cameras_for_fit": true,
+    "photo_holdout_foreground": {
+      "drill-holdout-grouped": {
+        "held_out_reprojection_pixels": {
+          "count": 196,
+          "median": 0.997294464173998,
+          "p95": 18.32782105536967,
+          "fraction_below_1px": 0.5
+        },
+        "fit_verified_held_out_pixels": {
+          "count": 58,
+          "median": 0.4235998816961117,
+          "p95": 1.5006951049722133,
+          "fraction_below_1px": 0.8448275862068966
+        }
+      },
+      "drill-rigid-ring-holdout-score": {
+        "held_out_reprojection_pixels": {
+          "count": 195,
+          "median": 1.0981583668404822,
+          "p95": 18.873526717752107,
+          "fraction_below_1px": 0.4717948717948718
+        },
+        "fit_verified_held_out_pixels": {
+          "count": 49,
+          "median": 0.4448313562528841,
+          "p95": 1.655008272609391,
+          "fraction_below_1px": 0.7959183673469388
+        }
+      }
+    },
+    "ring_adopted": false,
+    "finding": "Rigid projection improves some supplied-pose neighbour statistics but worsens independent held-out RGB reprojection; rejected",
+    "holdout_limits": "Verified subsets depend on triangulation under each candidate and are not fixed identical observations; full foreground also worsens"
+  },
+  "resources": {
+    "cpu_threads": 2,
+    "heavy_jobs_serial": true,
+    "disk_floor_gib": 8.8
+  },
+  "remaining": "Reliable drill shape, Bunny fine relief and general photo alignment remain unresolved. A passing numerical regression gate is not quality acceptance."
+}
