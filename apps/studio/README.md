@@ -710,3 +710,8 @@ Not implemented:
 Runs recorded before the engine announced the photo check as a `report`
 artifact still show it: for those, a live engine is asked for
 `check/result.json` by its conventional path once the check stage is done.
+
+Completed textured exports have an on-request **Preview textured model** view.
+Switch **Photo texture** off to inspect the same geometry in grey; choose **Up**
+for orientation. Closing the preview releases its mesh, atlas and WebGL context.
+The separate surface history and STL download remain available.

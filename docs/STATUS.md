@@ -65,7 +65,9 @@ README.
   uses the pipeline's own recovered cameras, photos and masks; unseen regions
   are grey. Geometry is preserved. Initial view-coherence/visibility checks
   reduce patchwork, but seams and captured-lighting differences remain.
-  Browser package builds; real browser execution/memory and device sharing
+  Studio now previews GLB on request and switches to grey on the same geometry;
+  preview loading, closing, retry and cancellation were browser-tested.
+  Full browser reconstruction/texturing memory and real-device sharing
   still need validation. Fresh Rhino: 72/72 photos, 96 s including initial
   texturing; mustard stops before stereo because threshold masks select the
   undistortion border. [Usage and limits](TEXTURED-MESH.md),
@@ -79,7 +81,7 @@ README.
   clearance. The default band pipeline remains unchanged.
   Independent per-pixel plane refinement is implemented as an experiment
   (`slanted_refine=false` by default), with no neighboring-plane candidates or
-  random perturbation. Bunny eye-region F1 at 0.1% of the object diagonal
+  random perturbation. Historical saved Bunny eye/brow-region F1 at 0.1% of the object diagonal
   rises from 0.579 to 0.593, below the earlier research PatchMatch result of
   0.609. Close-ups still show weak eyes and nose. Supplied scanner geometry is
   used only for posthoc evaluation, never reconstruction.
@@ -134,3 +136,28 @@ false grooves. A local combined-mask/silhouette prototype is closed genus 0,
 but facets and texture defects remain; it is not a shipped/general fix. Drill
 is still refused by camera gates. Evaluation warnings no longer infer which
 input is mirrored from a preferred reflected shape fit alone.
+
+
+Quality follow-up (2026-10-08): source-photo annotations corrected partly
+offset eye/nose depth boxes. New stage profiles report coverage and errors
+on common rays, with scanner geometry used only for evaluation. In one nose
+view, independent-plane depth coverage falls from 93.7% before cross-view
+filtering to 58.2% afterwards; weak/noisy relief is already present before that
+filter. This does not isolate cameras, matching and appearance errors.
+Adaptive spatial/intensity support takes 248 s of refinement versus 75 s for
+the control, without convincing recovery of the eyes/nose. Geometric-confidence
+fusion also leaves the difficult structural failures unresolved. Those dense
+experiments were not adopted; the original matcher was retained after its
+shortcut showed no reliable speed gain.
+
+New standalone texture options `--coherent --color-balance` preserve every
+triangle coordinate and winding byte in five reviewed exports. Source-view
+boundaries decrease about 12–17%; visible seams remain. Twenty-four views
+reduce some grey seams on the cereal approximation, but do not fix its shape,
+and increase atlas pixels 56%. Both new controls and SAM's experimental
+`--sam-prompt-mask background` stay opt-in. On drill, multiple-candidate SAM
+finishes all 60 masks but includes support/background in several views; camera
+recovery still fails its unchanged support gate (24.8%, required 25%).
+No drill mesh is accepted. Reserved-track mustard camera diagnostics and
+all experiment limits are in the [quality review](../tests/evidence/quality-followup-review.json)
+and [diagnostic usage](../scripts/photo_regression/README.md).

@@ -10,6 +10,7 @@ import { canDownload, canShareFiles, downloadFile, shareFile } from "./download"
 import { Gallery } from "./gallery";
 import { InspectionPanel } from "./inspection";
 import { Icon } from "./icons";
+import { TexturePreview } from "./texturePreview";
 import { MeshPanel } from "./meshPanel";
 import { savePrefs, speedToPref } from "./prefs";
 import { ReportsPanel } from "./reportsPanel";
@@ -172,13 +173,14 @@ export function RunView({ source, heading, backHref, themeTick }: Props) {
           {run.downloads.length > 0 && (
             <section class="panel">
               <h2>Textured model</h2>
-              <p class="sub">GLB includes the photo texture. The geometry viewer shows the untextured surface.</p>
+              <p class="sub">GLB includes the photo texture and the same reconstructed geometry.</p>
               {run.downloads.map((file) => (
                 <button key={file.path} type="button" class="button primary" disabled={!canDownload(source) && !canShareFiles()}
                   onClick={() => void (canDownload(source) ? downloadFile(source, file.path) : shareFile(source, file.path)).catch((problem) => setDownloadError(describe(problem)))}>
                   {canDownload(source) ? "Download textured GLB" : "Share textured GLB"}
                 </button>
               ))}
+              {run.downloads[0] && <TexturePreview source={source} path={run.downloads[0].path} themeTick={themeTick} />}
               {source.kind === "local" && <p class="sub">Saved in this run’s folder as texture/mesh.glb.</p>}
               {downloadError && <p role="alert" class="field-error">{downloadError}</p>}
             </section>

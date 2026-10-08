@@ -102,6 +102,181 @@ fn selection_normals(triangles: &[Triangle], normals: &[[f32; 3]], control: &cra
     Ok(field)
 }
 
+/// Shared-edge adjacency; non-manifold edges and sharp creases do not couple
+/// source-image selection. This changes UV choices only, never the mesh.
+fn adjacency(triangles: &[Triangle], normals: &[[f32; 3]]) -> Vec<[usize; 3]> {
+    let mut vertices = HashMap::new();
+    let mut next = 0u32;
+    let mut edges = Vec::with_capacity(triangles.len() * 3);
+    for (face, t) in triangles.iter().enumerate() {
+        let ids = t.map(|p| {
+            *vertices.entry(p.map(f32::to_bits)).or_insert_with(|| {
+                let v = next;
+                next += 1;
+                v
+            })
+        });
+        for e in 0..3 {
+            let (a, b) = (ids[e].min(ids[(e + 1) % 3]), ids[e].max(ids[(e + 1) % 3]));
+            edges.push((((a as u64) << 32) | b as u64, face, e));
+        }
+    }
+    drop(vertices);
+    edges.sort_unstable_by_key(|e| e.0);
+    let mut out = vec![[usize::MAX; 3]; triangles.len()];
+    let mut start = 0;
+    while start < edges.len() {
+        let mut end = start + 1;
+        while end < edges.len() && edges[end].0 == edges[start].0 {
+            end += 1;
+        }
+        if end - start == 2 {
+            let (_, a, ae) = edges[start];
+            let (_, b, be) = edges[start + 1];
+            let dot: f32 = normals[a].iter().zip(normals[b]).map(|(a, b)| a * b).sum();
+            if dot > 0.8 * length(normals[a]) * length(normals[b]) {
+                out[a][ae] = b;
+                out[b][be] = a;
+            }
+        }
+        start = end;
+    }
+    out
+}
+
+fn seam_edges(chosen: &[usize], adjacency: &[[usize; 3]], count: usize) -> usize {
+    adjacency
+        .iter()
+        .enumerate()
+        .map(|(i, ns)| {
+            ns.iter().filter(|&&j| j != usize::MAX && j > i && chosen[i] < count && chosen[j] < count && chosen[i] != chosen[j]).count()
+        })
+        .sum()
+}
+
+/// Bounded local label optimization among three independently visible views.
+/// Monotonic coordinate updates lower a fixed data + shared-edge seam energy.
+fn coherent_choices(chosen: &mut [usize], candidates: &[[(u32, f32); 3]], adjacent: &[[usize; 3]], count: usize) {
+    for _ in 0..5 {
+        let mut changed = 0;
+        for i in 0..chosen.len() {
+            if chosen[i] >= count {
+                continue;
+            }
+            let best = candidates[i][0].1.max(1e-20);
+            let energy = |slot: usize, score: f32, labels: &[usize]| {
+                let mut e = 1.0 - score / best;
+                for &j in &adjacent[i] {
+                    if j != usize::MAX && labels[j] < count && labels[j] != slot {
+                        e += 0.12;
+                    }
+                }
+                e
+            };
+            let current = candidates[i].iter().find(|c| c.0 as usize == chosen[i]).map(|c| c.1).unwrap_or(0.0);
+            let mut cost = energy(chosen[i], current, chosen);
+            let mut label = chosen[i];
+            for &(slot, score) in &candidates[i] {
+                if slot as usize >= count || score <= 0.0 {
+                    continue;
+                }
+                let e = energy(slot as usize, score, chosen);
+                if e + 1e-6 < cost {
+                    cost = e;
+                    label = slot as usize;
+                }
+            }
+            if label != chosen[i] {
+                chosen[i] = label;
+                changed += 1;
+            }
+        }
+        if changed == 0 {
+            break;
+        }
+    }
+}
+
+/// Scalar exposure correction from robust log-luminance ratios on the SAME
+/// visible surface samples. Bounded gains retain global brightness and hue;
+/// this does not estimate intrinsic albedo or remove spatially varying light.
+fn exposure_gains(samples: &[Vec<Option<f32>>]) -> Vec<f32> {
+    let n = samples.len();
+    let mut equations = Vec::new();
+    for i in 0..n {
+        for j in i + 1..n {
+            let mut ratios: Vec<f32> = samples[i]
+                .iter()
+                .zip(&samples[j])
+                .filter_map(|(a, b)| match (a, b) {
+                    (Some(a), Some(b)) if *a > 0.05 && *b > 0.05 && *a < 0.95 && *b < 0.95 => Some((b / a).ln()),
+                    _ => None,
+                })
+                .collect();
+            if ratios.len() < 24 {
+                continue;
+            }
+            ratios.sort_by(f32::total_cmp);
+            let ratio = ratios[ratios.len() / 2];
+            let spread = ratios[ratios.len() * 3 / 4] - ratios[ratios.len() / 4];
+            if spread < 0.25 {
+                equations.push((i, j, ratio, ratios.len().min(256) as f32));
+            }
+        }
+    }
+    let mut gains = vec![0.0f32; n];
+    for _ in 0..40 {
+        for i in 0..n {
+            let (mut total, mut weight) = (0.0, 0.0);
+            for &(a, b, r, w) in &equations {
+                if a == i {
+                    total += w * (gains[b] + r);
+                    weight += w;
+                }
+                if b == i {
+                    total += w * (gains[a] - r);
+                    weight += w;
+                }
+            }
+            if weight > 0.0 {
+                gains[i] = total / weight;
+            }
+        }
+        // Fix each disconnected overlap component's gauge independently.
+        let mut visited = vec![false; n];
+        for first in 0..n {
+            if visited[first] {
+                continue;
+            }
+            let mut component = vec![first];
+            visited[first] = true;
+            let mut at = 0;
+            while at < component.len() {
+                let i = component[at];
+                at += 1;
+                for &(a, b, _, _) in &equations {
+                    let j = if a == i {
+                        b
+                    } else if b == i {
+                        a
+                    } else {
+                        continue;
+                    };
+                    if !visited[j] {
+                        visited[j] = true;
+                        component.push(j);
+                    }
+                }
+            }
+            let mean = component.iter().map(|&i| gains[i]).sum::<f32>() / component.len() as f32;
+            for i in component {
+                gains[i] -= mean;
+            }
+        }
+    }
+    gains.into_iter().map(|v| v.exp().clamp(0.8, 1.25)).collect()
+}
+
 struct Tile {
     row: ViewRow,
     bounds: [usize; 4],
@@ -134,6 +309,20 @@ pub fn run_with(
     views: usize,
     tile_size: usize,
     control: &crate::control::Control,
+) -> Result<Value> {
+    run_with_options(inputs, mesh, output, views, tile_size, control, false, false)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn run_with_options(
+    inputs: &Path,
+    mesh: &Path,
+    output: &Path,
+    views: usize,
+    tile_size: usize,
+    control: &crate::control::Control,
+    coherent: bool,
+    balance: bool,
 ) -> Result<Value> {
     control.check()?;
     ensure!((4..=64).contains(&views), "views must be in 4..64");
@@ -176,6 +365,9 @@ pub fn run_with(
     let mut best = vec![0.0f64; triangles.len()];
     let mut chosen = vec![count; triangles.len()];
     let mut tiles = Vec::new();
+    let mut candidates = if coherent { vec![[(u32::MAX, 0.0f32); 3]; triangles.len()] } else { Vec::new() };
+    let sample_step = triangles.len().div_ceil(4000).max(1);
+    let mut samples: Vec<Vec<Option<f32>>> = Vec::new();
     for slot in 0..count {
         control.check()?;
         let row = source[slot * source.len() / count].clone();
@@ -220,6 +412,7 @@ pub fn run_with(
             })
             .collect();
         let depth = zbuffer(&projected, vw, vh);
+        let mut view_samples = if balance { vec![None; triangles.len().div_ceil(sample_step)] } else { Vec::new() };
         for (n, t) in triangles.iter().enumerate() {
             let q = project(&c, centres[n]);
             if q[2] <= 0.0 {
@@ -235,7 +428,7 @@ pub fn run_with(
             let distance = ray.iter().map(|v| v * v).sum::<f64>().sqrt();
             let cosine = -cam_norm.iter().zip(ray).map(|(a, b)| a * b).sum::<f64>() / (norm_len * distance);
             let score = cosine * cosine * c.k[0] * c.k[1] / (q[2] * q[2]);
-            if cosine < 0.15 || score <= best[n] {
+            if cosine < 0.15 || (!coherent && !balance && score <= best[n]) {
                 continue;
             }
             let valid = t.iter().copied().chain(std::iter::once(centres[n])).all(|p| {
@@ -268,12 +461,57 @@ pub fn run_with(
                 nearest.is_finite() && (q[2] - nearest).abs() < diagonal * 0.002
             });
             if valid {
-                best[n] = score;
-                chosen[n] = slot;
+                if coherent {
+                    let mut candidate = (slot as u32, score as f32);
+                    for existing in &mut candidates[n] {
+                        if candidate.1 > existing.1 {
+                            std::mem::swap(existing, &mut candidate);
+                        }
+                    }
+                }
+                if balance && n % sample_step == 0 {
+                    let (x, y) = (q[0].round() as usize, q[1].round() as usize);
+                    let rgb = &photo.data[3 * (y * photo.width + x)..3 * (y * photo.width + x) + 3];
+                    view_samples[n / sample_step] =
+                        Some((0.2126 * rgb[0] as f32 + 0.7152 * rgb[1] as f32 + 0.0722 * rgb[2] as f32) / 255.0);
+                }
+                if score > best[n] {
+                    best[n] = score;
+                    chosen[n] = slot;
+                }
             }
         }
         control.log(format!("texture: view {} of {count}", slot + 1));
         tiles.push(Tile { row, bounds, size: [photo.width, photo.height] });
+        if balance {
+            samples.push(view_samples);
+        }
+    }
+    let mut seam_report = Value::Null;
+    if coherent {
+        control.check()?;
+        let adjacent = adjacency(&triangles, &normals);
+        let before = seam_edges(&chosen, &adjacent, count);
+        coherent_choices(&mut chosen, &candidates, &adjacent, count);
+        let after = seam_edges(&chosen, &adjacent, count);
+        seam_report = json!({"shared_edges_before":before,"shared_edges_after":after,"limits":"Only visible top-three candidates; sharp creases uncoupled; not a perceptual seam score"});
+    }
+    drop(candidates);
+    let gains = if balance { exposure_gains(&samples) } else { vec![1.0; count] };
+    drop(samples);
+    if balance {
+        for (slot, &gain) in gains.iter().enumerate() {
+            control.check()?;
+            let (left, top) = (slot % columns * tile_size, slot / columns * tile_size);
+            for y in top..top + tile_size {
+                for x in left..left + tile_size {
+                    let at = 3 * (y * atlas.width + x);
+                    for a in 0..3 {
+                        atlas.data[at + a] = (atlas.data[at + a] as f32 * gain).round().clamp(0.0, 255.0) as u8;
+                    }
+                }
+            }
+        }
     }
     let total_area: f64 = normals.iter().map(|v| length(*v) as f64).sum();
     let untextured_area: f64 = normals.iter().zip(&chosen).filter(|(_, s)| **s == count).map(|(v, _)| length(*v) as f64).sum();
@@ -319,7 +557,7 @@ pub fn run_with(
     }
     let glb_bytes = bytes.len();
     crate::storage::write_new(output.join("mesh.glb"), bytes)?;
-    let report = json!({"triangles":triangles.len(),"vertices_with_uv_seams":positions.len(),"selected_views":tiles.iter().map(|t|json!({"name":t.row.name,"image_size":t.size,"crop":t.bounds})).collect::<Vec<_>>(),"atlas_size":[atlas.width,atlas.height],"untextured_triangles":chosen.iter().filter(|s|**s==count).count(),"untextured_area_fraction":untextured_area/total_area.max(1e-20),"glb_bytes":glb_bytes,"seconds":start.elapsed().as_secs_f64(),"reference_used":false,"geometry_changed":false,"attribution_embedded":attribution.is_some(),"color":"Measured photo appearance including captured lighting; not intrinsic albedo or generated PBR","limits":["Discrete per-face view selection; seams/exposure differences are not corrected","Visibility tested at corners and centre against 2048-pixel mesh depth buffers","Unobserved faces are neutral grey; no invented texture","Mesh units/orientation are preserved; physical scale is not established"]});
+    let report = json!({"triangles":triangles.len(),"vertices_with_uv_seams":positions.len(),"selected_views":tiles.iter().map(|t|json!({"name":t.row.name,"image_size":t.size,"crop":t.bounds})).collect::<Vec<_>>(),"atlas_size":[atlas.width,atlas.height],"untextured_triangles":chosen.iter().filter(|s|**s==count).count(),"untextured_area_fraction":untextured_area/total_area.max(1e-20),"glb_bytes":glb_bytes,"seconds":start.elapsed().as_secs_f64(),"reference_used":false,"geometry_changed":false,"coherent_selection":coherent,"seam_edges":seam_report,"exposure_balance":balance,"exposure_gains":gains,"attribution_embedded":attribution.is_some(),"color":"Measured photo appearance including captured lighting; not intrinsic albedo or generated PBR","limits":["Per-face projection; optional coherent view selection and bounded global exposure correction do not remove spatial lighting differences or blend chart boundaries","Visibility tested at corners and centre against 2048-pixel mesh depth buffers","Unobserved faces are neutral grey; no invented texture","Mesh units/orientation are preserved; physical scale is not established"]});
     crate::storage::write_new(output.join("result.json"), serde_json::to_vec_pretty(&report)?)?;
     Ok(report)
 }
@@ -376,15 +614,24 @@ fn glb(
 
 pub fn main(args: &[String]) -> Result<()> {
     if args.iter().any(|a| a == "--help" || a == "-h") {
-        println!("crisp3ds-dense texture --inputs DIR --mesh mesh.stl --output NEW_DIR [--views 12] [--tile-size 1024]\nWrites atlas.png, self-contained mesh.glb and coverage report. Uses recovered cameras and photos; geometry is preserved.");
+        println!("crisp3ds-dense texture --inputs DIR --mesh mesh.stl --output NEW_DIR [--views 12] [--tile-size 1024] [--coherent] [--color-balance]\nWrites atlas.png, self-contained mesh.glb and coverage report. Uses recovered cameras and photos; geometry is preserved.");
         return Ok(());
     }
     let (mut inputs, mut mesh, mut output) = (None, None, None);
     let (mut views, mut tile) = (12, 1024);
+    let (mut coherent, mut balance) = (false, false);
     let mut i = 0;
     while i < args.len() {
         let key = &args[i];
         i += 1;
+        if key == "--coherent" {
+            coherent = true;
+            continue;
+        }
+        if key == "--color-balance" {
+            balance = true;
+            continue;
+        }
         let value = args.get(i).ok_or_else(|| anyhow::anyhow!("missing value for {key}"))?;
         i += 1;
         match key.as_str() {
@@ -397,8 +644,16 @@ pub fn main(args: &[String]) -> Result<()> {
         }
     }
     let need = |v: Option<&String>, name: &str| v.cloned().ok_or_else(|| anyhow::anyhow!("missing {name}"));
-    let result =
-        run(Path::new(&need(inputs, "--inputs")?), Path::new(&need(mesh, "--mesh")?), Path::new(&need(output, "--output")?), views, tile)?;
+    let result = run_with_options(
+        Path::new(&need(inputs, "--inputs")?),
+        Path::new(&need(mesh, "--mesh")?),
+        Path::new(&need(output, "--output")?),
+        views,
+        tile,
+        &crate::control::Control::none(),
+        coherent,
+        balance,
+    )?;
     println!("{}", serde_json::to_string_pretty(&result)?);
     Ok(())
 }
@@ -406,6 +661,34 @@ pub fn main(args: &[String]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn coherent_selection_keeps_visibility_and_reduces_label_seams() {
+        let mut chosen = vec![0, 1, 0, 3];
+        let candidates = vec![
+            [(0, 1.0), (1, 0.99), (u32::MAX, 0.0)],
+            [(1, 1.0), (0, 0.99), (u32::MAX, 0.0)],
+            [(0, 1.0), (1, 0.99), (u32::MAX, 0.0)],
+            [(u32::MAX, 0.0); 3],
+        ];
+        let adjacent = vec![[1, usize::MAX, usize::MAX], [0, 2, usize::MAX], [1, 3, usize::MAX], [2, usize::MAX, usize::MAX]];
+        let before = seam_edges(&chosen, &adjacent, 3);
+        coherent_choices(&mut chosen, &candidates, &adjacent, 3);
+        assert!(seam_edges(&chosen, &adjacent, 3) < before);
+        assert_eq!(chosen[3], 3, "unobserved face must stay grey");
+        for i in 0..3 {
+            assert!(candidates[i].iter().any(|c| c.0 as usize == chosen[i]));
+        }
+    }
+    #[test]
+    fn exposure_correction_matches_shared_samples_and_leaves_isolated_views() {
+        let a: Vec<_> = (0..80).map(|i| Some(0.2 + i as f32 * 0.003)).collect();
+        let b: Vec<_> = a.iter().map(|v| v.map(|v| v * 1.2)).collect();
+        let gains = exposure_gains(&[a.clone(), b.clone(), vec![None; 80]]);
+        assert!((gains[0] / gains[1] - 1.2).abs() < 1e-4);
+        assert_eq!(gains[2], 1.0);
+        assert!(gains.iter().all(|g| (0.8..=1.25).contains(g)));
+        assert!(exposure_gains(&[a.clone(), a]).iter().all(|g| (*g - 1.0).abs() < 1e-6));
+    }
     #[test]
     fn visibility_uses_front_surface_and_perspective_depth() {
         let far = [[0., 0., 4.], [4., 0., 4.], [0., 4., 4.]];
@@ -429,6 +712,12 @@ mod tests {
         let report = run(root, &root.join("mesh.stl"), &root.join("output"), 4, 128).unwrap();
         assert_eq!(report["untextured_triangles"], 1);
         assert_eq!(report["triangles"], 3);
+        assert_eq!(before, crate::storage::read(root.join("mesh.stl")).unwrap());
+        let enhanced =
+            run_with_options(root, &root.join("mesh.stl"), &root.join("enhanced"), 4, 128, &crate::control::Control::none(), true, true)
+                .unwrap();
+        assert_eq!(enhanced["untextured_triangles"], 1);
+        assert_eq!(enhanced["geometry_changed"], false);
         assert_eq!(before, crate::storage::read(root.join("mesh.stl")).unwrap());
         assert!(run(root, &root.join("mesh.stl"), &root.join("output"), 4, 128).is_err());
         crate::storage::remove_dir_all(root).unwrap();

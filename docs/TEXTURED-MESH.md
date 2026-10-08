@@ -13,8 +13,9 @@ crisp3ds-dense texture --inputs RUN/frontend/inputs --mesh RUN/mesh/mesh.stl \
 
 `mesh.glb`, `atlas.png` and a coverage report are written under `RUN/texture`
 (or `TEXTURE`). Studio offers **Export textured GLB (experimental)** for built-in
-native/browser engines; completed runs offer GLB download/share. The existing
-viewer continues to display untextured geometry. JSON run options accept
+native/browser engines; completed runs offer GLB download/share. The surface-history
+viewer displays untextured geometry; the on-request texture preview below
+can switch between photo appearance and grey shading. JSON run options accept
 `"texture": true`; the default is false. The browser package builds, and the
 pipeline with textures passes the native memory-tree test, but real browser
 execution/memory and real-device sharing have not yet been measured for this
@@ -76,3 +77,38 @@ that detail being present in the printable mesh.
   texturing. Mustard, light-coloured objects and printed/glossy objects expose
   different front-end failures; do not substitute dataset truth to obtain a
   plausible-looking textured result.
+
+## Optional seam reduction and preview
+
+The standalone exporter accepts `--coherent --color-balance`. Coherent selection
+chooses among each triangle's three best independently visible source views,
+penalizing source changes across smooth shared edges. It never assigns an
+occluded view or fills an unseen region. Colour balancing estimates bounded
+display-RGB scalar gains (0.8–1.25) from overlapping visible surface samples; disconnected
+view groups keep separate brightness gauges. It preserves hue but does not
+remove spatial lighting, estimate albedo, or blend chart boundaries. Both
+options are off unless requested.
+
+```sh
+crisp3ds-dense texture --inputs recovered-inputs --mesh mesh.stl \
+  --output texture-review --coherent --color-balance
+```
+
+Five local exports (Mario, shoe, rhino, cereal approximation and mustard
+approximation) preserved every STL triangle coordinate and winding byte.
+Source-image boundaries decreased by 12–17%; rendered improvements were modest,
+and visible seams remain. This count is not a perceptual quality score. Cereal
+and mustard still have unacceptable geometry; texturing does not fix it.
+
+Studio can preview a completed textured GLB on request. **Photo texture** switches
+between photo appearance and grey shading on the same geometry; orientation and
+camera stay shared. Closing the preview frees its GPU buffers and atlas. The
+preview uses photographed lighting rather than adding a second lighting model.
+
+Using `--views 24` instead of 12 reduces untextured area by only 0.2–1.4
+percentage points on these five meshes. Cereal's reviewed views have fewer
+grey source boundaries, but shape defects remain. At tile size 1024 the atlas
+grows from 4096×4096 to 5120×5120 (56.25% more pixels, about 100 MiB decoded
+RGBA before other buffers). Defaults stay at 12 views. All ten GLBs have zero
+Khronos validator errors/warnings; the five 24-view atlases have an informational
+non-power-of-two image notice.

@@ -1,0 +1,97 @@
+import { useEffect, useRef, useState } from "preact/hooks";
+import { checkPhotoGlb } from "../core/photoGlb";
+import type { RunSource } from "../sources/types";
+import { describe, isAbort } from "../sources/transport";
+import type { Viewer, UpAxis } from "../viewer/viewer";
+
+/** Download on request; close/unmount releases the texture, geometry and WebGL context. */
+export function TexturePreview({ source, path, themeTick }: { source: RunSource; path: string; themeTick: number }) {
+  const [open, setOpen] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState("");
+  const [photo, setPhoto] = useState(true);
+  const [up, setUp] = useState<UpAxis>("+Y");
+  const host = useRef<HTMLDivElement>(null);
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const viewer = useRef<Viewer | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const abort = new AbortController();
+    setReady(false); setError("");
+    void (async () => {
+      const [{ Viewer, webglAvailable }, { GLTFLoader }, { Mesh, MeshStandardMaterial }] = await Promise.all([
+        import("../viewer/viewer"), import("three/addons/loaders/GLTFLoader.js"), import("three"),
+      ]);
+      abort.signal.throwIfAborted();
+      if (!webglAvailable()) throw Error("This browser cannot show 3D.");
+      const bytes = await source.fetchBytes(path, { signal: abort.signal });
+      abort.signal.throwIfAborted();
+      checkPhotoGlb(bytes);
+      const model = await new GLTFLoader().parseAsync(bytes, "");
+      // Crisp3DS exports one static mesh, with one embedded photo atlas.
+      const meshes: InstanceType<typeof Mesh>[] = [];
+      model.scene.traverse((object) => { if (object instanceof Mesh) meshes.push(object); });
+      const dispose = () => { for (const mesh of meshes) {
+        mesh.geometry.dispose();
+        for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+          const map = (material as InstanceType<typeof MeshStandardMaterial>).map;
+          map?.dispose(); (map?.image as { close?: () => void } | undefined)?.close?.(); material.dispose();
+        }
+      } };
+      if (abort.signal.aborted) { dispose(); return; }
+      const mesh = meshes[0];
+      const material = mesh?.material;
+      if (meshes.length !== 1 || mesh === undefined || !(material instanceof MeshStandardMaterial) || !material.map) {
+        dispose(); throw Error("The preview requires a Crisp3DS photo-textured export.");
+      }
+      if (!canvas.current || !host.current) { dispose(); return; }
+      let view: Viewer | undefined;
+      try {
+        view = new Viewer(canvas.current, host.current);
+        view.setPhotoMesh(mesh.geometry, material.map);
+      } catch (problem) {
+        view?.dispose(); dispose(); throw problem;
+      }
+      material.dispose();
+      viewer.current = view;
+      setReady(true);
+    })().catch((problem) => { if (!abort.signal.aborted && !isAbort(problem)) setError(describe(problem)); });
+    return () => { abort.abort(); viewer.current?.dispose(); viewer.current = null; };
+  }, [open, source, path]);
+  useEffect(() => { viewer.current?.setPhotoAppearance(photo); }, [photo, ready]);
+  useEffect(() => { viewer.current?.setUp(up); }, [up, ready]);
+  useEffect(() => {
+    const style = getComputedStyle(document.documentElement);
+    viewer.current?.setColors({ background: style.getPropertyValue("--viewer-bg").trim() || "#f6f7f9", surface: "#b9bec6" });
+  }, [themeTick, ready]);
+  return <>
+    <button class="button" type="button" onClick={() => setOpen(!open)}>{open ? "Close preview" : "Preview textured model"}</button>
+    {open && <>
+      <div class="viewer" ref={host}><canvas ref={canvas} tabIndex={0} role="img" aria-label="Textured model preview. Drag or use arrows to turn, plus and minus to zoom, 0 to reset." onKeyDown={(event) => {
+        const view = viewer.current;
+        if (!view || event.ctrlKey || event.metaKey || event.altKey) return;
+        const turn = Math.PI / 24;
+        if (event.key === "ArrowLeft") view.orbit(-turn, 0);
+        else if (event.key === "ArrowRight") view.orbit(turn, 0);
+        else if (event.key === "ArrowUp") view.orbit(0, -turn);
+        else if (event.key === "ArrowDown") view.orbit(0, turn);
+        else if (event.key === "+" || event.key === "=") view.zoom(0.85);
+        else if (event.key === "-") view.zoom(1 / 0.85);
+        else if (event.key === "0" || event.key === "Home") view.resetView();
+        else return;
+        event.preventDefault();
+      }} />
+        {!ready && !error && <p class="viewer-message" role="status">Loading textured model…</p>}
+        {error && <p class="viewer-message" role="alert">{error}</p>}
+      </div>
+      <div class="viewer-tools">
+        <label class="check"><input type="checkbox" checked={photo} disabled={!ready} onChange={(e) => setPhoto(e.currentTarget.checked)} /> Photo texture</label>
+        <label class="inline-field"><span>Up</span><select aria-label="Textured model up direction" value={up} onChange={(e) => setUp(e.currentTarget.value as UpAxis)}>
+          {["+X", "-X", "+Y", "-Y", "+Z", "-Z"].map((axis) => <option value={axis}>{axis}</option>)}
+        </select></label>
+        <button class="button" type="button" disabled={!ready} onClick={() => viewer.current?.resetView()}>Reset view</button>
+      </div>
+      <p class="help">Texture includes photographed lighting. Switch it off to inspect the same geometry. Grey areas were not textured.</p>
+    </>}
+  </>;
+}

@@ -279,25 +279,20 @@ impl Run<'_> {
         let slow = !provider.info().external.is_empty() || provider.info().name == "sam";
         let (coarse_end, cleanup_start, cleanup_end) = if slow { (0.08, 0.85, 0.92) } else { (0.45, 0.55, 0.85) };
         let photos = list_photos(&options.photos)?;
-        let photo_map =
-            self.internal("masks", "coarse", small, 0.0, coarse_end, "Reading photos, coarse dark-object masks", count, |watch| {
-                // With a marker mat the dark markers are hidden first (markers/provider.rs).
-                let hide = super::markers::provider::mask_preparation(options)?;
-                let shadow = options.threshold_shadow;
-                if options.masks == super::options::MaskChoice::Background {
-                    return staging::step_coarse_background(out, &photos, &options.envelope, threads, watch);
-                }
-                staging::step_coarse_shadow(
-                    out,
-                    &photos,
-                    &options.envelope,
-                    options.dark_threshold,
-                    shadow,
-                    threads,
-                    hide.as_deref(),
-                    watch,
-                )
-            })?;
+        let background_prompt = options.masks == super::options::MaskChoice::Background
+            || (matches!(options.masks, super::options::MaskChoice::Sam | super::options::MaskChoice::ExternalSam)
+                && options.sam.background_prompt);
+        let coarse_message =
+            if background_prompt { "Reading photos, coarse background masks" } else { "Reading photos, coarse dark-object masks" };
+        let photo_map = self.internal("masks", "coarse", small, 0.0, coarse_end, coarse_message, count, |watch| {
+            // With a marker mat the dark markers are hidden first (markers/provider.rs).
+            let hide = super::markers::provider::mask_preparation(options)?;
+            let shadow = options.threshold_shadow;
+            if background_prompt {
+                return staging::step_coarse_background(out, &photos, &options.envelope, threads, watch);
+            }
+            staging::step_coarse_shadow(out, &photos, &options.envelope, options.dark_threshold, shadow, threads, hide.as_deref(), watch)
+        })?;
         let touching: Vec<&str> = photo_map["photos"]
             .as_array()
             .into_iter()

@@ -1727,3 +1727,12 @@ Photo-textured GLB export is available with `run --texture` or the standalone
 `texture` command, using the reconstruction's own cameras and photographs.
 It is opt-in and preserves geometry. See [textured meshes](../../docs/TEXTURED-MESH.md)
 for CLI/API/Studio use, visibility checks, coverage, comparisons and limitations.
+
+
+Quality diagnostics and optional texture controls (2026-10-08):
+`texture --coherent --color-balance` offers bounded source-view coherence and
+exposure correction without changing geometry. Both are opt-in; visible seams
+remain. SAM can use `--sam-prompt-mask background` to seed prompts from RGB
+backdrop contrast. Defaults remain unchanged. See
+[texture limits](../../docs/TEXTURED-MESH.md) and
+[reserved-track/local-relief diagnostics](../../scripts/photo_regression/README.md).

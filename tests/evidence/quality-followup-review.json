@@ -1,0 +1,1136 @@
+{
+  "date": "2026-10-08",
+  "scope": "Controlled quality experiments; not a six-object dense adoption run",
+  "base_commit": "b83ef39",
+  "geometry_target_met": false,
+  "dense_defaults_changed": false,
+  "new_third_party_dependencies_or_imported_algorithm_source": false,
+  "patent_clearance_claimed": false,
+  "bunny": {
+    "regions": {
+      "view_10": {
+        "eye": [
+          1048,
+          505,
+          90,
+          90
+        ],
+        "nose": [
+          905,
+          600,
+          110,
+          100
+        ]
+      },
+      "view_18": {
+        "eye": [
+          805,
+          485,
+          160,
+          120
+        ],
+        "nose": [
+          670,
+          590,
+          110,
+          100
+        ]
+      },
+      "view_25": {
+        "eye": [
+          590,
+          485,
+          150,
+          120
+        ]
+      }
+    },
+    "old_region_warning": "Earlier saved eye/nose depth boxes were offset; their percentages do not establish eye or nose relief. Corrected source-photo boxes and common-ray profiles supersede those anatomical interpretations. Historical whole-head sheets remain negative evidence.",
+    "stage_profiles": "bunny-local-stage-profiles.json",
+    "reference_used_for_reconstruction": false,
+    "scanner_alignment": "Prior fixed independently aligned scanner, evaluation only; no candidate-specific realignment",
+    "visual_review": "Three same-view head crops: eyes/nose remain poorly recovered; adaptive support gives small surface differences, not convincing structural recovery.",
+    "control_triangles": 1034406,
+    "adaptive_triangles": 1037502,
+    "refinement_seconds": {
+      "control": 74.5,
+      "adaptive": 247.9
+    },
+    "adaptive_method": "Independent per-pixel plane refinement, stride 1 instead of 2; spatial/intensity weighted NCC, sigma=max(0.6*radius,1) and 0.1; other input/configuration identical.",
+    "adaptive_adopted": false,
+    "geometric_confidence_adopted": false,
+    "confidence_method": "Neighbour round-trip depth/reprojection support, confidence floor 0.1, multiplying TSDF votes.",
+    "confidence_finding": "Small noise changes; neither Bunny facial target nor mustard/cereal structural failures resolved.",
+    "new_dense_code_disposition": "Local patch/binary/results retained; unsuccessful experimental fields and shader changes removed from production source.",
+    "reuse_depth_default_control_stl_sha256": "3bd59d1df725c5f1727c06635c0c8622e1f2a8250e212b6c31e813db6688c283",
+    "reuse_depth_control_byte_identical_to_retained_subpixel_mesh": true,
+    "control_note": "The exact control reuses retained own depths. Fresh plane control is a separately rebuilt matched pair, not byte-identical to that historical mesh.",
+    "invalid_run": "An earlier adaptive run inherited slanted_refine=false and was inactive. Explicitly marked obsolete; excluded from final evidence.",
+    "head_sheet_sha256": "de58a1404d059d91b3ad6c718ce73c7ada75594cba5ad847740665af2f20293a"
+  },
+  "camera_holdout": {
+    "schema": "crisp3ds_camera_holdout_v1",
+    "reference_used": false,
+    "training_tracks_must_exclude_reserved_components": true,
+    "reserved_tracks": 149,
+    "failed_triangulations": 0,
+    "behind_camera_observations": 4,
+    "held_out_reprojection_pixels": {
+      "count": 424,
+      "median": 7.61677922040508,
+      "p95": 128.99542106773944,
+      "fraction_below_1px": 0.2830188679245283
+    },
+    "per_view": [
+      {
+        "name": "view_0",
+        "count": 0,
+        "median": null,
+        "p95": null,
+        "fraction_below_1px": null
+      },
+      {
+        "name": "view_1",
+        "count": 14,
+        "median": 27.961150703210432,
+        "p95": 124.97889372404657,
+        "fraction_below_1px": 0.21428571428571427
+      },
+      {
+        "name": "view_2",
+        "count": 8,
+        "median": 1.8774505884676223,
+        "p95": 74.96517130598983,
+        "fraction_below_1px": 0.25
+      },
+      {
+        "name": "view_3",
+        "count": 12,
+        "median": 3.003077862248066,
+        "p95": 98.81202764455396,
+        "fraction_below_1px": 0.3333333333333333
+      },
+      {
+        "name": "view_4",
+        "count": 15,
+        "median": 8.264930960490279,
+        "p95": 120.53208957330955,
+        "fraction_below_1px": 0.26666666666666666
+      },
+      {
+        "name": "view_5",
+        "count": 10,
+        "median": 26.97359201673796,
+        "p95": 92.18702166506048,
+        "fraction_below_1px": 0.3
+      },
+      {
+        "name": "view_6",
+        "count": 13,
+        "median": 2.619293172208624,
+        "p95": 91.62480417945261,
+        "fraction_below_1px": 0.3076923076923077
+      },
+      {
+        "name": "view_7",
+        "count": 8,
+        "median": 3.848993765681279,
+        "p95": 118.14393654769881,
+        "fraction_below_1px": 0.25
+      },
+      {
+        "name": "view_8",
+        "count": 6,
+        "median": 20.844578973550327,
+        "p95": 92.70758554148192,
+        "fraction_below_1px": 0.3333333333333333
+      },
+      {
+        "name": "view_9",
+        "count": 7,
+        "median": 7.831194281999805,
+        "p95": 63.14679474979223,
+        "fraction_below_1px": 0.0
+      },
+      {
+        "name": "view_10",
+        "count": 6,
+        "median": 20.635852739538382,
+        "p95": 89.17397278572369,
+        "fraction_below_1px": 0.0
+      },
+      {
+        "name": "view_11",
+        "count": 4,
+        "median": 73.36411021434196,
+        "p95": 116.66220638293501,
+        "fraction_below_1px": 0.0
+      },
+      {
+        "name": "view_12",
+        "count": 9,
+        "median": 5.049776473434328,
+        "p95": 118.01062629546873,
+        "fraction_below_1px": 0.1111111111111111
+      },
+      {
+        "name": "view_13",
+        "count": 5,
+        "median": 5.911431192248176,
+        "p95": 53.530491464330964,
+        "fraction_below_1px": 0.4
+      },
+      {
+        "name": "view_14",
+        "count": 7,
+        "median": 73.09780590154442,
+        "p95": 114.23884118204522,
+        "fraction_below_1px": 0.14285714285714285
+      },
+      {
+        "name": "view_15",
+        "count": 7,
+        "median": 17.903866229837615,
+        "p95": 113.84740137169423,
+        "fraction_below_1px": 0.2857142857142857
+      },
+      {
+        "name": "view_16",
+        "count": 7,
+        "median": 8.938349435273407,
+        "p95": 102.19859514173585,
+        "fraction_below_1px": 0.14285714285714285
+      },
+      {
+        "name": "view_17",
+        "count": 5,
+        "median": 25.56762130486297,
+        "p95": 41.47902183352708,
+        "fraction_below_1px": 0.0
+      },
+      {
+        "name": "view_18",
+        "count": 6,
+        "median": 38.83922916452812,
+        "p95": 46.71302889403208,
+        "fraction_below_1px": 0.0
+      },
+      {
+        "name": "view_19",
+        "count": 8,
+        "median": 39.30505987791653,
+        "p95": 162.34600278268914,
+        "fraction_below_1px": 0.0
+      },
+      {
+        "name": "view_20",
+        "count": 5,
+        "median": 66.66251900848746,
+        "p95": 227.0250591613609,
+        "fraction_below_1px": 0.0
+      },
+      {
+        "name": "view_21",
+        "count": 4,
+        "median": 49.93604475263403,
+        "p95": 73.78185610765061,
+        "fraction_below_1px": 0.0
+      },
+      {
+        "name": "view_22",
+        "count": 2,
+        "median": 75.57039894396769,
+        "p95": 108.07746099794245,
+        "fraction_below_1px": 0.0
+      },
+      {
+        "name": "view_23",
+        "count": 8,
+        "median": 8.081103487445883,
+        "p95": 166.0246580705553,
+        "fraction_below_1px": 0.125
+      },
+      {
+        "name": "view_24",
+        "count": 11,
+        "median": 16.857364171144983,
+        "p95": 125.03186807574613,
+        "fraction_below_1px": 0.18181818181818182
+      },
+      {
+        "name": "view_25",
+        "count": 6,
+        "median": 10.863280011829096,
+        "p95": 38.244461305897595,
+        "fraction_below_1px": 0.3333333333333333
+      },
+      {
+        "name": "view_26",
+        "count": 9,
+        "median": 2.2388068359014524,
+        "p95": 52.541119823560976,
+        "fraction_below_1px": 0.4444444444444444
+      },
+      {
+        "name": "view_27",
+        "count": 6,
+        "median": 23.71104722819188,
+        "p95": 144.6502496899812,
+        "fraction_below_1px": 0.3333333333333333
+      },
+      {
+        "name": "view_28",
+        "count": 4,
+        "median": 9.784412601035687,
+        "p95": 58.36600732545216,
+        "fraction_below_1px": 0.25
+      },
+      {
+        "name": "view_29",
+        "count": 11,
+        "median": 12.526568642595048,
+        "p95": 60.11365493086571,
+        "fraction_below_1px": 0.36363636363636365
+      },
+      {
+        "name": "view_30",
+        "count": 8,
+        "median": 22.358239704781504,
+        "p95": 142.5615686539852,
+        "fraction_below_1px": 0.125
+      },
+      {
+        "name": "view_31",
+        "count": 7,
+        "median": 19.61660836382971,
+        "p95": 88.08059182495634,
+        "fraction_below_1px": 0.42857142857142855
+      },
+      {
+        "name": "view_32",
+        "count": 7,
+        "median": 10.92768272239538,
+        "p95": 53.60570731692871,
+        "fraction_below_1px": 0.14285714285714285
+      },
+      {
+        "name": "view_33",
+        "count": 7,
+        "median": 14.289000576548446,
+        "p95": 88.57560931188605,
+        "fraction_below_1px": 0.42857142857142855
+      },
+      {
+        "name": "view_34",
+        "count": 4,
+        "median": 99.46388296960609,
+        "p95": 151.14220526454648,
+        "fraction_below_1px": 0.25
+      },
+      {
+        "name": "view_35",
+        "count": 4,
+        "median": 0.4558063032030734,
+        "p95": 7.91541829890983,
+        "fraction_below_1px": 0.75
+      },
+      {
+        "name": "view_36",
+        "count": 4,
+        "median": 46.9759322719201,
+        "p95": 190.8849543568522,
+        "fraction_below_1px": 0.25
+      },
+      {
+        "name": "view_37",
+        "count": 2,
+        "median": 3.143096570611295,
+        "p95": 4.721458154259744,
+        "fraction_below_1px": 0.0
+      },
+      {
+        "name": "view_38",
+        "count": 6,
+        "median": 1.0612704959672632,
+        "p95": 32.949092354829645,
+        "fraction_below_1px": 0.3333333333333333
+      },
+      {
+        "name": "view_39",
+        "count": 1,
+        "median": 2.0152586273884014,
+        "p95": 2.0152586273884014,
+        "fraction_below_1px": 0.0
+      },
+      {
+        "name": "view_40",
+        "count": 8,
+        "median": 3.095165626383138,
+        "p95": 61.21350294253533,
+        "fraction_below_1px": 0.25
+      },
+      {
+        "name": "view_41",
+        "count": 4,
+        "median": 9.030221325760023,
+        "p95": 27.829393626112488,
+        "fraction_below_1px": 0.5
+      },
+      {
+        "name": "view_42",
+        "count": 6,
+        "median": 14.685611515619055,
+        "p95": 231.62984096036195,
+        "fraction_below_1px": 0.16666666666666666
+      },
+      {
+        "name": "view_43",
+        "count": 6,
+        "median": 27.077729158685344,
+        "p95": 58.61063589157968,
+        "fraction_below_1px": 0.16666666666666666
+      },
+      {
+        "name": "view_44",
+        "count": 6,
+        "median": 14.474586659685624,
+        "p95": 158.62738413613033,
+        "fraction_below_1px": 0.16666666666666666
+      },
+      {
+        "name": "view_45",
+        "count": 4,
+        "median": 17.18602268192244,
+        "p95": 287.03162195227156,
+        "fraction_below_1px": 0.25
+      },
+      {
+        "name": "view_46",
+        "count": 9,
+        "median": 1.8557925236569277,
+        "p95": 201.62383958764323,
+        "fraction_below_1px": 0.3333333333333333
+      },
+      {
+        "name": "view_47",
+        "count": 5,
+        "median": 11.056148525922689,
+        "p95": 107.39607646060398,
+        "fraction_below_1px": 0.4
+      },
+      {
+        "name": "view_48",
+        "count": 9,
+        "median": 2.6466267792147553,
+        "p95": 127.66432730032423,
+        "fraction_below_1px": 0.3333333333333333
+      },
+      {
+        "name": "view_49",
+        "count": 7,
+        "median": 49.435083406073225,
+        "p95": 108.33349026217205,
+        "fraction_below_1px": 0.42857142857142855
+      },
+      {
+        "name": "view_50",
+        "count": 5,
+        "median": 1.3531554592974044,
+        "p95": 80.10403310800552,
+        "fraction_below_1px": 0.4
+      },
+      {
+        "name": "view_51",
+        "count": 7,
+        "median": 2.120701499733622,
+        "p95": 104.37492355469436,
+        "fraction_below_1px": 0.42857142857142855
+      },
+      {
+        "name": "view_52",
+        "count": 10,
+        "median": 1.3094083069338485,
+        "p95": 102.10898319483078,
+        "fraction_below_1px": 0.5
+      },
+      {
+        "name": "view_53",
+        "count": 4,
+        "median": 2.3171034108095894,
+        "p95": 13.440093684998466,
+        "fraction_below_1px": 0.25
+      },
+      {
+        "name": "view_54",
+        "count": 14,
+        "median": 2.0158366161908163,
+        "p95": 154.9121859031143,
+        "fraction_below_1px": 0.35714285714285715
+      },
+      {
+        "name": "view_55",
+        "count": 9,
+        "median": 0.7126014462017096,
+        "p95": 85.44552533465327,
+        "fraction_below_1px": 0.5555555555555556
+      },
+      {
+        "name": "view_56",
+        "count": 7,
+        "median": 5.493052963783765,
+        "p95": 44.35535354723629,
+        "fraction_below_1px": 0.14285714285714285
+      },
+      {
+        "name": "view_57",
+        "count": 12,
+        "median": 0.67424924617945,
+        "p95": 222.60844068556983,
+        "fraction_below_1px": 0.6666666666666666
+      },
+      {
+        "name": "view_58",
+        "count": 7,
+        "median": 2.5696817550154125,
+        "p95": 37.80190414145735,
+        "fraction_below_1px": 0.42857142857142855
+      },
+      {
+        "name": "view_59",
+        "count": 12,
+        "median": 1.535810820527285,
+        "p95": 112.77225882994212,
+        "fraction_below_1px": 0.5
+      }
+    ],
+    "fit_verified_tracks": 28,
+    "fit_verified_held_out_pixels": {
+      "count": 91,
+      "median": 0.37499543797181084,
+      "p95": 1.296038997759667,
+      "fraction_below_1px": 0.8791208791208791
+    },
+    "limits": [
+      "Report is meaningful only when cameras were recovered using the partitioned training cache.",
+      "False feature matches are included; this diagnostic does not establish dense or local facial accuracy.",
+      "Reserved tracks are triangulated using alternating observations; remaining observations score the cameras."
+    ]
+  },
+  "mask_repair_control": {
+    "defaults_changed": false,
+    "finding": "Disabling repair loses useful mustard neck/upper shell and cereal pale edges. Not adopted."
+  },
+  "drill": {
+    "reference_or_supplied_poses_used": false,
+    "sam_background_prompt": "Experimental opt-in; defaults unchanged",
+    "single_candidate_failure": [
+      "sam failed: capture_0018.png: SAM prediction does not contain its positive prompt"
+    ],
+    "several_candidates": {
+      "segmented_photos": 60,
+      "sam_seconds": 138.743854292,
+      "camera_status": "failed",
+      "reasons": [
+        "rotating plane fit has too little image support (24.8%)"
+      ],
+      "visual_review": "Dark chuck/handle included in more views, but checkerboard/background contaminates several masks; no accepted mask sequence or drill mesh.",
+      "own_match_cache_retained": true,
+      "gate_relaxed": false
+    }
+  },
+  "texture": {
+    "mario": {
+      "12_views": {
+        "atlas_size": [
+          4096,
+          4096
+        ],
+        "untextured_area_fraction": 0.14495924802032473,
+        "seconds": 3.906086083,
+        "seam_edges": {
+          "limits": "Only visible top-three candidates; sharp creases uncoupled; not a perceptual seam score",
+          "shared_edges_after": 29924,
+          "shared_edges_before": 35497
+        },
+        "exposure_gains": [
+          1.0700647830963135,
+          1.0301761627197266,
+          0.9793910980224609,
+          0.9464761018753052,
+          0.9409264922142029,
+          0.9479276537895203,
+          0.9072785377502441,
+          0.8964367508888245,
+          0.9681797027587891,
+          1.0476107597351074,
+          1.158932089805603,
+          1.1476449966430664
+        ],
+        "attribution_embedded": true,
+        "geometry_verification": {
+          "triangle_coordinates_and_winding_byte_equal": true,
+          "triangles": 717144
+        },
+        "format_validation": {
+          "numErrors": 0,
+          "numWarnings": 0,
+          "numInfos": 0,
+          "numHints": 0,
+          "messages": [],
+          "truncated": false
+        },
+        "glb_sha256": "a63a0e33b0b1ee11f766a2620567d048817ed534e2509ac88f0f4ba12736aa03",
+        "sheet_sha256": "3fa2a65d9b1d92d9976aeb54a743a632f9378d7e1000bd6195c21fda064128e9"
+      },
+      "24_views": {
+        "atlas_size": [
+          5120,
+          5120
+        ],
+        "untextured_area_fraction": 0.13078302261946895,
+        "seconds": 6.1757409580000004,
+        "seam_edges": {
+          "limits": "Only visible top-three candidates; sharp creases uncoupled; not a perceptual seam score",
+          "shared_edges_after": 59530,
+          "shared_edges_before": 71817
+        },
+        "exposure_gains": [
+          1.1021802425384521,
+          1.1014063358306885,
+          1.0940032005310059,
+          1.095079779624939,
+          1.031882405281067,
+          1.0058177709579468,
+          0.9616729021072388,
+          0.925621747970581,
+          0.9040132761001587,
+          0.8517621159553528,
+          0.8826326727867126,
+          0.8607833385467529,
+          0.8595516681671143,
+          0.86609947681427,
+          0.8521448969841003,
+          0.8949804902076721,
+          0.9630248546600342,
+          1.0117692947387695,
+          1.0656859874725342,
+          1.1364083290100098,
+          1.202601432800293,
+          1.1887081861495972,
+          1.1737726926803589,
+          1.1316903829574585
+        ],
+        "attribution_embedded": true,
+        "geometry_verification": {
+          "triangle_coordinates_and_winding_byte_equal": true,
+          "triangles": 717144
+        },
+        "format_validation": {
+          "numErrors": 0,
+          "numWarnings": 0,
+          "numInfos": 1,
+          "numHints": 0,
+          "messages": [
+            {
+              "code": "IMAGE_NPOT_DIMENSIONS",
+              "message": "Image has non-power-of-two dimensions: 5120x5120.",
+              "severity": 2,
+              "pointer": "/images/0"
+            }
+          ],
+          "truncated": false
+        },
+        "glb_sha256": "47d9625d8d617b33410a69fb42d1e72d22ef54992d16dd34d0bbc06a14289eec",
+        "sheet_sha256": "6c11f0ccae2db7a5123691c8e1da87014228aecb37a67ecefcc3a2731fdab94c"
+      }
+    },
+    "shoe": {
+      "12_views": {
+        "atlas_size": [
+          4096,
+          4096
+        ],
+        "untextured_area_fraction": 0.21967458396381695,
+        "seconds": 3.34558825,
+        "seam_edges": {
+          "limits": "Only visible top-three candidates; sharp creases uncoupled; not a perceptual seam score",
+          "shared_edges_after": 17973,
+          "shared_edges_before": 21550
+        },
+        "exposure_gains": [
+          1.0579581260681152,
+          1.0213836431503296,
+          0.9699239730834961,
+          0.906918466091156,
+          0.9253867864608765,
+          1.0454623699188232,
+          1.0990756750106812,
+          1.070353627204895,
+          1.039454460144043,
+          1.043302059173584,
+          0.9126431941986084,
+          0.9339713454246521
+        ],
+        "attribution_embedded": true,
+        "geometry_verification": {
+          "triangle_coordinates_and_winding_byte_equal": true,
+          "triangles": 542278
+        },
+        "format_validation": {
+          "numErrors": 0,
+          "numWarnings": 0,
+          "numInfos": 0,
+          "numHints": 0,
+          "messages": [],
+          "truncated": false
+        },
+        "glb_sha256": "95f2869fc9d35adf6be7f3839b4704f9577e4ab1debe2738648dfeb25f4f0cad",
+        "sheet_sha256": "8a7913622ac5b254245795aca89f170bed506720cb4184d1625a30c1ebc00310"
+      },
+      "24_views": {
+        "atlas_size": [
+          5120,
+          5120
+        ],
+        "untextured_area_fraction": 0.2071844725017712,
+        "seconds": 5.3732515,
+        "seam_edges": {
+          "limits": "Only visible top-three candidates; sharp creases uncoupled; not a perceptual seam score",
+          "shared_edges_after": 36539,
+          "shared_edges_before": 44273
+        },
+        "exposure_gains": [
+          1.0506882667541504,
+          1.0142439603805542,
+          1.0300601720809937,
+          1.027738332748413,
+          0.9589821696281433,
+          0.9073982834815979,
+          0.9108957052230835,
+          0.911879301071167,
+          0.9516484141349792,
+          0.9623380303382874,
+          1.0664234161376953,
+          1.0863019227981567,
+          1.0992356538772583,
+          1.0928329229354858,
+          1.084228515625,
+          1.067672610282898,
+          1.0382602214813232,
+          1.0193135738372803,
+          1.0408488512039185,
+          0.9795085191726685,
+          0.9202937483787537,
+          0.9232347011566162,
+          0.9391396641731262,
+          0.965511679649353
+        ],
+        "attribution_embedded": true,
+        "geometry_verification": {
+          "triangle_coordinates_and_winding_byte_equal": true,
+          "triangles": 542278
+        },
+        "format_validation": {
+          "numErrors": 0,
+          "numWarnings": 0,
+          "numInfos": 1,
+          "numHints": 0,
+          "messages": [
+            {
+              "code": "IMAGE_NPOT_DIMENSIONS",
+              "message": "Image has non-power-of-two dimensions: 5120x5120.",
+              "severity": 2,
+              "pointer": "/images/0"
+            }
+          ],
+          "truncated": false
+        },
+        "glb_sha256": "fcd51a8b5f2b7c4cd3ca84706bf23574ed23e420117ccb5da3277e99948d5ec3",
+        "sheet_sha256": "cf115db2ac04b7e03005a2df1fdfa4e56f7f1ac4ef27ea4b1e0234ce807046fe"
+      }
+    },
+    "rhino": {
+      "12_views": {
+        "atlas_size": [
+          4096,
+          4096
+        ],
+        "untextured_area_fraction": 0.18223972917033418,
+        "seconds": 1.7590102079999999,
+        "seam_edges": {
+          "limits": "Only visible top-three candidates; sharp creases uncoupled; not a perceptual seam score",
+          "shared_edges_after": 17124,
+          "shared_edges_before": 20370
+        },
+        "exposure_gains": [
+          0.9260191917419434,
+          0.8878561854362488,
+          0.9579162001609802,
+          1.1731172800064087,
+          1.0882869958877563,
+          0.9642090797424316,
+          0.9713099002838135,
+          0.9915390014648438,
+          1.0461275577545166,
+          1.0786241292953491,
+          0.9956368803977966,
+          0.9533017873764038
+        ],
+        "attribution_embedded": true,
+        "geometry_verification": {
+          "triangle_coordinates_and_winding_byte_equal": true,
+          "triangles": 463676
+        },
+        "format_validation": {
+          "numErrors": 0,
+          "numWarnings": 0,
+          "numInfos": 0,
+          "numHints": 0,
+          "messages": [],
+          "truncated": false
+        },
+        "glb_sha256": "81749e347925ed1fe4cee906a2f62bc39953b138dd4af5f331fa8d61022a023c",
+        "sheet_sha256": "698ab579a12d4b74f357dad2e9d98dcdf2edfd144d8f17da8d83b54ed3a4c74f"
+      },
+      "24_views": {
+        "atlas_size": [
+          5120,
+          5120
+        ],
+        "untextured_area_fraction": 0.16906608753513014,
+        "seconds": 2.8752162500000003,
+        "seam_edges": {
+          "limits": "Only visible top-three candidates; sharp creases uncoupled; not a perceptual seam score",
+          "shared_edges_after": 33809,
+          "shared_edges_before": 41216
+        },
+        "exposure_gains": [
+          0.9546430706977844,
+          0.9284811019897461,
+          0.9169318675994873,
+          0.8919720649719238,
+          0.9764350056648254,
+          1.0858228206634521,
+          1.1116623878479004,
+          1.0725603103637695,
+          1.0466128587722778,
+          0.9680476784706116,
+          0.9141042828559875,
+          0.8902484774589539,
+          0.9360262155532837,
+          0.9535489678382874,
+          0.9407508373260498,
+          0.9628856182098389,
+          1.0589373111724854,
+          1.0872801542282104,
+          1.105360507965088,
+          1.1699143648147583,
+          1.0531598329544067,
+          1.057495355606079,
+          1.0091702938079834,
+          0.9781910181045532
+        ],
+        "attribution_embedded": true,
+        "geometry_verification": {
+          "triangle_coordinates_and_winding_byte_equal": true,
+          "triangles": 463676
+        },
+        "format_validation": {
+          "numErrors": 0,
+          "numWarnings": 0,
+          "numInfos": 1,
+          "numHints": 0,
+          "messages": [
+            {
+              "code": "IMAGE_NPOT_DIMENSIONS",
+              "message": "Image has non-power-of-two dimensions: 5120x5120.",
+              "severity": 2,
+              "pointer": "/images/0"
+            }
+          ],
+          "truncated": false
+        },
+        "glb_sha256": "4239d746e58cee4b002758e27d3e1882b10d3cef520846e89951b1219cf2b6bd",
+        "sheet_sha256": "d72f8e89aceaab4f6355cfa40143125d750ad369221b50b5134c80932a34e569"
+      }
+    },
+    "cereal": {
+      "12_views": {
+        "atlas_size": [
+          4096,
+          4096
+        ],
+        "untextured_area_fraction": 0.08432045700345882,
+        "seconds": 3.379899375,
+        "seam_edges": {
+          "limits": "Only visible top-three candidates; sharp creases uncoupled; not a perceptual seam score",
+          "shared_edges_after": 18585,
+          "shared_edges_before": 21817
+        },
+        "exposure_gains": [
+          1.0270106792449951,
+          1.0164579153060913,
+          0.9490716457366943,
+          0.9660062193870544,
+          1.0330922603607178,
+          1.061705231666565,
+          1.009791612625122,
+          0.9905599355697632,
+          0.9315877556800842,
+          0.957537055015564,
+          1.022133469581604,
+          1.0445137023925781
+        ],
+        "attribution_embedded": true,
+        "geometry_verification": {
+          "triangle_coordinates_and_winding_byte_equal": true,
+          "triangles": 563236
+        },
+        "format_validation": {
+          "numErrors": 0,
+          "numWarnings": 0,
+          "numInfos": 0,
+          "numHints": 0,
+          "messages": [],
+          "truncated": false
+        },
+        "glb_sha256": "ba58ed9731e5582272f9d0446814a3110cceb078b017f744170fb80cf69ad41e",
+        "sheet_sha256": "688eeb5d020589886de583af54584aa2f2cff901f2f54b4d65cf351c18cb41b4"
+      },
+      "24_views": {
+        "atlas_size": [
+          5120,
+          5120
+        ],
+        "untextured_area_fraction": 0.08261123471716245,
+        "seconds": 5.507894208,
+        "seam_edges": {
+          "limits": "Only visible top-three candidates; sharp creases uncoupled; not a perceptual seam score",
+          "shared_edges_after": 21170,
+          "shared_edges_before": 25540
+        },
+        "exposure_gains": [
+          1.026940941810608,
+          1.078382968902588,
+          1.0292588472366333,
+          0.9987532496452332,
+          0.9642912745475769,
+          1.0360755920410156,
+          0.9752805233001709,
+          0.9955703020095825,
+          1.0307719707489014,
+          1.0477746725082397,
+          1.0593112707138062,
+          1.0267192125320435,
+          1.020558476448059,
+          0.9919813275337219,
+          0.9684078693389893,
+          0.9541893601417542,
+          0.9284915328025818,
+          0.9299243688583374,
+          0.9353585839271545,
+          0.9446253776550293,
+          0.9939305186271667,
+          1.0066295862197876,
+          1.0373471975326538,
+          1.0407451391220093
+        ],
+        "attribution_embedded": true,
+        "geometry_verification": {
+          "triangle_coordinates_and_winding_byte_equal": true,
+          "triangles": 563236
+        },
+        "format_validation": {
+          "numErrors": 0,
+          "numWarnings": 0,
+          "numInfos": 1,
+          "numHints": 0,
+          "messages": [
+            {
+              "code": "IMAGE_NPOT_DIMENSIONS",
+              "message": "Image has non-power-of-two dimensions: 5120x5120.",
+              "severity": 2,
+              "pointer": "/images/0"
+            }
+          ],
+          "truncated": false
+        },
+        "glb_sha256": "f3aba191c60ef466ca5dad1939b5e55bff17a7a81d2b863392fd18140e24706e",
+        "sheet_sha256": "24cb7c02a865b6b0933242848de9ca890aa40f5c0c6cd3aec6ebfec137a566a7"
+      }
+    },
+    "mustard": {
+      "12_views": {
+        "atlas_size": [
+          4096,
+          4096
+        ],
+        "untextured_area_fraction": 0.13310466363918108,
+        "seconds": 3.020942334,
+        "seam_edges": {
+          "limits": "Only visible top-three candidates; sharp creases uncoupled; not a perceptual seam score",
+          "shared_edges_after": 23268,
+          "shared_edges_before": 26372
+        },
+        "exposure_gains": [
+          0.9321000576019287,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          0.9608336687088013,
+          1.0728461742401123,
+          1.0,
+          1.0,
+          1.0,
+          1.0407629013061523
+        ],
+        "attribution_embedded": true,
+        "geometry_verification": {
+          "triangle_coordinates_and_winding_byte_equal": true,
+          "triangles": 593512
+        },
+        "format_validation": {
+          "numErrors": 0,
+          "numWarnings": 0,
+          "numInfos": 0,
+          "numHints": 0,
+          "messages": [],
+          "truncated": false
+        },
+        "glb_sha256": "be6e1d7bad06c2f5c07b385b2fee12d793ef53960d5e9a2cab5f001c457c9245",
+        "sheet_sha256": "de4c50f61805407cd8f937e6bc22f40f37cf0eec1e0bdc41077ab15a9d20dab4"
+      },
+      "24_views": {
+        "atlas_size": [
+          5120,
+          5120
+        ],
+        "untextured_area_fraction": 0.11950312502282068,
+        "seconds": 4.6377334999999995,
+        "seam_edges": {
+          "limits": "Only visible top-three candidates; sharp creases uncoupled; not a perceptual seam score",
+          "shared_edges_after": 41114,
+          "shared_edges_before": 47737
+        },
+        "exposure_gains": [
+          0.8565758466720581,
+          0.8957675695419312,
+          0.8793203830718994,
+          0.8657244443893433,
+          1.1195377111434937,
+          1.1089986562728882,
+          1.0801546573638916,
+          1.0642236471176147,
+          1.0487749576568604,
+          1.0164960622787476,
+          0.9782575964927673,
+          0.9840431213378906,
+          0.9912785887718201,
+          0.9904775619506836,
+          1.0173418521881104,
+          1.0014694929122925,
+          1.018731713294983,
+          1.0225483179092407,
+          1.04960036277771,
+          1.0395727157592773,
+          1.0042880773544312,
+          0.9957302212715149,
+          1.017858624458313,
+          1.0099806785583496
+        ],
+        "attribution_embedded": true,
+        "geometry_verification": {
+          "triangle_coordinates_and_winding_byte_equal": true,
+          "triangles": 593512
+        },
+        "format_validation": {
+          "numErrors": 0,
+          "numWarnings": 0,
+          "numInfos": 1,
+          "numHints": 0,
+          "messages": [
+            {
+              "code": "IMAGE_NPOT_DIMENSIONS",
+              "message": "Image has non-power-of-two dimensions: 5120x5120.",
+              "severity": 2,
+              "pointer": "/images/0"
+            }
+          ],
+          "truncated": false
+        },
+        "glb_sha256": "e176c6da8cfbd98a8d46e59de387345f3ddc2db5486951399ef9e2e20ab632bc",
+        "sheet_sha256": "2f951277f47319f1d2e156b73dc3e76651ba263d4c7972a239abef5c934072b6"
+      }
+    }
+  },
+  "texture_finding": "12-view coherent selection lowers shared source-image boundaries by about 12\u201317%, with modest visual changes; seams remain. 24 views reduce untextured area by only 0.2\u20131.4 percentage points and increase atlas pixels 56.25%; no default changed. Count is not perceptual quality. Cereal/mustard approximations retain unacceptable geometry. Twenty-four views noticeably reduce grey source boundaries in the reviewed cereal views; the small overall coverage change does not measure this spatial effect.",
+  "studio_preview": {
+    "opened": true,
+    "texture_and_grey_renders_differ": true,
+    "closed_and_reopened": true,
+    "failed_fetch_reported": true,
+    "close_during_load": true,
+    "page_errors": [],
+    "photo_sha256": "e9f32a9187d5b8528c76d66a18a573f264c69d97a3a00f78edce7aaf417aa0c2",
+    "grey_sha256": "6e133cecd8d8a24f4a52717c89ffe70b2b7a9d631f5ab3e89fc425709846ebc1"
+  },
+  "validation": {
+    "dense_lib_tests": {
+      "passed": 200,
+      "features": [
+        "sam-onnx"
+      ],
+      "profile": "release"
+    },
+    "studio_native_tests": {
+      "passed": 32,
+      "features": [
+        "native-engine"
+      ],
+      "default_features": false
+    },
+    "studio_js_tests": 154,
+    "photo_regression_python_tests": 6,
+    "threaded_wasm_build": "passed",
+    "studio_typescript_and_production_build": "passed",
+    "experimental_dense_tests": {
+      "passed": 202,
+      "weighted_GPU_score_parity": "passed for independent and research shaders",
+      "weighted_GPU_fusion_scalar_parity": "passed",
+      "adoption": "Experimental source not shipped"
+    },
+    "ten_exports_geometry_preservation": "passed",
+    "ten_exports_preview_envelope": "passed",
+    "glb_format": "zero errors/warnings; 24-view atlases have informational NPOT notice",
+    "browser_preview": "open, grey/photo toggle, close/reopen, failed fetch, close during loading passed",
+    "browser_engine_texture_memory_and_real_device_sharing": "not measured in this follow-up"
+  },
+  "next_work": [
+    "Improve photo-derived prompt/foreground separation across views; current background seed can target support.",
+    "Distinguish per-view camera/appearance errors from matching near the corrected facial features.",
+    "Improve geometric evidence and coverage before accepting changes to fusion or mesh smoothing.",
+    "For flat packaging, test photo-supported planar constraints separately; do not silently replace dense geometry with a box prior."
+  ],
+  "camera_holdout_provenance": {
+    "training_cache_sha256": "b6143afd5b0ea78fb37c1f878341ae2e5ebfa0ef3bded97a348890d751e97b3d",
+    "reserved_tracks_sha256": "2a982f561704698ffb34623eb6ba03bc116abb1e8adc339edaef512788d1dbb9",
+    "recovered_cameras_sha256": "396539ef4393ced44782df95ddb8b6cf1a9d2084944e002a081dfb525376c024",
+    "calibration_sha256": "7a84cf80069d2716cb2d78621f1e8e5c21fad02779d241a46c80c4f3d3d717d0",
+    "training_cache_used_for_recovery": true,
+    "masks": "Same previously recovered RGB-derived masks; no supplied dataset masks"
+  },
+  "dense_local_patch_sha256": "49fe129e73544a5aef7ca95ff902b8b771193e93ce9a5fb6a5af0aeaed788dc3",
+  "source_sha256": {
+    "crates/dense/src/texture.rs": "5c77ea1aa9cceacb1f3e889961c813928a27521bfd6e6557de994105a27e4ef4",
+    "crates/dense/src/photos/options.rs": "69b95cdab31df3ee28b315b55ef0924ab0fa006513fb9b3f765c382e5817d17b",
+    "crates/dense/src/photos/run.rs": "654c49043875013cbe57c0389822b91e0d24315136343e8fdf1aa93e2e1f9311",
+    "scripts/photo_regression/detail_profiles.py": "6300e9a4d83a9386a0294477d0409d7ebaa34f93fbdb115bf4b53d7c58a3c8e6",
+    "scripts/photo_regression/camera_holdout.py": "e4530708db12b985f8db615bc271387662defbc0964f9b2f5eb3046d8c59a10b",
+    "apps/studio/src/ui/texturePreview.tsx": "439a4b0bb0f90dc654a206e976e61b9f0e714a294918d6c2fba6ff0a5c466107",
+    "apps/studio/src/viewer/viewer.ts": "ba2ada28ef7280eb75ef4d8a9ccb963829d560c23804c26d19cd920553368b5b",
+    "apps/studio/src/core/photoGlb.ts": "66194c6158cc1f2ed397248bb1963b28dca2467cc350b762fca3be410619e5a1"
+  },
+  "publish_binary_sha256": "b5a6ba5e9b4a15c3b3cea5195b6851b928eac4bdba15d4d1e8d1623329d9ecd2"
+}

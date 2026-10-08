@@ -225,6 +225,16 @@ pub const OPTIONS: &[OptionSpec] = &[
         meaning: "Let SAM propose several masks and take the best",
     },
     OptionSpec {
+        flag: "sam-prompt-mask",
+        scope: "masks:external-sam",
+        kind: "choice",
+        default: Some("threshold"),
+        choices: &["threshold", "background"],
+        variable: None,
+        repeated: false,
+        meaning: "Coarse SAM prompt seed: legacy dark threshold or experimental RGB backdrop contrast (also for --masks sam); neither uses dataset masks",
+    },
+    OptionSpec {
         flag: "sam-preserve-holes",
         scope: "masks:external-sam",
         kind: "switch",
@@ -832,7 +842,7 @@ pub fn of_provider(module: &str, provider: &str) -> Vec<Value> {
 }
 
 /// Options of `external-sam` that the native `sam` provider reads as well.
-const SHARED_WITH_SAM: [&str; 2] = ["sam-preserve-holes", "sam-automatic-cues"];
+const SHARED_WITH_SAM: [&str; 3] = ["sam-prompt-mask", "sam-preserve-holes", "sam-automatic-cues"];
 
 /// The options of a group that belong to no single provider (`masks`, `cameras`, `tools`, `machine`, `deadlines`, `gates`).
 pub fn of_group(group: &str) -> Vec<Value> {
@@ -877,6 +887,17 @@ mod tests {
         assert_eq!(of_group("cameras").iter().find(|row| row["name"] == "open-turn").unwrap()["default"], false);
         assert!(of_provider("masks", "import").is_empty());
         let sam: Vec<String> = of_provider("masks", "sam").iter().map(|row| row["name"].as_str().unwrap().to_string()).collect();
-        assert_eq!(sam, ["sam-preserve-holes", "sam-automatic-cues", "sam-model", "sam-runtime", "sam-candidates", "sam-accelerator"]);
+        assert_eq!(
+            sam,
+            [
+                "sam-prompt-mask",
+                "sam-preserve-holes",
+                "sam-automatic-cues",
+                "sam-model",
+                "sam-runtime",
+                "sam-candidates",
+                "sam-accelerator"
+            ]
+        );
     }
 }

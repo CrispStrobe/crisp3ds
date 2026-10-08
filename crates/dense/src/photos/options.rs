@@ -187,6 +187,8 @@ pub struct MarkersOptions {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SamOptions {
+    /// RGB backdrop contrast instead of the legacy dark-object prompt seed.
+    pub background_prompt: bool,
     pub python: Option<String>,
     pub source: Option<PathBuf>,
     pub checkpoint: Option<PathBuf>,
@@ -283,6 +285,7 @@ masks, external-sam provider (flag, then environment variable):
                                   CRISP3DS_REPOSITORY: the checkout with scripts/turntable_mesh/segment.py]
   --sam-device mps|cpu|cuda (mps)   --[no-]sam-multimask --[no-]sam-preserve-holes --[no-]sam-automatic-cues (on)
 masks, sam provider (--[no-]sam-preserve-holes and --[no-]sam-automatic-cues apply to it too):
+  --sam-prompt-mask threshold|background (threshold)   coarse seed for either SAM provider; background uses RGB contrast
   --sam-model DIR                 model.json with the ONNX graphs, as tools/sam2_export_onnx.py writes them [CRISP3DS_SAM_MODEL];
                                   default: fetched on first use from huggingface.co/cstr/sam2.1-hiera-tiny-ONNX into the
                                   cache (CRISP3DS_CACHE_DIR, else the platform's) and checked against pinned SHA-256
@@ -500,6 +503,11 @@ pub fn resolve(arguments: &[String], environment: &dyn Fn(&str) -> Option<String
         environment: tool_environment,
     });
     let sam = SamOptions {
+        background_prompt: match word("sam-prompt-mask").as_str() {
+            "threshold" => false,
+            "background" => true,
+            value => bail!("invalid --sam-prompt-mask {value:?}; choose threshold or background"),
+        },
         python: pick("sam-python", "CRISP3DS_SAM_PYTHON"),
         source: pick("sam-source", "CRISP3DS_SAM_SOURCE").map(|p| absolute(&p)),
         checkpoint: pick("sam-checkpoint", "CRISP3DS_SAM_CHECKPOINT").map(|p| absolute(&p)),
@@ -671,6 +679,7 @@ impl Options {
             "sam": {"python": sam.python, "source": sam.source, "checkpoint": sam.checkpoint, "config": sam.config,
                     "pythonpath": sam.pythonpath, "repository": sam.repository, "device": sam.device, "multimask": sam.multimask,
                     "preserve_holes": sam.preserve_holes, "automatic_cues": sam.automatic_cues,
+                    "prompt_mask": if sam.background_prompt { "background" } else { "threshold" },
                     "model": sam.model, "runtime": sam.runtime, "accelerator": sam.accelerator,
                     "candidates": if sam.several_candidates { "several" } else { "single" }},
             "alicevision": {
@@ -755,6 +764,11 @@ pub(crate) mod tests {
         let native = resolve(&arguments(&folder, &["--masks", "sam"]), &none).unwrap();
         assert_eq!((options.hole_cleanup_budget, prompted.hole_cleanup_budget, native.hole_cleanup_budget), (0.02, 0.05, 0.05));
         assert!(!native.sam.several_candidates);
+        assert_eq!(native.to_json()["sam"]["prompt_mask"], "threshold");
+        let background = resolve(&arguments(&folder, &["--masks", "sam", "--sam-prompt-mask", "background"]), &none).unwrap();
+        assert!(background.sam.background_prompt);
+        assert_eq!(background.to_json()["sam"]["prompt_mask"], "background");
+        assert!(resolve(&arguments(&folder, &["--masks", "sam", "--sam-prompt-mask", "unknown"]), &none).is_err());
         let given =
             resolve(&arguments(&folder, &["--masks", "sam", "--hole-cleanup-budget", "0.01", "--sam-candidates", "several"]), &none);
         assert_eq!(given.as_ref().map(|o| (o.hole_cleanup_budget, o.sam.several_candidates)).unwrap(), (0.01, true));

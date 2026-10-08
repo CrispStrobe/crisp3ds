@@ -335,3 +335,29 @@ scanner evaluator warning now states this uncertainty rather than asserting
 that the reference must be mirrored. STL/GLB byte preservation and Khronos
 format validation pass for these exports; neither check establishes shape
 or appearance quality.
+
+
+### Further controls, 2026-10-08
+
+Disabling mask repair lost useful mustard neck/upper shell and cereal pale
+edges. Confidence-weighted fusion did not resolve the wrinkled bottle or
+printed false relief; neither change was adopted. A camera holdout reserves
+entire match components before fitting: on mustard, 91 held-out observations
+of 28 tracks selected using only their fitting observations have median/p95
+0.375/1.296 px. The full reserved set is much worse (424 observations,
+7.617/128.995 px), exposing bad correspondences. The subset does not establish
+local dense accuracy or the accuracy of every camera.
+
+Experimental native SAM background prompts recover more dark drill foreground
+in some views. A single candidate fails its positive-point check on photo 18.
+Multiple candidates complete 60 masks, but the reviewed sheet contains
+checkerboard/background contamination. The rotating-plane camera fit has only
+24.8% image support (required 25%); no gate was relaxed and no drill mesh was
+accepted. Own matches are retained for correspondence diagnostics.
+
+Coherent texture selection and bounded display-RGB brightness gains give
+modest appearance changes on the same meshes. Twenty-four views reduce some
+grey source boundaries on cereal, with a 5120-square atlas instead of 4096.
+The cereal and mustard meshes still fail the geometric target. Previewing
+texture and grey shading in Studio makes this distinction directly inspectable.
+See [quality evidence](../tests/evidence/quality-followup-review.json).

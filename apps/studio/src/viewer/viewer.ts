@@ -18,6 +18,8 @@ import {
   HemisphereLight,
   Mesh,
   MeshStandardMaterial,
+  MeshBasicMaterial,
+  Texture,
   PerspectiveCamera,
   Quaternion,
   Scene,
@@ -61,6 +63,7 @@ export class Viewer {
     flatShading: false,
   });
   private mesh: Mesh | null = null;
+  private photoMaterial: MeshBasicMaterial | null = null;
   private framed = false;
   /** The person has moved the camera since the last framing. */
   private moved = false;
@@ -126,11 +129,38 @@ export class Viewer {
     this.requestRender();
   }
 
+  /** Takes ownership of a photo mesh and texture, in the export's original frame. */
+  setPhotoMesh(geometry: BufferGeometry, texture: Texture): void {
+    this.clearMesh();
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    this.photoMaterial = new MeshBasicMaterial({ map: texture, side: DoubleSide });
+    this.mesh = new Mesh(geometry, this.photoMaterial);
+    this.orientation.add(this.mesh);
+    this.frame();
+    this.framed = true;
+    this.requestRender();
+  }
+
+  setPhotoAppearance(show: boolean): void {
+    if (this.mesh === null || this.photoMaterial === null) return;
+    this.mesh.material = show ? this.photoMaterial : this.material;
+    this.requestRender();
+  }
+
   /** Removes the mesh and frees its GPU buffers. The parsed arrays stay with whoever owns them. */
   clearMesh(): void {
     if (this.mesh === null) return;
     this.orientation.remove(this.mesh);
     this.mesh.geometry.dispose();
+    if (this.photoMaterial !== null) {
+      const map = this.photoMaterial.map;
+      map?.dispose();
+      const bitmap = map?.image as { close?: () => void } | undefined;
+      bitmap?.close?.();
+      this.photoMaterial.dispose();
+      this.photoMaterial = null;
+    }
     this.mesh = null;
     this.requestRender();
   }
