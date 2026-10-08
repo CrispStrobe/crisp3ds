@@ -1,0 +1,188 @@
+{
+  "schema": "crisp3ds_drill_matching_controls_v1",
+  "source": "60 own-calibrated RGB captures, own SAM masks and recovered cameras; no supplied extrinsics/masks/depth or scanner geometry",
+  "experiments": [
+    {
+      "id": "drill-original-rgb",
+      "mesh_sha256": "4b7c71795c3c91bc2bfa33156bdf79d95c2e4304d6fb240f84f25ca39c57de8f",
+      "reference_used": false,
+      "adopted": false,
+      "review": "Does not meet the drill geometry target",
+      "mesh_metrics": {
+        "components": 95,
+        "triangles": 984367,
+        "boundary_edges": 3533,
+        "genus": 219,
+        "closed": false
+      }
+    },
+    {
+      "id": "drill-geometric15",
+      "mesh_sha256": "f8fb4f20bd9fb95c6973bed6d7cbc4aa6c31dd870abf29807773c6519c8ef0fb",
+      "reference_used": false,
+      "adopted": false,
+      "review": "Does not meet the drill geometry target",
+      "mesh_metrics": {
+        "components": 89,
+        "triangles": 991173,
+        "boundary_edges": 4165,
+        "genus": 268,
+        "closed": false
+      }
+    },
+    {
+      "id": "drill-free01",
+      "mesh_sha256": "982c7631d8efc7ab20bc27f4200188805c63206c975cffb7434d76b5e9f63f82",
+      "reference_used": false,
+      "adopted": false,
+      "review": "Does not meet the drill geometry target",
+      "mesh_metrics": {
+        "components": 271,
+        "triangles": 774380,
+        "boundary_edges": 2738,
+        "genus": 106,
+        "closed": false
+      }
+    },
+    {
+      "id": "drill-native-sweep256",
+      "mesh_sha256": "bbf217023cdc6a28d707a205e6a02789400d77eb4e175725551c297d13939fc1",
+      "reference_used": false,
+      "adopted": false,
+      "review": "Does not meet the drill geometry target",
+      "mesh_metrics": {
+        "components": 110,
+        "triangles": 1060331,
+        "boundary_edges": 3687,
+        "genus": 303,
+        "closed": false
+      }
+    },
+    {
+      "id": "drill-poisson",
+      "mesh_sha256": "f23944dd5d37eea0db70ab2d8890913fbf255b07ef3b8a6a5dc90fef8d84883c",
+      "reference_used": false,
+      "adopted": false,
+      "review": "Does not meet the drill geometry target",
+      "triangles": 468652
+    }
+  ],
+  "sheets": [
+    ".local-tools/quality-235/drill-matching-controls.png",
+    ".local-tools/quality-235/drill-free-space-control.png",
+    ".local-tools/quality-235/drill-native-sweep-control.png",
+    ".local-tools/quality-235/drill-poisson-control.png"
+  ],
+  "controls": {
+    "geometric_weight_zero_depth_arrays_identical": true,
+    "geometric_cost_gpu_analytic_plane_test_passed": true,
+    "no_dense_defaults_changed": true
+  },
+  "limits": [
+    "No six-object scanner F1 adoption scores rerun",
+    "Full native sweep also changed plane count 96 to 256; not a resolution-only ablation",
+    "Poisson uses smoothed inverse depths for normals, measured points for positions; it infers unseen surfaces and creates an unsupported base",
+    "Original RGB matching does not remove broad casing distortion",
+    "Geometric cost on frozen prior depths changes too little; prototype parked, not shipped"
+  ],
+  "camera_provider_controls": [
+    {
+      "id": "drill-colmap-foreground2",
+      "status": "failed",
+      "gates": {
+        "input_photos": 60,
+        "landmarks": 1077,
+        "limits": {
+          "duplicate_step_deg": 0.5,
+          "full_turn": true,
+          "maximum_angular_gap_deg": 30.0,
+          "maximum_closing_step_ratio": 2.5,
+          "maximum_optical_axis_miss_percent": 25.0,
+          "maximum_out_of_plane_percent": 5.0,
+          "maximum_radius_spread_percent": 5.0,
+          "maximum_reversed_steps": 0,
+          "maximum_view_reprojection_p95_pixels": 4.0,
+          "minimum_observations_per_view": 20,
+          "minimum_positive_depth_fraction": 0.999,
+          "minimum_registered_fraction": 0.8,
+          "ring_gates": true
+        },
+        "missing": [
+          "capture_0044.png",
+          "capture_0045.png",
+          "capture_0046.png",
+          "capture_0047.png",
+          "capture_0048.png",
+          "capture_0049.png",
+          "capture_0050.png",
+          "capture_0051.png",
+          "capture_0052.png",
+          "capture_0053.png",
+          "capture_0054.png",
+          "capture_0055.png",
+          "capture_0056.png",
+          "capture_0057.png",
+          "capture_0058.png",
+          "capture_0059.png"
+        ],
+        "observations": 5340,
+        "passed": false,
+        "positive_depth_fraction": 1.0,
+        "reasons": [
+          "camera audit: insufficient registered camera coverage",
+          "largest gap between neighbouring cameras is 108.7 degrees; limit 30.0",
+          "registered 44 of 60 photos; need a fraction of 0.8"
+        ],
+        "registered_views": 44,
+        "reprojection_pixels": {
+          "count": 5340,
+          "max": 3.6161660627129435,
+          "median": 0.5242245408708691,
+          "p95": 2.0194547873071285
+        },
+        "ring": {
+          "cameras_looking_outward": 0,
+          "degenerate": false,
+          "duplicate_pose_pairs": [],
+          "first_capture": 0,
+          "fitted_radius": 4.260783317770921,
+          "largest_angular_gap_deg": 108.7336108319478,
+          "last_capture": 43,
+          "optical_axis_miss_percent": {
+            "max": 10.717825143734643,
+            "median": 9.812175791291287,
+            "min": 9.05270179848817
+          },
+          "out_of_plane_percent": 1.176448066528285,
+          "radius_spread_percent": 4.016702247989526,
+          "registered": 44,
+          "reversed_steps": 0,
+          "step_deg_per_capture": {
+            "max": 6.786502326921038,
+            "median": 5.880830810571922,
+            "min": 4.622995749147378
+          },
+          "unwrapped_sweep_deg": 251.2663891680522
+        },
+        "worst_view_reprojection_p95_pixels": 2.7916670386392375
+      },
+      "reasons": [
+        "camera audit: insufficient registered camera coverage",
+        "largest gap between neighbouring cameras is 108.7 degrees; limit 30.0",
+        "registered 44 of 60 photos; need a fraction of 0.8"
+      ],
+      "pipeline_inputs_written": false,
+      "supplied_poses_or_masks_or_depth_used": false
+    },
+    {
+      "id": "drill-colmap-scene",
+      "status": "failed",
+      "gates": null,
+      "reasons": [
+        "COLMAP could not find a good initial image pair; mapper found no model"
+      ],
+      "pipeline_inputs_written": false,
+      "supplied_poses_or_masks_or_depth_used": false
+    }
+  ]
+}

@@ -17,9 +17,13 @@ native/browser engines; completed runs offer GLB download/share. The surface-his
 viewer displays untextured geometry; the on-request texture preview below
 can switch between photo appearance and grey shading. JSON run options accept
 `"texture": true`; the default is false. The browser package builds, and the
-pipeline with textures passes the native memory-tree test, but real browser
-execution/memory and real-device sharing have not yet been measured for this
-option.
+pipeline with textures passes the native memory-tree test. A local threaded
+Chrome run on M1 (two threads, 60 drill photos, our SAM masks and cached RGB
+feature matches, cameras re-solved in the browser) completed all stages including
+texture in 95.9 seconds with 1.24 GiB WebAssembly linear-memory high water.
+All 60 camera rows contained original RGB sources; twelve were selected for
+texturing. This is one execution check, not acceptance of the drill's geometry
+or a browser/GPU RSS measurement. Real-device sharing is not yet checked.
 
 New photo-stage scenes include `texture_image` in each camera row: original
 capture RGB, undistorted into `texture_images/` with the recovered lens. Texture

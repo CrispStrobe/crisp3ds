@@ -187,3 +187,23 @@ include many outliers. Cycle-confirmed training matches do not improve the
 full foreground holdout and were not adopted. Photo-only mask grouping is now
 available in the camera diagnostic. See the
 [depth failure evidence](../tests/evidence/drill-depth-failure-diagnostic.json).
+
+
+### Original texture RGB and drill controls (2026-10-08)
+
+New photo-stage runs keep matching contrast separate from captured colour:
+`texture_image` names the original RGB, undistorted with the same recovered
+lens. Legacy scenes still fall back to their matching image. A 60-view native
+control preserved every camera parameter and matching-image byte while its
+texture pixels matched the original captures. The GLB preserved all 1,006,012
+triangle coordinates and winding, and passed format validation. The full
+threaded browser run passed too; see [texture evidence](../tests/evidence/original-texture-rgb.json).
+This fixes the colour source; the drill's geometry remains unacceptable.
+
+Original-RGB matching, frozen-prior geometric cost, reduced free-space carving,
+a full native sweep and Poisson reconstruction from our own filtered depths did
+not meet the drill shape target. Object-only COLMAP registered 44/60 and failed
+the existing camera gate; unmasked COLMAP could not initialize a model. No gate
+was relaxed and no dense default changed. [Recorded controls](../tests/evidence/drill-matching-controls.json)
+retain the rendered comparison paths and limitations; these are negative
+results, not an accepted quality improvement or six-object adoption validation.

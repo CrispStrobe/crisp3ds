@@ -14,11 +14,43 @@
     "rust_release_gpu_tests": 198,
     "studio_browser_input_tests": 17,
     "studio_build": true,
-    "threaded_wasm_build": true
+    "threaded_wasm_build": true,
+    "browser_end_to_end": {
+      "seconds": 95.86441000000387,
+      "memory": {
+        "wasm": 1336279040,
+        "files": 127131480
+      },
+      "peak_wasm": 1336279040,
+      "camera_rows": 60,
+      "original_rgb_rows": 60,
+      "original_rgb_bytes": 1803973,
+      "glb_bytes": 39521184,
+      "after_dispose": {
+        "wasm": 1336279040,
+        "files": 11890356
+      },
+      "photos": 60,
+      "threads": 2,
+      "registered_views": 60,
+      "original_rgb_selected_views": 12,
+      "stages_completed": [
+        "masks",
+        "cameras",
+        "stereo",
+        "mesh",
+        "check",
+        "texture"
+      ],
+      "own_cached_photo_matches": true,
+      "own_imported_masks": true,
+      "reconstruction_quality_accepted": false,
+      "memory_measure": "WASM linear-memory high water, not browser/GPU RSS",
+      "after_dispose_note": "Remaining stored files are the masks and cached matches injected outside the run root by this harness; the browser was then closed."
+    }
   },
   "limitations": [
     "New output stores a separate calibrated RGB set, increasing saved run size",
-    "No browser end-to-end memory measurement for this change yet",
     "Does not fix depth or surface distortion",
     "Old inputs must re-run the photo stage to get original RGB"
   ],
