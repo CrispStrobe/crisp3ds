@@ -6,6 +6,7 @@ import { REPLAY_SPEEDS, type ReplaySnapshot } from "../core/replay";
 import { RunStore, type RunSnapshot } from "../sources/runStore";
 import { describe } from "../sources/transport";
 import type { LinkStatus, ReplayControls, RunSource } from "../sources/types";
+import { canDownload, canShareFiles, downloadFile, shareFile } from "./download";
 import { Gallery } from "./gallery";
 import { InspectionPanel } from "./inspection";
 import { Icon } from "./icons";
@@ -28,6 +29,7 @@ const QUIET_AFTER_SECONDS = 180;
 export function RunView({ source, heading, backHref, themeTick }: Props) {
   const [snapshot, setSnapshot] = useState<RunSnapshot | null>(null);
   const [now, setNow] = useState(() => source.now());
+  const [downloadError, setDownloadError] = useState("");
   const [cancel, setCancel] = useState<{ state: "idle" | "asking" | "sent"; error?: string }>({ state: "idle" });
 
   useEffect(() => {
@@ -167,6 +169,20 @@ export function RunView({ source, heading, backHref, themeTick }: Props) {
       {link.state !== "failed" && (
         <>
           <Timeline run={run} now={now} />
+          {run.downloads.length > 0 && (
+            <section class="panel">
+              <h2>Textured model</h2>
+              <p class="sub">GLB includes the photo texture. The geometry viewer shows the untextured surface.</p>
+              {run.downloads.map((file) => (
+                <button key={file.path} type="button" class="button primary" disabled={!canDownload(source) && !canShareFiles()}
+                  onClick={() => void (canDownload(source) ? downloadFile(source, file.path) : shareFile(source, file.path)).catch((problem) => setDownloadError(describe(problem)))}>
+                  {canDownload(source) ? "Download textured GLB" : "Share textured GLB"}
+                </button>
+              ))}
+              {source.kind === "local" && <p class="sub">Saved in this run’s folder as texture/mesh.glb.</p>}
+              {downloadError && <p role="alert" class="field-error">{downloadError}</p>}
+            </section>
+          )}
           <div class="run-columns">
             <MeshPanel source={source} meshes={run.meshes} runStatus={run.status} themeTick={themeTick} />
             <ReportsPanel source={source} run={run} />

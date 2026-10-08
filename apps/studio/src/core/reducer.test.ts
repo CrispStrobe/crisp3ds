@@ -259,3 +259,14 @@ describe("selectors", () => {
     expect(stageElapsed(state.stages[1]!, 9999)).toBe(30);
   });
 });
+
+
+describe("textured export", () => {
+  it("offers GLB separately from STL geometry and rejects escaping paths", () => {
+    let state = reduce(initialState(), event("artifact", { stage: "texture", kind: "textured_mesh", path: "texture/mesh.glb", label: "Textured mesh" }));
+    expect(state.downloads.map((file) => file.path)).toEqual(["texture/mesh.glb"]);
+    expect(state.meshes).toEqual([]);
+    state = reduce(state, event("artifact", { stage: "texture", kind: "textured_mesh", path: "../escape.glb" }, 1));
+    expect(state.downloads).toHaveLength(1);
+  });
+});

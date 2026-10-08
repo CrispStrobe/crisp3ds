@@ -79,6 +79,10 @@ pub struct RunOptions {
     pub preview: bool,
     /// Keep `stereo/volume.npz` for re-meshing.
     pub keep_volume: bool,
+    /// Export a photo-textured GLB after meshing (additional memory and time).
+    pub texture: bool,
+    /// Source credit retained with the run and embedded in textured export.
+    pub attribution: Option<String>,
 }
 
 impl Default for RunOptions {
@@ -104,6 +108,8 @@ impl Default for RunOptions {
             check: true,
             preview: true,
             keep_volume: false,
+            texture: false,
+            attribution: None,
         }
     }
 }
@@ -413,6 +419,7 @@ pub fn run(options: &RunOptions, observer: Option<Observer>, cancel: Option<Arc<
 /// [`run`] as a future, for hosts that cannot block (a browser). Paths may
 /// name files of the in-memory tree (`crate::storage`); in a browser they all do.
 pub async fn run_async(options: &RunOptions, observer: Option<Observer>, cancel: Option<Arc<AtomicBool>>) -> anyhow::Result<Value> {
+    anyhow::ensure!(options.attribution.as_ref().is_none_or(|text| text.len() <= 65536), "attribution exceeds 64 KiB");
     let config = options.configuration()?;
     if options.output.as_os_str().is_empty() {
         bail!("an output directory is required");
@@ -438,6 +445,9 @@ pub async fn run_async(options: &RunOptions, observer: Option<Observer>, cancel:
         }
     }
     crate::storage::create_dir_all(&output).with_context(|| output.display().to_string())?;
+    if let Some(text) = &options.attribution {
+        crate::storage::write_new(output.join("ATTRIBUTION.txt"), text.as_bytes().to_vec())?;
+    }
     // Event paths are relative to the run directory as the file system names it.
     let output = crate::storage::canonicalize(&output)?;
     crate::storage::write(output.join("config.json"), serde_json::to_string_pretty(&config)? + "\n")?;
@@ -735,6 +745,18 @@ async fn stages(
         }
         driver.report["photo_check"] = driver.end(stage, result)?;
     }
+    if options.texture {
+        let texture_output = output.join("texture");
+        let stl = output.join("mesh/mesh.stl");
+        let command = ["crisp3ds-dense", "texture", "--inputs", &text(&inputs), "--mesh", &text(&stl)].map(String::from).to_vec();
+        let stage = driver.begin("texture", command, Some(900.0))?;
+        let result = crate::texture::run_with(&inputs, &stl, &texture_output, 12, 1024, &stage.control);
+        if result.is_ok() {
+            stage.events.artifact("textured_mesh", &texture_output.join("mesh.glb"), "Textured mesh (GLB)", json!({}))?;
+            stage.events.artifact("report", &texture_output.join("result.json"), "Texture coverage", json!({}))?;
+        }
+        driver.report["texture"] = driver.end(stage, result)?;
+    }
     if !options.keep_volume && crate::storage::exists(&volume) {
         crate::storage::remove_file(&volume)?;
     }
@@ -845,7 +867,7 @@ pub fn describe_with(photo_options: &[String]) -> Value {
 pub const USAGE: &str = "usage: crisp3ds-dense run --output DIR (--photos DIR --calibration JSON [--masks PROVIDER] [--cameras PROVIDER] \
 [options of `crisp3ds-dense photos`] | --inputs DIR | --scene FILE --prepared DIR --raw-masks DIR) \
 [--config FILE] [--preset detail] [--set KEY=VALUE]... [--threads N] [--stereo-timeout SECONDS] [--minimum-free-gib G] [--reuse-depths FILE] \
-[--no-live-previews] [--preview-step N] [--skip-check] [--no-preview] [--keep-volume]";
+[--texture] [--no-live-previews] [--preview-step N] [--skip-check] [--no-preview] [--keep-volume]";
 
 /// Options from the command line of `dense_pipeline.py` (the parts this driver covers).
 pub fn parse(arguments: &[String]) -> anyhow::Result<RunOptions> {
@@ -876,6 +898,7 @@ pub fn parse(arguments: &[String]) -> anyhow::Result<RunOptions> {
             "--skip-check" => options.check = false,
             "--no-preview" => options.preview = false,
             "--keep-volume" => options.keep_volume = true,
+            "--texture" => options.texture = true,
             // Accepted for command lines written for the Python driver; they select nothing here.
             "--device" | "--torch-python" | "--native" | "--photos-timeout" => drop(value()?),
             "--photos" => options.photos = Some(PathBuf::from(value()?)),
@@ -1106,13 +1129,13 @@ mod tests {
         let sink = seen.clone();
         let observer: Observer = Arc::new(move |event: &Value| sink.lock().unwrap().push(event.clone()));
         let options =
-            RunOptions { output: root.join("run"), inputs: Some(root.join("inputs")), overrides: overrides.clone(), ..Default::default() };
+            RunOptions { output: root.join("run"), inputs: Some(root.join("inputs")), overrides: overrides.clone(), texture: true, attribution: Some("Synthetic research capture".into()), ..Default::default() };
         let report = run(&options, Some(observer), None).unwrap();
         assert_eq!(report["status"], "complete");
         assert_eq!(report["closed"], true);
         assert!(report["triangles"].as_u64().unwrap() > 10_000);
         assert!(report["photo_check"]["silhouette_iou_input_masks"]["median"].as_f64().unwrap() > 0.9);
-        for stage in ["stereo", "mesh", "check"] {
+        for stage in ["stereo", "mesh", "check", "texture"] {
             assert_eq!(report["stages"][stage]["exit_code"], 0, "{stage}");
             assert!(Path::new(report["stages"][stage]["log"].as_str().unwrap()).is_file());
         }
@@ -1122,6 +1145,9 @@ mod tests {
         {
             assert!(run_directory.join(file).is_file(), "{file}");
         }
+        assert!(run_directory.join("texture/mesh.glb").is_file());
+        assert_eq!(report["texture"]["attribution_embedded"],true);
+        assert!(report["texture"]["untextured_area_fraction"].as_f64().unwrap()<0.4);
         assert!(!run_directory.join("stereo/volume.npz").exists());
         assert!(std::fs::read_dir(run_directory.join("stereo/preview"))
             .unwrap()
@@ -1146,6 +1172,8 @@ mod tests {
             ("stage_finished", "mesh"),
             ("stage_started", "check"),
             ("stage_finished", "check"),
+            ("stage_started", "texture"),
+            ("stage_finished", "texture"),
         ];
         assert_eq!(stages, expected.map(|(a, b)| (a.to_string(), b.to_string())));
         for (kind, count) in [
@@ -1158,7 +1186,8 @@ mod tests {
             ("final_mesh", 1),
             ("photo_overlay", 1),
             ("preview_render", 1),
-            ("report", 2),
+            ("report", 3),
+            ("textured_mesh", 1),
         ] {
             assert_eq!(kinds(&events, kind), count, "{kind}");
         }
@@ -1171,6 +1200,7 @@ mod tests {
         synthetic::write(&memory.join("inputs"), 24, 128).unwrap();
         let options = RunOptions {
             output: memory.join("run"),
+            texture: true,
             inputs: Some(memory.join("inputs")),
             overrides: overrides.clone(),
             ..Default::default()

@@ -60,6 +60,17 @@ README.
 
 ## In progress
 
+- **Photo-textured GLB**: opt-in `run --texture` and standalone `texture`
+  command, also offered in Studio for built-in engines. An embedded UV atlas
+  uses the pipeline's own recovered cameras, photos and masks; unseen regions
+  are grey. Geometry is preserved. Initial view-coherence/visibility checks
+  reduce patchwork, but seams and captured-lighting differences remain.
+  Browser package builds; real browser execution/memory and device sharing
+  still need validation. Fresh Rhino: 72/72 photos, 96 s including initial
+  texturing; mustard stops before stereo because threshold masks select the
+  undistortion border. [Usage and limits](TEXTURED-MESH.md),
+  [photo-only evidence](../tests/evidence/photo-texture-review.json).
+
 - **Facial detail and source review**: optional neighboring-plane PatchMatch
   is excluded from ordinary engine builds and settings forms. The explicit
   `research-patchmatch` Cargo feature retains it for research, without granting

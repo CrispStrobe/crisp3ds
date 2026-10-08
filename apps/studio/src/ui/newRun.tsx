@@ -42,6 +42,7 @@ export function NewRun({ engine, prefs, onChange }: Props) {
   const [health, setHealth] = useState<EngineHealth | null>(null);
   const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState<FormValues>({});
+  const [texture, setTexture] = useState(false);
   const [name, setName] = useState("");
   const [values, setValues] = useState<Record<string, string>>({ inputs: engine.kind === "browser" ? ((engine as BrowserEngine).inputs()?.name ?? "") : prefs.inputs });
   const [pointId, setPointId] = useState("inputs");
@@ -106,7 +107,7 @@ export function NewRun({ engine, prefs, onChange }: Props) {
     setBusy(true);
     try {
       const start = { name, device: choosesDevice ? device : "", reference: scoresReference ? reference : "", values, providers, options: providerOptions };
-      const id = await engine.startRun(startBody(point, start, diff.changed));
+      const id = await engine.startRun({ ...startBody(point, start, diff.changed), ...(engine.kind === "browser" || engine.kind === "local" ? { texture } : {}) });
       if (engine.kind !== "browser") onChange({ inputs: (values.inputs ?? "").trim(), device });
       navigate(`#/engine/run/${encodeURIComponent(id)}`);
     } catch (problem) {
@@ -303,6 +304,13 @@ export function NewRun({ engine, prefs, onChange }: Props) {
             )}
           </div>
         </fieldset>
+
+        {(engine.kind === "browser" || engine.kind === "local") && (
+          <label class="field">
+            <span><input type="checkbox" checked={texture} onChange={(event) => setTexture(event.currentTarget.checked)} /> Export textured GLB (experimental)</span>
+            <span class="sub">Adds photo colours to the mesh. Uses more memory and time; photo seams may remain.</span>
+          </label>
+        )}
 
         <div class="settings-head">
           <h2>Settings</h2>

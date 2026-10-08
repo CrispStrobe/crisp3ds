@@ -125,6 +125,7 @@ pub struct StartBody {
     /// Tuning options of the photos stage, one word per element. Never a place or a program.
     pub photo_options: Vec<String>,
     pub settings: Map<String, Value>,
+    pub texture: bool,
     pub reference: Option<String>,
     /// Accepted and ignored: the built-in engine uses the system's GPU through wgpu.
     pub device: Option<String>,
@@ -585,7 +586,10 @@ impl Native {
         if body.reference.as_deref().is_some_and(|text| !text.trim().is_empty()) {
             return Err("reference: the built-in engine cannot score against a reference scan; leave it empty".into());
         }
-        let mut options = RunOptions { output: self.runs().join(id), settings: body.settings.clone(), ..RunOptions::default() };
+        let mut options = RunOptions {
+            output: self.runs().join(id), settings: body.settings.clone(), texture: body.texture,
+            attribution: body.attribution.clone(), ..RunOptions::default()
+        };
         let given = |text: &Option<String>| text.as_deref().map(str::trim).filter(|text| !text.is_empty()).map(str::to_string);
         if let Some(photos) = given(&body.photos) {
             let folder = self.resolve_source("photos", &photos)?;
@@ -640,13 +644,8 @@ impl Native {
         if attribution.as_ref().is_some_and(|text| text.len() > 16 * 1024) {
             return Err("attribution: too long".into());
         }
-        let folder = options.output.clone();
-        let id = self.start_with(id, options, crisp3ds_dense::run::run)?;
-        // The run folder is the engine's to create; once the run has started, the note goes in.
-        if let Some(text) = attribution {
-            let _ = std::fs::write(folder.join("ATTRIBUTION.txt"), format!("{text}\n"));
-        }
-        Ok(id)
+        // The pipeline writes source credit before emitting its first event.
+        self.start_with(id, options, crisp3ds_dense::run::run)
     }
 
     /// The same with the pipeline passed in, so tests can run without a GPU.
@@ -1180,8 +1179,12 @@ mod tests {
         };
         // Providers inside the crate need no tool, and none is named.
         let mut request = body(json!({"masks": "threshold", "cameras": "turntable"}));
+        request.texture = true;
+        request.attribution = Some("Photo source credit".into());
         request.photo_options = ["--threshold-level", "otsu", "--turntable-span", "6"].map(String::from).to_vec();
         let options = engine.options(&request, "id").unwrap();
+        assert!(options.texture);
+        assert_eq!(options.attribution.as_deref(), Some("Photo source credit"));
         assert_eq!(options.photos.as_deref(), Some(root.join("data/bunny/rgb").as_path()));
         assert_eq!(options.inputs, None);
         let lens = root.join("data/lens.json").to_string_lossy().into_owned();

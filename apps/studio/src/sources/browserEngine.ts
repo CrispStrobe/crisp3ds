@@ -441,6 +441,7 @@ export class BrowserEngine implements Engine {
     const id = `browser-${String(++this.counter).padStart(2, "0")}-${name.replace(/[^A-Za-z0-9._-]+/g, "-").slice(0, 40) || "run"}`;
     const previews = this.previews ?? previewAdvice(this.picked.views, this.picked.megapixels).on;
     const options: Record<string, unknown> = { live_previews: previews };
+    if (body.texture === true) options.texture = true;
     if (typeof body.settings === "object" && body.settings !== null) options.settings = body.settings;
     this.runs.set(id, { id, events: [], status: "running", started: this.clock(), stage: null, fraction: 0, peak: 0, ended: false, listeners: new Set() });
     this.worker?.postMessage({ type: "run", id, files: this.picked.files, options });
@@ -472,8 +473,10 @@ export class BrowserEngine implements Engine {
     const id = `browser-${String(++this.counter).padStart(2, "0")}-${name.replace(/[^A-Za-z0-9._-]+/g, "-").slice(0, 40) || "run"}`;
     // Photo sets are large: intermediate surfaces only when asked for.
     const options: Record<string, unknown> = { live_previews: this.previews ?? false, photo_options: ["--masks", masks, "--cameras", cameras, ...extra] };
+    if (body.texture === true) options.texture = true;
     if (typeof body.settings === "object" && body.settings !== null) options.settings = body.settings;
     const attribution = typeof body.attribution === "string" && body.attribution.trim() !== "" ? body.attribution.trim() : undefined;
+    if (attribution !== undefined) options.attribution = attribution;
     this.runs.set(id, { id, events: [], status: "running", started: this.clock(), stage: null, fraction: 0, peak: 0, ended: false, listeners: new Set(), attribution });
     this.worker?.postMessage({ type: "run-photos", id, photos: this.photos.files, calibration: this.calibration.text, options });
     return id;

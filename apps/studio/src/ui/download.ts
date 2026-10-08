@@ -29,7 +29,7 @@ export function canShareFiles(): boolean {
 export async function shareFile(source: RunSource, path: string): Promise<void> {
   const bytes = await source.fetchBytes(path);
   const name = downloadName(source.title.split("/").filter(Boolean).pop() ?? "run", path);
-  const file = new File([bytes], name, { type: path.endsWith(".stl") ? "model/stl" : "application/octet-stream" });
+  const file = new File([bytes], name, { type: path.endsWith(".stl") ? "model/stl" : path.endsWith(".glb") ? "model/gltf-binary" : "application/octet-stream" });
   try {
     await navigator.share({ files: [file], title: name });
   } catch (problem) {

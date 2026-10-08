@@ -78,10 +78,10 @@ describe("the engine in this browser", () => {
     const { engine, revoked } = engineWith(worker);
     await expect(engine.startRun({})).rejects.toMatchObject({ status: 400, message: expect.stringContaining("choose the inputs folder") });
     engine.setInputs(picked());
-    const id = await engine.startRun({ settings: { grid: 96 }, name: "my sphere!" });
+    const id = await engine.startRun({ settings: { grid: 96 }, texture: true, name: "my sphere!" });
     expect(id).toBe("browser-01-my-sphere-");
     const sent = worker.sent.at(-1) as Extract<ToWorker, { type: "run" }>;
-    expect(sent).toMatchObject({ type: "run", id, options: { live_previews: true, settings: { grid: 96 } } });
+    expect(sent).toMatchObject({ type: "run", id, options: { live_previews: true, texture: true, settings: { grid: 96 } } });
     expect(sent.files.map(([path]) => path)).toEqual(["cameras.json"]);
     await expect(engine.startRun({})).rejects.toThrow(/already in progress/);
 

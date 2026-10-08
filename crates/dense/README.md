@@ -1721,3 +1721,9 @@ crisp3ds-dense mesh --volume trial/stereo/volume.npz --output trial/mesh
 The independent refinement alone added about 88 s on the native M1 Bunny run.
 Browser execution time/memory and the other five objects have not been measured
 for these new options.
+
+
+Photo-textured GLB export is available with `run --texture` or the standalone
+`texture` command, using the reconstruction's own cameras and photographs.
+It is opt-in and preserves geometry. See [textured meshes](../../docs/TEXTURED-MESH.md)
+for CLI/API/Studio use, visibility checks, coverage, comparisons and limitations.

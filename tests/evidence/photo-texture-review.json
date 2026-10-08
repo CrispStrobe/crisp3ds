@@ -1,0 +1,123 @@
+{
+  "schema": "crisp3ds_photo_texture_review_v1",
+  "date": "2026-10-08",
+  "new_defaults": false,
+  "new_production_dependencies": false,
+  "new_code": "Original implementation using existing dependencies; no upstream algorithm code copied. Not patent freedom-to-operate clearance.",
+  "cases": [
+    {
+      "object": "bunny",
+      "input_provenance": "Own photo-derived masks, recovered cameras and reconstructed mesh; no supplied scanner/poses/depth/masks as reconstruction inputs",
+      "fresh_photo_run_this_review": false,
+      "photos": 73,
+      "texture": {
+        "triangles": 1034370,
+        "untextured_area_fraction": 0.1400216636099586,
+        "atlas_size": [
+          4096,
+          4096
+        ],
+        "glb_bytes": 39793664,
+        "attribution_embedded": true,
+        "geometry_changed": false,
+        "reference_used": false,
+        "seconds": 2.984840042
+      },
+      "geometry_check": {
+        "deindexed_triangle_positions_and_winding_byte_equal_to_input_stl": true,
+        "triangles": 1034370,
+        "mesh_sha256": "3bd59d1df725c5f1727c06635c0c8622e1f2a8250e212b6c31e813db6688c283",
+        "glb_sha256": "a4e034284eefc2fbbf34afb58da03220d1dd1e3db71ab5448a55944a7cef087e"
+      },
+      "gltf_validator": {
+        "package": "gltf-validator@2.0.0-dev.3.10 (local evaluation only)",
+        "errors": 0,
+        "warnings": 0,
+        "hints": 0
+      },
+      "render": {
+        "artifact": ".local-tools/detail-233/bunny-textured-coherent-head.png",
+        "sha256": "a238c4ced259918017cd77fcf9ef2bbfb5ab618be06d2e4698ef441c637f0a01",
+        "visual_review": "Three matched textured/untextured views inspected. Seams and geometric limitations remain; texture is not recovered relief."
+      },
+      "geometry_context": "Retained independent slanted refinement + fusion interpolation experimental mesh; does not establish six-object default adoption or resolved facial detail."
+    },
+    {
+      "object": "rhino",
+      "input_provenance": "Own photo-derived masks, recovered cameras and reconstructed mesh; no supplied scanner/poses/depth/masks as reconstruction inputs",
+      "fresh_photo_run_this_review": true,
+      "photos": 72,
+      "texture": {
+        "triangles": 463676,
+        "untextured_area_fraction": 0.18223972917033418,
+        "atlas_size": [
+          4096,
+          4096
+        ],
+        "glb_bytes": 25011300,
+        "attribution_embedded": true,
+        "geometry_changed": false,
+        "reference_used": false,
+        "seconds": 1.492288792
+      },
+      "geometry_check": {
+        "deindexed_triangle_positions_and_winding_byte_equal_to_input_stl": true,
+        "triangles": 463676,
+        "mesh_sha256": "ef767aff5f9733501657ebad105096c77369e8bb31d9a2a0237009705305da54",
+        "glb_sha256": "33f55342667af503ce57fc471dd3818833be9ffefd95d1e2d8931071bcf3452a"
+      },
+      "gltf_validator": {
+        "package": "gltf-validator@2.0.0-dev.3.10 (local evaluation only)",
+        "errors": 0,
+        "warnings": 0,
+        "hints": 0
+      },
+      "render": {
+        "artifact": ".local-tools/detail-233/rhino-textured-review.png",
+        "sha256": "e3cc79e2da67943a2f02fe053052e3644989ec81f7d5e9dc50582955b19b5b0d",
+        "visual_review": "Three matched textured/untextured views inspected. Seams and geometric limitations remain; texture is not recovered relief."
+      },
+      "photo_pipeline": {
+        "registered": 72,
+        "seconds": 96.098282541,
+        "closed": true,
+        "genus": 6,
+        "default_geometry_settings": true,
+        "fresh_attributed_export_after_run": true
+      }
+    },
+    {
+      "object": "mustard",
+      "photos": 60,
+      "fresh_photo_run_this_review": true,
+      "input_provenance": "Already lens-undistorted RGB with matching pinhole calibration; own threshold masks, no supplied poses/masks/depth",
+      "status": "failed before stereo/meshing/texture",
+      "frontend_seconds": 28.219018625,
+      "order_gate": {
+        "neighbor_matches_median": 25,
+        "four_apart_matches_median": 25
+      },
+      "visual_review": "Mask contact sheet inspected: foreground mask selects black undistortion border, omitting bottle. Fix foreground selection before assigning current failure to steep camera solver. Historical supplied-mask runs are diagnostics only.",
+      "reference_geometry_used": false,
+      "supplied_poses_used": false
+    }
+  ],
+  "validation": {
+    "dense_lib_tests_passed": 189,
+    "studio_tests_passed": 151,
+    "studio_build": "passed",
+    "threaded_wasm_build": "passed",
+    "browser_export_execution_memory": "not measured",
+    "native_in_memory_pipeline_texture": "passed",
+    "browser_render": "Three.js GLTFLoader loaded final attributed GLBs; six views per case, no page errors",
+    "real_device_share": "not tested",
+    "native_studio_tests_passed": 18
+  },
+  "limitations": [
+    "Eyes/nose geometry remains weak",
+    "Discrete view seams and captured lighting remain",
+    "Studio viewer remains untextured; GLB download/share added",
+    "No identical-input KIRI benchmark or upload",
+    "Other image sets not newly rerun in this texture review"
+  ]
+}

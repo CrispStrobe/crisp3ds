@@ -121,6 +121,7 @@ export interface RunState {
   sheets: Sheet[];
   inspections: Inspection[];
   reports: ReportRef[];
+  downloads: ReportRef[];
   metrics: Metric[];
   errors: RunError[];
   /** Events applied so far, including ignored ones. */
@@ -141,6 +142,7 @@ export function initialState(): RunState {
     sheets: [],
     inspections: [],
     reports: [],
+    downloads: [],
     metrics: [],
     errors: [],
     eventCount: 0,
@@ -289,6 +291,10 @@ function artifact(state: RunState, next: RunState, event: RunEvent): RunState {
     const step = typeof event.step === "string" && event.step !== "" ? event.step : (path.split("/").pop() ?? path).replace(/\.png$/, "");
     const label = typeof event.label === "string" && event.label !== "" ? event.label : inspectionTitle(step);
     next.inspections = orderInspections([...state.inspections.filter((item) => item.path !== path), { seq: event.seq, path, step, label }]);
+    return next;
+  }
+  if (kind === "textured_mesh") {
+    next.downloads = bySeq(replaceByPath(state.downloads, { seq: event.seq, path, label, stage: event.stage }));
     return next;
   }
   if (kind === "report") {

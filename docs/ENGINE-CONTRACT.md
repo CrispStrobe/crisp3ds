@@ -44,7 +44,7 @@ the number of lines consumed; over HTTP each event carries that line number as
 `seq`. A last line without a newline is still being written and must be ignored.
 
 Every event has `type`, `time` (Unix seconds) and `stage` (`masks`, `cameras`,
-`inputs`, `stereo`, `mesh`, `check`, `evaluate`, or null for run-level events).
+`inputs`, `stereo`, `mesh`, `check`, `texture`, `evaluate`, or null for run-level events).
 `masks` and `cameras` appear only in runs started from plain photos
 (`docs/PHOTOS-TO-INPUTS.md`).
 
@@ -73,6 +73,7 @@ Artifact kinds, in the order they normally appear:
 | `hull_mask_sheet` | PNG | Hull against masks: red where a mask is not covered, blue where the hull lies outside a mask |
 | `depth_sheet` | PNG | Per level: photo, depth, depth shading for three views. `level` says which; the last one is the merged final depth |
 | `final_mesh` | binary STL | The result at full resolution (can be 50 MB) |
+| `textured_mesh` | GLB | Optional `texture: true` stage: preserved geometry with UVs and embedded photo atlas; a download, separate from STL viewer meshes |
 | `photo_overlay` | PNG | Mesh outline against masks: green both, red mask only, blue mesh only |
 | `preview_render` | PNG | Photos above, shaded reconstruction below |
 | `scan_overlay` | PNG | Distance to an independent scan, when one was given |

@@ -4,7 +4,10 @@ The seven 3DLF objects share one light-field camera with soft photos, one
 light backdrop, one turntable and one matte grey print. This page records how
 the native pipeline (`crates/dense`) does on sets that differ in camera, rig,
 material and capture path, scored against each set's ground truth. Ground
-truth is used for scoring only. Evaluators: `scripts/turntable_mesh/scan_evaluate.py`
+truth must be used for scoring only in current end-to-end evaluations.
+Historical rows below that import dataset masks or poses are **stage diagnostics**,
+not valid photo-only adoption evidence. They must not be reused as reconstruction
+inputs. Evaluators: `scripts/turntable_mesh/scan_evaluate.py`
 (shape-only similarity fit, F1 at 0.5 / 1 / 2 % of the reference diagonal;
 `--no-platform` for complete object meshes) and
 `scripts/turntable_mesh/dtu_evaluate.py` (the DTU protocol: accuracy and
@@ -209,3 +212,24 @@ What this answers:
   (`radialk3`) cannot carry it.
 - **Glossy, dark or plain surfaces** (drill, rabbit, skull dome) give noisy
   depth, as expected for photo-consistency matching.
+
+
+## Photo-only texture follow-up, 2026-10-08
+
+The new texture exporter does not bypass masks or camera gates. A fresh run on
+60 mustard photos (already undistorted with the lens calibration), threshold
+masks and recovered turntable cameras still fails the order check: median
+neighbor matches 25, photos four apart 25. Supplied masks/poses were not used;
+no dense mesh or texture was produced. This is a current front-end failure,
+not evidence that texture export repairs mustard. The retained mask contact
+sheet shows the mask selecting the black undistortion border while excluding
+the bottle. This invalid foreground selection must be fixed before attributing
+this fresh failure to steep camera angles. Historical runs with dataset masks
+remain separate diagnostics; they do not establish current photo-only recovery.
+
+The validation cases serve different purposes: Bunny local facial geometry;
+Rhino thin parts and textured rendering; printed boxes seams and ambiguous
+horizontal edges; mustard masks plus steep-camera/low-feature recovery; drill
+glossy surfaces; Mario/shoe light foreground. DTU needs photo-derived masks
+and recovered cameras before it can count as end-to-end adoption evidence.
+See [textured meshes](TEXTURED-MESH.md) and [texture evidence](../tests/evidence/photo-texture-review.json).

@@ -7,6 +7,7 @@ export const STAGE_TEXT: Record<string, { title: string; what: string }> = {
   inputs: { title: "Inputs", what: "Photos, cameras, masks" },
   stereo: { title: "Stereo", what: "Depth from photo pairs" },
   mesh: { title: "Mesh", what: "Closed surface" },
+  texture: { title: "Texture", what: "Photo colours on the surface" },
   check: { title: "Check", what: "Compare with the photos" },
   evaluate: { title: "Evaluate", what: "Compare with a scan" },
   run: { title: "Run", what: "" },
