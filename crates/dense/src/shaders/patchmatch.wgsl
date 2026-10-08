@@ -18,6 +18,8 @@
 // `ROW` is prepended by the dispatch layer.
 
 const INVALID_SCORE: f32 = -2.0;
+// Percentile stretching keeps valid negative brightness values.
+const INVALID_SAMPLE: f32 = -1e30;
 const NEIGHBOURS: u32 = 8u;  // neighbour views a plane is scored against, at most
 
 struct Neighbour {
@@ -99,12 +101,12 @@ fn sample(j: u32, point: vec3<f32>) -> f32 {
     let qy = dot(n.r1.xyz, point) + n.r1.w;
     let qz = dot(n.r2.xyz, point) + n.r2.w;
     if (!(qz > 0.0)) {
-        return -1.0;
+        return INVALID_SAMPLE;
     }
     let ix = qx / qz * n.k.x + n.k.z - 0.5;
     let iy = qy / qz * n.k.y + n.k.w - 0.5;
     if (!(ix > -2.0 && iy > -2.0 && ix < f32(n.extent.x) + 1.0 && iy < f32(n.extent.y) + 1.0)) {
-        return -1.0;
+        return INVALID_SAMPLE;
     }
     let x0f = floor(ix);
     let y0f = floor(iy);
@@ -117,7 +119,7 @@ fn sample(j: u32, point: vec3<f32>) -> f32 {
     let coverage = nbr_mask_at(j, x0, y0) * nw + nbr_mask_at(j, x0 + 1, y0) * ne + nbr_mask_at(j, x0, y0 + 1) * sw
         + nbr_mask_at(j, x0 + 1, y0 + 1) * se;
     if (!(coverage >= 0.999)) {
-        return -1.0;
+        return INVALID_SAMPLE;
     }
     return nbr_gray_at(j, x0, y0) * nw + nbr_gray_at(j, x0 + 1, y0) * ne + nbr_gray_at(j, x0, y0 + 1) * sw
         + nbr_gray_at(j, x0 + 1, y0 + 1) * se;
@@ -180,7 +182,7 @@ fn score(x: i32, y: i32, plane: vec4<f32>) -> f32 {
             let a = ref_gray[u32(qy) * params.size.x + u32(qx)] - 0.5;
             for (var j = 0u; j < params.size.z; j++) {
                 let value = sample(j, point);
-                if (value < 0.0) {
+                if (value == INVALID_SAMPLE) {
                     continue;
                 }
                 let b = value - 0.5;

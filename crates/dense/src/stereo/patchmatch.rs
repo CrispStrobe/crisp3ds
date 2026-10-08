@@ -389,6 +389,8 @@ pub fn consistent_planes(
 pub mod reference {
     use super::*;
 
+    const INVALID_SAMPLE: f32 = -1e30;
+
     pub struct Scorer<'a> {
         level: &'a [LevelView],
         view: usize,
@@ -418,13 +420,13 @@ pub mod reference {
             let dot = |row: &[f32; 4]| row[0] * point[0] + row[1] * point[1] + row[2] * point[2] + row[3];
             let (qx, qy, qz) = (dot(&n.r0), dot(&n.r1), dot(&n.r2));
             if !(qz > 0.0) {
-                return -1.0;
+                return INVALID_SAMPLE;
             }
             let (w, h) = (n.extent[0] as i32, n.extent[1] as i32);
             let ix = qx / qz * n.k[0] + n.k[2] - 0.5;
             let iy = qy / qz * n.k[1] + n.k[3] - 0.5;
             if !(ix > -2.0 && iy > -2.0 && ix < w as f32 + 1.0 && iy < h as f32 + 1.0) {
-                return -1.0;
+                return INVALID_SAMPLE;
             }
             let other = &self.geometry;
             let texel = |x: i32, y: i32| -> (f32, f32) {
@@ -446,7 +448,7 @@ pub mod reference {
             let corners = [texel(x0, y0), texel(x0 + 1, y0), texel(x0, y0 + 1), texel(x0 + 1, y0 + 1)];
             let coverage: f32 = corners.iter().zip(weights).map(|(c, w)| c.0 * w).sum();
             if !(coverage >= 0.999) {
-                return -1.0;
+                return INVALID_SAMPLE;
             }
             corners.iter().zip(weights).map(|(c, w)| c.1 * w).sum()
         }
@@ -498,7 +500,7 @@ pub mod reference {
                         }
                         let t = offset / along;
                         let value = self.sample(j, rq.map(|v| v * t));
-                        if value < 0.0 {
+                        if value == INVALID_SAMPLE {
                             continue;
                         }
                         let a = reference.gray.data[qy as usize * reference.width + qx as usize] - 0.5;
@@ -565,6 +567,56 @@ mod tests {
             assert!((0..3).all(|a| (back[a] - n[a]).abs() < 1e-3), "{n:?} {back:?}");
         }
         assert_eq!(unpack_normal(pack_normal([0.0; 3])), None);
+    }
+
+    /// NCC is invariant to an additive brightness offset. In particular, valid
+    /// negative samples after percentile stretching must not become missing data.
+    #[test]
+    fn negative_brightness_is_valid_matching_data() {
+        let root = synthetic::temporary("patchmatch-negative", 24, 96).unwrap();
+        let overrides: Vec<String> = synthetic::SMALL.iter().map(|s| s.to_string()).collect();
+        let config = options::build(None, &overrides).unwrap();
+        let inputs = Inputs::load(&root.join("inputs"), &config).unwrap();
+        crate::storage::remove_dir_all(&root).unwrap();
+        let level = build_level(&inputs, 96);
+        let mut dark = level.clone();
+        for view in &mut dark {
+            for value in &mut view.gray.data {
+                *value -= 2.0;
+            }
+        }
+        let view = 5;
+        let neighbours = inputs.neighbours(view, config.neighbours as usize, &config).unwrap();
+        let exact = synthetic::sphere_depth(&level[view]);
+        let planes = initial_planes(&level[view], &exact, &exact);
+        let search = Hull::from_flags(&vec![true; 64 * 64 * 64], [64; 3], [-1.6; 3], 0.05);
+        let gpu = crate::gpu::tests_enabled().then(|| Gpu::new().unwrap());
+        for radius in [3, 5] {
+            let settings = Settings {
+                radius,
+                stride: 2,
+                best_of: config.best_of as u32,
+                min_variance: config.min_variance as f32,
+                window_fill: config.window_fill as f32,
+                iterations: 0,
+                inverse_step: 0.01,
+                normal_step: 0.3,
+                inverse_range: (1e-3, 10.0),
+                seed: 7,
+            };
+            let bright = reference::Scorer::new(&level, view, &neighbours, &search, &settings).evaluate(&planes);
+            let shifted = reference::Scorer::new(&dark, view, &neighbours, &search, &settings).evaluate(&planes);
+            let valid = bright.iter().filter(|&&v| v > -1.5).count();
+            assert!(valid > 1000);
+            let close = bright.iter().zip(&shifted).filter(|(&a, &b)| (a - b).abs() < 0.01).count();
+            assert!(close * 100 >= bright.len() * 99, "brightness offset changed {}/{} scores", bright.len() - close, bright.len());
+            if let Some(gpu) = &gpu {
+                let pm = crate::gpu::block_on(PatchMatch::new(gpu, &search)).unwrap();
+                let (_, found) = crate::gpu::block_on(pm.run(gpu, &dark, view, &neighbours, &search, &planes, &settings)).unwrap();
+                let close = bright.iter().zip(&found).filter(|(&a, &b)| (a - b).abs() < 0.01).count();
+                assert!(close * 100 >= bright.len() * 99, "GPU rejected or changed valid negative samples: {close}/{}", bright.len());
+            }
+        }
     }
 
     /// Planes of the exact sphere score near 1, a plane displaced along the ray scores lower, and
