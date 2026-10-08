@@ -1,0 +1,103 @@
+{
+  "reviewed": "2026-10-08",
+  "scope": "Source-selection review for new detail-reconstruction work; not a patent clearance or a dependency-closure audit. No upstream code incorporated by this review.",
+  "policy": {
+    "new_incorporated_code": [
+      "MIT",
+      "Apache-2.0",
+      "BSD-2-Clause",
+      "BSD-3-Clause",
+      "ISC",
+      "Zlib",
+      "BSL-1.0",
+      "0BSD"
+    ],
+    "adaptation_requirements": [
+      "Verify exact file provenance and upstream notices, not just repository badge.",
+      "Retain required copyright, license and NOTICE text in source and distributed notices.",
+      "Record upstream revision, files, and modifications.",
+      "Check dependencies, weights and assets separately."
+    ],
+    "unchanged_project_license": "AGPL-3.0-only with existing owner store-build permission; this selection policy does not relicense Crisp3DS."
+  },
+  "decisions": {
+    "colmap/colmap": "Preferred implementation reference: stereo file explicitly SPDX BSD-3-Clause; verify each adapted file and avoid unnecessary CUDA/library dependency imports.",
+    "GhiXu/ACMM": "MIT declared. README acknowledges Gipuma (GPL-3.0) and COLMAP; this alone does not establish copied GPL code. Direct reuse is deferred pending provenance review. Use published method as algorithmic reference.",
+    "kysucix/gipuma": "GPL-3.0: exclude source adaptations and linking from new permissive-only work.",
+    "alicevision/AliceVision": "MPL-2.0: outside new permissive-only incorporation scope; existing external evaluation tooling is not changed.",
+    "cdcseacave/openMVS": "AGPL-3.0: outside new permissive-only incorporation scope."
+  },
+  "implementation_priority": [
+    "Stage-by-stage eye/nose depth accuracy and rejection diagnostics.",
+    "Pixelwise source-view weighting and visibility-aware consistency, informed by COLMAP.",
+    "Coarse-depth error correction and detail restoration, informed by ACMM paper.",
+    "Confidence-preserving fusion once per-view depth improves."
+  ],
+  "sources": [
+    {
+      "repository": "colmap/colmap",
+      "revision": "c6ab4f897c94f10b15bdecc442dcfce4688f1b76",
+      "files": [
+        {
+          "path": "doc/license.rst",
+          "url": "https://raw.githubusercontent.com/colmap/colmap/c6ab4f897c94f10b15bdecc442dcfce4688f1b76/doc/license.rst",
+          "sha256": "d027384d9673f8624f78c48955400db2b66fa19dae4cbd073eea877bfd065b63"
+        },
+        {
+          "path": "src/colmap/mvs/patch_match_cuda.cu",
+          "url": "https://raw.githubusercontent.com/colmap/colmap/c6ab4f897c94f10b15bdecc442dcfce4688f1b76/src/colmap/mvs/patch_match_cuda.cu",
+          "sha256": "236f2c7a51c3a52d798fd7d81264110a1e6b10ee776ab7221adbb152e334b680"
+        }
+      ]
+    },
+    {
+      "repository": "GhiXu/ACMM",
+      "revision": "e7f34fa56931e026078e4f11bdf53f54dddc9ccc",
+      "files": [
+        {
+          "path": "LICENSE",
+          "url": "https://raw.githubusercontent.com/GhiXu/ACMM/e7f34fa56931e026078e4f11bdf53f54dddc9ccc/LICENSE",
+          "sha256": "021b2409f641d56ad3ef6b2acbbb7b3cf7fd80240fc3e38362be97c3bcbe953d"
+        },
+        {
+          "path": "README.md",
+          "url": "https://raw.githubusercontent.com/GhiXu/ACMM/e7f34fa56931e026078e4f11bdf53f54dddc9ccc/README.md",
+          "sha256": "7faa8f95dc2ebc827a195ac6325ebea52560aeabc2a411dc774739953751dfe3"
+        }
+      ]
+    },
+    {
+      "repository": "kysucix/gipuma",
+      "revision": "f16dbfd6a4984cebb47b6c993b612cdde25be2fb",
+      "files": [
+        {
+          "path": "LICENSE",
+          "url": "https://raw.githubusercontent.com/kysucix/gipuma/f16dbfd6a4984cebb47b6c993b612cdde25be2fb/LICENSE",
+          "sha256": "d62f065830aa3739cc031156b9690805c7b2e811b4a178c8b4acd8725d561c94"
+        }
+      ]
+    },
+    {
+      "repository": "alicevision/AliceVision",
+      "revision": "73b9f34c24b1aa375ecd9f9791a98c336a627899",
+      "files": [
+        {
+          "path": "COPYING.md",
+          "url": "https://raw.githubusercontent.com/alicevision/AliceVision/73b9f34c24b1aa375ecd9f9791a98c336a627899/COPYING.md",
+          "sha256": "6cd1b96fe9e1d20ba015e2c361cb0e974124ff7e110353f48dd00795b1a8c41d"
+        }
+      ]
+    },
+    {
+      "repository": "cdcseacave/openMVS",
+      "revision": "a3b6d0d99800a65af6b5f6b20dcc1df4c9e0e0c4",
+      "files": [
+        {
+          "path": "LICENSE",
+          "url": "https://raw.githubusercontent.com/cdcseacave/openMVS/a3b6d0d99800a65af6b5f6b20dcc1df4c9e0e0c4/LICENSE",
+          "sha256": "0f072d4a0ef59e7f6864bb45629c37417ccef63025b58f4073109d1c830bc55f"
+        }
+      ]
+    }
+  ]
+}
