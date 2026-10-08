@@ -34,7 +34,7 @@ README.
 | Other sets | Result |
 | --- | --- |
 | Google Scanned Objects renders (72 photos) | rhino 0.867, cereal box 0.833 at 0.5 % with threshold masks; light-coloured objects need better masks (Mario 0.71 → 0.83 with exact masks) |
-| DTU (masked, 49 views) | 1.2–1.5 mm mean of accuracy and completeness on scans 63 and 65 |
+| DTU (masked, 49 views) | 1.03–1.31 mm mean of accuracy and completeness on scans 63 and 65 (surface no camera saw is left open for captures that are not all round) |
 | YCB turntable | cracker box 0.45 at 0.5 %; smooth objects (mustard bottle) refused by the camera gates |
 
 ## Findings worth knowing
@@ -55,11 +55,14 @@ README.
 
 ## In progress
 
-- Per-pixel slanted-plane matching at the finest level: implemented behind a
-  setting (Happy Buddha +0.024 at 0.5 %); to be measured on all objects and
-  made the default if it holds.
-- Objects not filmed all round (DTU): leave unmeasured hull surface out.
-- Example objects in the app from several sources (CC BY renders first).
+- **Per-pixel slanted-plane matching** (PatchMatch-style) at the finest level,
+  setting `patchmatch`, off by default. Measured on six objects it gains at
+  0.5 % everywhere (Happy Buddha 0.793 → 0.817 whole, Lucy 0.847 → 0.859,
+  Thai statue 0.882 → 0.892) and no score drops more than 0.002; it costs
+  47–69 s more per run. Before it becomes the default: the other objects'
+  sheets, DTU, and browser memory and time. The Buddha's necklace beads are
+  still not resolved; fusion grid and smoothing are the next suspects.
+- **Example objects in the app** from several sources (CC BY renders first).
 
 ## Known limits
 
