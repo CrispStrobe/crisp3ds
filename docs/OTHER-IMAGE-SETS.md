@@ -126,10 +126,33 @@ Where it breaks, with a diagnosis for each:
 
 Robustness on the rhino (same render otherwise; default command):
 
-| Change | Registered | Cameras: centre % / orientation deg | F1 0.5 / 1 / 2 % |
-| --- | --- | --- | --- |
-| baseline: 72 views, blur 1 px | 72 / 72 | 0.13 / 0.08 | 0.867 / 0.959 / 0.990 |
-| 36 views (10 degree steps) | 36 / 36 | 0.12 / 0.07 | 0.848 / 0.945 / 0.989 |
+| Change | Registered | Cameras: centre % / orientation deg | F1 0.5 / 1 / 2 % | Accuracy median / p90 % | What the sheet shows |
+| --- | --- | --- | --- | --- | --- |
+| sharp (blur 0) | 72 / 72 | 0.11 / 0.07 | **0.901 / 0.966 / 0.993** | 0.07 / 0.61 | as the baseline, smoother; skin folds still not resolved |
+| baseline: 72 views, blur 1 px | 72 / 72 | 0.13 / 0.08 | 0.867 / 0.959 / 0.990 | 0.11 / 0.71 | clean |
+| blur 1.5 px | 72 / 72 | 0.22 / 0.16 | 0.821 / 0.942 / 0.986 | 0.15 / 0.89 | softer surface |
+| blur 3 px | 72 / 72 | 0.86 / 0.49 | 0.665 / 0.867 / 0.972 | 0.32 / 1.43 | shape right, surface lumpy; cameras four times worse |
+| 36 views (10 degree steps) | 36 / 36 | 0.12 / 0.07 | 0.848 / 0.945 / 0.989 | 0.11 / 0.81 | as the baseline |
+| 24 views (15 degree steps) | 24 / 24 | 0.17 / 0.09 | 0.708 / 0.815 / 0.879 | 0.22 / 4.44 | body right; slabs of cast shadow between and beside the legs |
+| dark backdrop (grey 0.3) | 72 / 72 | 0.16 / 0.08 | 0.127 / 0.242 / 0.434 | 2.54 / 7.72 | a block: the threshold masks take the backdrop as object (83 % of the frame) |
+
+What this answers:
+
+- **Sharper photos.** Blur moves F1 at 0.5 % by about 0.03 to 0.05 per half
+  pixel near 1 px and costs 0.2 at 3 px; within 1 % of the diagonal the loss
+  stays small up to 1.5 px. If the 3DLF photos are about 1.5 px soft, a sharp
+  camera would gain about 0.08 at 0.5 % on an object like this and little at
+  1 % and 2 %. At 3 px the cameras themselves degrade (0.86 % of the radius).
+- **Fewer views.** 36 views lose 0.02 at 0.5 %; at 24 views the cameras are
+  still right (0.17 %, steps 15.01 degrees, raw turn 359.6 degrees), and the
+  loss is the cast shadow: the threshold masks take it in, and 24 views do not
+  carve the moving shadow away the way 72 do. With masks that leave the shadow
+  out, 24 views would likely hold (not run).
+- **Dark backdrop.** The cameras are unaffected; the threshold masks are not
+  usable (they assume a light backdrop). The run went through with only the
+  warning that the object region touches the frame in all 72 photos; a mask
+  covering most of every frame should be refused, as the camera gates refuse a
+  wrong solution. Import or SAM masks are needed for dark backdrops.
 
 ## What breaks, and what would fix it
 
