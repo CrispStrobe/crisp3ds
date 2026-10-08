@@ -673,6 +673,48 @@ consistent coverage at native pixels rises from 0.53 to 0.66 and F1 at 0.5 %
 by +0.011 whole and +0.017 above the support, but stray depth costs 0.006 at
 2 %, so it is a choice, not the default. `describe()` lists the presets.
 
+**Slanted planes per pixel at the finest level (`patchmatch`, native-only,
+off; under evaluation).** After the last band refinement each pixel carries a
+plane (depth and normal in the camera's frame), scored with the matching
+window sampled through the plane in every neighbour (`shaders/patchmatch.wgsl`:
+the window's pixels are lifted to the plane along their own rays, projected
+and sampled bilinearly as in `warp.wgsl`; NCC per neighbour, mean of the best
+`best_of`; the window sampled at every second pixel). Planes start from the
+band refinement where it found a depth and from the smooth surface of the
+previous pass elsewhere, normals from that surface; then
+`patchmatch_iterations` (4) red-black iterations, each taking for every pixel
+the best of its plane, four planes of the other colour around it (per
+direction the adjacent pixel or the one five pixels away, whichever scored
+better, re-expressed at this pixel) and three random perturbations of depth
+and normal whose size halves per iteration. Agreement between views then uses
+the planes: a neighbour's depth at the exact projection comes from the plane
+of the pixel it lands in, and its normal must agree to the cosine
+`patchmatch_normal_agreement` (0.8). `stereo::patchmatch::reference` is the
+scalar counterpart; on the analytic sphere the GPU scores equal it at every
+pixel (to 1e-3), and four iterations from planes displaced by 3 % bring 99.7 %
+of the pixels back within 1 % of the true depth.
+
+Happy Buddha (F1 `all` / `above_margin` at 0.5 / 1 / 2 %, native-level
+consistent coverage, stereo time of the native level on the shared M1):
+
+| | `all` | `above_margin` | coverage | native level |
+| --- | --- | --- | --- | --- |
+| band refinement only (default) | 0.793 / 0.909 / 0.972 | 0.834 / 0.942 / 0.992 | 0.53 | about 20 s |
+| planes, 8 iterations, eight candidates, depth votes | 0.830 / 0.925 / 0.964 | 0.866 / 0.954 / 0.984 | 0.70 | 305 s |
+| planes, 4 iterations, four candidates, depth votes | 0.823 / 0.923 / 0.966 | 0.865 / 0.957 / 0.986 | 0.73 | 66 s |
+| ... plane votes, no normal test | 0.825 / 0.925 / 0.966 | 0.866 / 0.958 / 0.986 | 0.73 | |
+| ... plane votes, normals agree to 0.6 | 0.819 / 0.920 / 0.968 | 0.862 / 0.955 / 0.987 | 0.63 | |
+| ... plane votes, normals agree to 0.8 | 0.817 / 0.918 / 0.971 | 0.859 / 0.952 / 0.990 | 0.53 | 68 s |
+| ... plane votes, normals agree to 0.9 | 0.812 / 0.915 / 0.972 | 0.854 / 0.948 / 0.991 | 0.40 | |
+
+Without the normal test the planes add stray surface (precision at 2 % 0.976
+against 0.986 above the support); the normal test removes it at a cost in
+coverage, and at 0.8 the Buddha stays within 0.002 of the default at 2 % while
+gaining 0.024 at 0.5 %. On the sheets (`inspect/` detail crops: belly with
+necklace, robe back, hem) the surface is smoother and less pitted; the
+necklace beads and belly lines are still not resolved, so what limits them is
+not only the search band.
+
 ### Camera providers through the dense stages
 
 A provider is judged by the reconstruction it leads to. `colmap` against

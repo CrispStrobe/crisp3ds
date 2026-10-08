@@ -129,6 +129,27 @@
       "default": 5
     },
     {
+      "name": "patchmatch",
+      "group": "Matching",
+      "meaning": "At the finest level, refine one slanted plane (depth and normal) per pixel by PatchMatch propagation and random search, starting from the band refinement",
+      "kind": "boolean",
+      "default": false
+    },
+    {
+      "name": "patchmatch_iterations",
+      "group": "Matching",
+      "meaning": "Red-black PatchMatch iterations at the finest level",
+      "kind": "integer",
+      "default": 4
+    },
+    {
+      "name": "patchmatch_normal_agreement",
+      "group": "Matching",
+      "meaning": "With patchmatch: a neighbour view votes for a depth only when its plane's normal agrees to this cosine (-1 or below: depth only)",
+      "kind": "number",
+      "default": 0.8
+    },
+    {
       "name": "min_score",
       "group": "Matching",
       "meaning": "Lowest accepted matching score (0..1)",

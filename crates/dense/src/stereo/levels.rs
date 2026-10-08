@@ -19,6 +19,7 @@ use crate::inputs::{parallel_map, round_half_even, Inputs, Plane};
 use super::depth::{consistent, hull_front, initial, merge_fallback};
 use super::level::{build_level_sharpened, coverage, LevelView};
 use super::matcher::Matcher;
+use super::patchmatch::{consistent_planes, depth_of, initial_planes, pack_normal, PatchMatch, Settings as PatchMatchSettings};
 use super::previews::depth_sheet;
 use super::run::Previews;
 
@@ -50,6 +51,7 @@ pub async fn match_levels(
     let voters: Vec<Vec<usize>> =
         (0..count).map(|i| inputs.neighbours(i, config.vote_neighbours as usize, config)).collect::<anyhow::Result<_>>()?;
     let mut matcher = Matcher::new(gpu, config, &state.search).await?;
+    let mut patchmatch: Option<PatchMatch> = None;
     let mut level: Vec<LevelView> = Vec::new();
     let mut depths: Vec<Plane<f32>> = Vec::new();
     let mut coarser: Option<Vec<Plane<f32>>> = None;
@@ -156,14 +158,59 @@ pub async fn match_levels(
                     )?;
                 }
             }
+            let mut patchmatch_seconds = 0.0;
+            let mut normals: Vec<Vec<u32>> = Vec::new();
+            if config.patchmatch && li + 1 == sizes.len() && p + 1 == passes && li > 0 {
+                // Slanted planes per pixel, from the band refinement where it found a depth and from
+                // the smooth surface of the previous pass or level elsewhere.
+                let t_pm = Instant::now();
+                if patchmatch.is_none() {
+                    patchmatch = Some(PatchMatch::new(gpu, &state.search).await?);
+                }
+                let pm = patchmatch.as_ref().expect("created");
+                let half = if p == 0 { DenseConfig::level(&config.band_first, li) } else { config.band_later };
+                for v in 0..count {
+                    control.check()?;
+                    let smooth = initial(&depths[v], &level[v].mask, 1.0);
+                    let planes = initial_planes(&level[v], &raw[v], &smooth);
+                    let fine = steps[v] / scale / if p == 0 { 1.0 } else { 2.0 };
+                    let (near, far) = state.bounds[v];
+                    let settings = PatchMatchSettings {
+                        radius: (window / 2) as u32,
+                        stride: 2,
+                        best_of: config.best_of as u32,
+                        min_variance: config.min_variance as f32,
+                        window_fill: config.window_fill as f32,
+                        iterations: config.patchmatch_iterations as u32,
+                        inverse_step: (half as f64 * fine) as f32,
+                        normal_step: 0.5,
+                        inverse_range: ((1.0 / far) as f32, (1.0 / near) as f32),
+                        seed: v as u32,
+                    };
+                    let (planes, scores) = pm.run(gpu, &level, v, &neighbours[v], &state.search, &planes, &settings).await?;
+                    raw[v] = depth_of(&planes, &scores, level[v].width, level[v].height, config.min_score as f32);
+                    normals.push(
+                        planes.iter().zip(&raw[v].data).map(|(q, &d)| if d > 0.0 { pack_normal([q[1], q[2], q[3]]) } else { 0 }).collect(),
+                    );
+                    if v % 10 == 9 || v + 1 == count {
+                        control.log(format!("patchmatch: {} of {count} views, {:.1}s", v + 1, t_pm.elapsed().as_secs_f64()));
+                    }
+                }
+                patchmatch_seconds = t_pm.elapsed().as_secs_f64();
+            }
             let t_c = Instant::now();
-            let agreed =
-                consistent(&level, &raw, &voters, DenseConfig::level(&config.tolerances, li), DenseConfig::level(&config.min_votes, li));
+            let (tolerance, votes) = (DenseConfig::level(&config.tolerances, li), DenseConfig::level(&config.min_votes, li));
+            let agreed = if !normals.is_empty() {
+                consistent_planes(&level, &raw, &normals, &voters, tolerance, votes, config.patchmatch_normal_agreement as f32)
+            } else {
+                consistent(&level, &raw, &voters, tolerance, votes)
+            };
+            drop(normals);
             let row = json!({
                 "size": size, "pass": p, "window": window, "working_size": [level[0].width, level[0].height],
                 "raw_coverage": coverage(&level, &raw), "consistent_coverage": coverage(&level, &agreed),
                 "hull_front_pixels": front_wins, "consistency_seconds": t_c.elapsed().as_secs_f64(),
-                "initial_seconds": initial_seconds, "pass_seconds": t_pass.elapsed().as_secs_f64(),
+                "initial_seconds": initial_seconds, "patchmatch_seconds": patchmatch_seconds, "pass_seconds": t_pass.elapsed().as_secs_f64(),
                 "seconds": t.elapsed().as_secs_f64(),
             });
             control.log(format!(

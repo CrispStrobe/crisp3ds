@@ -393,7 +393,7 @@ pub fn tests_enabled() -> bool {
 mod tests {
     use wgpu::naga;
 
-    const SHADERS: [(&str, &str); 8] = [
+    const SHADERS: [(&str, &str); 9] = [
         ("carve", include_str!("../shaders/carve.wgsl")),
         ("cover", include_str!("../shaders/cover.wgsl")),
         ("fuse", include_str!("../shaders/fuse.wgsl")),
@@ -402,6 +402,7 @@ mod tests {
         ("ncc_columns", include_str!("../shaders/ncc_columns.wgsl")),
         ("aggregate", include_str!("../shaders/aggregate.wgsl")),
         ("peak", include_str!("../shaders/peak.wgsl")),
+        ("patchmatch", include_str!("../shaders/patchmatch.wgsl")),
     ];
 
     /// Every kernel parses and validates without a GPU, uses plain WebGPU

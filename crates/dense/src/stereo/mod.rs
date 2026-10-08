@@ -7,6 +7,7 @@ pub mod level;
 pub mod levels;
 pub mod matcher;
 pub mod options;
+pub mod patchmatch;
 pub mod previews;
 pub mod run;
 pub mod synthetic;
