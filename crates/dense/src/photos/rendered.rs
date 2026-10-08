@@ -434,10 +434,10 @@ pub fn render(mesh: &Mesh, settings: &Settings, output: &Path, source: &str) -> 
             crate::stereo::synthetic::camera(360.0 * n as f64 / settings.views as f64, settings.elevation_deg, distance);
         let centre =
             [0, 1, 2].map(|a| -(rotation[0][a] * translation[0] + rotation[1][a] * translation[1] + rotation[2][a] * translation[2]));
-        // The light turns with the camera: up, to the left and towards the object, in camera terms.
+        // The light turns with the camera. Direction towards the light in camera terms: up (y is down),
+        // to the left, and back towards the camera.
         let in_camera = unit([-0.4, -0.8, -0.45]);
-        let light =
-            unit([0, 1, 2].map(|a| -(rotation[0][a] * in_camera[0] + rotation[1][a] * in_camera[1] + rotation[2][a] * in_camera[2])));
+        let light = unit([0, 1, 2].map(|a| rotation[0][a] * in_camera[0] + rotation[1][a] * in_camera[1] + rotation[2][a] * in_camera[2]));
         let (w, h, samples) = (settings.width, settings.height, settings.samples.max(1));
         let offsets: Vec<(f64, f64)> = match samples {
             1 => vec![(0.5, 0.5)],
