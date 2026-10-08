@@ -1,10 +1,9 @@
 # Crisp3DS
 
-Photos of an object in, a closed printable mesh out. Crisp3DS is a rigid-object
-photo scanning project: a dense reconstruction pipeline that runs on an Apple
-GPU, an NVIDIA GPU or CPU, an engine that reports its progress live, a
-cross-platform front end, and a portable C++20 core for projects, calibration
-and marker geometry.
+Photos of an object in, a closed printable mesh out. Crisp3DS turns turntable
+photos into a watertight STL with one native program (Rust and WebGPU) that
+runs on desktop GPUs, in the browser and inside **Crisp 3D Studio**, the app
+for macOS, Windows, Linux, iOS and Android.
 
 [![dense pipeline](https://github.com/CrispStrobe/crisp3ds/actions/workflows/dense-pipeline.yml/badge.svg)](https://github.com/CrispStrobe/crisp3ds/actions/workflows/dense-pipeline.yml)
 [![studio](https://github.com/CrispStrobe/crisp3ds/actions/workflows/studio.yml/badge.svg)](https://github.com/CrispStrobe/crisp3ds/actions/workflows/studio.yml)
@@ -14,19 +13,17 @@ and marker geometry.
 
 | Part | Where | State |
 | --- | --- | --- |
-| **Dense pipeline**: calibrated turntable photos to a closed STL | [`scripts/turntable_mesh/`](scripts/turntable_mesh/README.md) | Works from the command line; scored against independent scans on two objects |
-| **Native dense pipeline**: the same stages in Rust and WebGPU, without Python | [`crates/dense/`](crates/dense/README.md) | Stereo, surface, check and a single `run` command; scanner scores within 0.002 of the Python reference on four objects, about seven times faster |
-| **Engine**: progress events, live preview meshes, HTTP API, replay bundles | [`docs/ENGINE-CONTRACT.md`](docs/ENGINE-CONTRACT.md) | Works; development-grade server (no TLS, no accounts) |
-| **Studio**: the front end, one code base for desktop, phone and web | [`apps/studio/`](apps/studio/README.md) | Web app and desktop app work against an engine and in replay; unsigned builds for macOS, Windows, Linux, Android and the iOS simulator come from CI ([releasing](docs/RELEASING.md)) |
+| **Native pipeline**: photos to a closed STL, masks, cameras, GPU dense stages | [`crates/dense/`](crates/dense/README.md) | The primary implementation; one command, no Python, no external program; Metal, Vulkan, DirectX 12, WebGPU; library API and C interface |
+| **In the browser**: the same pipeline as WebAssembly and WebGPU | [`crates/dense/web/`](crates/dense/README.md), live at [crispstrobe.github.io/crisp3ds](https://crispstrobe.github.io/crisp3ds/) | From photos or prepared inputs, threaded where the page allows; nothing is uploaded |
+| **Crisp 3D Studio**: the app, one code base for desktop, phone and web | [`apps/studio/`](apps/studio/README.md) | Reconstructs in-process from photos, live progress and diagnostics, example objects; release [v0.2.0](https://github.com/CrispStrobe/crisp3ds/releases/tag/v0.2.0) and internal TestFlight builds ([releasing](docs/RELEASING.md)) |
+| **Engine contract**: event log, artifacts, replay bundles, HTTP engine | [`docs/ENGINE-CONTRACT.md`](docs/ENGINE-CONTRACT.md) | Shared by the native engine, the browser engine and the Python reference |
+| **Python reference pipeline** and evaluation tools | [`scripts/turntable_mesh/`](scripts/turntable_mesh/README.md) | What the native crate was ported from; no longer extended. The scanner evaluator and test-scene tools stay in Python |
 | **Core**: C++20 library and CLI for projects, calibration, marker boards | [`core/`](core/README.md) | Builds and tests on macOS, Linux, Windows |
-| **Project workspace**: the earlier Tauri desktop app around the core | [`apps/desktop/`](apps/desktop/README.md) | Project and calibration tools; not yet connected to the dense pipeline |
+| **Project workspace**: the earlier Tauri desktop app around the core | [`apps/desktop/`](apps/desktop/README.md) | Superseded by Studio for reconstruction |
 
-The pipeline is modular: masks, cameras and undistortion are provider-based
-stages in front of one native dense reconstruction, so that each platform uses
-the providers it can run. The plan and its current state are in
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Today only desktop-class
-machines run the reconstruction; phones and browsers are clients of a machine
-that does, or play back recorded runs.
+Current state, results and limits: [`docs/STATUS.md`](docs/STATUS.md). The
+modular plan (providers for masks and cameras in front of one dense
+reconstruction): [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## From photos to a mesh
 
@@ -94,34 +91,41 @@ cd apps/studio && npm ci && npm run dev     # opens with a recorded demo run, no
 ```
 
 Studio shows the stage timeline, the surface improving step by step in a 3D
-viewer, the diagnostics gallery, numbers and reports, and can start and cancel
-runs on an engine. See [`apps/studio/README.md`](apps/studio/README.md) and the
+viewer, the diagnostics gallery, per-step inspection sheets, numbers and
+reports; on desktop and phone it reconstructs in-process, in the browser on the
+visitor's GPU, and it can also drive a remote engine. See [`apps/studio/README.md`](apps/studio/README.md) and the
 [engine contract](docs/ENGINE-CONTRACT.md).
 
 ## Results
 
-3DLF turntable sets: 73 photos at one elevation, Apple M1 with 16 GB, PyTorch
-MPS. Scores are held-out F1 against independent structured-light scans at
-0.5%, 1% and 2% of the scan's diagonal; the scans are used for scoring only.
+The default command from photos, F1 against independent scans at 0.5 % of the
+scan's diagonal (whole surface / above the support; scans used for scoring
+only), 73 photos per object, Apple M1:
 
-| Object | Matching time | F1, whole surface | F1, above the support |
-| --- | --- | --- | --- |
-| Dragon, earlier 24-view route | about 2 min | 0.567 / 0.780 / 0.934 | 0.624 / 0.845 / 0.972 |
-| Dragon, this pipeline | about 7 min | 0.756 / 0.910 / 0.975 | 0.822 / 0.960 / 0.994 |
-| Armadillo, no retuning | about 7 min | 0.922 / 0.971 / 0.987 | 0.952 / 0.997 / 1.000 |
-| Bunny, no retuning | about 7 min | 0.898 / 0.933 / 0.953 | 0.964 / 0.995 / 1.000 |
-| Lucy, from plain photos in one command | about 15 min in all | 0.798 / 0.908 / 0.940 | 0.836 / 0.951 / 0.973 |
+| Object (3DLF) | F1 at 0.5 % |
+| --- | --- |
+| Bunny | about 0.90 / 0.96 |
+| Armadillo | about 0.92 / 0.95 |
+| Dragon | about 0.80 / 0.85 |
+| Lucy | about 0.85 / 0.88 |
+| Thai statue | about 0.88 / 0.95 |
+| Happy Buddha | about 0.79 / 0.83 |
 
-Known limits, in short (details in the pipeline README):
+On rendered Google Scanned Objects the rhino figurine scores 0.867 and a
+cereal box 0.833 at 0.5 %; on DTU (masked) 1.2–1.5 mm. Exact numbers, other
+image sets and every experiment: [`docs/STATUS.md`](docs/STATUS.md),
+[`docs/OTHER-IMAGE-SETS.md`](docs/OTHER-IMAGE-SETS.md) and the
+[crate README](crates/dense/README.md).
 
-- The handedness of the results against the dataset's scans is unresolved:
-  they match only as mirror images, on both objects.
-- Thin parts such as horn tips and wings come out short or are lost, and
-  surfaces no photo sees are silhouette bounds.
-- Results use all 73 photos; reconstruction from a dozen photos with unknown
-  poses is not solved.
-- The NVIDIA path was checked on a synthetic scene only (Tesla T4).
-- The meshes have no physical scale.
+Known limits, in short:
+
+- Threshold masks assume a dark object on a light backdrop; light-coloured
+  objects need SAM (optional) or imported masks.
+- Interiors a single ring of cameras never sees are capped; very smooth,
+  untextured objects fail camera recovery.
+- Fine relief is partly lost at the finest matching level (work in progress).
+- The 3DLF scans are mirror images of the photographed objects; our results
+  have the correct handedness.
 
 ## Continuous integration
 
@@ -221,19 +225,14 @@ node scripts/live_browser_test.mjs
 
 Run the OpenCV CTests first to generate the fixture. The browser script runs the actual sparse CLI, starts and stops its own Vite server on port 1430, and checks report import, orbit/zoom, rejection, state invalidation and narrow layout. It does not test the native webview or physical scanner.
 
-## Architecture and next gate
+## Architecture and next steps
 
-The core owns computation and stable file contracts. The desktop host will manage isolated jobs; mobile bindings will call the library directly. Browser inspection does not imply browser-local reconstruction. Hardware capture and motor transport stay outside the core.
-
-The next work is to improve object isolation and dense geometry against the
-measured reference, then prove a licensable cross-platform backend. MVE remains
-a control, not a required engine. Quality acceptance precedes worker/UI
-integration; see the [active roadmap](docs/SOTA-ROADMAP.md) and [actual status](docs/STATUS.md).
-
-- [Task plan and acceptance gates](docs/PLAN.md)
-- [Project schema](docs/project.schema.json)
-- [First measured dataset requirements](docs/CAPTURE-DATASET.md)
-- [Dependency policy and audit limits](docs/DEPENDENCIES.md)
+The pipeline is modular: masks, cameras and undistortion are provider-based
+stages in front of one native dense reconstruction, so each platform uses the
+providers it can run. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for
+the plan and [`docs/STATUS.md`](docs/STATUS.md) for what is in progress.
+Older planning documents (`docs/PLAN.md`, `docs/SOTA-ROADMAP.md`) describe the
+earlier C++-core route.
 
 ## License
 

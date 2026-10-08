@@ -18,3 +18,7 @@ kaggle.json
 kaggle_usage.md
 .venv/
 venv/
+
+# Internal handoff notes for agent sessions (local paths, workflows); never commit
+/CLAUDE.md
+/AGENTS.md
