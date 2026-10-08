@@ -88,6 +88,23 @@ up to about 2.5 % of the mask), which the dark-hole cleanup fills; its budget
 is therefore 0.05 for `sam` and `external-sam` (and in `photos_to_inputs.py`)
 unless `--hole-cleanup-budget` is given, and 0.02 for the other providers.
 
+### Experimental background-colour masks
+
+`--masks background` uses peripheral RGB/colour contrast for a centred object,
+including light parts, and removes black padding connected to the photo frame.
+It runs without a model or network on native and browser builds; threshold
+remains the default. Inspect the contact sheet: similar foreground/background
+colours, cast shadows and pale connectors can still fail. Marker-mat masking
+with this experimental provider has not been validated.
+
+```sh
+crisp3ds-dense run --photos PHOTOS --calibration LENS.json \
+  --masks background --output NEW-RUN --texture
+```
+
+Texture is optional and does not change the source STL. See the
+[image-set results](OTHER-IMAGE-SETS.md) for quality limits.
+
 ### Camera providers
 
 A camera provider gets the contrast images (`work/contrast/capture_NNNN.png`:

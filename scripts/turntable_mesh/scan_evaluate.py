@@ -27,8 +27,10 @@ include those regions and the "above_margin" numbers exclude them.
 Handedness. A proper similarity cannot map a shape onto its mirror image. By
 default both the mesh and its mirror image (x negated) are registered, both
 residuals are recorded and the better one is scored, with a warning when that
-is the mirrored one: the mesh and the scan then disagree in chirality, and this
-tool cannot tell which of the two is flipped.
+is the mirrored one. A preferred reflected shape fit does not establish which
+input is flipped, or even a definite chirality mismatch: near-symmetry and
+shape errors can make the choice ambiguous. Independent asymmetric landmarks
+are needed to determine physical handedness.
 """
 
 import argparse
@@ -633,11 +635,11 @@ def evaluate(mesh_triangles, reference_vertices, reference_faces, *, seed=215, s
     rms = handedness_report["best_trimmed_rms"]
     if mirrored:
         warnings.append(
-            "CHIRALITY: the mesh fits the scan only as its mirror image (trimmed rms proper "
-            f"{rms.get('proper', float('nan')):.4g}, mirrored {rms.get('mirrored', float('nan')):.4g}); the scored "
-            "transform includes a reflection. The reconstruction keeps the handedness of the photographed "
-            "object (checked on a synthetic object of known handedness, crates/dense/README.md), so the "
-            "scan is the mirror image of the object as photographed. Expected for the 3DLF Revopoint scans.")
+            "CHIRALITY: the scored shape fit includes a reflection (trimmed rms proper "
+            f"{rms.get('proper', float('nan')):.4g}, mirrored {rms.get('mirrored', float('nan')):.4g}). "
+            "This does not establish whether either input is mirrored: near-symmetric shapes and "
+            "reconstruction errors can make the fit ambiguous. Verify handedness with independent "
+            "asymmetric landmarks; a synthetic pipeline check does not determine this capture's handedness.")
 
     # All samples get a distance (the picture uses them); only the held-out half is scored.
     mesh_in_reference = apply(transform, mesh_points)

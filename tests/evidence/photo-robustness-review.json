@@ -1,0 +1,648 @@
+{
+  "schema": "crisp3ds_photo_robustness_review_v1",
+  "date": "2026-10-08",
+  "reconstruction_inputs": "RGB photos, declared lens calibration, photo-derived masks and recovered cameras only",
+  "evaluation_inputs_not_used_for_reconstruction": [
+    "reference meshes",
+    "supplied poses",
+    "dataset masks",
+    "dataset depths"
+  ],
+  "defaults_changed": false,
+  "source": "Original implementation; no new third-party source/dependencies. This is not patent freedom-to-operate clearance.",
+  "cases": {
+    "shoe-background": {
+      "registered_views": 72,
+      "closed": true,
+      "genus": 10,
+      "triangles": 542278,
+      "stl_sha256": "01b73804ff41f599a395acbb5b19b7df6d996afebb52927fb250ff8da0f953cf",
+      "glb_sha256": "46f8aad907dcef6d8668b790326981efa9d1e4fe2130683523bd44523a5a40e9",
+      "textured_area_fraction": 0.780325416036183,
+      "geometry_unchanged": true,
+      "texture_attribution_embedded": true,
+      "score": {
+        "parameters": {
+          "seed": 215,
+          "samples_per_surface": 200000,
+          "fit_samples": 100000,
+          "held_out_samples": 100000,
+          "random_starts": 96,
+          "icp_keep_fraction": 0.8,
+          "platform_margin": 0.006,
+          "above_margin": 0.03,
+          "handedness": "auto"
+        },
+        "f1": {
+          "all": {
+            "0.005": 0.4438627347030836,
+            "0.01": 0.642643409266961,
+            "0.02": 0.8192337952991966
+          },
+          "above_margin": {
+            "0.005": 0.4438627347030836,
+            "0.01": 0.642643409266961,
+            "0.02": 0.8192337952991966
+          },
+          "all_without_underside": {
+            "0.005": 0.4438627347030836,
+            "0.01": 0.642643409266961,
+            "0.02": 0.8192337952991966
+          },
+          "fit_half_for_comparison_only": {
+            "0.005": 0.4441760243926006,
+            "0.01": 0.6449427842913545,
+            "0.02": 0.8216528026129247
+          }
+        },
+        "reference_used_only_posthoc": true,
+        "shape_only_reference_fitted_similarity": true,
+        "reflection_in_scored_fit": false,
+        "physical_handedness_established": false
+      },
+      "visual_review": "Light upper retained and support disk removed; rippled geometry and weak detail remain. Modest gain only."
+    },
+    "mario-background": {
+      "registered_views": 72,
+      "closed": true,
+      "genus": 40,
+      "triangles": 854188,
+      "stl_sha256": "b5b761abc8903c51476b5936f1cfc0879683d265ea69a201f3e6890bcbad2231",
+      "glb_sha256": "6fffb1c2cf4e1226df2f64a9cdc2a2e56b159b386779f2a195602e6747d3b77e",
+      "textured_area_fraction": 0.7959002159353699,
+      "geometry_unchanged": true,
+      "texture_attribution_embedded": true,
+      "visual_review": "Cast shadow incorporated into base; rejected as a geometry fix despite execution check passing.",
+      "score": {
+        "parameters": {
+          "seed": 215,
+          "samples_per_surface": 200000,
+          "fit_samples": 100000,
+          "held_out_samples": 100000,
+          "random_starts": 96,
+          "icp_keep_fraction": 0.8,
+          "platform_margin": 0.006,
+          "above_margin": 0.03,
+          "handedness": "auto"
+        },
+        "f1": {
+          "all": {
+            "0.005": 0.5421177217009957,
+            "0.01": 0.7523798325581396,
+            "0.02": 0.8509216392293013
+          },
+          "above_margin": {
+            "0.005": 0.5421177217009957,
+            "0.01": 0.7523798325581396,
+            "0.02": 0.8509216392293013
+          },
+          "all_without_underside": {
+            "0.005": 0.5421177217009957,
+            "0.01": 0.7523798325581396,
+            "0.02": 0.8509216392293013
+          },
+          "fit_half_for_comparison_only": {
+            "0.005": 0.5404166001854871,
+            "0.01": 0.7541148041011091,
+            "0.02": 0.8513614000574549
+          }
+        },
+        "reference_used_only_posthoc": true,
+        "shape_only_reference_fitted_similarity": true,
+        "reflection_in_scored_fit": false,
+        "physical_handedness_established": false
+      }
+    },
+    "mario-sam": {
+      "registered_views": 72,
+      "closed": true,
+      "genus": 14,
+      "triangles": 717144,
+      "stl_sha256": "1e43c21b2ad57a5fc7dfc6e29d75217d539e6d4de7a337041a502f594fdc38ac",
+      "glb_sha256": "5ddf4f47d38434db85ae9e1648d115b65815a6124aca8628d4ca9b19dc06de92",
+      "textured_area_fraction": 0.8550407519796752,
+      "geometry_unchanged": true,
+      "texture_attribution_embedded": true,
+      "score": {
+        "parameters": {
+          "seed": 215,
+          "samples_per_surface": 200000,
+          "fit_samples": 100000,
+          "held_out_samples": 100000,
+          "random_starts": 96,
+          "icp_keep_fraction": 0.8,
+          "platform_margin": 0.006,
+          "above_margin": 0.03,
+          "handedness": "auto"
+        },
+        "f1": {
+          "all": {
+            "0.005": 0.8302340401659551,
+            "0.01": 0.9469399937763385,
+            "0.02": 0.9798187225489845
+          },
+          "above_margin": {
+            "0.005": 0.8302340401659551,
+            "0.01": 0.9469399937763385,
+            "0.02": 0.9798187225489845
+          },
+          "all_without_underside": {
+            "0.005": 0.8302340401659551,
+            "0.01": 0.9469399937763385,
+            "0.02": 0.9798187225489845
+          },
+          "fit_half_for_comparison_only": {
+            "0.005": 0.8304823419772608,
+            "0.01": 0.9467497769595171,
+            "0.02": 0.9798420318613322
+          }
+        },
+        "reference_used_only_posthoc": true,
+        "shape_only_reference_fitted_similarity": true,
+        "reflection_in_scored_fit": false,
+        "physical_handedness_established": false
+      },
+      "geometry_proof": {
+        "triangle_coordinates_and_winding_byte_equal": true,
+        "triangles": 717144
+      },
+      "visual_review": "Substantially better silhouette and base; surface noise, weak facial relief, and texture seams remain. One SAM mask loses facial foreground."
+    },
+    "mustard-surface": {
+      "registered_views": 60,
+      "closed": false,
+      "genus": 331,
+      "raw_turn_degrees": 359.42712110996376,
+      "camera_report": {
+        "adjustments": [
+          {
+            "cost_after": 3947.9602089183895,
+            "cost_before": 4272.748788909132,
+            "median_px": 0.3750484019991742,
+            "observations": 7796,
+            "points": 1404
+          },
+          {
+            "cost_after": 2977.6672840851843,
+            "cost_before": 3100.1975093276333,
+            "median_px": 0.3619341310324615,
+            "observations": 7628,
+            "points": 1383
+          },
+          {
+            "cost_after": 1044.6033261387847,
+            "cost_before": 1211.3191058368998,
+            "median_px": 0.29836021654606454,
+            "observations": 6957,
+            "points": 1351
+          },
+          {
+            "cost_after": 991.2612876568587,
+            "cost_before": 997.8168748071564,
+            "median_px": 0.2944330917916337,
+            "observations": 6930,
+            "points": 1351
+          }
+        ],
+        "axis": [
+          -0.04857036753967468,
+          0.6095137048837401,
+          0.7912862711787421
+        ],
+        "closed_to_full_turn": true,
+        "direction_to_axis": [
+          0.04257947016275459,
+          -0.7902375849388916,
+          0.6113195138964623
+        ],
+        "features_per_photo": {
+          "median": 2946.0,
+          "min": 2666.0
+        },
+        "first_tracks": {
+          "observations": 7796,
+          "points": 1404,
+          "verified_matches": 17880
+        },
+        "matches": {
+          "pairs": 240,
+          "total": 27429
+        },
+        "observations": 6930,
+        "pairs_with_motion": 60,
+        "photos": 60,
+        "planar_seed_pairs": 180,
+        "points": 1351,
+        "reprojection_px": {
+          "median": 0.2944330917916337,
+          "p95": 1.1851601857241143
+        },
+        "step_median_deg": 6.133175814357611,
+        "steps_deg": [
+          6.228,
+          5.73,
+          6.184,
+          5.745,
+          6.162,
+          6.154,
+          5.741,
+          6.12,
+          5.649,
+          6.12,
+          6.15,
+          5.67,
+          6.144,
+          5.687,
+          6.112,
+          6.195,
+          5.716,
+          6.175,
+          5.747,
+          6.144,
+          6.211,
+          5.761,
+          6.179,
+          5.73,
+          6.225,
+          6.19,
+          5.773,
+          6.229,
+          5.738,
+          6.191,
+          6.181,
+          5.767,
+          6.176,
+          5.762,
+          6.173,
+          6.157,
+          5.719,
+          6.1,
+          5.674,
+          6.123,
+          6.142,
+          5.746,
+          6.199,
+          5.72,
+          6.193,
+          6.21,
+          5.792,
+          6.248,
+          5.787,
+          6.161,
+          6.181,
+          5.785,
+          6.158,
+          5.753,
+          6.172,
+          6.179,
+          5.767,
+          6.161,
+          5.711,
+          6.303
+        ],
+        "turn_sum_deg": 359.42712110996376
+      },
+      "stl_sha256": "5c693a683f5e73ca9fa37f713d57a8a519f70ed536af408bdedc811436332287",
+      "visual_review": "Rejected: badly wrinkled/open mesh despite passing camera gates. Not fixed.",
+      "own_photo_match_cache_reused": true,
+      "score": {
+        "parameters": {
+          "seed": 215,
+          "samples_per_surface": 200000,
+          "fit_samples": 100000,
+          "held_out_samples": 100000,
+          "random_starts": 96,
+          "icp_keep_fraction": 0.8,
+          "platform_margin": 0.006,
+          "above_margin": 0.03,
+          "handedness": "auto"
+        },
+        "f1": {
+          "all": {
+            "0.005": 0.1808654869832625,
+            "0.01": 0.39141825975416605,
+            "0.02": 0.6576300621153367
+          },
+          "above_margin": {
+            "0.005": 0.1808654869832625,
+            "0.01": 0.39141825975416605,
+            "0.02": 0.6576300621153367
+          },
+          "all_without_underside": {
+            "0.005": 0.1808654869832625,
+            "0.01": 0.39141825975416605,
+            "0.02": 0.6576300621153367
+          },
+          "fit_half_for_comparison_only": {
+            "0.005": 0.18164996566623845,
+            "0.01": 0.39266500794188536,
+            "0.02": 0.658194328343356
+          }
+        },
+        "reference_used_only_posthoc": true,
+        "shape_only_reference_fitted_similarity": true,
+        "reflection_in_scored_fit": false,
+        "physical_handedness_established": false
+      }
+    },
+    "mustard-silhouette-only": {
+      "closed": true,
+      "triangles": 593512,
+      "stl_sha256": "f71bfc5098e99f10eb44256268a5cf2283fcb8afaa1633c8b80b293ea967f873",
+      "glb_sha256": "8d5af05ddc17de5187289830f197cfb5576220a0d90e11001aeadcfbdfe78c0b",
+      "score": {
+        "parameters": {
+          "seed": 215,
+          "samples_per_surface": 200000,
+          "fit_samples": 100000,
+          "held_out_samples": 100000,
+          "random_starts": 96,
+          "icp_keep_fraction": 0.8,
+          "platform_margin": 0.006,
+          "above_margin": 0.03,
+          "handedness": "auto"
+        },
+        "f1": {
+          "all": {
+            "0.005": 0.6374393753135189,
+            "0.01": 0.8356499531942111,
+            "0.02": 0.889978279953749
+          },
+          "above_margin": {
+            "0.005": 0.6374393753135189,
+            "0.01": 0.8356499531942111,
+            "0.02": 0.889978279953749
+          },
+          "all_without_underside": {
+            "0.005": 0.6374393753135189,
+            "0.01": 0.8356499531942111,
+            "0.02": 0.889978279953749
+          },
+          "fit_half_for_comparison_only": {
+            "0.005": 0.6387802170649318,
+            "0.01": 0.8352382975161148,
+            "0.02": 0.8896391257235574
+          }
+        },
+        "reference_used_only_posthoc": true,
+        "shape_only_reference_fitted_similarity": true,
+        "reflection_in_scored_fit": false,
+        "physical_handedness_established": false
+      },
+      "geometry_proof": {
+        "triangle_coordinates_and_winding_byte_equal": true,
+        "triangles": 593512
+      },
+      "settings": {
+        "mesh_minimum_weight": 1000000,
+        "mesh_hull_overshoot": false,
+        "mesh_open_unseen": false
+      },
+      "visual_review": "Useful coarse outline; neck/spout and concavities lost. All measured stereo evidence ignored. Closed unobserved surface is an approximation.",
+      "CLI_matches_zero_weight_control_byte_identically": true,
+      "reference_used_for_reconstruction": false
+    },
+    "drill-surface": {
+      "status": "refused",
+      "reason": "rotating plane fit support 24.4%, below 25% gate; gate unchanged",
+      "photo_calibration": "Drill-specific declared NP3 lens, including full distortion undistortion before reconstruction",
+      "mask_review": "Pale connector growth adds foreground but dark chuck still missed in some views",
+      "reference_used_for_reconstruction": false
+    },
+    "drill-object": {
+      "status": "refused",
+      "reasons": [
+        "insufficient distinct landmark support per registered view",
+        "ring radius spread 6.60%, exceeds 5.0%"
+      ],
+      "gates_unchanged": true,
+      "reference_used_for_reconstruction": false
+    },
+    "cereal-background": {
+      "registered_views": 72,
+      "camera_recovery_seconds": 238.541991416,
+      "closed": true,
+      "genus": 58,
+      "triangles": 1030872,
+      "visual_review": "Rejected as a shape fix: support disk retained and printed lines become false geometric grooves",
+      "geometry_proof": {
+        "triangle_coordinates_and_winding_byte_equal": true,
+        "triangles": 1030872
+      },
+      "stl_sha256": "9e1a12e7a1eb64ffa026118a6fee214f2f43e13f8c3daa5f65575a5520aa4f23",
+      "glb_sha256": "eaadbe0e7f75f63d749eb1c2c7222fdd53089730815abcc3e318de03df6ede17"
+    },
+    "cereal-sam-solid": {
+      "same_own_recovered_cameras": true,
+      "calibrated_mask_remap_matches_native_for_all_72_views": true,
+      "initial_SAM_hole_cleanup": "refused: 5.28% dark hole fill would exceed 5% budget",
+      "mask_postprocess": "Existing --no-sam-preserve-holes policy replayed on own cached connected SAM masks, for solid packaging only; default/budget unchanged",
+      "closed": true,
+      "genus": 40,
+      "triangles": 681128,
+      "visual_review": "Support disk removed; some white top foreground lost. False printed grooves remain in stereo mesh. Not a full geometry fix.",
+      "geometry_proof": {
+        "triangle_coordinates_and_winding_byte_equal": true,
+        "triangles": 681128
+      },
+      "stl_sha256": "bbdaada8d9db438df9744d3d5d5b6ce3a94ad28571fdf06479e1043f9aa93843",
+      "glb_sha256": "5717a0e28ca73bb241a09b44b07017503a88672472ac05940a45a6b14b1b7ede"
+    },
+    "cereal-sam-coarse": {
+      "closed": true,
+      "genus": 44,
+      "score": {
+        "parameters": {
+          "seed": 215,
+          "samples_per_surface": 200000,
+          "fit_samples": 100000,
+          "held_out_samples": 100000,
+          "random_starts": 96,
+          "icp_keep_fraction": 0.8,
+          "platform_margin": 0.006,
+          "above_margin": 0.03,
+          "handedness": "auto"
+        },
+        "f1": {
+          "all": {
+            "0.005": 0.5460796718790054,
+            "0.01": 0.8082432726575499,
+            "0.02": 0.8822923152023106
+          },
+          "above_margin": {
+            "0.005": 0.5460796718790054,
+            "0.01": 0.8082432726575499,
+            "0.02": 0.8822923152023106
+          },
+          "all_without_underside": {
+            "0.005": 0.5460796718790054,
+            "0.01": 0.8082432726575499,
+            "0.02": 0.8822923152023106
+          },
+          "fit_half_for_comparison_only": {
+            "0.005": 0.5469248348112258,
+            "0.01": 0.8079940200330377,
+            "0.02": 0.8822958320639218
+          }
+        },
+        "reference_used_only_posthoc": true,
+        "shape_only_reference_fitted_similarity": true,
+        "reflection_in_scored_fit": false,
+        "physical_handedness_established": false
+      },
+      "geometry_proof": {
+        "triangle_coordinates_and_winding_byte_equal": true,
+        "triangles": 663960
+      },
+      "visual_review": "Rejected as a shape fix: missing pale edges and carved/faceted faces remain even with stereo evidence disabled."
+    },
+    "cereal-hybrid-coarse-prototype": {
+      "closed": true,
+      "genus": 0,
+      "triangles": 563236,
+      "textured_area_fraction": 0.9156795429965412,
+      "score": {
+        "parameters": {
+          "seed": 215,
+          "samples_per_surface": 200000,
+          "fit_samples": 100000,
+          "held_out_samples": 100000,
+          "random_starts": 96,
+          "icp_keep_fraction": 0.8,
+          "platform_margin": 0.006,
+          "above_margin": 0.03,
+          "handedness": "auto"
+        },
+        "f1": {
+          "all": {
+            "0.005": 0.6383255701850519,
+            "0.01": 0.8114330823659821,
+            "0.02": 0.9182093775612943
+          },
+          "above_margin": {
+            "0.005": 0.6383255701850519,
+            "0.01": 0.8114330823659821,
+            "0.02": 0.9182093775612943
+          },
+          "all_without_underside": {
+            "0.005": 0.6383255701850519,
+            "0.01": 0.8114330823659821,
+            "0.02": 0.9182093775612943
+          },
+          "fit_half_for_comparison_only": {
+            "0.005": 0.639070350554804,
+            "0.01": 0.8101704766075559,
+            "0.02": 0.9187382651262973
+          }
+        },
+        "reference_used_only_posthoc": true,
+        "shape_only_reference_fitted_similarity": true,
+        "reflection_in_scored_fit": true,
+        "physical_handedness_established": false
+      },
+      "geometry_proof": {
+        "triangle_coordinates_and_winding_byte_equal": true,
+        "triangles": 563236
+      },
+      "stl_sha256": "61ee30cfa8275985f15f1bab6302affba610a1c95ae315ae27d24890e095f462",
+      "glb_sha256": "88af46934918c9da7a1ca3959710b6b89264d97f2a123511df81369f782e0b8c",
+      "visual_review": "Support disk removed and pale top improved. Flat faces still show facets, and texture visibility/seams are poor. Not an accepted general fix.",
+      "method": "Local experimental solid-packaging combination of own SAM and own backdrop masks, then silhouette hull only. Same own recovered cameras. Not a shipped provider.",
+      "reflection_limit": "Auto alignment narrowly favours reflection on this near-symmetric box. This is not evidence the scan or reconstruction is physically mirrored."
+    }
+  },
+  "evaluation_warning_fix": "A preferred reflected shape fit no longer asserts the scan must be mirrored; near-symmetry and reconstruction errors make that inference unsafe.",
+  "validation_glb": {
+    "mario-sam-release/texture": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "mustard-hull-release/texture": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "cereal-run/texture": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "cereal-sam-run/texture": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "cereal-sam-coarse-texture": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "cereal-hybrid-texture2": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    }
+  },
+  "reproducibility": {
+    "base_commit": "1499e09",
+    "source_sha256": {
+      "crates/dense/src/photos/background.rs": "2007a76bb036084542f20a59e5c6afd419a2e5c3f0cab1b88779fe74dc95aee4",
+      "crates/dense/src/photos/turntable/planar.rs": "84bb7357ccc77e5f33a134f1df25dadb05dba55dded78d12eaddd96133910489",
+      "crates/dense/src/photos/turntable/provider.rs": "1f4117694f3556b796cd6aaea78352e5be125acbb94eaaac474ac597414af7f2",
+      "crates/dense/src/photos/turntable/solver.rs": "54b9c83218f66056aa121f1530cf935d91d27d9821fd3f5f340f659956f66ee8"
+    },
+    "retained_native_binary_sha256": {
+      "planar-bin": "a972123784a0d2864181144d27cc653b2926d6aa83f2fc2e55edba064c45dc31",
+      "final-bin": "2c5ef6aaec008a7abadd7784c46e76b163a1e4b518b32e995b521e2554874024",
+      "joint-bin": "435afb882b578c26e7a0a22a2b7a7c45685cdfe71069a6744dca68c9b87746c5",
+      "publish-bin": "0818ca3de2a57e0d6073acba968993223f60308b83cda2f7f96ed1caeb739e3c"
+    },
+    "case_binaries": {
+      "shoe-background": "planar-bin",
+      "mario-background": "planar-bin",
+      "mario-sam": "final-bin",
+      "mustard-surface": "joint-bin",
+      "mustard-silhouette-only": "publish-bin (remesh retained joint-bin volume)",
+      "drill-object": "publish-bin",
+      "cereal-background": "publish-bin",
+      "cereal-sam-solid": "publish-bin with own fixed-camera mask ablation"
+    },
+    "limits": "Scored mustard volume precedes the later short-range background-mask growth change. Retained input/volume and explicit remeshing settings reproduce the coarse result; this is not a fresh final-source end-to-end mustard adoption run."
+  },
+  "validation": {
+    "dense_release_tests_passed": 196,
+    "studio_tests_passed": 151,
+    "studio_native_release_tests_passed": 38,
+    "geometry_checker_tests_passed": 1,
+    "scanner_evaluator_tests_passed": 5,
+    "studio_build": "passed",
+    "threaded_wasm_build": "passed",
+    "new_browser_options_execution": "not yet exercised in browser; compile and native algorithm tests only"
+  },
+  "limits": [
+    "Single runs; no broad default adoption validation",
+    "STL/GLB format checks do not establish shape accuracy",
+    "Surface initializer assumes roughly uniform full turn and coplanar moving support features",
+    "SAM run uses an existing native optional build/model/runtime; browser SAM availability not established",
+    "Bunny eye/nose detail, drill, and printed-box quality not established by these results"
+  ]
+}

@@ -233,3 +233,105 @@ horizontal edges; mustard masks plus steep-camera/low-feature recovery; drill
 glossy surfaces; Mario/shoe light foreground. DTU needs photo-derived masks
 and recovered cameras before it can count as end-to-end adoption evidence.
 See [textured meshes](TEXTURED-MESH.md) and [texture evidence](../tests/evidence/photo-texture-review.json).
+
+## Background masks and surface recovery experiments, 2026-10-08
+
+`--masks background` is a new opt-in photo-only mask provider for centred
+objects. It estimates peripheral backdrop colour, retains light foreground,
+and removes black padding connected to the frame. It does not require a model
+or network. It still confuses some cast shadows and foreground colours close
+to the backdrop. Threshold remains the default.
+
+Fresh 72-photo GSO shoe and Mario captures registered all views and produced
+closed STL meshes and photo-textured GLBs. The regression runner verified that
+texturing preserved triangle coordinates and winding byte for byte. Shoe
+F1 at 0.5/1/2% of reference diagonal was 0.444/0.643/0.819, versus the retained
+threshold run's approximately 0.430/0.645/0.816: a modest change, with rippled
+geometry still visible. Mario background masks retained cast-shadow artefacts.
+Photo-derived native SAM masks instead gave Mario 0.830/0.947/0.980 and a closed
+mesh (genus 14); one inspected mask still lost facial foreground. These are
+single runs, not evidence of general robustness. Scanner geometry and rendered
+poses/masks were used only for subsequent evaluation, never reconstruction.
+
+Experimental `--turntable-region surface` detects moving features around the
+object and jointly fits rotation of a planar support surface to initialize
+steep cameras. It uses image correspondences, not known board coordinates or
+supplied camera poses. It requires one roughly uniform full turn. Mustard's
+photo-derived background masks now select the bottle instead of its black
+image border; the joint fit registered 60/60 photos, with a raw turn of 359.4°
+and median reprojection error 0.294 px. **The resulting mesh remains badly
+wrinkled and open and fails visual quality review.** Camera-fit gates alone
+therefore do not establish recovery. This option remains experimental; dense
+settings and ordinary camera recovery defaults are unchanged.
+
+Use [the serial regression runner](../scripts/photo_regression/README.md) to
+check STL and GLB together. Its PASS is an execution/format check, separate
+from shape quality. See [the retained evidence summary](../tests/evidence/photo-robustness-review.json).
+
+A mustard silhouette-only control isolates the damage from stereo evidence:
+remeshing the same own-photo hull while ignoring all fused depths produced a
+closed coarse bottle, F1 0.637/0.836/0.890 at 0.5/1/2%, compared with
+0.181/0.391/0.658 for the joint-camera stereo mesh. Both were scored afterward
+with the same reference and evaluation settings. The coarse control preserves
+the outline but fills unseen concavities and loses the neck/spout relief. Its
+textured GLB preserves its STL triangle coordinates and winding byte for byte.
+It is an approximation, not recovered fine geometry.
+
+This control is reproducible from a retained own `stereo/volume.npz` using
+existing settings (the large minimum weight exceeds every weight in this run):
+
+```sh
+crisp3ds-dense mesh --volume OWN-RUN/stereo/volume.npz --output NEW-COARSE \
+  --set mesh_minimum_weight=1000000 --set mesh_hull_overshoot=false \
+  --set mesh_open_unseen=false
+crisp3ds-dense texture --inputs OWN-RUN/frontend/inputs \
+  --mesh NEW-COARSE/mesh.stl --output NEW-TEXTURE
+```
+
+This explicitly disables measured stereo evidence and closes unobserved surface;
+it must not be presented as a detail-recovery setting or used silently. No
+reference geometry is used to construct the coarse mesh.
+
+Drill with its own declared lens calibration (full distortion undistorted before
+processing) remains refused: the surface fit had 24.4% support, below its 25%
+gate; ordinary object features then failed distinct-landmark support and ring
+radius spread (6.60%, limit 5%). The photo-derived masks still miss parts of the
+dark chuck in some views. Gates were not relaxed; no accepted drill mesh/GLB
+was produced in this follow-up.
+
+For a paired Mario comparison on the same 72 RGB photos, background masks gave
+F1 0.542/0.752/0.851; native SAM masks gave 0.830/0.947/0.980. Both recover
+cameras independently from those photos. This supports the mask improvement
+on this capture, while surface relief remains noisy in the untextured renders.
+
+### Printed-box controls
+
+A fresh GSO cereal-box front end registered 72/72 photos (238.5 s, most spent
+matching printed features). Background masks retain the support disk; the
+closed stereo mesh also turns printed lines into false geometric grooves.
+Photo texture exports successfully, but does not repair these defects.
+
+Native SAM removes the disk but misses some pale top foreground. Preserving
+holes caused dark-hole cleanup to refuse one view: 5.28% would be filled,
+exceeding its 5% budget. For this solid packaging experiment, the existing
+`--no-sam-preserve-holes` policy was replayed on cached own SAM components;
+the budget/defaults were not changed. This policy fills enclosed regions and
+is inappropriate when actual openings must remain. The resulting masks pass
+cleanup; the closed stereo mesh still has false grooves (genus 40).
+
+These controls reuse cameras recovered from the same RGB photos, never dataset
+poses. Mask undistortion was checked against native output: all 72 previous
+masks reproduce byte for byte. A silhouette-only SAM control still has missing
+edges and facets (genus 44). A local prototype combining the two photo-derived
+mask estimates gives a closed genus-0 silhouette approximation and about 91.6%
+texture coverage. It restores more pale foreground, but visible facets, grey
+patches and texture seams remain. This combination is not a shipped provider
+or an accepted general box fix. Stronger geometric smoothing softens facets
+and corners without resolving the texture defects; no default changed.
+
+The prototype's automatic shape fit narrowly prefers reflection on this
+nearly symmetric box. That does not establish physical handedness. The
+scanner evaluator warning now states this uncertainty rather than asserting
+that the reference must be mirrored. STL/GLB byte preservation and Khronos
+format validation pass for these exports; neither check establishes shape
+or appearance quality.

@@ -114,3 +114,23 @@ README.
 | [cstr/gso-turntable-photos](https://huggingface.co/datasets/cstr/gso-turntable-photos) | rendered turntable photos of Google Scanned Objects | CC BY 4.0 |
 | [cstr/sam2.1-hiera-tiny-ONNX](https://huggingface.co/cstr/sam2.1-hiera-tiny-ONNX) | SAM 2.1 Hiera-tiny, ONNX export | Apache-2.0 |
 | [cstr/sam2.1-hiera-tiny-GGUF](https://huggingface.co/cstr/sam2.1-hiera-tiny-GGUF) | SAM 2.1 Hiera-tiny for CrispEmbed's ggml engine (F16, F32) | Apache-2.0 |
+
+Photo robustness follow-up (2026-10-08): opt-in background-colour masks and an
+experimental rotating-support camera initializer; defaults unchanged. Shoe
+and Mario produce STL and GLB with identical triangle geometry. Mario with
+photo-derived native SAM masks scores F1 0.830 at 0.5% of reference diagonal;
+shoe gains are modest. Mustard now registers with photo-derived masks and
+surface features, but its wrinkled mesh fails visual review. It is not fixed.
+See [other image sets](OTHER-IMAGE-SETS.md) and the
+[regression runner](../scripts/photo_regression/README.md).
+A silhouette-only mustard control yields a useful coarse closed bottle and GLB
+(F1 0.637/0.836/0.890), versus 0.181/0.391/0.658 for its damaged stereo mesh.
+The current dense evidence damages the coarse hull; this does not distinguish
+camera error, matching, filtering or fusion. The approximation still loses
+neck/spout geometry and unseen concavities.
+Cereal box: 72/72 recovered cameras and both exports; background masks retain
+the disk, while SAM removes it but misses pale edges. Printed lines still become
+false grooves. A local combined-mask/silhouette prototype is closed genus 0,
+but facets and texture defects remain; it is not a shipped/general fix. Drill
+is still refused by camera gates. Evaluation warnings no longer infer which
+input is mirrored from a preferred reflected shape fit alone.

@@ -203,3 +203,24 @@ and their backdrop is dark.
   1749 x 1155 with four threads here. Matching compares all descriptors of a
   pair: 1 to 11 s for 292 pairs.
 - Not tried: steps larger than 15 degrees, a strongly tilted axis.
+
+## Experimental moving support region
+
+`--turntable-region surface` extends feature detection one object bounding-box
+side around its silhouette. Off-object matches with less than two pixels of
+motion are discarded. A robust joint fit models a rotating planar support,
+initializing the axis, direction to its centre and per-step angles before the
+existing triangulation, free-pose bundle adjustment and camera gates. Object
+points, selected by majority mask votes, locate the scene. No known board
+coordinates or dimensions, reference geometry or supplied poses are inputs.
+
+The initializer assumes a roughly uniform full turn, limited camera roll and
+sufficient coplanar moving support features. Open turns are refused. Its
+synthetic test covers a steep camera and wrong matches; the mustard experiment
+registers 60 photos but still produces an unacceptable stereo mesh. This is an
+opt-in experiment, not evidence of accurate mustard recovery. Ordinary object
+feature detection and its axis search remain the defaults.
+
+With `--keep-intermediates`, `sfm/photo-matches.json` retains the photo-derived
+feature cache for repeatable diagnostics. Imported caches must come from the
+same own photos and resolution; cache provenance is the caller's responsibility.
