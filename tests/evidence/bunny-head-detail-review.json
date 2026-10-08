@@ -1,0 +1,198 @@
+{
+  "date": "2026-10-08",
+  "object": "3DLF Bunny",
+  "photos": 73,
+  "engine_source_commit": "d0eaafff0789df261e84ebeb70bcfc2d3bdd1f67",
+  "binary_sha256": "42d2d27156e86d5d186897a83d6113177ff7934217502622ca38b4bd33b1eccd",
+  "reference_used": false,
+  "scanner_scoring_rerun": false,
+  "default_changed": false,
+  "method": "Photo-derived threshold masks and turntable cameras shared across cases. No reference mesh, dataset masks, supplied extrinsics or supplied depths used. Geometry-only crops through identical recovered cameras and lighting. Qualitative review, not proof of feature accuracy.",
+  "camera_reprojection_px": {
+    "median": 0.3463031181397031,
+    "p95": 1.1658982990099285
+  },
+  "source_pixel_crops": {
+    "view_10": [
+      840,
+      420,
+      360,
+      320
+    ],
+    "view_18": [
+      650,
+      420,
+      420,
+      340
+    ],
+    "view_25": [
+      480,
+      430,
+      400,
+      340
+    ]
+  },
+  "local_sheets": {
+    "smoothing": "head-smoothing.png",
+    "fusion": "head-fusion.png",
+    "small_window": "head-small-window.png",
+    "wider_baseline": "head-wider-baseline.png",
+    "wide_search": "head-wide-search.png",
+    "planes_wider_baseline": "head-pm-wider-baseline.png",
+    "grid": "head-grid.png"
+  },
+  "local_artifacts_directory": ".local-tools/detail-231",
+  "cases": [
+    {
+      "name": "band-baseline",
+      "changes_from_band_defaults": {},
+      "mesh_sha256": "ce80282cbaa6adc7a3877e07bb03e0fbc901d0815b88ee0a7c853a707a449431",
+      "triangles": 1040560,
+      "closed": true,
+      "genus": 4,
+      "reference_used": false,
+      "review": "New baseline head crops from the previously retained baseline mesh. Eyes and muzzle relief weak."
+    },
+    {
+      "name": "bunny-pm",
+      "changes_from_band_defaults": {
+        "patchmatch": true
+      },
+      "mesh_sha256": "0d60edda78a830bb94284ec8e5f3e52b85ca4b31f02a246ad907535cd1523c64",
+      "triangles": 1032764,
+      "closed": true,
+      "genus": 7,
+      "reference_used": false,
+      "review": "Small reduction in ripples; facial relief remains weak."
+    },
+    {
+      "name": "no-smoothing",
+      "changes_from_band_defaults": {
+        "patchmatch": true,
+        "mesh_smooth": 0.01,
+        "mesh_final_smooth": 0,
+        "mesh_taubin_cycles": 0
+      },
+      "mesh_sha256": "47cc2bf6c4a18579da378fcd35dbc024f8bfce39689935b8cbc165326afd95d4",
+      "triangles": 1138856,
+      "closed": true,
+      "genus": 333,
+      "reference_used": false,
+      "review": "Same PM fused volume. More granular surface and many small handles; eyes/nose not recovered. Sigma .01 approximates no first-stage blur; hole-filling sigmas remain unchanged."
+    },
+    {
+      "name": "fine-only",
+      "changes_from_band_defaults": {
+        "patchmatch": true,
+        "reuse_depths": "consistent finest depth before coarse fallback"
+      },
+      "mesh_sha256": "d6615e24fa5fd3fdf62caf0244db21399256eaf2e62f5b202030719c2e9f007d",
+      "triangles": 1026876,
+      "closed": true,
+      "genus": 4,
+      "reference_used": false,
+      "review": "Same finest PM matches, re-fused without fallback. No convincing recovery of the face."
+    },
+    {
+      "name": "narrow-tsdf",
+      "changes_from_band_defaults": {
+        "patchmatch": true,
+        "truncation_voxels": 1
+      },
+      "mesh_sha256": "3519bee1d45a13ea66ddfb3e07e7d8fd629ea695cd976ccc24d9d6e09d0b6d8a",
+      "triangles": 1030960,
+      "closed": true,
+      "genus": 4,
+      "reference_used": false,
+      "review": "Same merged PM depths, re-fused with one-voxel truncation rather than three. Little visible facial change."
+    },
+    {
+      "name": "small-window",
+      "changes_from_band_defaults": {
+        "windows": [
+          7,
+          9,
+          7
+        ],
+        "aggregates": [
+          1,
+          1.5,
+          0.5
+        ]
+      },
+      "mesh_sha256": "45a2450284c915cf3cd9d0db64507b0fc42257f9a4fa06588e0e013878a7b973",
+      "triangles": 1037910,
+      "closed": true,
+      "genus": 8,
+      "reference_used": false,
+      "review": "Band refinement with smaller finest window and less cost averaging. Facial features remain weak."
+    },
+    {
+      "name": "wider-baseline",
+      "changes_from_band_defaults": {
+        "minimum_angle": 10
+      },
+      "mesh_sha256": "9ad34c31b326f5f6a001407023da6e6fd1dc4f50437248870a0149db24325b7c",
+      "triangles": 1035264,
+      "closed": true,
+      "genus": 2,
+      "reference_used": false,
+      "review": "Band refinement using more separated neighbours. Minor relief changes; no convincing restoration of eyes/nose."
+    },
+    {
+      "name": "wide-search",
+      "changes_from_band_defaults": {
+        "passes": [
+          1,
+          2,
+          3
+        ],
+        "band_first": [
+          8,
+          8,
+          16
+        ]
+      },
+      "mesh_sha256": "50f3b5ccb05a2298c71eb22ca22a1bc77c6e26522ad320e23741dfcaac52a505",
+      "triangles": 1043518,
+      "closed": true,
+      "genus": 4,
+      "reference_used": false,
+      "review": "Band refinement with wider initial finest search and three finest passes. No convincing restoration of eyes/nose."
+    },
+    {
+      "name": "pm-wider-baseline",
+      "changes_from_band_defaults": {
+        "patchmatch": true,
+        "minimum_angle": 15
+      },
+      "mesh_sha256": "7aca2da962a3ec4f1b34788669a4431ed41962d7c3558617da61d6ba34f475a5",
+      "triangles": 1028876,
+      "closed": true,
+      "genus": 0,
+      "reference_used": false,
+      "review": "Slanted planes using more separated neighbours. Minor relief changes; no convincing restoration of eyes/nose."
+    },
+    {
+      "name": "grid-600",
+      "changes_from_band_defaults": {
+        "patchmatch": true,
+        "grid": 600,
+        "reuse_depths": "merged PM depth maps"
+      },
+      "mesh_sha256": "b163054d9dcce3b97ca44c2cdd173c65d378aa88e58f1c2edc26d23321fec1d4",
+      "triangles": 2422948,
+      "closed": true,
+      "genus": 43,
+      "reference_used": false,
+      "review": "Same merged PM depths with grid=600; hull/mask repair rebuilt, smoothing and truncation remain in voxel units. 2,422,948 triangles versus 1,032,764, slightly different surface relief but eyes/nose still not convincingly resolved."
+    }
+  ],
+  "conclusion": "Facial detail remains unresolved. Simple smoothing, fusion and matching parameter variations did not convincingly restore the eyes and nose. More mesh triangles are insufficient. These experiments do not isolate the matching objective from consistency filtering, residual camera error or limited photo information.",
+  "limits": [
+    "Qualitative review at three recovered camera views; no new scanner F1 or local feature accuracy measurements.",
+    "Sparse camera reprojection error does not measure local facial depth accuracy.",
+    "The 600-grid experiment rebuilds hull/mask repair; physical smoothing and truncation widths also change because their settings are in voxel units.",
+    "Diagnostic depth shading triangulates only valid depth quads and rejects depth jumps above 0.01 scene units; it is a visualization, not a fused reconstruction."
+  ]
+}

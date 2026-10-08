@@ -35,6 +35,24 @@ for front ends. `dense_pipeline.py` runs all of this as one command. `dense_conf
 every tunable. `stl_compare_render.py` renders several STLs through the same
 cameras. `synthetic_scene.py` writes a small analytic test scene.
 
+For detail comparisons, repeat `--crop VIEW X Y WIDTH HEIGHT` on
+`stl_compare_render.py`. Coordinates are pixels in that view's input image;
+the box is fitted into the panel with the same camera, scale and lighting for
+every mesh. Triangles are rasterised again at the closer scale, rather than
+enlarging an overview. For example, after a Bunny photo run:
+
+```sh
+python -m scripts.turntable_mesh.stl_compare_render \
+  --cameras RUN/frontend/inputs/cameras.json --views view_10 \
+  --crop view_10 840 420 360 320 \
+  --mesh Baseline BASE/mesh/mesh.stl --mesh Candidate RUN/mesh/mesh.stl \
+  --output bunny-head.png
+```
+
+Meshes and cameras must use the same recovered coordinate frame. These
+untextured renders assess geometry; colour and photographed shadows alone do
+not establish that a reconstructed feature is present.
+
 Why it is built this way, with the measurements on the 3DLF Dragon behind each
 choice, is in [Design notes](#design-notes).
 

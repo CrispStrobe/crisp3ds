@@ -763,6 +763,35 @@ memory saving. The browser path works, but its measured extra 146 seconds
 is a substantial cost. The setting remains off pending DTU validation.
 Measurements are recorded in [patchmatch-browser.json](../../tests/evidence/patchmatch-browser.json).
 
+**Bunny facial detail follow-up (2026-10-08).** Three close-up views of the
+eyes, nose and cheeks show that the small global score gains above do not
+restore convincing facial relief. Eight follow-up variations were rendered
+through the same photo-derived cameras: almost no mesh smoothing, no coarse
+depth fallback, a one-voxel fusion band, a smaller finest matching window with
+less cost averaging, more separated neighbour cameras (band refinement and
+slanted planes), a wider depth search with extra finest passes, and a 600
+fusion grid instead of 400. None convincingly resolves the face. Removing
+smoothing mainly exposes roughness (mesh genus 7 → 333); the finer grid
+increases triangles from 1,032,764 to 2,422,948 with weak facial relief still.
+
+The fusion experiments reuse the matched depths. The grid experiment rebuilds
+the hull and mask repair at the new voxel size; smoothing and truncation still
+use their configured voxel units, so this is not a comparison at identical
+physical filter widths. The finest maps already contain holes and weak facial
+relief before fusion. These checks rule out simply removing smoothing or
+increasing mesh resolution as sufficient fixes; they do not isolate matching
+from confidence filtering, residual camera error or limited photo information.
+The recovered cameras have median / p95 sparse reprojection error 0.35 / 1.17
+pixels, which is not a local facial depth-accuracy measurement.
+
+Settings, mesh hashes, crop coordinates and qualitative observations are in
+[bunny-head-detail-review.json](../../tests/evidence/bunny-head-detail-review.json).
+No new scanner scores were measured and no defaults changed. Further detail
+work needs local feature checks as well as whole-object F1: adaptive matching
+support and geometric consistency are candidates, not validated fixes. The
+comparison renderer now accepts per-view source-pixel `--crop` boxes, shared
+by the photographs and freshly rasterised untextured meshes.
+
 ### Camera providers through the dense stages
 
 A provider is judged by the reconstruction it leads to. `colmap` against

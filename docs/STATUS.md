@@ -48,8 +48,13 @@ README.
   capture style; threshold is the default.
 - The 3DLF light-field photos are soft (most image energy below an eighth of
   the sampling frequency). Fine relief is nevertheless visible in them and is
-  lost in matching at the finest level; per-pixel slanted-plane matching
-  (PatchMatch-style, currently behind a setting) recovers part of it.
+  poorly recovered. Per-pixel slanted-plane matching (PatchMatch-style,
+  currently behind a setting) reduces noise and improves some folds, but
+  close-ups still show weak Bunny eyes, nose and head relief. Whole-object F1
+  gains do not establish recovery of those features. Follow-up matching,
+  fusion and smoothing experiments are recorded in
+  [bunny-head-detail-review.json](../tests/evidence/bunny-head-detail-review.json);
+  none was adopted as a default.
 - At 10° steps (36 photos) results are almost as good as at 5°; at 15° steps
   low-texture objects fail camera recovery.
 

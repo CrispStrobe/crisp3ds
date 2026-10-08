@@ -86,7 +86,7 @@ def shade(triangles, row, center, scale, size, supersample=2):
     return cv2.resize(panel.astype(np.uint8), size, interpolation=cv2.INTER_AREA)
 
 
-def run(cameras, names, meshes, output, size=(560, 430)):
+def run(cameras, names, meshes, output, size=(560, 430), crops=None):
     rows = {r["name"]: r for r in load_views(Path(cameras).parent)}
     rows = [rows[n] for n in names]
     loaded = [(label, read_stl(path)) for label, path in meshes]
@@ -97,6 +97,12 @@ def run(cameras, names, meshes, output, size=(560, 430)):
         ys, xs = np.nonzero(mask)
         center = np.array([(xs.min() + xs.max()) / 2 + 0.5, (ys.min() + ys.max()) / 2 + 0.5])
         scale = 0.9 * min(size[0] / (xs.max() - xs.min()), size[1] / (ys.max() - ys.min()))
+        if crops and row["name"] in crops:
+            # Source-image pixels, shared by the photo and every mesh row. Do not
+            # enlarge a rendered overview: rasterise the actual triangles again.
+            x, y, width, height = crops[row["name"]]
+            center = np.array([x + width / 2, y + height / 2])
+            scale = min(size[0] / width, size[1] / height)
         photo = cv2.imread(row["image"])
         affine = np.array([[scale, 0, size[0] / 2 - scale * center[0]], [0, scale, size[1] / 2 - scale * center[1]]])
         canvas[header : header + size[1], col * size[0] : (col + 1) * size[0]] = cv2.warpAffine(photo, affine, size, borderValue=(249, 247, 246))
@@ -117,8 +123,21 @@ def main():
     parser.add_argument("--views", nargs="+", required=True)
     parser.add_argument("--mesh", nargs=2, action="append", metavar=("LABEL", "STL"), required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--crop", nargs=5, action="append", metavar=("VIEW", "X", "Y", "WIDTH", "HEIGHT"),
+                        help="Detail crop in source-image pixels; repeat for different views")
     args = parser.parse_args()
-    run(args.cameras, args.views, args.mesh, args.output)
+    crops = {}
+    for name, *coordinates in args.crop or []:
+        try:
+            box = tuple(float(value) for value in coordinates)
+        except ValueError:
+            parser.error("crop coordinates must be numbers")
+        if name not in args.views or not np.isfinite(box).all() or min(box[2:]) <= 0:
+            parser.error("each crop needs a selected view, finite coordinates and positive width/height")
+        if name in crops:
+            parser.error(f"duplicate crop for {name}")
+        crops[name] = box
+    run(args.cameras, args.views, args.mesh, args.output, crops=crops)
 
 
 if __name__ == "__main__":
