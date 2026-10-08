@@ -388,3 +388,19 @@ Rebuilding the independent-plane depths with subpixel fusion also leaves
 pass Khronos validation with zero errors/warnings and exactly preserve their
 respective STL triangle coordinates and winding. These are export checks,
 not evidence of recovered shape accuracy.
+
+
+Drill failure isolation: a fresh baseline reproduces the STL byte for byte.
+Raw finest depth estimates already omit broad casing regions and have
+irregular slopes. Finest consistent median coverage is 51.4%; coarse fallback
+raises it to 71.5%. A diagnostic mesh using only the existing silhouette prior
+(no accepted stereo weights, unseen closure enabled, overshoot disabled)
+keeps a recognizable coarse shape without the deep pits. It still misses real
+surface detail and is not an accepted reconstruction. This points to unreliable
+stereo/fusion evidence as a major contributor rather than texture export alone.
+The held-out camera subset has 58 foreground observations, median/p95
+0.445/1.501 px; the full foreground set is much worse, and background matches
+include many outliers. Cycle-confirmed training matches do not improve the
+full foreground holdout and were not adopted. Photo-only mask grouping is now
+available in the camera diagnostic. See the
+[depth failure evidence](../tests/evidence/drill-depth-failure-diagnostic.json).

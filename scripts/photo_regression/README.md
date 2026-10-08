@@ -62,6 +62,15 @@ remain visible in the full report. This is a camera diagnostic, not a dense
 accuracy gate. Matches must use the original calibrated photo coordinates;
 calibration is the engine's `radialk3` model. Do not fit with the original cache.
 
+Add `--foreground-masks` to `evaluate` to report errors separately inside and
+outside the recovered cameras' photo-derived masks. The masks must match each
+camera's image dimensions; normalized feature coordinates are mapped using
+that camera's intrinsics. These groups do not alter triangulation, track
+selection or the overall scores. Report group counts: a small number of good
+object observations cannot establish accuracy everywhere, and incorrect masks
+can misclassify observations. Points beyond the mask bounds form a separate
+group rather than being counted as background.
+
 ## Local relief through the stages
 
 `detail_profiles.py --spec regions.json --output new-folder` compares raw,

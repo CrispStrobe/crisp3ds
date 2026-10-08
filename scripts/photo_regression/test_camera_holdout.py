@@ -25,4 +25,36 @@ class HoldoutTests(unittest.TestCase):
         perturbed=evaluate(matches,held,rows,lens)
         self.assertGreater(perturbed['per_view'][1]['median'],4.9)
         self.assertEqual(perturbed['fit_verified_tracks'],1)
+    def test_mask_groups_use_recovered_intrinsics_without_changing_scores(self):
+        lens=dict(fx=100,fy=100,cx=0,cy=0,k1=0,k2=0,k3=0)
+        rows=[];points=[];masks=[]
+        for i in range(8):
+            translation=[(i-3.5)*.1,0,0]
+            rows.append({'name':str(i),'rotation':np.eye(3).tolist(),'translation':translation,'k':[100,100,50.5,50.5],'width':100,'height':100})
+            observations=[]
+            for y in [.2,-.2]:
+                q=np.array([.1,y,2])+translation;observations.append((q[:2]/q[2]*100).tolist())
+            points.append(observations)
+            mask=np.zeros((100,100),np.uint8);mask[50:]=255;masks.append(mask)
+        held={'tracks':[[[i,f] for i in range(8)] for f in range(2)]};matches={'keypoints':points}
+        rows[1]['translation'][0]+=.1
+        original=evaluate(matches,held,rows,lens)
+        grouped=evaluate(matches,held,rows,lens,masks)
+        self.assertEqual(original['held_out_reprojection_pixels'],grouped['held_out_reprojection_pixels'])
+        self.assertEqual(original['fit_verified_tracks'],grouped['fit_verified_tracks'])
+        for name in ['foreground','background']:
+            self.assertEqual(grouped['photo_mask_groups'][name]['held_out_reprojection_pixels']['count'],4)
+            self.assertEqual(grouped['photo_mask_groups'][name]['fit_verified_held_out_pixels']['count'],4)
+        self.assertEqual(grouped['photo_mask_groups']['outside_mask']['held_out_reprojection_pixels']['count'],0)
+        # A one-pixel mask tests the engine's half-pixel centre convention.
+        narrow=[]
+        for observations in points:
+            mask=np.zeros((100,100),np.uint8)
+            x,y=np.floor(np.array(observations[0])+[50.5,50.5]).astype(int)
+            mask[y,x]=255;narrow.append(mask)
+        narrow_result=evaluate(matches,held,rows,lens,narrow)
+        self.assertEqual(narrow_result['photo_mask_groups']['foreground']['held_out_reprojection_pixels']['count'],4)
+        with self.assertRaisesRegex(ValueError,'dimensions'):
+            evaluate(matches,held,rows,lens,[m[:90] for m in masks])
+
 if __name__=='__main__':unittest.main()

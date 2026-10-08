@@ -35,11 +35,21 @@ def partition(matches, every=10):
                   'ambiguous_or_short_components':len(reserved)-len(tracks),'split':'every tenth complete connected component, sorted by feature IDs'}
 
 
-def evaluate(matches, held, rows, lens):
+def evaluate(matches, held, rows, lens, foreground_masks=None):
     import cv2
     k=np.array([[lens['fx'],0,lens['cx']],[0,lens['fy'],lens['cy']],[0,0,1]])
     distortion=np.array([lens['k1'],lens['k2'],0,0,lens['k3']])
     points=[cv2.undistortPoints(np.array(p,float).reshape(-1,1,2),k,distortion).reshape(-1,2) for p in matches['keypoints']]
+    if len(matches['keypoints']) != len(rows):
+        raise ValueError('match cache and recovered cameras must have the same view count')
+    groups={name:[] for name in ['foreground','background','outside_mask']}
+    verified_groups={name:[] for name in groups}
+    if foreground_masks is not None:
+        if len(foreground_masks) != len(rows):
+            raise ValueError('one foreground mask is required per recovered camera')
+        for row,mask in zip(rows,foreground_masks):
+            if mask.ndim != 2 or mask.shape != (row['height'],row['width']):
+                raise ValueError('foreground mask dimensions must match recovered camera: '+row['name'])
     errors=[];per_view=[[] for r in rows];behind=0;failed=0;fit_verified=[];fit_verified_tracks=0
     for track in held['tracks']:
         fit,test=track[::2],track[1::2]
@@ -63,15 +73,28 @@ def evaluate(matches, held, rows, lens):
             residual=(q[:2]/q[2]-points[v][f])*[lens['fx'],lens['fy']]
             e=float(np.linalg.norm(residual));errors.append(e);per_view[v].append(e)
             if verified:fit_verified.append(e)
+            if foreground_masks is not None:
+                fx,fy,cx,cy=rows[v]['k']
+                pixel=points[v][f]*[fx,fy]+[cx,cy]
+                # Engine intrinsics map pixel centres to x+.5, y+.5.
+                x,y=np.floor(pixel).astype(int)
+                mask=foreground_masks[v]
+                group='outside_mask' if not (0<=x<mask.shape[1] and 0<=y<mask.shape[0]) else ('foreground' if mask[y,x]!=0 else 'background')
+                groups[group].append(e)
+                if verified:verified_groups[group].append(e)
     def summary(e):
         return {'count':len(e),'median':float(np.median(e)) if e else None,'p95':float(np.percentile(e,95)) if e else None,'fraction_below_1px':float(np.mean(np.array(e)<1)) if e else None}
-    return {'schema':'crisp3ds_camera_holdout_v1','reference_used':False,'training_tracks_must_exclude_reserved_components':True,
+    result={'schema':'crisp3ds_camera_holdout_v1','reference_used':False,'training_tracks_must_exclude_reserved_components':True,
             'reserved_tracks':len(held['tracks']),'failed_triangulations':failed,'behind_camera_observations':behind,
             'held_out_reprojection_pixels':summary(errors),'per_view':[{'name':r['name'],**summary(e)} for r,e in zip(rows,per_view)],
             'fit_verified_tracks':fit_verified_tracks,'fit_verified_held_out_pixels':summary(fit_verified),
             'limits':['Report is meaningful only when cameras were recovered using the partitioned training cache.',
                       'False feature matches are included; this diagnostic does not establish dense or local facial accuracy.',
                       'Reserved tracks are triangulated using alternating observations; remaining observations score the cameras.']}
+    if foreground_masks is not None:
+        result['photo_mask_groups']={name:{'held_out_reprojection_pixels':summary(groups[name]),'fit_verified_held_out_pixels':summary(verified_groups[name])} for name in groups}
+        result['limits'].append('Foreground/background labels use photo-derived masks only; mask errors can misclassify observations. Groups do not change fitting or track selection.')
+    return result
 
 
 def main():
@@ -79,7 +102,7 @@ def main():
     for name in ['partition','evaluate']:
         q=sub.add_parser(name);q.add_argument('--matches',type=Path,required=True);q.add_argument('--output',type=Path,required=True)
         if name=='evaluate':
-            q.add_argument('--reserved',type=Path,required=True);q.add_argument('--cameras',type=Path,required=True);q.add_argument('--calibration',type=Path,required=True)
+            q.add_argument('--reserved',type=Path,required=True);q.add_argument('--cameras',type=Path,required=True);q.add_argument('--calibration',type=Path,required=True);q.add_argument('--foreground-masks',action='store_true',help='group held-out errors using the recovered cameras photo-derived masks')
     a=p.parse_args();matches=json.loads(a.matches.read_text())
     if a.output.exists():raise ValueError('output exists')
     a.output.mkdir(parents=True)
@@ -89,7 +112,17 @@ def main():
         (a.output/'reserved-tracks.json').write_text(json.dumps(held,indent=2))
         print({k:v for k,v in held.items() if k!='tracks'})
     else:
-        result=evaluate(matches,json.loads(a.reserved.read_text()),json.loads(a.cameras.read_text())['views'],json.loads(a.calibration.read_text()))
+        rows=json.loads(a.cameras.read_text())['views'];masks=None
+        if a.foreground_masks:
+            import cv2
+            masks=[]
+            for row in rows:
+                path=Path(row['mask'])
+                if not path.is_absolute():path=a.cameras.parent/path
+                mask=cv2.imread(str(path),cv2.IMREAD_GRAYSCALE)
+                if mask is None:raise ValueError('cannot read foreground mask: '+str(path))
+                masks.append(mask)
+        result=evaluate(matches,json.loads(a.reserved.read_text()),rows,json.loads(a.calibration.read_text()),masks)
         (a.output/'result.json').write_text(json.dumps(result,indent=2));print(json.dumps(result['held_out_reprojection_pixels']))
 
 if __name__=='__main__':main()
