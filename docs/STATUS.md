@@ -246,3 +246,9 @@ Projecting our own cameras onto a rigid ring improves some neighbouring-pose
 statistics but worsens independent held-out foreground photo residuals; it
 was rejected. Supplied poses never entered reconstruction or the ring fit.
 See [distinct-mode and camera evidence](../tests/evidence/distinct-depth-modes-review.json).
+The final rigid-ring mesh control changes strict F1 only 0.409 to 0.412,
+with extensive visible defects remaining. A separate control removes grazing
+depth normals beyond 60 degrees (333,764 of 1,114,571 valid depth pixels),
+then repeats fusion on the same own inputs; it also leaves extensive defects.
+Neither control is adopted. No reference F1 or six-object gate was measured
+for the grazing-normal control.

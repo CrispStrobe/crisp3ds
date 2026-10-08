@@ -483,7 +483,9 @@
     ".local-tools/quality-235/thai_statue-peak-modes-overview.png",
     ".local-tools/quality-235/happy-peak-modes-overview.png",
     ".local-tools/quality-235/bunny-peak-modes-head.png",
-    ".local-tools/quality-235/drill-peak-modes-control.png"
+    ".local-tools/quality-235/drill-peak-modes-control.png",
+    ".local-tools/quality-235/drill-rigid-ring-control.png",
+    ".local-tools/quality-235/drill-grazing-control.png"
   ],
   "bunny_detail_limits": "Tight eye-region F1 .5821 -> .5864 at .1% diagonal; mean symmetric local error .15633 -> .15711 reference units. No convincing eyes/nose recovery.",
   "camera_diagnostic": {
@@ -670,12 +672,44 @@
     },
     "ring_adopted": false,
     "finding": "Rigid projection improves some supplied-pose neighbour statistics but worsens independent held-out RGB reprojection; rejected",
-    "holdout_limits": "Verified subsets depend on triangulation under each candidate and are not fixed identical observations; full foreground also worsens"
+    "holdout_limits": "Verified subsets depend on triangulation under each candidate and are not fixed identical observations; full foreground also worsens",
+    "rigid_ring_geometry_control": {
+      "same_inputs_except_own_camera_rigid_projection": true,
+      "peak_min_margin": 0.02,
+      "retained_own_sparse_points": true,
+      "reference_used_only_posthoc": true,
+      "scores": {
+        "f1": {
+          "0.005": 0.4118949247129319,
+          "0.01": 0.638010719880704,
+          "0.02": 0.8171282360376542
+        },
+        "median_accuracy_fraction_diagonal": 0.008859788899823605,
+        "median_completeness_fraction_diagonal": 0.004648944519515494,
+        "reflection_in_fit": true
+      },
+      "triangles": 964374,
+      "genus": 255,
+      "finding": "Strict F1 .409 -> .412 versus distinct-modes control; extensive defects remain; worse held-out RGB errors. Not adopted."
+    }
   },
   "resources": {
     "cpu_threads": 2,
     "heavy_jobs_serial": true,
     "disk_floor_gib": 8.8
   },
-  "remaining": "Reliable drill shape, Bunny fine relief and general photo alignment remain unresolved. A passing numerical regression gate is not quality acceptance."
+  "remaining": "Reliable drill shape, Bunny fine relief and general photo alignment remain unresolved. A passing numerical regression gate is not quality acceptance.",
+  "grazing_normal_control": {
+    "method": "Central 3D depth normal against own view ray; keep pixels with unsupported normal, reject supported normals beyond 60 degrees",
+    "threshold_degrees": 60,
+    "valid_depth_pixels_before": 1114571,
+    "depth_pixels_rejected": 333764,
+    "reference_inputs_used": false,
+    "same_own_inputs_and_distinct_mode_depths": true,
+    "triangles": 1027813,
+    "closed": false,
+    "genus": 298,
+    "adopted": false,
+    "finding": "Extensive defects remain after fusion; rejected. No reference F1 or six-object gate measured for this control."
+  }
 }
