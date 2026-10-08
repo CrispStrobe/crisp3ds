@@ -56,7 +56,7 @@ pub fn version() -> String {
 /// Name, group, meaning, kind and default of every setting: `{"settings": [...]}` as JSON text.
 #[wasm_bindgen(js_name = settingsSchema)]
 pub fn settings_schema() -> String {
-    crisp3ds_dense::config::SETTINGS_SCHEMA.to_string()
+    crisp3ds_dense::config::settings_schema().to_string()
 }
 
 /// How a run may start in a browser, as JSON text: the start points (photos, an

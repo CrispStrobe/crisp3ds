@@ -171,7 +171,11 @@ pub const SETTINGS_SCHEMA: &str = include_str!("../settings-schema.json");
 
 /// [`SETTINGS_SCHEMA`] parsed: `{"settings": [{"name", "group", "meaning", "kind", "default"}, ...]}`.
 pub fn settings_schema() -> serde_json::Value {
-    serde_json::from_str(SETTINGS_SCHEMA).expect("the embedded settings schema is JSON")
+    let mut schema: serde_json::Value = serde_json::from_str(SETTINGS_SCHEMA).expect("the embedded settings schema is JSON");
+    if !cfg!(feature = "research-patchmatch") {
+        schema["settings"].as_array_mut().unwrap().retain(|row| !row["name"].as_str().unwrap().starts_with("patchmatch"));
+    }
+    schema
 }
 
 #[cfg(test)]
@@ -183,7 +187,9 @@ mod tests {
         let schema = settings_schema();
         let defaults = serde_json::to_value(DenseConfig::default()).unwrap();
         let rows = schema["settings"].as_array().unwrap();
-        assert_eq!(rows.len(), defaults.as_object().unwrap().len());
+        let excluded = if cfg!(feature = "research-patchmatch") { 0 } else { 3 };
+        assert_eq!(rows.len(), defaults.as_object().unwrap().len() - excluded);
+        assert_eq!(rows.iter().any(|r| r["name"] == "patchmatch"), cfg!(feature = "research-patchmatch"));
         for row in rows {
             let name = row["name"].as_str().unwrap();
             assert_eq!(row["default"], defaults[name], "{name}");

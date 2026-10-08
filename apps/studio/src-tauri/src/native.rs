@@ -1076,7 +1076,11 @@ mod tests {
     fn the_settings_schema_comes_from_the_crate_and_matches_its_defaults() {
         let schema = settings_schema();
         let rows = schema["settings"].as_array().unwrap();
-        let native = serde_json::to_value(crisp3ds_dense::config::DenseConfig::default()).unwrap();
+        let mut native = serde_json::to_value(crisp3ds_dense::config::DenseConfig::default()).unwrap();
+        // The normal engine build excludes the research-only PatchMatch controls.
+        for key in ["patchmatch", "patchmatch_iterations", "patchmatch_normal_agreement"] {
+            assert!(native.as_object_mut().unwrap().remove(key).is_some());
+        }
         let from_schema: Map<String, Value> = rows.iter().map(|row| (row["name"].as_str().unwrap().to_string(), row["default"].clone())).collect();
         assert_eq!(Value::Object(from_schema), native);
         for row in rows {

@@ -19,6 +19,7 @@ use crate::inputs::{parallel_map, round_half_even, Inputs, Plane};
 use super::depth::{consistent, hull_front, initial, merge_fallback};
 use super::level::{build_level_sharpened, coverage, LevelView};
 use super::matcher::Matcher;
+#[cfg(any(test, feature = "research-patchmatch"))]
 use super::patchmatch::{consistent_planes, depth_of, initial_planes, pack_normal, PatchMatch, Settings as PatchMatchSettings};
 use super::previews::depth_sheet;
 use super::run::Previews;
@@ -51,6 +52,7 @@ pub async fn match_levels(
     let voters: Vec<Vec<usize>> =
         (0..count).map(|i| inputs.neighbours(i, config.vote_neighbours as usize, config)).collect::<anyhow::Result<_>>()?;
     let mut matcher = Matcher::new(gpu, config, &state.search).await?;
+    #[cfg(any(test, feature = "research-patchmatch"))]
     let mut patchmatch: Option<PatchMatch> = None;
     let mut level: Vec<LevelView> = Vec::new();
     let mut depths: Vec<Plane<f32>> = Vec::new();
@@ -158,8 +160,13 @@ pub async fn match_levels(
                     )?;
                 }
             }
+            #[cfg(not(any(test, feature = "research-patchmatch")))]
+            let patchmatch_seconds = 0.0;
+            #[cfg(any(test, feature = "research-patchmatch"))]
             let mut patchmatch_seconds = 0.0;
+            #[cfg(any(test, feature = "research-patchmatch"))]
             let mut normals: Vec<Vec<u32>> = Vec::new();
+            #[cfg(any(test, feature = "research-patchmatch"))]
             if config.patchmatch && li + 1 == sizes.len() && p + 1 == passes && li > 0 {
                 // Slanted planes per pixel, from the band refinement where it found a depth and from
                 // the smooth surface of the previous pass or level elsewhere.
@@ -200,12 +207,28 @@ pub async fn match_levels(
             }
             let t_c = Instant::now();
             let (tolerance, votes) = (DenseConfig::level(&config.tolerances, li), DenseConfig::level(&config.min_votes, li));
+            #[cfg(not(any(test, feature = "research-patchmatch")))]
+            let agreed = consistent(&level, &raw, &voters, tolerance, votes);
+            #[cfg(any(test, feature = "research-patchmatch"))]
             let agreed = if !normals.is_empty() {
                 consistent_planes(&level, &raw, &normals, &voters, tolerance, votes, config.patchmatch_normal_agreement as f32)
             } else {
                 consistent(&level, &raw, &voters, tolerance, votes)
             };
+            #[cfg(any(test, feature = "research-patchmatch"))]
             drop(normals);
+            if li + 1 == sizes.len() && std::env::var_os("CRISP3DS_STAGE_DEPTHS").is_some() {
+                // Opt-in diagnostics distinguish matching from cross-view rejection.
+                // These are the pipeline's own depths, before any coarse fallback.
+                super::run::write_depths(&output.join(format!("depths-pass-{p}-raw.npz")), &raw)?;
+                super::run::write_depths(&output.join(format!("depths-pass-{p}-consistent.npz")), &agreed)?;
+                let cameras: Vec<serde_json::Value> =
+                    level.iter().map(|v| json!({"width": v.width, "height": v.height, "k": v.camera.k})).collect();
+                crate::storage::write(
+                    output.join("depths-stage-cameras.json"),
+                    serde_json::to_string(&json!({"views": cameras, "boxes": inputs.boxes}))?,
+                )?;
+            }
             let row = json!({
                 "size": size, "pass": p, "window": window, "working_size": [level[0].width, level[0].height],
                 "raw_coverage": coverage(&level, &raw), "consistent_coverage": coverage(&level, &agreed),

@@ -7,6 +7,7 @@ pub mod level;
 pub mod levels;
 pub mod matcher;
 pub mod options;
+#[cfg(any(test, feature = "research-patchmatch"))]
 pub mod patchmatch;
 pub mod previews;
 pub mod run;

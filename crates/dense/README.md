@@ -679,8 +679,15 @@ consistent coverage at native pixels rises from 0.53 to 0.66 and F1 at 0.5 %
 by +0.011 whole and +0.017 above the support, but stray depth costs 0.006 at
 2 %, so it is a choice, not the default. `describe()` lists the presets.
 
-**Slanted planes per pixel at the finest level (`patchmatch`, native and browser,
-off; under evaluation).** After the last band refinement each pixel carries a
+**Slanted planes per pixel at the finest level (`patchmatch`, research builds only).**
+Normal native and WebAssembly builds exclude this stage and hide its controls.
+Requests with `patchmatch=true` fail before reconstruction. The explicit Cargo
+feature `research-patchmatch` retains the experiment; it does not grant patent
+permission. A targeted [source and patent screen](../../tests/evidence/mvs-source-review.json)
+identified claims requiring further review. Default band refinement is unchanged.
+The measurements below describe earlier experimental builds.
+
+ After the last band refinement each pixel carries a
 plane (depth and normal in the camera's frame), scored with the matching
 window sampled through the plane in every neighbour (`shaders/patchmatch.wgsl`:
 the window's pixels are lifted to the plane along their own rays, projected
@@ -1671,3 +1678,10 @@ PyTorch (BSD-3-Clause). Development aids that are not part of any build:
 evaluator and the parity scripts use NumPy, SciPy (BSD-3-Clause), Pillow
 (MIT-CMU) and OpenCV (Apache-2.0). The CI jobs install Mesa (MIT) for the
 software Vulkan adapter and the Ubuntu `colmap` package.
+
+Native depth diagnostics: `CRISP3DS_STAGE_DEPTHS=1` retains finest-level
+`depths-pass-N-raw.npz`, `depths-pass-N-consistent.npz` and adjusted camera
+intrinsics. Raw means after photometric score acceptance, before cross-view
+rejection; these are the reconstruction's own inferred depths. The ordinary
+`depths.npz` contains the final maps after optional coarse fallback. The switch
+only writes diagnostics and does not change geometry.

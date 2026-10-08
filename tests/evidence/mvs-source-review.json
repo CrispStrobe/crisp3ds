@@ -144,5 +144,60 @@
       "https://opensource.org/license/bsd-3-clause",
       "https://www.uspto.gov/sites/default/files/documents/CRS-LA-Gerasimow-IPR-US.pdf"
     ]
+  },
+  "existing_pipeline_screen": {
+    "date": "2026-10-08",
+    "scope": "Targeted technical comparison with identified patent claims; not a complete patent landscape, legal opinion, or freedom-to-operate clearance. Official status, families, equivalents and licenses remain unverified.",
+    "components": [
+      {
+        "stage": "Native SIFT-class features",
+        "source": "crates/dense/src/photos/turntable/features.rs",
+        "record": "US6711293B1",
+        "finding": "Historical SIFT patent reported expired-lifetime. Native code is original implementation; this does not clear unrelated later patents.",
+        "url": "https://patents.google.com/patent/US6711293B1/en"
+      },
+      {
+        "stage": "Default band stereo",
+        "sources": [
+          "crates/dense/src/stereo/matcher.rs",
+          "crates/dense/src/stereo/levels.rs"
+        ],
+        "records": [
+          "US8285055B1",
+          "US8571328B2"
+        ],
+        "finding": "Fixed depth hypotheses scored per pixel; coarse depth interpolation supplies initialization. Does not select candidate mappings propagated from neighboring fine pixels followed by perturbation as in the reviewed correspondence claims. This is a technical distinction, not a non-infringement conclusion."
+      },
+      {
+        "stage": "Optional PatchMatch",
+        "source": "crates/dense/src/shaders/patchmatch.wgsl",
+        "records": [
+          "US8285055B1",
+          "US8571328B2"
+        ],
+        "finding": "Neighboring-plane candidate propagation and perturbation are present. Material claim overlap concern; whether all limitations are met has not been legally determined. Excluded from ordinary builds and settings forms; explicit research-patchmatch feature retains the experiment without granting patent rights."
+      },
+      {
+        "stage": "Default cross-view filtering",
+        "source": "crates/dense/src/stereo/depth.rs",
+        "record": "CN110176060B",
+        "finding": "Depth estimates are rejected after matching by cross-view depth voting. No reprojection-error term in candidate ranking and no ACMM-specific coarse/fine photometric-difference detail restorer. Several general pipeline steps overlap; reviewed claim combination is not implemented as described."
+      },
+      {
+        "stage": "Default fusion",
+        "source": "crates/dense/src/fusion.rs",
+        "record": "US20160140769A1",
+        "url": "https://patents.google.com/patent/US20160140769A1/en",
+        "finding": "Constant truncation width and silhouette-mask rim exclusion; no depth-edge-dependent shortening of the negative TSDF ramp. Limited comparison with this disclosed technique, not clearance of TSDF generally."
+      },
+      {
+        "stage": "Surface extraction",
+        "source": "crates/dense/src/mesh/surface.rs",
+        "record": "US4710876A",
+        "url": "https://patents.google.com/patent/US4710876A/en",
+        "finding": "Historical marching-cubes record reported expired-lifetime. Does not clear unrelated newer meshing techniques."
+      }
+    ],
+    "decision": "Keep default band pipeline; contain identified optional propagation experiment at build level. Continue measured improvements that avoid the identified propagation/perturbation and ACMM cost/detail-restoration combinations; never label the resulting pipeline patent-free."
   }
 }

@@ -57,6 +57,9 @@ features = ["rustls"]
 libc = "0.2"
 
 [features]
+# Optional neighboring-plane propagation is excluded from normal builds while
+# its patent claim coverage is unresolved. This flag is not patent permission.
+research-patchmatch = []
 # The C interface of the run driver (src/capi.rs, include/crisp3ds_dense.h).
 capi = []
 # The `sam` mask provider's ONNX backend: `--masks sam --sam-model DIR --sam-runtime libonnxruntime`.

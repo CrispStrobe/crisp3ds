@@ -70,6 +70,9 @@ pub fn build(config_path: Option<&Path>, overrides: &[String]) -> anyhow::Result
 }
 
 pub fn validate(c: &DenseConfig) -> anyhow::Result<()> {
+    if c.patchmatch && !cfg!(feature = "research-patchmatch") {
+        anyhow::bail!("dense configuration: patchmatch is excluded from this build pending patent review; use the default band refinement");
+    }
     let need = |condition: bool, message: &str| -> anyhow::Result<()> {
         if condition {
             Ok(())
@@ -144,6 +147,15 @@ mod tests {
         assert!(set(&["best_of=9", "neighbours=4"]).is_err());
         assert!(set(&["repair_masks=maybe"]).is_err());
         assert!(set(&["grid"]).is_err());
+    }
+
+    #[test]
+    fn patchmatch_requires_the_explicit_research_build() {
+        let result = set(&["patchmatch=true"]);
+        assert_eq!(result.is_ok(), cfg!(feature = "research-patchmatch"));
+        if !cfg!(feature = "research-patchmatch") {
+            assert!(result.unwrap_err().to_string().contains("excluded from this build"));
+        }
     }
 
     #[test]
