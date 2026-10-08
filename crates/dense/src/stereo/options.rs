@@ -73,6 +73,8 @@ pub fn validate(c: &DenseConfig) -> anyhow::Result<()> {
     if c.patchmatch && !cfg!(feature = "research-patchmatch") {
         anyhow::bail!("dense configuration: patchmatch is excluded from this build pending patent review; use the default band refinement");
     }
+    anyhow::ensure!(!(c.patchmatch && c.slanted_refine), "dense configuration: choose one plane refinement method");
+    anyhow::ensure!((1..=16).contains(&c.slanted_iterations), "dense configuration: slanted_iterations must be in 1..16");
     let need = |condition: bool, message: &str| -> anyhow::Result<()> {
         if condition {
             Ok(())

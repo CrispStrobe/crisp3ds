@@ -49,7 +49,7 @@ README.
 - The 3DLF light-field photos are soft (most image energy below an eighth of
   the sampling frequency). Fine relief is nevertheless visible in them and is
   poorly recovered. Per-pixel slanted-plane matching (PatchMatch-style,
-  currently behind a setting) reduces noise and improves some folds, but
+  now excluded from ordinary builds pending patent review) reduces noise and improves some folds, but
   close-ups still show weak Bunny eyes, nose and head relief. Whole-object F1
   gains do not establish recovery of those features. Follow-up matching,
   fusion and smoothing experiments are recorded in
@@ -60,16 +60,21 @@ README.
 
 ## In progress
 
-- **Per-pixel slanted-plane matching** (PatchMatch-style) at the finest level,
-  setting `patchmatch`, off by default. Measured on six objects it gains at
-  0.5 % everywhere (Happy Buddha 0.793 → 0.817 whole, Lucy 0.847 → 0.859,
-  Thai statue 0.882 → 0.892) and no score drops more than 0.002; it costs
-  47–69 s more per native run. Browser Bunny check: 130 → 276 s, peak
-  WebAssembly memory 2.07 / 1.82 GiB (one run each). The other five objects'
-  paired sheets are reviewed: less surface noise, no obvious new structural
-  loss in the rendered views, fine relief still limited. Before it becomes
-  the default: photo-only DTU validation. The Buddha's necklace beads are
-  still not resolved; fusion grid and smoothing are the next suspects.
+- **Facial detail and source review**: optional neighboring-plane PatchMatch
+  is excluded from ordinary engine builds and settings forms. The explicit
+  `research-patchmatch` Cargo feature retains it for research, without granting
+  patent rights. A targeted [source and patent screen](../tests/evidence/mvs-source-review.json)
+  records the relevant claims and the limits of the review; it is not legal
+  clearance. The default band pipeline remains unchanged.
+  Independent per-pixel plane refinement is implemented as an experiment
+  (`slanted_refine=false` by default), with no neighboring-plane candidates or
+  random perturbation. Bunny eye-region F1 at 0.1% of the object diagonal
+  rises from 0.579 to 0.593, below the earlier research PatchMatch result of
+  0.609. Close-ups still show weak eyes and nose. Supplied scanner geometry is
+  used only for posthoc evaluation, never reconstruction.
+  Optional subpixel fusion (`fusion_interpolate=false`) raises the combined
+  local eye-region F1 to 0.601. Neither experiment has passed the six-object
+  adoption gate; both stay off. [Evidence and limits](../tests/evidence/bunny-independent-detail-review.json).
 - **Example objects in the app** from several sources (CC BY renders first).
   The rhino passed the sandboxed Mac app check (72 registered photos).
   Screenshot capture now selects the viewer's upright direction for this

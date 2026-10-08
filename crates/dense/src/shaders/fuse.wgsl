@@ -10,7 +10,7 @@ struct Params {
     nx: u32,
     ny: u32,
     nz: u32,
-    pad0: u32,
+    interpolate: u32,
     pad1: u32,
     pad2: u32,
     truncation: f32,
@@ -59,6 +59,26 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         var measured = 0.0;
         if (x >= 0.0 && x < f32(frame.x) && y >= 0.0 && y < f32(frame.y)) {
             measured = depths[frame.z + u32(y) * frame.x + u32(x)];
+        }
+        if (params.interpolate != 0u) {
+            let fx = px / zc * kk.x + kk.z - 0.5;
+            let fy = py / zc * kk.y + kk.w - 0.5;
+            let x0 = floor(fx);
+            let y0 = floor(fy);
+            if (x0 >= 0.0 && y0 >= 0.0 && x0 + 1.0 < f32(frame.x) && y0 + 1.0 < f32(frame.y)) {
+                let at = frame.z + u32(y0) * frame.x + u32(x0);
+                let a = depths[at];
+                let b = depths[at + 1u];
+                let c = depths[at + frame.x];
+                let d = depths[at + frame.x + 1u];
+                let low = min(min(a,b),min(c,d));
+                let high = max(max(a,b),max(c,d));
+                if (low > 0.0 && high-low <= params.truncation) {
+                    let u = fx-x0;
+                    let v = fy-y0;
+                    measured = 1.0 / ((1.0-u)*(1.0-v)/a + u*(1.0-v)/b + (1.0-u)*v/c + u*v/d);
+                }
+            }
         }
         let sdf = measured - z;
         let seen = measured > 0.0 && z > 0.0;

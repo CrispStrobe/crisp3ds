@@ -1,0 +1,256 @@
+{
+  "evaluation_only": true,
+  "reference_used_only_posthoc": true,
+  "alignment": "frozen default-bunny scanner evaluation alignment; recovered camera rotations/translations byte-equal numerically",
+  "head_region": "intersection of at least two of the three fixed source-image crop cones; eye/brow region; manual source-image boxes, no scanner-based selection",
+  "reference_diagonal": 128.08380331154106,
+  "results": {
+    "band": {
+      "mesh_head_samples": 14788,
+      "reference_head_samples": 16405,
+      "head_mean_symmetric_distance": 0.15696146691069007,
+      "head_median_distances": [
+        0.10982595267447443,
+        0.10576155088712351
+      ],
+      "threshold_fraction_of_object_diagonal": {
+        "0.001": {
+          "precision": 0.5673519069515823,
+          "recall": 0.5920146296860713,
+          "f1": 0.5794209483908933
+        },
+        "0.0025": {
+          "precision": 0.8667838788206654,
+          "recall": 0.9074672355989027,
+          "f1": 0.8866591250612303
+        },
+        "0.005": {
+          "precision": 0.9551663510954829,
+          "recall": 0.9836025601950625,
+          "f1": 0.9691759166122694
+        },
+        "0.01": {
+          "precision": 0.9931025155531512,
+          "recall": 1.0,
+          "f1": 0.9965393227929701
+        },
+        "0.02": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        }
+      },
+      "seconds": 2.200705051422119,
+      "mesh_sha256": "ce80282cbaa6adc7a3877e07bb03e0fbc901d0815b88ee0a7c853a707a449431"
+    },
+    "previous-pm": {
+      "mesh_head_samples": 14522,
+      "reference_head_samples": 16405,
+      "head_mean_symmetric_distance": 0.1411524729680726,
+      "head_median_distances": [
+        0.10238420080166918,
+        0.1005959032143704
+      ],
+      "threshold_fraction_of_object_diagonal": {
+        "0.001": {
+          "precision": 0.6047376394436028,
+          "recall": 0.6141420298689424,
+          "f1": 0.6094035543894428
+        },
+        "0.0025": {
+          "precision": 0.902286186475692,
+          "recall": 0.9231941481255714,
+          "f1": 0.9126204336469552
+        },
+        "0.005": {
+          "precision": 0.9692191158242667,
+          "recall": 0.9842121304480341,
+          "f1": 0.9766580857930938
+        },
+        "0.01": {
+          "precision": 0.9955240325024102,
+          "recall": 1.0,
+          "f1": 0.997756996445702
+        },
+        "0.02": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        }
+      },
+      "seconds": 2.1406939029693604
+    },
+    "independent": {
+      "mesh_head_samples": 14569,
+      "reference_head_samples": 16405,
+      "head_mean_symmetric_distance": 0.1476486268685051,
+      "head_median_distances": [
+        0.10651822482524005,
+        0.10223443848055574
+      ],
+      "threshold_fraction_of_object_diagonal": {
+        "0.001": {
+          "precision": 0.5814400439288901,
+          "recall": 0.6052423041755562,
+          "f1": 0.5931024633333206
+        },
+        "0.0025": {
+          "precision": 0.8864026357334065,
+          "recall": 0.9190490704053642,
+          "f1": 0.90243069433067
+        },
+        "0.005": {
+          "precision": 0.9649255268034869,
+          "recall": 0.984151173422737,
+          "f1": 0.9744435294506194
+        },
+        "0.01": {
+          "precision": 0.993067472029652,
+          "recall": 1.0,
+          "f1": 0.9965216792368358
+        },
+        "0.02": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        }
+      },
+      "seconds": 2.0217411518096924,
+      "mesh_sha256": "d05a27d21cb89e6ec4a1a52c003a8eb633bbe59b36741a6d332c0a11708a414c"
+    },
+    "band-subpixel": {
+      "mesh_head_samples": 14776,
+      "reference_head_samples": 16405,
+      "head_mean_symmetric_distance": 0.15777723812424183,
+      "head_median_distances": [
+        0.1097609261898885,
+        0.10562991198453837
+      ],
+      "threshold_fraction_of_object_diagonal": {
+        "0.001": {
+          "precision": 0.5703167298321603,
+          "recall": 0.5940871685461749,
+          "f1": 0.5819593212842612
+        },
+        "0.0025": {
+          "precision": 0.8657282079047104,
+          "recall": 0.907162450472417,
+          "f1": 0.885961149171864
+        },
+        "0.005": {
+          "precision": 0.9547238765565782,
+          "recall": 0.9836025601950625,
+          "f1": 0.9689480899142571
+        },
+        "0.01": {
+          "precision": 0.9916756903086086,
+          "recall": 1.0,
+          "f1": 0.9958204492167589
+        },
+        "0.02": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        }
+      },
+      "seconds": 2.0646281242370605,
+      "mesh_sha256": "0e774bae8a5f4d9e21589a27f01b930f94872aa893af27a45c6695c03ed9e926"
+    },
+    "independent-subpixel": {
+      "mesh_head_samples": 14518,
+      "reference_head_samples": 16405,
+      "head_mean_symmetric_distance": 0.14709327419621498,
+      "head_median_distances": [
+        0.10405697770948283,
+        0.10132224175243523
+      ],
+      "threshold_fraction_of_object_diagonal": {
+        "0.001": {
+          "precision": 0.5931946549111448,
+          "recall": 0.6092654678451691,
+          "f1": 0.6011226686158221
+        },
+        "0.0025": {
+          "precision": 0.8901363824218211,
+          "recall": 0.9195367266077416,
+          "f1": 0.9045977323114955
+        },
+        "0.005": {
+          "precision": 0.9614960738393719,
+          "recall": 0.9838463882962512,
+          "f1": 0.9725428381071775
+        },
+        "0.01": {
+          "precision": 0.9926298388207742,
+          "recall": 1.0,
+          "f1": 0.9963012893636143
+        },
+        "0.02": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        }
+      },
+      "seconds": 2.1048429012298584,
+      "mesh_sha256": "3bd59d1df725c5f1727c06635c0c8622e1f2a8250e212b6c31e813db6688c283"
+    }
+  },
+  "date": "2026-10-08",
+  "scope": "Bunny local facial-detail experiment, not the six-object default adoption gate",
+  "defaults_changed": false,
+  "third_party_algorithm_code_imported": false,
+  "mechanisms": {
+    "slanted_refine": "Independent deterministic per-pixel coordinate search over inverse depth and two normal coordinates; no neighboring plane candidates or random search. Existing own NCC scorer and post-match consistency filtering.",
+    "fusion_interpolate": "Inverse-depth bilinear interpolation only when four corners are valid and their depth spread is within the fixed truncation distance. Legacy nearest sample otherwise; TSDF truncation width is unchanged."
+  },
+  "validation": {
+    "engine_cpu_gpu_tests_passed": 186,
+    "threaded_wasm_build": "passed",
+    "default_mesh_control": "byte-identical to default before new options",
+    "research_propagation_shader": "absent from ordinary native and threaded WASM binaries; distinctive source marker checked",
+    "studio_settings_schema_test": "passed"
+  },
+  "visual_review": {
+    "views": [
+      "view_10",
+      "view_18",
+      "view_25"
+    ],
+    "crop_boxes": [
+      [
+        840,
+        420,
+        360,
+        320
+      ],
+      [
+        650,
+        420,
+        420,
+        340
+      ],
+      [
+        480,
+        430,
+        400,
+        340
+      ]
+    ],
+    "sheet_sha256": "7876b02f00826fe7e4783af15bd8b9d8bacf7e732572e6cbb0a4954809d5fce7",
+    "finding": "Slight reduction in surface ripples; eyes and nose remain poorly recovered. Does not meet the facial-detail target."
+  },
+  "limitations": [
+    "One object and one capture; no six-object adoption gate or browser execution/memory benchmark for new options.",
+    "Frozen prior scanner alignment, no candidate-specific refitting. Scanner used for evaluation only.",
+    "ROI is eye/brow geometry, not nose-specific measurement.",
+    "Sampling and registration uncertainty not quantified; local metrics do not prove detail recovery.",
+    "No legal clearance inferred from independent implementation or these technical distinctions."
+  ],
+  "timing": {
+    "platform": "Apple M1; two CPU worker threads; one native run per variant",
+    "baseline_stereo_seconds": 46.636284583,
+    "independent_stereo_seconds": 133.310736,
+    "independent_refinement_seconds": 87.716679625,
+    "caveat": "Diagnostics enabled; no browser timing/memory measurement for new options."
+  }
+}

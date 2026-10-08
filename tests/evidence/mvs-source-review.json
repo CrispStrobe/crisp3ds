@@ -196,6 +196,24 @@
         "record": "US4710876A",
         "url": "https://patents.google.com/patent/US4710876A/en",
         "finding": "Historical marching-cubes record reported expired-lifetime. Does not clear unrelated newer meshing techniques."
+      },
+      {
+        "stage": "Experimental independent plane refinement",
+        "source": "crates/dense/src/shaders/slanted.wgsl",
+        "records": [
+          "US8285055B1",
+          "US8571328B2"
+        ],
+        "finding": "Deterministic coordinate search on each own pixel plane; no neighboring plane candidates, propagation or random search. Regression test perturbs all other starting planes and verifies unchanged pixels remain bit-identical. Technical distinction only; no claim chart for all patents/families or legal clearance."
+      },
+      {
+        "stage": "Experimental subpixel depth fusion",
+        "sources": [
+          "crates/dense/src/fusion.rs",
+          "crates/dense/src/shaders/fuse.wgsl"
+        ],
+        "record": "US20160140769A1",
+        "finding": "Interpolation falls back to nearest depth at gaps/jumps; fixed TSDF truncation width retained, no edge-dependent negative-ramp shortening. Technical distinction only, not TSDF patent clearance."
       }
     ],
     "decision": "Keep default band pipeline; contain identified optional propagation experiment at build level. Continue measured improvements that avoid the identified propagation/perturbation and ACMM cost/detail-restoration combinations; never label the resulting pipeline patent-free."

@@ -1685,3 +1685,39 @@ intrinsics. Raw means after photometric score acceptance, before cross-view
 rejection; these are the reconstruction's own inferred depths. The ordinary
 `depths.npz` contains the final maps after optional coarse fallback. The switch
 only writes diagnostics and does not change geometry.
+
+
+Facial-detail experiments (2026-10-08): `slanted_refine=true` runs deterministic
+coordinate refinement independently at each pixel. `slanted_iterations` defaults
+to 6 (range 1–16). It reuses our plane scorer but does not borrow neighboring
+plane candidates or use random search. `fusion_interpolate=true` interpolates
+inverse depth at subpixel projections only with four valid corners and a depth
+spread within the fixed truncation distance; otherwise fusion retains its nearest
+sample. Neither changes the TSDF truncation width. Both switches default to
+**false**. Independent plane refinement and research PatchMatch cannot be
+enabled together. No third-party algorithm source was incorporated.
+
+On identical recovered Bunny inputs, eye/brow-region F1 at 0.1% of the scanner
+object diagonal is 0.5794 for default band matching, 0.5931 with independent
+planes, 0.5820 for band plus subpixel fusion, and 0.6011 with both experiments.
+Earlier research PatchMatch scored 0.6094. The combined mean symmetric surface
+distance falls about 6.3% versus band. Frozen prior alignment and source-image
+crop cones are used; scanner geometry participates only in posthoc scoring.
+These are local metrics, not the six-object default-adoption gate. Three head
+views still show poor eyes and nose; this is a modest improvement, not restored
+facial detail. The default-off control mesh is byte-identical. See
+[bunny-independent-detail-review.json](../../tests/evidence/bunny-independent-detail-review.json)
+for measurements, hashes, tests and limitations. The source/patent screen above
+records technical distinctions, without claiming legal clearance.
+
+Example opt-in trial on the pipeline's own recovered inputs:
+
+```sh
+crisp3ds-dense stereo --inputs RUN/frontend/inputs --output trial/stereo \
+  --set slanted_refine=true --set fusion_interpolate=true
+crisp3ds-dense mesh --volume trial/stereo/volume.npz --output trial/mesh
+```
+
+The independent refinement alone added about 88 s on the native M1 Bunny run.
+Browser execution time/memory and the other five objects have not been measured
+for these new options.

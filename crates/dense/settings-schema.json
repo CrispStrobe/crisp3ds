@@ -129,6 +129,20 @@
       "default": 5
     },
     {
+      "name": "slanted_refine",
+      "group": "Matching",
+      "meaning": "Experimental independent slanted-plane refinement at the finest level; deterministic per-pixel coordinate search without neighboring-plane propagation",
+      "kind": "boolean",
+      "default": false
+    },
+    {
+      "name": "slanted_iterations",
+      "group": "Matching",
+      "meaning": "Independent slanted-plane coordinate refinements; depth and normal steps halve each iteration",
+      "kind": "integer",
+      "default": 6
+    },
+    {
       "name": "patchmatch",
       "group": "Matching",
       "meaning": "At the finest level, refine one slanted plane (depth and normal) per pixel by PatchMatch propagation and random search, starting from the band refinement",
@@ -310,6 +324,13 @@
       "meaning": "Silhouette band left to the hull, in matching windows",
       "kind": "number",
       "default": 0.55
+    },
+    {
+      "name": "fusion_interpolate",
+      "group": "Fusion",
+      "meaning": "Experimental subpixel fusion: interpolate inverse depth across four valid pixels only when their depth spread is no greater than the fixed truncation width; otherwise retain nearest-pixel sampling",
+      "kind": "boolean",
+      "default": false
     },
     {
       "name": "truncation_voxels",

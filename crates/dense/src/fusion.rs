@@ -44,7 +44,8 @@ struct FuseParams {
     nx: u32,
     ny: u32,
     nz: u32,
-    pad: [u32; 3],
+    interpolate: u32,
+    pad: [u32; 2],
     truncation: f32,
     behind: f32,
     behind_weight: f32,
@@ -56,7 +57,10 @@ pub fn vote(view: &LevelView, depth: &Plane<f32>, point: [f32; 3], truncation: f
     let (xy, z) = view.project(point);
     let (x, y) = (xy[0].round_ties_even(), xy[1].round_ties_even());
     let inside = x >= 0.0 && x < depth.width as f32 && y >= 0.0 && y < depth.height as f32;
-    let measured = if inside { depth.at(x as usize, y as usize) } else { 0.0 };
+    let mut measured = if inside { depth.at(x as usize, y as usize) } else { 0.0 };
+    if config.fusion_interpolate {
+        measured = interpolated_depth(depth, xy, truncation, measured);
+    }
     let sdf = measured - z;
     let seen = measured > 0.0 && z > 0.0;
     let near = seen && sdf > -truncation;
@@ -72,6 +76,24 @@ pub fn vote(view: &LevelView, depth: &Plane<f32>, point: [f32; 3], truncation: f
     };
     let inside_vote = if is_behind { config.behind_weight as f32 } else { 0.0 };
     (vote * (sdf / truncation).min(1.0) - inside_vote, vote + inside_vote)
+}
+
+/// Inverse depth is affine on a plane in image coordinates. Do not bridge a
+/// missing corner or a depth jump; retain the legacy sample in those cases.
+fn interpolated_depth(depth: &Plane<f32>, xy: [f32; 2], maximum_jump: f32, fallback: f32) -> f32 {
+    let (x, y) = (xy[0].floor(), xy[1].floor());
+    if !(x >= 0.0 && y >= 0.0 && x + 1.0 < depth.width as f32 && y + 1.0 < depth.height as f32) {
+        return fallback;
+    }
+    let (ix, iy) = (x as usize, y as usize);
+    let values = [depth.at(ix, iy), depth.at(ix + 1, iy), depth.at(ix, iy + 1), depth.at(ix + 1, iy + 1)];
+    let minimum = values.iter().copied().fold(f32::INFINITY, f32::min);
+    let maximum = values.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    if minimum <= 0.0 || maximum - minimum > maximum_jump {
+        return fallback;
+    }
+    let (u, v) = (xy[0] - x, xy[1] - y);
+    1.0 / ((1.0 - u) * (1.0 - v) / values[0] + u * (1.0 - v) / values[1] + (1.0 - u) * v / values[2] + u * v / values[3])
 }
 
 /// Depth with the silhouette rim removed: a window that straddles the
@@ -154,7 +176,8 @@ pub async fn tsdf(
                     nx: hull.shape[0] as u32,
                     ny: hull.shape[1] as u32,
                     nz: hull.shape[2] as u32,
-                    pad: [0; 3],
+                    interpolate: config.fusion_interpolate as u32,
+                    pad: [0; 2],
                     truncation: truncation as f32,
                     behind: behind as f32,
                     behind_weight: config.behind_weight as f32,
@@ -401,6 +424,23 @@ mod tests {
         assert!(checked > 3000, "{checked}");
         assert!(different * 500 <= checked, "{different} of {checked} voxels differ");
         assert_eq!(wrong_side, 0);
+        let subpixel = DenseConfig { fusion_interpolate: true, ..config.clone() };
+        let interpolated = crate::gpu::block_on(tsdf(&gpu, &state.hull, &inputs.cameras, &level, &depths, rim, &subpixel)).unwrap();
+        let (mut sub_checked, mut sub_different) = (0usize, 0usize);
+        for n in (0..interpolated.indices.len()).step_by(23) {
+            let [i, j, k] = state.hull.unravel(interpolated.indices[n]);
+            let point = [axes[0][i], axes[1][j], axes[2][k]];
+            let (mut total, mut weight) = (0.0f32, 0.0f32);
+            for (view, depth) in level.iter().zip(&trimmed) {
+                let (t, w) = vote(view, depth, point, truncation, behind, &subpixel);
+                total += t;
+                weight += w;
+            }
+            sub_checked += 1;
+            sub_different += ((total - interpolated.total[n]).abs() > 1e-3 || (weight - interpolated.weight[n]).abs() > 1e-3) as usize;
+        }
+        assert!(sub_different * 500 <= sub_checked, "subpixel GPU/scalar mismatch {sub_different}/{sub_checked}");
+
         // The ring looks down by 10 degrees. The sphere floats: the hull goes on far below its lowest
         // measured level, so there is no support.
         assert!(fused.support.down[2] < -0.99, "{:?}", fused.support.down);
@@ -428,5 +468,23 @@ mod tests {
         assert_eq!(support_from_sparse(&mut kept, &points(9.0)[..100]), None);
         let mut none = Support { height: None, ..support };
         assert_eq!(support_from_sparse(&mut none, &points(9.0)), None);
+    }
+}
+
+#[cfg(test)]
+mod interpolation_tests {
+    use super::*;
+    #[test]
+    fn subpixel_depth_preserves_a_plane_and_does_not_bridge_gaps_or_jumps() {
+        let plane = Plane { width: 2, height: 2, data: vec![1.0, 1.0 / 1.1, 1.0 / 1.2, 1.0 / 1.3] };
+        let expected = 1.0 / (1.0 + 0.1 * 0.25 + 0.2 * 0.75);
+        assert!((interpolated_depth(&plane, [0.25, 0.75], 0.5, 99.0) - expected).abs() < 1e-6);
+        let mut gap = plane.clone();
+        gap.data[3] = 0.0;
+        assert_eq!(interpolated_depth(&gap, [0.25, 0.75], 0.5, 99.0), 99.0);
+        let mut jump = plane.clone();
+        jump.data[3] = 2.0;
+        assert_eq!(interpolated_depth(&jump, [0.25, 0.75], 0.5, 99.0), 99.0);
+        assert_eq!(interpolated_depth(&plane, [-0.25, 0.75], 0.5, 99.0), 99.0);
     }
 }
