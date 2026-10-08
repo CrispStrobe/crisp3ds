@@ -715,6 +715,23 @@ necklace, robe back, hem) the surface is smoother and less pitted; the
 necklace beads and belly lines are still not resolved, so what limits them is
 not only the search band.
 
+Six objects with the settings above (`--set patchmatch=true`, everything
+else default), F1 at 0.5 / 1 / 2 %, default then planes:
+
+| | `all`, default | `all`, planes | `above_margin`, default | `above_margin`, planes | run, default / planes |
+| --- | --- | --- | --- | --- | --- |
+| Bunny | 0.903 / 0.937 / 0.954 | 0.907 / 0.939 / 0.956 | 0.965 / 0.995 / 1.000 | 0.967 / 0.995 / 1.000 | 165 / 138 s (loaded machine) |
+| Armadillo | 0.927 / 0.974 / 0.990 | 0.934 / 0.973 / 0.989 | 0.952 / 0.996 / 1.000 | 0.960 / 0.997 / 1.000 | 60 / 112 s |
+| Dragon | 0.806 / 0.933 / 0.982 | 0.810 / 0.937 / 0.982 | 0.852 / 0.966 / 0.995 | 0.856 / 0.969 / 0.995 | 154 / 135 s (loaded machine) |
+| Lucy | 0.847 / 0.943 / 0.967 | 0.859 / 0.950 / 0.967 | 0.883 / 0.984 / 0.999 | 0.897 / 0.992 / 1.000 | 47 / 104 s |
+| Thai statue | 0.882 / 0.932 / 0.952 | 0.892 / 0.934 / 0.952 | 0.947 / 0.995 / 1.000 | 0.959 / 0.998 / 1.000 | 79 / 136 s |
+| Happy Buddha | 0.793 / 0.909 / 0.972 | 0.817 / 0.918 / 0.971 | 0.834 / 0.942 / 0.992 | 0.859 / 0.952 / 0.990 | 60 / 114 s |
+
+No score drops by more than 0.002 (the adoption rule allows 0.003); every
+object gains at 0.5 %. PatchMatch adds 47 to 69 s per run natively (73
+views). Still open before it becomes the default: the sheets of the five
+other objects, DTU 65 and 63, and memory and time in a browser.
+
 ### Camera providers through the dense stages
 
 A provider is judged by the reconstruction it leads to. `colmap` against
