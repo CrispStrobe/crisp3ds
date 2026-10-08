@@ -145,5 +145,22 @@
     "Masks still omit some chuck/battery foreground",
     "Small object in original photos; triangle count is not detail recovery",
     "Fitted reprojection and silhouette agreement are not independent geometric accuracy"
-  ]
+  ],
+  "visual_review": {
+    "sheet": ".local-tools/quality-235/drill-detail-controls.png",
+    "sha256": "ffb8a6602f9a2ca12360545a832b2a481249c249106b2bcb77663dc04a896622",
+    "views": [
+      0,
+      20,
+      40
+    ],
+    "same_recovered_cameras_crops_lighting": true,
+    "reviewed": true,
+    "conclusion": "Independent planes change the surface only slightly. Wider spacing smooths some broad panels but leaves deep pits, missing molded detail and open edges. Subpixel fusion is visually very close to independent control. No accepted general fix."
+  },
+  "texture_review": {
+    "sheet": ".local-tools/quality-235/drill-texture-review.png",
+    "reviewed": true,
+    "conclusion": "Recognizable photo appearance, but visible holes and surface distortion remain."
+  }
 }

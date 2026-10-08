@@ -382,3 +382,9 @@ artifacts (4,313 boundary edges); increasing the minimum neighbor angle to
 renders successfully but conceals some surface errors. No dense or SAM
 default changed. The object spans only roughly 200–300 source pixels, so
 triangle count does not measure recovered detail.
+
+Rebuilding the independent-plane depths with subpixel fusion also leaves
+4,313 boundary edges and nearly the same visible artifacts. All four GLBs
+pass Khronos validation with zero errors/warnings and exactly preserve their
+respective STL triangle coordinates and winding. These are export checks,
+not evidence of recovered shape accuracy.
