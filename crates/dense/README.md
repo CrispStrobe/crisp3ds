@@ -532,6 +532,12 @@ also keeping hull surface that at least 3 or 8 cameras face. DTU protocol, mm
 | scan 65, `--cameras colmap --capture orbit` | 1.650 / 1.033 / 1.342 | 1.570 / 1.038 / 1.304 | | |
 | scan 63, `--cameras colmap --capture orbit` | 1.909 / 0.874 / 1.392 | 1.744 / 0.874 / 1.309 | | |
 
+These historical dense-stage diagnostics used supplied IDR masks, and the
+`DTU poses` rows also used supplied camera poses. They do not establish
+photo-only pipeline accuracy. Further pipeline validation must derive masks
+and cameras from the photographs; dataset-supplied poses and masks, and
+scanner geometry, are reserved for evaluation.
+
 F1 at 1 mm rises with it (65 poses 0.688 to 0.714, 63 poses 0.812 to 0.820;
 colmap 0.667 to 0.672 and 0.589 to 0.600). The membrane is the most accurate
 on scan 65 but caves in the skull's white dome, which no view matched and
@@ -673,7 +679,7 @@ consistent coverage at native pixels rises from 0.53 to 0.66 and F1 at 0.5 %
 by +0.011 whole and +0.017 above the support, but stray depth costs 0.006 at
 2 %, so it is a choice, not the default. `describe()` lists the presets.
 
-**Slanted planes per pixel at the finest level (`patchmatch`, native-only,
+**Slanted planes per pixel at the finest level (`patchmatch`, native and browser,
 off; under evaluation).** After the last band refinement each pixel carries a
 plane (depth and normal in the camera's frame), scored with the matching
 window sampled through the plane in every neighbour (`shaders/patchmatch.wgsl`:
@@ -729,8 +735,33 @@ else default), F1 at 0.5 / 1 / 2 %, default then planes:
 
 No score drops by more than 0.002 (the adoption rule allows 0.003); every
 object gains at 0.5 %. PatchMatch adds 47 to 69 s per run natively (73
-views). Still open before it becomes the default: the sheets of the five
-other objects, DTU 65 and 63, and memory and time in a browser.
+views) in those measurements.
+
+The five other objects' paired sheets were regenerated and reviewed on
+2026-10-08, using one photo-derived camera/mask solution per object and
+changing only `patchmatch`. Bunny, Armadillo and Dragon show less surface
+noise, Lucy's robe folds are more continuous, and the Thai statue keeps a
+similar silhouette. No obvious new structural loss was seen in the three
+views per object, but small scales and engraving remain poorly resolved.
+This was a visual review, not a rerun of the scanner scores above. The
+review is recorded in [patchmatch-visual-review.json](../../tests/evidence/patchmatch-visual-review.json).
+Photo-only DTU 65 and 63 validation is still required before a default change.
+
+Browser check on 2026-10-08: Bunny from all 73 photos, threshold masks and
+turntable cameras, Chrome 153 on the M1, four worker threads, the same
+threaded WebAssembly build for both settings:
+
+| | Full run | Stereo | Peak WebAssembly memory | Final surface |
+| --- | --- | --- | --- | --- |
+| Band refinement | 130.1 s | 59.7 s | 2.07 GiB | 1,040,494 triangles, closed |
+| Slanted planes, 4 iterations | 275.8 s | 191.7 s | 1.82 GiB | 1,032,724 triangles, closed |
+
+One run each, planes first; machine load and shader compilation can affect
+the times. Memory is the WebAssembly linear-memory high-water mark, not
+total browser or GPU memory; the lower plane-run value does not establish a
+memory saving. The browser path works, but its measured extra 146 seconds
+is a substantial cost. The setting remains off pending DTU validation.
+Measurements are recorded in [patchmatch-browser.json](../../tests/evidence/patchmatch-browser.json).
 
 ### Camera providers through the dense stages
 

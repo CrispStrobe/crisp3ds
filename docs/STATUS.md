@@ -10,7 +10,7 @@ State of Crisp3DS / Crisp 3D Studio on 2026-10-08. The plan of record is
 | --- | --- |
 | **Photos to STL, one command** | `crisp3ds-dense run --photos DIR --calibration JSON --output RUN`: threshold masks, our own turntable camera solver, GPU dense stages, closed STL. No Python, no external program. About 50–100 s per 73-photo object on an Apple M1 |
 | **Native crate** (`crates/dense`, Rust + wgpu) | The primary implementation. Metal, Vulkan, DirectX 12 and WebGPU; library API, C interface, event log contract; Python package kept as the reference it was ported from |
-| **Browser** | The same pipeline as WebAssembly + WebGPU, from photos or from prepared inputs, single-threaded or threaded (cross-origin isolated pages). Bunny from 73 photos in Chrome: about 264 s with 4 threads, peak memory about 1.6–1.8 GiB. Live at <https://crispstrobe.github.io/crisp3ds/> |
+| **Browser** | The same pipeline as WebAssembly + WebGPU, from photos or from prepared inputs, single-threaded or threaded (cross-origin isolated pages). Default Bunny from 73 photos in Chrome: measured 130–264 s with 4 threads, peak WebAssembly memory about 1.6–2.1 GiB. Live at <https://crispstrobe.github.io/crisp3ds/> |
 | **Crisp 3D Studio** (app) | Desktop (macOS, Windows, Linux), iOS and Android from one code base (Tauri 2); the engine runs in-process. Start from photos with provider choice, live progress, preview surfaces, diagnostic sheets, per-step inspection sheets, example objects downloaded on request. Release [v0.2.0](https://github.com/CrispStrobe/crisp3ds/releases/tag/v0.2.0) (prerelease, unsigned desktop builds); internal TestFlight builds for iOS and macOS |
 | **Masks** | `threshold` (default; contact shadow removed), `import`, `sam` (SAM 2.1 natively through ONNX Runtime or CrispEmbed's ggml engine, optional build feature), `external-sam` (PyTorch) |
 | **Cameras** | `turntable` (default; our own solver, pure Rust, repeatable), `markers` (printed mat, gives scale and handedness; validated on renders only), `colmap`, `alicevision`, `import`; `--capture orbit` for camera paths that are not one ring |
@@ -34,7 +34,7 @@ README.
 | Other sets | Result |
 | --- | --- |
 | Google Scanned Objects renders (72 photos) | rhino 0.867, cereal box 0.833 at 0.5 % with threshold masks; light-coloured objects need better masks (Mario 0.71 → 0.83 with exact masks) |
-| DTU (masked, 49 views) | 1.03–1.31 mm mean of accuracy and completeness on scans 63 and 65 (surface no camera saw is left open for captures that are not all round) |
+| DTU historical dense-stage diagnostics (49 views, supplied masks; supplied or COLMAP poses) | 1.03–1.31 mm mean of accuracy and completeness on scans 63 and 65; these are not photo-only pipeline results |
 | YCB turntable | cracker box 0.45 at 0.5 %; smooth objects (mustard bottle) refused by the camera gates |
 
 ## Findings worth knowing
@@ -59,15 +59,24 @@ README.
   setting `patchmatch`, off by default. Measured on six objects it gains at
   0.5 % everywhere (Happy Buddha 0.793 → 0.817 whole, Lucy 0.847 → 0.859,
   Thai statue 0.882 → 0.892) and no score drops more than 0.002; it costs
-  47–69 s more per run. Before it becomes the default: the other objects'
-  sheets, DTU, and browser memory and time. The Buddha's necklace beads are
+  47–69 s more per native run. Browser Bunny check: 130 → 276 s, peak
+  WebAssembly memory 2.07 / 1.82 GiB (one run each). The other five objects'
+  paired sheets are reviewed: less surface noise, no obvious new structural
+  loss in the rendered views, fine relief still limited. Before it becomes
+  the default: photo-only DTU validation. The Buddha's necklace beads are
   still not resolved; fusion grid and smoothing are the next suspects.
 - **Example objects in the app** from several sources (CC BY renders first).
+  The rhino passed the sandboxed Mac app check (72 registered photos).
+  Screenshot capture now selects the viewer's upright direction for this
+  object; the corrected iOS/Mac screenshot dry run and Pages check remain
+  pending CI. No screenshots have been uploaded to App Store Connect.
 
 ## Known limits
 
 - Masks assume a dark object on a light backdrop; light-coloured objects and
-  dark backdrops need SAM or imported masks.
+  dark backdrops need SAM or imported masks. Threshold masks covering over
+  90% of every photo are refused before camera recovery, with a mask sheet
+  kept for inspection.
 - Interiors a single ring of cameras never sees (mugs, shoes) are capped.
 - Thin, low-texture parts and very smooth objects remain hard.
 - The marker mat has not been tested with a real print.

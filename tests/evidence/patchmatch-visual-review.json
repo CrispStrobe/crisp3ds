@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-08",
+  "engine_source_commit": "d0eaafff0789df261e84ebeb70bcfc2d3bdd1f67",
+  "method": "One recovered camera/mask solution per object from the photographs; paired dense runs differ only in patchmatch. Three identical camera views per comparison sheet.",
+  "local_sheets": "patchmatch-<object>.png in .local-tools/takeover-230 (not distributed in the repository)",
+  "review_type": "qualitative visual review, not new scanner scoring",
+  "objects": [
+    {
+      "object": "bunny",
+      "triangles": {
+        "base": 1040560,
+        "pm": 1032764
+      },
+      "settings_difference": [
+        "patchmatch"
+      ],
+      "reference_used": false,
+      "review": "Fewer ripples around body and muzzle; ears, feet and tail remain similar. Fine photographed surface detail remains weak."
+    },
+    {
+      "object": "armadillo",
+      "triangles": {
+        "base": 746840,
+        "pm": 738816
+      },
+      "settings_difference": [
+        "patchmatch"
+      ],
+      "reference_used": false,
+      "review": "Less surface noise; hands, feet and tail remain similar. Shell grooves and small scales remain largely unresolved."
+    },
+    {
+      "object": "dragon",
+      "triangles": {
+        "base": 930322,
+        "pm": 920946
+      },
+      "settings_difference": [
+        "patchmatch"
+      ],
+      "reference_used": false,
+      "review": "Less roughness, with no obvious loss of horns, jaw opening, limbs or tail in these views. Small scales remain poorly resolved."
+    },
+    {
+      "object": "lucy",
+      "triangles": {
+        "base": 379384,
+        "pm": 374504
+      },
+      "settings_difference": [
+        "patchmatch"
+      ],
+      "reference_used": false,
+      "review": "More continuous robe folds. Wings and raised arm remain present in these views."
+    },
+    {
+      "object": "thai_statue",
+      "triangles": {
+        "base": 483868,
+        "pm": 476652
+      },
+      "settings_difference": [
+        "patchmatch"
+      ],
+      "reference_used": false,
+      "review": "Smoother surface with similar overall silhouette; fine base ornament and engraving remain poorly resolved."
+    }
+  ],
+  "quantitative_scores": "The prior six-object F1 measurements remain in crates/dense/README.md; not rerun in this review.",
+  "default_changed": false,
+  "remaining_adoption_check": "Photo-derived DTU masks and recovered cameras, with reference data confined to evaluation."
+}

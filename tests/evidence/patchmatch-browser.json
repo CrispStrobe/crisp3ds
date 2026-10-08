@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-08",
+  "engine_source_commit": "4f3a1d4ee863cbc74360e4461062c905991ff3d7",
+  "scene": "3DLF Bunny, 73 photos",
+  "calibration": "scripts/turntable_mesh/calibrations/3dlf-pro.json",
+  "mask_provider": "threshold",
+  "camera_provider": "turntable",
+  "browser": "Chrome 153",
+  "gpu": "Apple M1",
+  "threads": 4,
+  "cross_origin_isolated": true,
+  "runs": [
+    {
+      "patchmatch": false,
+      "status": "done",
+      "run_seconds": 130.12387000000476,
+      "stereo_seconds": 59.668725097,
+      "peak_wasm_bytes": 2223702016,
+      "triangles": 1040494,
+      "closed": true,
+      "reference_used": false,
+      "photo_silhouette_iou_median": 0.9755995202377996
+    },
+    {
+      "patchmatch": true,
+      "status": "done",
+      "run_seconds": 275.7918650000095,
+      "stereo_seconds": 191.70877002,
+      "peak_wasm_bytes": 1955790848,
+      "triangles": 1032724,
+      "closed": true,
+      "reference_used": false,
+      "photo_silhouette_iou_median": 0.9772540075189882
+    }
+  ],
+  "limits": [
+    "One run each, PatchMatch first; shader compilation and shared machine load affect timing.",
+    "WebAssembly high-water mark excludes JavaScript heap, browser processes and GPU memory.",
+    "The lower PatchMatch memory mark does not establish a memory reduction.",
+    "These are execution and memory checks, not scanner accuracy scores."
+  ],
+  "default_changed": false
+}

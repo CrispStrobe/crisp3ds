@@ -1,4 +1,4 @@
-//! Per-pixel slanted planes at the finest level (PatchMatch stereo, `patchmatch`, native-only).
+//! Per-pixel slanted planes at the finest level (PatchMatch stereo, `patchmatch`, native and browser).
 //!
 //! The band refinement scores one inverse depth per pixel in a band of a few steps around the
 //! surface carried down from the coarser level, with the window fronto-parallel. Relief outside
