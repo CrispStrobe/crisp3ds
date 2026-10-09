@@ -368,3 +368,17 @@ are restored, and the shared native CLI is rebuilt from that original source.
 No defaults, production policy or dependency changed; no six-object/browser
 adoption gate was attempted for these rejected general controls. See
 [source-selection evidence](../tests/evidence/source-selection-review.json).
+
+An independent [depth-quality audit](DEPTH-QUALITY-AUDIT.md) now reproduces a
+fundamental band-matching failure with perfect cameras: a correct depth 2.000
+becomes 1.895 solely because neighbouring initial depths are biased. Removing
+cost aggregation does not cure it. Coherent centre-plane scoring keeps 2.000
+and recovers the damaged band result to 1.999 in this controlled case. Exact
+analytic depths through production fusion/meshing preserve a recess and raised
+feature, with sampled errors below one voxel; pinhole ray round trips pass.
+Three release audit tests pass with Metal enabled. These findings identify a
+specific matching-support defect, not the complete cause of real-object errors
+or a default-adoption result. Earlier coherent matching is the next substantive
+implementation target. COLMAP, OpenMVS and Open3D primary implementations were
+compared without incorporating upstream algorithm code. See
+[audit evidence](../tests/evidence/depth-geometry-audit.json).

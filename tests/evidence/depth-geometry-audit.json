@@ -1,0 +1,90 @@
+{
+  "schema": "crisp3ds_depth_geometry_audit_v1",
+  "date": "2026-10-09",
+  "base_revision": "fdf742a695cf45ba58bedddfb830575ce641f593",
+  "conclusion": "A severe dependence of central band estimates on neighbouring prior errors is reproduced with perfect cameras. Coherent candidate-plane scoring corrects this synthetic failure. Real-object causation and default adoption are not established.",
+  "reproduction": {
+    "source": "crates/dense/tests/depth_geometry_audit.rs",
+    "command": "CRISP3DS_GPU_TESTS=1 RAYON_NUM_THREADS=2 cargo test --release --manifest-path crates/dense/Cargo.toml --test depth_geometry_audit -- --nocapture --test-threads=1",
+    "tests_passed": 3,
+    "gpu_enabled": true,
+    "device": "Apple M1 / Metal",
+    "upstream_algorithm_code_incorporated": false,
+    "new_dependencies": false,
+    "scanner_or_dataset_supplied_geometry_in_reconstruction": false,
+    "production_defaults_changed": false
+  },
+  "coordinate_control": {
+    "oracle": "independent f64 world rays and constructive box intersections",
+    "cameras": 48,
+    "image_size": [256, 256],
+    "intrinsics": [340.0, 330.0, 126.3, 128.7],
+    "depth_convention": "camera Z, not Euclidean ray length",
+    "world_error_assertion": 0.000002,
+    "pixel_error_assertion": 0.0002,
+    "limitations": ["Does not test camera recovery", "Does not test undistortion or all crop/pyramid transforms"]
+  },
+  "ideal_depth_fusion_control": {
+    "geometry": "cube minus rectangular recess, union raised rectangular feature",
+    "hull": "manually constructed outer union bounds expanded one voxel; recess not encoded",
+    "grid": [96, 96, 96],
+    "voxel": 0.020833333333333332,
+    "rim_pixels": 0,
+    "mesh_flat_base": false,
+    "other_settings": "production defaults",
+    "analytic_front_y": [-0.8, -0.6, -0.98],
+    "measured_front_y": [-0.8123220862008294, -0.60451575339149, -0.9948247994380505],
+    "closed": true,
+    "genus": 0,
+    "triangles": 74772,
+    "visual_review": "Three exported-mesh views inspected. Recess and raised feature survive; softened edges and slight face rippling remain.",
+    "limitations": ["Ideal evidence only", "Does not validate noisy/missing/occluded depth fusion", "Does not validate photo-to-hull stages"]
+  },
+  "band_prior_control": {
+    "geometry": "textured fronto-parallel plane",
+    "image_size": [128, 128],
+    "baselines": [0.0, 0.3, 0.5],
+    "intrinsics": [120.0, 120.0, 64.5, 64.5],
+    "true_depth": 2.0,
+    "initial_centre_depth": 2.0,
+    "neighbouring_initial_depths": [2.0, 2.12],
+    "inverse_depth_step": 0.003,
+    "band_half": 20,
+    "window": 11,
+    "min_score": 0.55,
+    "ordinary_band_sigma_2": [1.9999091625213623, 1.8945720195770264],
+    "ordinary_band_no_aggregation": [1.9999332427978516, 1.894487977027893],
+    "coherent_plane_from_initial_depth": [2.0, 2.0],
+    "coherent_plane_after_band_depth": [1.9999091625213623, 1.9987062215805054],
+    "coherent_control_settings": {"iterations": 6, "stride": 1, "radius": 5, "inverse_step": 0.04, "normal_step": 0.0, "inverse_range": [0.25, 1.0]},
+    "mechanism": "A single inverse-depth offset corrects the surrounding biased prior field inside the NCC patch while wrongly moving an already-correct centre. Candidate patch support is derived from neighbouring priors rather than the centre's candidate surface.",
+    "predicted_centre_depth_from_surrounding_correction": 1.8928571428571428,
+    "failure_exists_without_cost_aggregation": true,
+    "limitations": ["Synthetic failure reproduction, not attribution of all real-object defects", "Fixed normal and stride-one independent control are not the full default slanted experiment", "No six-object or browser adoption gate"]
+  },
+  "primary_source_comparison": [
+    {
+      "repository": "colmap/colmap",
+      "revision": "4ae1aafb16d5eae3d54552b2fc896a4fc9d0f7f4",
+      "files": ["src/colmap/mvs/patch_match_cuda.cu", "src/colmap/mvs/fusion.cc"],
+      "observations": ["Centre depth/normal induce patch homography", "Source-depth forward/backward reprojection enters geometric optimisation", "Fusion checks depth, reprojection and normals, requires supporting samples and uses median coordinates"],
+      "usage": "Read-only method/implementation comparison; no algorithm code incorporated"
+    },
+    {
+      "repository": "cdcseacave/openMVS",
+      "revision": "a3b6d0d99800a65af6b5f6b20dcc1df4c9e0e0c4",
+      "files": ["libs/MVS/SceneDensify.cpp"],
+      "observations": ["Depth/confidence/normal maps and multi-view support retained", "Dense fusion defines depth reprojection and normal thresholds", "Fusion weights are derived from confidence and depth"],
+      "usage": "Read-only comparison, AGPL source not adopted under permissive-new-code rule"
+    },
+    {
+      "repository": "isl-org/Open3D",
+      "revision": "b6c5e196384ad71e75b6e6f9c5da22d046221f1d",
+      "files": ["cpp/open3d/pipelines/integration/UniformTSDFVolume.cpp"],
+      "observations": ["Calibrated Z depth integrated into truncated distance volume", "Classic implementation multiplies Z difference by depth-to-camera-distance conversion"],
+      "usage": "Read-only integration comparison; not an MVS camera/matcher benchmark"
+    }
+  ],
+  "next_implementation_target": "Coherent candidate-surface matching at the earlier refinement stages, separately validated from geometric rejection and fusion. Existing finest-only slanted polishing has not demonstrated real-object repair.",
+  "legal_scope": "No new upstream algorithm code or dependencies incorporated. Existing source-license and patent research restrictions unchanged. No patent clearance asserted."
+}
