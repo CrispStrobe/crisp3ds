@@ -378,7 +378,27 @@ analytic depths through production fusion/meshing preserve a recess and raised
 feature, with sampled errors below one voxel; pinhole ray round trips pass.
 Three release audit tests pass with Metal enabled. These findings identify a
 specific matching-support defect, not the complete cause of real-object errors
-or a default-adoption result. Earlier coherent matching is the next substantive
-implementation target. COLMAP, OpenMVS and Open3D primary implementations were
-compared without incorporating upstream algorithm code. See
+or a default-adoption result. The coherent matching correction is recorded
+below. COLMAP, OpenMVS and Open3D primary implementations were compared without incorporating upstream algorithm code. See
 [audit evidence](../tests/evidence/depth-geometry-audit.json).
+
+
+An experimental `coherent_band=true` now scores a single centre depth/normal
+surface in every finer-level and hull-front band search. It corrects the
+perfect-camera neighbouring-prior failure and improves Bunny head F1 .612953
+→ .641016 against the same supported-fallback baseline (mean head error about
+9.9% lower). Drill F1 .455286/.701277/.929251 → .481374/.720322/.940236 at
+.5/1/2% with the same recovered inputs and frozen evaluation alignment. Eyes,
+nose and drill geometry remain inadequate in inspected sheets. Lucy exceeds
+the default regression budget by .00027045 at strict above-support F1; the
+adoption run stopped without running the other four objects, and the option
+stays OFF. Sparse patch sampling, wider matching angles, existing normal
+refinement, extra round-trip rejection and simple fusion-weight changes do not
+provide a general repair. Browser execution of all 60 drill photos plus
+original-RGB GLB export passes (63.7 s, 1.24 GiB WASM high water), but its mesh
+is still open and about 31.6% of area untextured. 202 release library tests and
+three geometry audit tests pass with Metal, along with strict clippy, threaded
+WASM build, 18 Studio settings tests and Studio build. No new upstream algorithm
+code/dependency or patent-clearance claim. See
+[coherent-band evidence](../tests/evidence/coherent-band-review.json) and
+[depth quality audit](DEPTH-QUALITY-AUDIT.md).

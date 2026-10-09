@@ -199,6 +199,9 @@ fn report_band_refinement_response_to_neighbour_prior_errors() {
     let buffers = matcher.upload(&views);
     let mut results = Vec::new();
     let mut unaggregated_results = Vec::new();
+    let mut coherent_results = Vec::new();
+    let coherent_config = DenseConfig { coherent_band: true, ..config.clone() };
+    let mut coherent_matcher = block_on(crisp3ds_dense::stereo::matcher::Matcher::new(&gpu, &coherent_config, &hull)).unwrap();
     let mut independent_results = Vec::new();
     let mut recovered_results = Vec::new();
     let independent = block_on(crisp3ds_dense::stereo::planes::Planes::independent(&gpu, &hull)).unwrap();
@@ -221,6 +224,8 @@ fn report_band_refinement_response_to_neighbour_prior_errors() {
         results.push(result.data[64 * 128 + 64]);
         let unaggregated = block_on(matcher.refine(&buffers, &views, 0, &[1, 2], &init, 0.003, 20, 11, 0.0, 0.55)).unwrap();
         unaggregated_results.push(unaggregated.data[64 * 128 + 64]);
+        let coherent = block_on(coherent_matcher.refine(&buffers, &views, 0, &[1, 2], &init, 0.003, 20, 11, 2.0, 0.55)).unwrap();
+        coherent_results.push(coherent.data[64 * 128 + 64]);
         let planes = crisp3ds_dense::stereo::planes::initial_planes(&views[0], &init, &init);
         let (refined, _) = block_on(independent.run(&gpu, &views, 0, &[1, 2], &hull, &planes, &settings)).unwrap();
         independent_results.push(refined[64 * 128 + 64][0]);
@@ -232,8 +237,9 @@ fn report_band_refinement_response_to_neighbour_prior_errors() {
     assert!(results.iter().all(|d| d.is_finite() && *d > 0.0));
     assert!(independent_results.iter().all(|d| (*d - 2.0).abs() < 0.01));
     assert!(recovered_results.iter().all(|d| (*d - 2.0).abs() < 0.01));
+    assert!(coherent_results.iter().all(|d| (*d - 2.0).abs() < 0.01));
     println!(
         "{}",
-        serde_json::json!({"true_plane_depth":2.0,"initial_centre_depth":2.0,"neighbour_prior_depths":[2.0,2.12],"refined_centre_depths":results,"band_without_cost_aggregation":unaggregated_results,"independent_plane_centre_depths":independent_results,"independent_after_band_centre_depths":recovered_results,"note":"Nonuniform band-prior response is reported, not asserted to be acceptable. Independent plane scoring is a controlled correction, not a six-object adoption result."})
+        serde_json::json!({"true_plane_depth":2.0,"initial_centre_depth":2.0,"neighbour_prior_depths":[2.0,2.12],"refined_centre_depths":results,"band_without_cost_aggregation":unaggregated_results,"coherent_band_centre_depths":coherent_results,"independent_plane_centre_depths":independent_results,"independent_after_band_centre_depths":recovered_results,"note":"Nonuniform band-prior response is reported, not asserted to be acceptable. Coherent plane scoring is a controlled correction, not a six-object adoption result."})
     );
 }

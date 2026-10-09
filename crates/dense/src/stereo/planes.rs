@@ -186,6 +186,7 @@ pub fn initial_planes(view: &LevelView, depth: &Plane<f32>, smooth: &Plane<f32>)
 pub struct Planes {
     evaluate: Kernel,
     sweep: Kernel,
+    band: Option<Kernel>,
     hull: wgpu::Buffer,
     research: bool,
 }
@@ -197,6 +198,7 @@ impl Planes {
         Ok(Planes {
             evaluate: gpu.kernel("patchmatch evaluate", source, "evaluate").await?,
             sweep: gpu.kernel("patchmatch sweep", source, "sweep").await?,
+            band: None,
             hull: gpu.upload("patchmatch hull", &search.bits),
             research: true,
         })
@@ -208,9 +210,62 @@ impl Planes {
         Ok(Self {
             evaluate: gpu.kernel("independent plane evaluate", source, "evaluate").await?,
             sweep: gpu.kernel("independent plane refine", source, "sweep").await?,
+            band: Some(gpu.kernel("coherent plane band", source, "band").await?),
             hull: gpu.upload("plane hull", &search.bits),
             research: false,
         })
+    }
+
+    /// Search a full inverse-depth band using each centre's own surface plane.
+    /// The output binding contains depths, not NCC scores. No neighbouring
+    /// pixel's prior depth is used to lift individual brightness samples; the
+    /// initial normal is estimated from the local prior, then held fixed per pixel.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn begin_band(
+        &self,
+        gpu: &Gpu,
+        level: &[LevelView],
+        view: usize,
+        neighbours: &[usize],
+        search: &Hull,
+        init: &Plane<f32>,
+        settings: &Settings,
+        half: u32,
+        min_score: f32,
+        peak_margin: f32,
+    ) -> anyhow::Result<crate::gpu::PendingRead<f32>> {
+        anyhow::ensure!((2..=32).contains(&half), "coherent band half-width must be 2..32");
+        anyhow::ensure!(
+            neighbours.len() <= MAX_NEIGHBOURS && settings.best_of <= 4,
+            "coherent band supports at most 8 neighbours and best_of 4"
+        );
+        let reference = &level[view];
+        let pixels = reference.width * reference.height;
+        anyhow::ensure!((init.width, init.height) == (reference.width, reference.height), "coherent prior size mismatch");
+        let mut geometry = geometry(level, view, neighbours, search, settings);
+        geometry.params.pass[2] = half;
+        geometry.params.range[2] = peak_margin;
+        geometry.params.range[3] = min_score;
+        let budget = gpu.binding_budget() as usize;
+        anyhow::ensure!(
+            pixels * 16 <= budget && geometry.gray.len() * 4 <= budget && geometry.mask.len() * 4 <= budget,
+            "coherent patch buffers exceed GPU binding budget; reduce pyramid size or disable native_level"
+        );
+        let planes = initial_planes(reference, init, init);
+        let params = gpu.uniform("coherent band params", &geometry.params);
+        let ref_gray = gpu.upload("coherent reference", &reference.gray.data);
+        let ref_mask = gpu.upload("coherent mask", &mask_words(reference));
+        let nbr_gray = gpu.upload("coherent neighbours", &geometry.gray);
+        let nbr_mask = gpu.upload("coherent neighbour masks", &geometry.mask);
+        let plane_buffer = gpu.upload("coherent initial planes", &planes);
+        let depths = gpu.zeroed("coherent depths", (pixels * 4) as u64);
+        gpu.run(
+            self.band.as_ref().ok_or_else(|| anyhow::anyhow!("coherent band unavailable in research propagation solver"))?,
+            &[&params, &ref_gray, &ref_mask, &nbr_gray, &nbr_mask, &self.hull, &plane_buffer, &depths],
+            pixels as u64,
+        )
+        .await?;
+        Ok(gpu.begin_read::<f32>(&depths, pixels))
     }
 
     /// Scores planes and runs independent coordinate iterations, or research-only
@@ -565,6 +620,69 @@ mod tests {
     use crate::inputs::Inputs;
     use crate::stereo::level::build_level;
     use crate::stereo::{options, synthetic};
+
+    #[test]
+    fn coherent_band_matches_scalar_candidate_plane_search() {
+        if !crate::gpu::tests_enabled() {
+            return;
+        }
+        let root = synthetic::temporary("coherent-band", 24, 96).unwrap();
+        let overrides = synthetic::SMALL.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let config = options::build(None, &overrides).unwrap();
+        let inputs = Inputs::load(&root.join("inputs"), &config).unwrap();
+        crate::storage::remove_dir_all(&root).unwrap();
+        let level = build_level(&inputs, 96);
+        let view = 5;
+        let neighbours = inputs.neighbours(view, config.neighbours as usize, &config).unwrap();
+        let init = synthetic::sphere_depth(&level[view]);
+        let search = Hull::from_flags(&vec![true; 64 * 64 * 64], [64; 3], [-1.6; 3], 0.05);
+        let gpu = Gpu::new().unwrap();
+        let solver = crate::gpu::block_on(Planes::independent(&gpu, &search)).unwrap();
+        let settings = Settings {
+            radius: 3,
+            stride: 1,
+            best_of: 2,
+            min_variance: 0.0001,
+            window_fill: 0.6,
+            iterations: 0,
+            inverse_step: 0.01,
+            normal_step: 0.0,
+            inverse_range: (0.001, 10.0),
+            seed: 0,
+        };
+        let pending =
+            crate::gpu::block_on(solver.begin_band(&gpu, &level, view, &neighbours, &search, &init, &settings, 4, 0.55, 0.0)).unwrap();
+        let actual = crate::gpu::block_on(gpu.finish_read(pending)).unwrap();
+        let planes = initial_planes(&level[view], &init, &init);
+        let scorer = reference::Scorer::new(&level, view, &neighbours, &search, &settings);
+        let mut compared = 0;
+        for p in (0..actual.len()).step_by(11) {
+            if planes[p][0] <= 0.0 || level[view].mask.data[p] == 0 {
+                assert_eq!(actual[p], 0.0);
+                continue;
+            }
+            let (x, y) = ((p % init.width) as i32, (p / init.width) as i32);
+            let base = 1.0 / planes[p][0];
+            let costs = (0..9)
+                .map(|h| {
+                    let mut plane = planes[p];
+                    plane[0] = 1.0 / (base + (h as f32 - 4.0) * 0.01);
+                    scorer.score(x, y, plane)
+                })
+                .collect::<Vec<_>>();
+            let index = (0..9).max_by(|&a, &b| costs[a].total_cmp(&costs[b]).then(b.cmp(&a))).unwrap();
+            let expected = if index > 0 && index < 8 && costs[index] >= 0.55 && costs[index - 1] > -1.5 && costs[index + 1] > -1.5 {
+                let curve = costs[index - 1] - 2.0 * costs[index] + costs[index + 1];
+                let offset = if curve < -1e-6 { (0.5 * (costs[index - 1] - costs[index + 1]) / curve).clamp(-0.5, 0.5) } else { 0.0 };
+                1.0 / (base + (index as f32 - 4.0 + offset) * 0.01)
+            } else {
+                0.0
+            };
+            assert!((actual[p] - expected).abs() < 0.002, "pixel {p}: GPU{} scalar{expected}", actual[p]);
+            compared += (expected > 0.0) as usize;
+        }
+        assert!(compared > 100, "{compared} valid comparisons");
+    }
 
     #[test]
     fn normals_pack_into_32_bits() {

@@ -1773,3 +1773,22 @@ crisp3ds-dense run --inputs recovered-inputs --output supported-fallback \
 The distinct-mode setting is a separate opt-in control; it is not required by
 the fallback algorithm. See [supported fallback evidence](../../tests/evidence/supported-fallback-review.json)
 for native/browser validation and remaining shape/coverage limitations.
+
+
+Coherent band experiment (2026-10-09, default off): `coherent_band=true`
+uses one candidate depth/normal surface for each photometric support patch in
+all finer-level and hull-front band searches. The normal comes from the local
+initial surface and is fixed during the depth search. This removes a reproduced
+failure in which neighbouring prior depths move a correct centre depth. It
+bypasses offset-indexed cost aggregation; the coarse full sweep, masks, recovered
+cameras, consistency and fusion are unchanged. It requires `neighbours<=8` and
+`best_of<=4`, and uses every patch pixel. No neighbouring-plane propagation or
+new upstream algorithm code is included.
+
+With `peak_min_margin=0.02` and `fallback_supported=true`, Bunny head and drill
+metrics improve over the same two-setting baseline, but inspected geometry is
+still inadequate. Faster sampling, wider matching angles and existing normal
+refinement do not give a generally better drill result. Keep this option off
+pending full adoption evidence; it is not a repaired-all-objects preset. See
+[depth quality audit](../../docs/DEPTH-QUALITY-AUDIT.md) and
+[replay evidence](../../tests/evidence/coherent-band-review.json).

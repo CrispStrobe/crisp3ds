@@ -98,6 +98,7 @@ pub fn validate(c: &DenseConfig) -> anyhow::Result<()> {
     need((0..=64).contains(&c.patchmatch_iterations), "patchmatch_iterations must be in 0..64")?;
     need((-2.0..=1.0).contains(&c.patchmatch_normal_agreement), "patchmatch_normal_agreement must be in -2..1")?;
     need(2 <= c.best_of && c.best_of <= c.neighbours && c.neighbours <= 16, "need 2 <= best_of <= neighbours <= 16")?;
+    need(!c.coherent_band || (c.neighbours <= 8 && c.best_of <= 4), "coherent_band requires neighbours <= 8 and best_of <= 4")?;
     need(0.0 < c.minimum_angle && c.minimum_angle < c.maximum_angle && c.maximum_angle < 90.0, "invalid neighbour angles")?;
     need((16..=512).contains(&c.planes), "planes must be 16..512")?;
     need(c.windows.iter().all(|w| w % 2 == 1 && (3..=31).contains(w)), "windows must be odd, 3..31")?;
@@ -145,6 +146,9 @@ mod tests {
 
     #[test]
     fn rejects_unknown_and_invalid() {
+        assert!(set(&["coherent_band=true", "neighbours=9"]).is_err());
+        assert!(set(&["coherent_band=true", "best_of=5"]).is_err());
+        assert!(set(&["coherent_band=true"]).unwrap().coherent_band);
         assert!(set(&["nonsense=1"]).is_err());
         assert!(set(&["windows=4"]).is_err());
         assert!(set(&["best_of=9", "neighbours=4"]).is_err());

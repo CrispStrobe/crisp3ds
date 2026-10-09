@@ -136,6 +136,13 @@
       "default": false
     },
     {
+      "name": "coherent_band",
+      "group": "Matching",
+      "meaning": "Experimental coherent per-pixel surface-plane scoring in every band refinement; avoids warping the patch through neighbouring prior depths; cost aggregation is bypassed",
+      "kind": "boolean",
+      "default": false
+    },
+    {
       "name": "peak_min_margin",
       "group": "Matching",
       "meaning": "Experimental minimum NCC score margin over a distinct competing depth peak; a separating valley of more than 0.02 is required; 0 disables",

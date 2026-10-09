@@ -100,6 +100,8 @@ pub struct Matcher<'a> {
     hull: wgpu::Buffer,
     hull_params: ([f32; 4], [u32; 3]),
     work: Option<Work>,
+    coherent: Option<super::planes::Planes>,
+    search: Hull,
 }
 
 impl<'a> Matcher<'a> {
@@ -121,6 +123,8 @@ impl<'a> Matcher<'a> {
                 [search.shape[0] as u32, search.shape[1] as u32, search.shape[2] as u32],
             ),
             work: None,
+            coherent: if config.coherent_band { Some(super::planes::Planes::independent(gpu, search).await?) } else { None },
+            search: search.clone(),
         })
     }
 
@@ -370,6 +374,35 @@ impl<'a> Matcher<'a> {
     ) -> anyhow::Result<Pending> {
         let reference = &level[view];
         let offsets: Vec<f32> = (-half..=half).map(|n| n as f32 * step as f32).collect();
+        if let Some(coherent) = &self.coherent {
+            let settings = super::planes::Settings {
+                radius: (window / 2) as u32,
+                stride: 1,
+                best_of: self.config.best_of as u32,
+                min_variance: self.config.min_variance as f32,
+                window_fill: self.config.window_fill as f32,
+                iterations: 0,
+                inverse_step: step as f32,
+                normal_step: 0.0,
+                inverse_range: (1e-6, 1e6),
+                seed: 0,
+            };
+            let read = coherent
+                .begin_band(
+                    self.gpu,
+                    level,
+                    view,
+                    neighbours,
+                    &self.search,
+                    init,
+                    &settings,
+                    half as u32,
+                    min_score as f32,
+                    self.config.peak_min_margin as f32,
+                )
+                .await?;
+            return Ok(Pending { width: reference.width, height: reference.height, read });
+        }
         let init_buffer = self.gpu.upload("init", &init.data);
         self.score(buffers, level, view, neighbours, window, true, &init_buffer, &offsets).await?;
         self.reduce(reference, offsets.len(), aggregate, true, &init_buffer, [step as f32, half as f32, min_score as f32, 0.0]).await
@@ -598,6 +631,47 @@ pub mod reference {
         let reference = &level[view];
         let (width, height) = (reference.width, reference.height);
         let base: Vec<f32> = init.data.iter().map(|&d| 1.0 / d.max(1e-6)).collect();
+        if config.coherent_band {
+            let settings = super::super::planes::Settings {
+                radius: (window / 2) as u32,
+                stride: 1,
+                best_of: config.best_of as u32,
+                min_variance: config.min_variance as f32,
+                window_fill: config.window_fill as f32,
+                iterations: 0,
+                inverse_step: step as f32,
+                normal_step: 0.0,
+                inverse_range: (1e-6, 1e6),
+                seed: 0,
+            };
+            let planes = super::super::planes::initial_planes(reference, init, init);
+            let scorer = super::super::planes::reference::Scorer::new(level, view, neighbours, search, &settings);
+            let volume = (-half..=half)
+                .map(|n| {
+                    (0..width * height)
+                        .map(|p| {
+                            let inverse = base[p] + n as f32 * step as f32;
+                            if init.data[p] <= 0.0 || inverse <= 0.0 {
+                                return -2.0;
+                            }
+                            let mut plane = planes[p];
+                            plane[0] = 1.0 / inverse;
+                            scorer.score((p % width) as i32, (p / width) as i32, plane)
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+            let data = (0..width * height)
+                .map(|p| {
+                    if init.data[p] > 0.0 && reference.mask.data[p] != 0 {
+                        peak(&volume, p, base[p], half as f32, step as f32, min_score as f32, config.peak_min_margin as f32)
+                    } else {
+                        0.0
+                    }
+                })
+                .collect();
+            return Plane { width, height, data };
+        }
         let volume: Vec<Vec<f32>> = (-half..=half)
             .map(|n| {
                 let offset = n as f32 * step as f32;

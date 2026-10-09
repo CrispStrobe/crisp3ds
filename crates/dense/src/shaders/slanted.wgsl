@@ -258,3 +258,54 @@ fn sweep(@builtin(global_invocation_id) id: vec3<u32>) {
     planes[p] = best;
     scores[p] = best_score;
 }
+
+// Full deterministic band search. Each NCC support patch lies on the centre's
+// candidate plane. The final binding is used as a DEPTH output in this entry.
+@compute @workgroup_size(64)
+fn band(@builtin(global_invocation_id) id: vec3<u32>) {
+    let p = id.x + id.y * ROW;
+    if (p >= params.size.x * params.size.y) { return; }
+    scores[p] = 0.0;
+    let x = i32(p % params.size.x);
+    let y = i32(p / params.size.x);
+    if (!in_ref_mask(x,y)) { return; }
+    let plane = planes[p];
+    if (!(plane.x > 0.0)) { return; }
+    let half = params.pass_.z;
+    let count = 2u*half+1u;
+    let base = 1.0/plane.x;
+    var costs: array<f32,65>;
+    var best = INVALID_SCORE;
+    var index = 0u;
+    for (var h = 0u; h < count; h++) {
+        let inverse = base+(f32(h)-f32(half))*params.gates.z;
+        var value = INVALID_SCORE;
+        if (inverse > 0.0) { value = score(x,y,vec4<f32>(1.0/inverse,plane.yzw)); }
+        costs[h] = value;
+        if (value > best) { best=value; index=h; }
+    }
+    if (index == 0u || index+1u == count || best < params.range.w) { return; }
+    let left = costs[index-1u];
+    let right = costs[index+1u];
+    if (left <= -1.5 || right <= -1.5) { return; }
+    if (params.range.z > 0.0) {
+        var competitor = INVALID_SCORE;
+        for (var h=0u; h<count; h++) {
+            if (abs(i32(h)-i32(index))>2) {
+                let value=costs[h];
+                let before=costs[u32(max(i32(h)-1,0))];
+                let after=costs[min(h+1u,count-1u)];
+                if (value > -1.5 && value >= before && value >= after) {
+                    var valley=value;
+                    for (var k=min(h,index); k<=max(h,index); k++) { valley=min(valley,costs[k]); }
+                    if (valley < min(value,best)-0.02) { competitor=max(competitor,value); }
+                }
+            }
+        }
+        if (best-competitor < params.range.z) { return; }
+    }
+    let curve=left-2.0*best+right;
+    var offset=0.0;
+    if (curve < -1e-6) { offset=clamp(0.5*(left-right)/curve,-0.5,0.5); }
+    scores[p]=1.0/max(base+(f32(index)-f32(half)+offset)*params.gates.z,1e-6);
+}

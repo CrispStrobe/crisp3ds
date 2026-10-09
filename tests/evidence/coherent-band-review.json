@@ -1,0 +1,561 @@
+{
+  "schema": "crisp3ds_coherent_band_review_v1",
+  "date": "2026-10-09",
+  "base_revision": "085ae155a606374a46bb43a07c7f3e508b5687a4",
+  "production_defaults_changed": false,
+  "new_upstream_algorithm_code_or_dependencies": false,
+  "patent_clearance_claimed": false,
+  "scanner_geometry_used_only_posthoc": true,
+  "implementation": {
+    "setting": "coherent_band",
+    "default": false,
+    "stages": "Every finer-level and hull-front band search; coarse full sweep unchanged",
+    "support": "Each candidate centre depth plus local-prior normal; fixed normal during full inverse-depth search; stride 1",
+    "cost_aggregation": "bypassed; neighbours have different depth baselines",
+    "limits": "neighbours<=8 and best_of<=4; GPU binding limits checked",
+    "source": "Own existing independent plane scorer extended; no neighbouring-plane propagation"
+  },
+  "reproduction": {
+    "command": "CRISP3DS_GPU_TESTS=1 RAYON_NUM_THREADS=2 cargo test --release --manifest-path crates/dense/Cargo.toml --lib --test depth_geometry_audit -- --test-threads=1",
+    "metal_tests": 202,
+    "geometry_audit_tests": 3,
+    "clippy_strict": true,
+    "threaded_wasm_build": true,
+    "studio_settings_tests": 18,
+    "studio_build": true
+  },
+  "synthetic_control": {
+    "true_depth": 2.0,
+    "surrounding_priors": [
+      2.0,
+      2.12
+    ],
+    "ordinary_band_centre_depths": [
+      1.999909,
+      1.894572
+    ],
+    "coherent_band_centre_depths": [
+      1.99993348,
+      1.99993348
+    ],
+    "independent_scalar_plane_candidate_parity": true
+  },
+  "real_inputs": "Same own photo-derived masks, own recovered cameras and RGB per pair; reference meshes never reconstruction inputs",
+  "settings": {
+    "coherent_band": true,
+    "peak_min_margin": 0.02,
+    "fallback_supported": true
+  },
+  "evaluation_alignment": "Fixed historical evaluation fit; shared by every candidate and baseline, transferred only by own camera-centre similarity; no candidate-specific scan fitting",
+  "samples_per_surface": 200000,
+  "surface_sampling_seed": 233,
+  "drill": {
+    "schema": "crisp3ds_drill_frozen_visibility_eval_v1",
+    "reference_used_only_posthoc": true,
+    "samples_per_surface": 200000,
+    "seed": 233,
+    "alignment": "Frozen prior distinct-modes baseline scan fit for every candidate; reflected baseline fit, near-symmetric ambiguity; not handedness proof",
+    "threshold_fractions": [
+      0.005,
+      0.01,
+      0.02
+    ],
+    "results": {
+      "supported-native": {
+        "f1": {
+          "0.005": 0.4552856030362358,
+          "0.01": 0.7012771847591814,
+          "0.02": 0.9292513333064463
+        },
+        "symmetric_mean_fraction_diagonal": 0.00829104302342056,
+        "triangles": 721863,
+        "mesh_sha256": "f33d80c38053cb365865209a84a4434ec9689eebde244bca9b8fefbd602f2a96"
+      },
+      "coherent-band": {
+        "f1": {
+          "0.005": 0.48137379913931655,
+          "0.01": 0.7203221757902586,
+          "0.02": 0.9402362974828253
+        },
+        "symmetric_mean_fraction_diagonal": 0.007919246297663786,
+        "triangles": 689967,
+        "mesh_sha256": "4ee7183c53e5088ab4678d60900bc7743bf7581e96455f4c75873019682827a3"
+      }
+    }
+  },
+  "bunny": {
+    "object": "bunny",
+    "variant": "coherent-band",
+    "reference_used_only_posthoc": true,
+    "adopted": false,
+    "margin": 0.02,
+    "alignment": "Frozen historical scanner fit transferred only through own camera-centre similarity, identical for both candidates; no current candidate-to-reference fitting",
+    "camera_mapping_relative_rms": 1.8780587196909495e-16,
+    "metrics": {
+      "baseline": {
+        "all": {
+          "0.005": 0.9043777613012031,
+          "0.01": 0.9389483794424458,
+          "0.02": 0.9553517330714748
+        },
+        "above_support": {
+          "0.005": 0.964872367203772,
+          "0.01": 0.9953015659181709,
+          "0.02": 0.999897194622674
+        }
+      },
+      "confidence": {
+        "all": {
+          "0.005": 0.9125606123929922,
+          "0.01": 0.9420519842460119,
+          "0.02": 0.9550733799718915
+        },
+        "above_support": {
+          "0.005": 0.9717067436154523,
+          "0.01": 0.9981024693635632,
+          "0.02": 1.0
+        }
+      }
+    },
+    "f1_deltas": {
+      "all": {
+        "0.005": 0.008182851091789178,
+        "0.01": 0.0031036048035660846,
+        "0.02": -0.00027835309958335053
+      },
+      "above_support": {
+        "0.005": 0.006834376411680276,
+        "0.01": 0.0028009034453923,
+        "0.02": 0.00010280537732598738
+      }
+    },
+    "passes_numeric_gate": true,
+    "head": {
+      "baseline": {
+        "samples": [
+          14788,
+          16386
+        ],
+        "f1": {
+          "0.001": 0.5821332305667315,
+          "0.0025": 0.8872483716046821,
+          "0.005": 0.9691963116783837,
+          "0.01": 0.9965393227929701,
+          "0.02": 1.0
+        },
+        "symmetric_mean": 0.15633425118909025
+      },
+      "confidence": {
+        "samples": [
+          14464,
+          16386
+        ],
+        "f1": {
+          "0.001": 0.6410160598363721,
+          "0.0025": 0.9286770890755883,
+          "0.005": 0.979733020979802,
+          "0.01": 0.9997579613429688,
+          "0.02": 1.0
+        },
+        "symmetric_mean": 0.13009159878498922
+      }
+    },
+    "hashes": {
+      "baseline": "ce80282cbaa6adc7a3877e07bb03e0fbc901d0815b88ee0a7c853a707a449431",
+      "confidence": "9c673376474bf39740813da125c71c021a569487727a3dc5a70d1328b9fc96e9"
+    },
+    "triangles": {
+      "baseline": 1040560,
+      "confidence": 1027012
+    },
+    "seconds_before_render": 18.78750841699366
+  },
+  "lucy": {
+    "object": "lucy",
+    "variant": "coherent-band",
+    "reference_used_only_posthoc": true,
+    "adopted": false,
+    "margin": 0.02,
+    "alignment": "Frozen historical scanner fit transferred only through own camera-centre similarity, identical for both candidates; no current candidate-to-reference fitting",
+    "camera_mapping_relative_rms": 4.414216307698287e-16,
+    "metrics": {
+      "baseline": {
+        "all": {
+          "0.005": 0.8456148395771705,
+          "0.01": 0.9432104860620212,
+          "0.02": 0.9675082522768106
+        },
+        "above_support": {
+          "0.005": 0.8819736855130265,
+          "0.01": 0.9835478112910413,
+          "0.02": 0.9993847084404445
+        }
+      },
+      "confidence": {
+        "all": {
+          "0.005": 0.8437330448472999,
+          "0.01": 0.9433616522086716,
+          "0.02": 0.9673277302289315
+        },
+        "above_support": {
+          "0.005": 0.8787032359021923,
+          "0.01": 0.9838552629585868,
+          "0.02": 0.9994916566518682
+        }
+      }
+    },
+    "f1_deltas": {
+      "all": {
+        "0.005": -0.0018817947298706006,
+        "0.01": 0.00015116614665044992,
+        "0.02": -0.00018052204787910586
+      },
+      "above_support": {
+        "0.005": -0.003270449610834114,
+        "0.01": 0.000307451667545533,
+        "0.02": 0.00010694821142376298
+      }
+    },
+    "passes_numeric_gate": false,
+    "head": {},
+    "hashes": {
+      "baseline": "f86e1f3f871484ae29e62621befa577d7bfcf29c89b7802053a8d1ef78db115e",
+      "confidence": "0282834942d7af37ca88900da89ea416110b81598c5c581e455122cf35a6a152"
+    },
+    "triangles": {
+      "baseline": 379384,
+      "confidence": 371976
+    },
+    "seconds_before_render": 8.36802920800983
+  },
+  "bunny_same_supported_baseline_head": {
+    "samples": [
+      14590,
+      16386
+    ],
+    "f1": {
+      "0.001": 0.6129534308593221,
+      "0.0025": 0.908724789408348,
+      "0.005": 0.9756325037347493,
+      "0.01": 0.996940634560517,
+      "0.02": 1.0
+    },
+    "symmetric_mean": 0.14443665370923067
+  },
+  "same_supported_baseline_deltas": {
+    "bunny": {
+      "all": {
+        "0.005": 0.004867040404310408,
+        "0.01": 0.0022648329172293424,
+        "0.02": 0.00010100788980460518
+      },
+      "above_support": {
+        "0.005": 0.002775089070018999,
+        "0.01": 0.0012459933014460356,
+        "0.02": 0.0
+      }
+    },
+    "lucy": {
+      "all": {
+        "0.005": -0.0017854757949019584,
+        "0.01": 0.00047618546960748187,
+        "0.02": -0.0004208662410161157
+      },
+      "above_support": {
+        "0.005": -0.0023264591038728577,
+        "0.01": 0.0013704707429196272,
+        "0.02": 0.00013825445239279421
+      }
+    }
+  },
+  "default_adoption": {
+    "passed": false,
+    "stop_reason": "Lucy strict .5% above-support F1 delta -0.00327045 exceeds allowed loss 0.003 versus ordinary defaults",
+    "remaining_objects_not_run": [
+      "armadillo",
+      "dragon",
+      "thai_statue",
+      "happy"
+    ],
+    "decision": "Keep correction off; full six-object adoption not established"
+  },
+  "rejected_drill_controls": {
+    "coherent-fast": {
+      "schema": "crisp3ds_drill_frozen_visibility_eval_v1",
+      "reference_used_only_posthoc": true,
+      "samples_per_surface": 200000,
+      "seed": 233,
+      "alignment": "Frozen prior distinct-modes baseline scan fit for every candidate; reflected baseline fit, near-symmetric ambiguity; not handedness proof",
+      "threshold_fractions": [
+        0.005,
+        0.01,
+        0.02
+      ],
+      "results": {
+        "coherent-band": {
+          "f1": {
+            "0.005": 0.48137379913931655,
+            "0.01": 0.7203221757902586,
+            "0.02": 0.9402362974828253
+          },
+          "symmetric_mean_fraction_diagonal": 0.007919246297663786,
+          "triangles": 689967,
+          "mesh_sha256": "4ee7183c53e5088ab4678d60900bc7743bf7581e96455f4c75873019682827a3"
+        },
+        "coherent-fast": {
+          "f1": {
+            "0.005": 0.48477991198326237,
+            "0.01": 0.7227794313458333,
+            "0.02": 0.9007536901441288
+          },
+          "symmetric_mean_fraction_diagonal": 0.008160054386625079,
+          "triangles": 666277,
+          "mesh_sha256": "e7c528ed123b5f2bb5a608038e28246f363e72309d131ce496a27b35bd0dc4a4"
+        }
+      }
+    },
+    "coherent-wide": {
+      "schema": "crisp3ds_drill_frozen_visibility_eval_v1",
+      "reference_used_only_posthoc": true,
+      "samples_per_surface": 200000,
+      "seed": 233,
+      "alignment": "Frozen prior distinct-modes baseline scan fit for every candidate; reflected baseline fit, near-symmetric ambiguity; not handedness proof",
+      "threshold_fractions": [
+        0.005,
+        0.01,
+        0.02
+      ],
+      "results": {
+        "coherent-band": {
+          "f1": {
+            "0.005": 0.48137379913931655,
+            "0.01": 0.7203221757902586,
+            "0.02": 0.9402362974828253
+          },
+          "symmetric_mean_fraction_diagonal": 0.007919246297663786,
+          "triangles": 689967,
+          "mesh_sha256": "4ee7183c53e5088ab4678d60900bc7743bf7581e96455f4c75873019682827a3"
+        },
+        "coherent-wide": {
+          "f1": {
+            "0.005": 0.4554121720636663,
+            "0.01": 0.7077137113103439,
+            "0.02": 0.9281872814339002
+          },
+          "symmetric_mean_fraction_diagonal": 0.00816867832847636,
+          "triangles": 655304,
+          "mesh_sha256": "fa27e319d924072d724e0adbcbcefd6bfb07832b417a979e91f6ef9165831147"
+        }
+      }
+    },
+    "coherent-normal": {
+      "schema": "crisp3ds_drill_frozen_visibility_eval_v1",
+      "reference_used_only_posthoc": true,
+      "samples_per_surface": 200000,
+      "seed": 233,
+      "alignment": "Frozen prior distinct-modes baseline scan fit for every candidate; reflected baseline fit, near-symmetric ambiguity; not handedness proof",
+      "threshold_fractions": [
+        0.005,
+        0.01,
+        0.02
+      ],
+      "results": {
+        "coherent-band": {
+          "f1": {
+            "0.005": 0.48137379913931655,
+            "0.01": 0.7203221757902586,
+            "0.02": 0.9402362974828253
+          },
+          "symmetric_mean_fraction_diagonal": 0.007919246297663786,
+          "triangles": 689967,
+          "mesh_sha256": "4ee7183c53e5088ab4678d60900bc7743bf7581e96455f4c75873019682827a3"
+        },
+        "coherent-normal": {
+          "f1": {
+            "0.005": 0.4846738994439295,
+            "0.01": 0.7198391883739014,
+            "0.02": 0.8687001159156705
+          },
+          "symmetric_mean_fraction_diagonal": 0.008518933301843074,
+          "triangles": 694946,
+          "mesh_sha256": "f4f22dbce713abc04a4daafdbdadb620d0c432226a18e068a227cf5901297605"
+        }
+      }
+    },
+    "coherent-geometric": {
+      "schema": "crisp3ds_drill_frozen_visibility_eval_v1",
+      "reference_used_only_posthoc": true,
+      "samples_per_surface": 200000,
+      "seed": 233,
+      "alignment": "Frozen prior distinct-modes baseline scan fit for every candidate; reflected baseline fit, near-symmetric ambiguity; not handedness proof",
+      "threshold_fractions": [
+        0.005,
+        0.01,
+        0.02
+      ],
+      "results": {
+        "coherent-band": {
+          "f1": {
+            "0.005": 0.48137379913931655,
+            "0.01": 0.7203221757902586,
+            "0.02": 0.9402362974828253
+          },
+          "symmetric_mean_fraction_diagonal": 0.007919246297663786,
+          "triangles": 689967,
+          "mesh_sha256": "4ee7183c53e5088ab4678d60900bc7743bf7581e96455f4c75873019682827a3"
+        },
+        "coherent-geometric": {
+          "f1": {
+            "0.005": 0.4806233202658497,
+            "0.01": 0.7191057768514658,
+            "0.02": 0.9389468898354721
+          },
+          "symmetric_mean_fraction_diagonal": 0.00796459375098717,
+          "triangles": 689859,
+          "mesh_sha256": "8a2533cb28ac01aca95c994fe24a34a07364377df5bd73733bb8e7a897919f14"
+        }
+      }
+    },
+    "coherent_fusion_weights": {
+      "schema": "crisp3ds_drill_frozen_visibility_eval_v1",
+      "reference_used_only_posthoc": true,
+      "samples_per_surface": 200000,
+      "seed": 233,
+      "alignment": "Frozen prior distinct-modes baseline scan fit for every candidate; reflected baseline fit, near-symmetric ambiguity; not handedness proof",
+      "threshold_fractions": [
+        0.005,
+        0.01,
+        0.02
+      ],
+      "results": {
+        "coherent-band": {
+          "f1": {
+            "0.005": 0.48137379913931655,
+            "0.01": 0.7203221757902586,
+            "0.02": 0.9402362974828253
+          },
+          "symmetric_mean_fraction_diagonal": 0.007919246297663786,
+          "triangles": 689967,
+          "mesh_sha256": "4ee7183c53e5088ab4678d60900bc7743bf7581e96455f4c75873019682827a3"
+        },
+        "coherent-free-quarter": {
+          "f1": {
+            "0.005": 0.4921822755196328,
+            "0.01": 0.7288148999746163,
+            "0.02": 0.9320073758773941
+          },
+          "symmetric_mean_fraction_diagonal": 0.008198786486858886,
+          "triangles": 675736,
+          "mesh_sha256": "fa52246107afff42b23e99077f3e6d7fe025e38f4461260866903acf2e1a5655"
+        },
+        "coherent-no-behind": {
+          "f1": {
+            "0.005": 0.42758960462968304,
+            "0.01": 0.6666128464152884,
+            "0.02": 0.917801300197346
+          },
+          "symmetric_mean_fraction_diagonal": 0.008843147652019158,
+          "triangles": 812849,
+          "mesh_sha256": "e0f2b4fc1aae7261c8700e4ce990f4a6659bc507ba1ad69d8b6c0e221ad7a6cf"
+        },
+        "coherent-quarter-no-behind": {
+          "f1": {
+            "0.005": 0.4722669283909015,
+            "0.01": 0.7108514406097686,
+            "0.02": 0.9179560640960351
+          },
+          "symmetric_mean_fraction_diagonal": 0.0086471646753713,
+          "triangles": 765501,
+          "mesh_sha256": "fbb946f5b85a0c962a04c677e5e7c34b301691e9fae3a070763da41ecb92acb1"
+        }
+      }
+    },
+    "coherent_normal_dense": {
+      "schema": "crisp3ds_drill_frozen_visibility_eval_v1",
+      "reference_used_only_posthoc": true,
+      "samples_per_surface": 200000,
+      "seed": 233,
+      "alignment": "Frozen prior distinct-modes baseline scan fit for every candidate; reflected baseline fit, near-symmetric ambiguity; not handedness proof",
+      "threshold_fractions": [
+        0.005,
+        0.01,
+        0.02
+      ],
+      "results": {
+        "coherent-band": {
+          "f1": {
+            "0.005": 0.48137379913931655,
+            "0.01": 0.7203221757902586,
+            "0.02": 0.9402362974828253
+          },
+          "symmetric_mean_fraction_diagonal": 0.007919246297663786,
+          "triangles": 689967,
+          "mesh_sha256": "4ee7183c53e5088ab4678d60900bc7743bf7581e96455f4c75873019682827a3"
+        },
+        "coherent-normal-dense": {
+          "f1": {
+            "0.005": 0.48921078928984824,
+            "0.01": 0.7237554806696582,
+            "0.02": 0.8888416727372961
+          },
+          "symmetric_mean_fraction_diagonal": 0.008242245605221153,
+          "triangles": 696533,
+          "mesh_sha256": "400ad018d3dd5d03558251e8f14237f8e16f1af47f4085d8638dca6fc2e23ece"
+        }
+      },
+      "private_change": "Existing final normal refinement uses stride1 instead of stride2 only when coherent_band true; one-line change reverted, not shipped"
+    }
+  },
+  "browser": {
+    "seconds": 63.73623999999464,
+    "peak_wasm": 1334640640,
+    "camera_rows": 60,
+    "original_rgb_rows": 60,
+    "glb_bytes": 29755632,
+    "threads": 2,
+    "photos": 60,
+    "closed": false,
+    "genus": 40,
+    "texture_geometry_changed": false,
+    "selected_original_rgb_views": 12,
+    "untextured_area_fraction": 0.31555360225779167,
+    "memory_scope": "WASM linear-memory high water only, not Chrome/GPU RSS",
+    "speed_comparison_controlled": false
+  },
+  "visual_review": {
+    "inspected": [
+      "bunny-coherent-band-head.png",
+      "bunny-coherent-band-overview.png",
+      "bunny-coherent-fast-head.png",
+      "drill-coherent-band-pair.png",
+      "drill-coherent-normal-pair.png",
+      "lucy-coherent-band-overview.png",
+      "drill-coherent-fusion-pair.png",
+      "drill-coherent-normal-dense-pair.png"
+    ],
+    "local_directory": ".local-tools/quality-235",
+    "finding": "Bunny eyes/nose still weak; drill still severely pitted; no acceptable all-objects quality claim"
+  },
+  "binaries": {
+    "bunny": "3879fe5d1b7feacda3788233c58d3f6b11249ccdf5020a0fd7cfb8e04def1d1e",
+    "drill": "3879fe5d1b7feacda3788233c58d3f6b11249ccdf5020a0fd7cfb8e04def1d1e",
+    "lucy": "e68d0af3c96f7ab6882caa2a8434d6a1aebc1c3e92274314552821a3670d4a2c"
+  },
+  "limitations": [
+    "Real drill and Bunny geometry still inadequate in inspected images",
+    "New correction remains off after Lucy regression; full six-object adoption gate not passed",
+    "No external established pipeline actually executed on these identical inputs",
+    "Coherent band holds normal fixed, retains existing source selection, confidence/filtering and fusion limitations",
+    "Recorded timings are single runs with different diagnostic IO, not controlled speed benchmarks",
+    "Browser textured export execution succeeds but does not establish mesh shape accuracy or device sharing"
+  ],
+  "disabled_option_control": {
+    "object": "drill",
+    "all_depth_arrays_equal": true,
+    "npz_entries_compared": 60,
+    "mesh_byte_identical": true,
+    "mesh_sha256": "f33d80c38053cb365865209a84a4434ec9689eebde244bca9b8fefbd602f2a96",
+    "baseline": "Prior supported-native output; same own inputs, peak margin .02, supported fallback true",
+    "coherent_band": false
+  }
+}
