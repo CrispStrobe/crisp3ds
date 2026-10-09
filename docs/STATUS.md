@@ -324,3 +324,26 @@ GLB: 75.5 seconds, 1.24 GiB WASM high water with two workers. These are one-run
 execution measurements, not a controlled speed comparison or total browser
 memory. An earlier browser attempt stopped at the 8.8 GiB disk floor; verified
 SSD moves restored about 12 GiB before the successful retry.
+
+
+Follow-up reliability controls (2026-10-09) did not justify another adoption.
+A private cross-view depth correction preserved coverage and coarse fills,
+used only agreeing immutable fine maps, and reproduced all 60 drill maps
+exactly at strength zero. Drill F1 worsened from 0.455286/0.701277/0.929251
+to 0.454555/0.699303/0.928121. Bunny strict eye/brow F1 rose 0.612953 to
+0.618229, but the finest measured eye/nose relief error worsened in all five
+crops; paired renders did not restore the missing features. This control
+remains private and rejected as a general change.
+
+Replaying the same supported depths with existing `fusion_interpolate=true`
+made negligible drill changes; Bunny mean head error worsened despite a small
+F1 increase. Its existing opt-in status is unchanged. A separate constrained
+camera bundle control reduced training median reprojection 0.288 to 0.261 px,
+but fixed reserved foreground errors worsened: median 0.445 to 0.513 px,
+p95 1.501 to 1.521 px (58 observations, none invalid). No dense run used those
+candidate cameras. Eight camera-holdout/profile diagnostic tests pass.
+No production algorithm or default changed in these follow-ups; rejected
+controls were not taken through six-object/browser adoption gates. See
+[detail reliability controls](../tests/evidence/detail-reliability-controls-review.json).
+The remaining detail problem needs better local photo correspondence and
+view support; these results do not establish a single root cause.

@@ -1,0 +1,1790 @@
+{
+  "schema": "crisp3ds_detail_reliability_controls_review_v1",
+  "date": "2026-10-09",
+  "engine_revision": "dec689af1f789a880b21e79b2f08a0b5d22ef6c1",
+  "production_changes": false,
+  "default_changes": false,
+  "third_party_source_or_dependencies_added": false,
+  "patent_clearance_claimed": false,
+  "inputs": "Same retained own RGB-derived masks/cameras/sparse points and supported-fallback depths. Dataset geometry enters posthoc scoring only. Camera control uses own training feature cache with whole reserved components excluded; no supplied dataset poses.",
+  "evaluation_policy": "Frozen prior scan alignment, camera-only transfer for Bunny, 200000 surface samples per mesh and seed233. No candidate-to-reference refitting. Drill prior reflected-fit ambiguity remains; metrics do not establish handedness.",
+  "ray_consensus": {
+    "adopted": false,
+    "method": "At fine pixels, inverse-depth bilinear source lookup with all four valid corners and <=1% spread; <=.003 source-depth agreement and <=.5px roundtrip; median of at least3 other-view ray-projected depths, <=.002 relative adjustment; inverse-depth blend; no fill or rejection.",
+    "drill_depth_control": {
+      "views": 60,
+      "eligible_fine_pixels": 589497,
+      "changed_fine_pixels": 589480,
+      "coverage_unchanged": true,
+      "fallback_unchanged": true,
+      "strength": 1.0
+    },
+    "bunny_depth_control": {
+      "views": 73,
+      "eligible_fine_pixels": 13275478,
+      "changed_fine_pixels": 13274495,
+      "coverage_unchanged": true,
+      "fallback_unchanged": true,
+      "strength": 1.0
+    },
+    "disabled_control": "Strength0 reproduces every value in all60 drill depth arrays exactly. All trials preserve coverage and leave added coarse fallback depths unchanged.",
+    "drill_scores": {
+      "supported-native": {
+        "f1": {
+          "0.005": 0.4552856030362358,
+          "0.01": 0.7012771847591814,
+          "0.02": 0.9292513333064463
+        },
+        "symmetric_mean_fraction_diagonal": 0.00829104302342056,
+        "triangles": 721863,
+        "mesh_sha256": "f33d80c38053cb365865209a84a4434ec9689eebde244bca9b8fefbd602f2a96"
+      },
+      "ray-consensus": {
+        "f1": {
+          "0.005": 0.4545549698316926,
+          "0.01": 0.6993034003387716,
+          "0.02": 0.9281206270846514
+        },
+        "symmetric_mean_fraction_diagonal": 0.008308122166203502,
+        "triangles": 724216,
+        "mesh_sha256": "1b8e1a9bb5347d8a2180dd868fc238fddb0e4d5eed1cf28dec6b4cf6b5e42c4a"
+      }
+    },
+    "bunny_head": {
+      "supported": {
+        "samples": [
+          14590,
+          16386
+        ],
+        "f1": {
+          "0.001": 0.6129534308593221,
+          "0.0025": 0.908724789408348,
+          "0.005": 0.9756325037347493,
+          "0.01": 0.996940634560517,
+          "0.02": 1.0
+        },
+        "symmetric_mean": 0.14443665370923067
+      },
+      "candidate": {
+        "samples": [
+          14569,
+          16386
+        ],
+        "f1": {
+          "0.001": 0.6182290286003392,
+          "0.0025": 0.9098534876155107,
+          "0.005": 0.975002576030886,
+          "0.01": 0.9965907916939288,
+          "0.02": 1.0
+        },
+        "symmetric_mean": 0.1441077140627446
+      }
+    },
+    "bunny_gate_against_default": {
+      "all": {
+        "0.005": 0.0032982133532568625,
+        "0.01": 0.0008277016508154711,
+        "0.02": -0.0003984727869086324
+      },
+      "above_support": {
+        "0.005": 0.0040934793473494935,
+        "0.01": 0.0016365015916585124,
+        "0.02": 0.00010280537732598738
+      }
+    },
+    "local_depth_profiles": {
+      "evaluation_only": true,
+      "reference_used_for_reconstruction": false,
+      "region_definitions": [
+        {
+          "name": "eye",
+          "view": "view_10",
+          "crop": [
+            1048,
+            505,
+            90,
+            90
+          ]
+        },
+        {
+          "name": "nose",
+          "view": "view_10",
+          "crop": [
+            905,
+            600,
+            110,
+            100
+          ]
+        },
+        {
+          "name": "eye",
+          "view": "view_18",
+          "crop": [
+            805,
+            485,
+            160,
+            120
+          ]
+        },
+        {
+          "name": "nose",
+          "view": "view_18",
+          "crop": [
+            670,
+            590,
+            110,
+            100
+          ]
+        },
+        {
+          "name": "eye",
+          "view": "view_25",
+          "crop": [
+            590,
+            485,
+            150,
+            120
+          ]
+        }
+      ],
+      "limits": [
+        "Reference must already be aligned independently; this script does not align it.",
+        "Relief uses separately fitted inverse-depth planes on common rays; also inspect absolute error and coverage.",
+        "Pointwise metrics can include scan alignment error. Correlation alone is not feature recovery."
+      ],
+      "regions": {
+        "eye/view_10": {
+          "supported": {
+            "common_pixels": 7798,
+            "coverage": 0.962716049382716,
+            "ray_depth_rmse": 0.0012375419816462526,
+            "ray_depth_median_bias": 6.417355745286235e-05,
+            "inverse_depth_relief_gain": 1.0748761832694935,
+            "inverse_depth_relief_correlation": 0.9813633660930796,
+            "inverse_depth_relief_rmse": 0.0013256898655831355,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.3388051717307275,
+                "correlation": 0.4205580751263656,
+                "rmse": 0.00039973343094025434
+              },
+              "4": {
+                "gain": 0.3616664266986622,
+                "correlation": 0.3702265657582658,
+                "rmse": 0.0007472107927861419
+              },
+              "8": {
+                "gain": 0.7628009515159193,
+                "correlation": 0.6791729752776317,
+                "rmse": 0.0010451873385249025
+              }
+            },
+            "fixed_common_ray_metrics": {
+              "common_pixels": 7798,
+              "coverage": 0.962716049382716,
+              "ray_depth_rmse": 0.0012375419816462526,
+              "ray_depth_median_bias": 6.417355745286235e-05,
+              "inverse_depth_relief_gain": 1.0748761832694935,
+              "inverse_depth_relief_correlation": 0.9813633660930796,
+              "inverse_depth_relief_rmse": 0.0013256898655831355,
+              "fine_inverse_depth_relief_by_sigma_pixels": {
+                "2": {
+                  "gain": 0.3388051717307275,
+                  "correlation": 0.4205580751263656,
+                  "rmse": 0.00039973343094025434
+                },
+                "4": {
+                  "gain": 0.3616664266986622,
+                  "correlation": 0.3702265657582658,
+                  "rmse": 0.0007472107927861419
+                },
+                "8": {
+                  "gain": 0.7628009515159193,
+                  "correlation": 0.6791729752776317,
+                  "rmse": 0.0010451873385249025
+                }
+              }
+            }
+          },
+          "ray_consensus": {
+            "common_pixels": 7798,
+            "coverage": 0.962716049382716,
+            "ray_depth_rmse": 0.0012047619248704991,
+            "ray_depth_median_bias": 8.122980416574999e-05,
+            "inverse_depth_relief_gain": 1.0740074483379067,
+            "inverse_depth_relief_correlation": 0.9831935863698201,
+            "inverse_depth_relief_rmse": 0.0012623358125515127,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.36532039197225524,
+                "correlation": 0.4278016810370454,
+                "rmse": 0.00040527877923101274
+              },
+              "4": {
+                "gain": 0.39856091323338777,
+                "correlation": 0.4198924228510673,
+                "rmse": 0.0007075892864857464
+              },
+              "8": {
+                "gain": 0.7757523550191109,
+                "correlation": 0.7097601619453837,
+                "rmse": 0.0009771518404102805
+              }
+            },
+            "fixed_common_ray_metrics": {
+              "common_pixels": 7798,
+              "coverage": 0.962716049382716,
+              "ray_depth_rmse": 0.0012047619248704991,
+              "ray_depth_median_bias": 8.122980416574999e-05,
+              "inverse_depth_relief_gain": 1.0740074483379067,
+              "inverse_depth_relief_correlation": 0.9831935863698201,
+              "inverse_depth_relief_rmse": 0.0012623358125515127,
+              "fine_inverse_depth_relief_by_sigma_pixels": {
+                "2": {
+                  "gain": 0.36532039197225524,
+                  "correlation": 0.4278016810370454,
+                  "rmse": 0.00040527877923101274
+                },
+                "4": {
+                  "gain": 0.39856091323338777,
+                  "correlation": 0.4198924228510673,
+                  "rmse": 0.0007075892864857464
+                },
+                "8": {
+                  "gain": 0.7757523550191109,
+                  "correlation": 0.7097601619453837,
+                  "rmse": 0.0009771518404102805
+                }
+              }
+            }
+          }
+        },
+        "nose/view_10": {
+          "supported": {
+            "common_pixels": 9751,
+            "coverage": 0.8864545454545455,
+            "ray_depth_rmse": 0.0021733708653761223,
+            "ray_depth_median_bias": -0.0001962780531739039,
+            "inverse_depth_relief_gain": 1.0222756465314233,
+            "inverse_depth_relief_correlation": 0.9268935119868548,
+            "inverse_depth_relief_rmse": 0.0028474915197209973,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.09071959540505045,
+                "correlation": 0.18628676571591188,
+                "rmse": 0.0010635459968386387
+              },
+              "4": {
+                "gain": 0.06972375728519933,
+                "correlation": 0.09780984601158678,
+                "rmse": 0.0016706754208176907
+              },
+              "8": {
+                "gain": 0.31099492533633205,
+                "correlation": 0.2902899523749909,
+                "rmse": 0.002301708282577216
+              }
+            },
+            "fixed_common_ray_metrics": {
+              "common_pixels": 9751,
+              "coverage": 0.8864545454545455,
+              "ray_depth_rmse": 0.0021733708653761223,
+              "ray_depth_median_bias": -0.0001962780531739039,
+              "inverse_depth_relief_gain": 1.0222756465314233,
+              "inverse_depth_relief_correlation": 0.9268935119868548,
+              "inverse_depth_relief_rmse": 0.0028474915197209973,
+              "fine_inverse_depth_relief_by_sigma_pixels": {
+                "2": {
+                  "gain": 0.09071959540505045,
+                  "correlation": 0.18628676571591188,
+                  "rmse": 0.0010635459968386387
+                },
+                "4": {
+                  "gain": 0.06972375728519933,
+                  "correlation": 0.09780984601158678,
+                  "rmse": 0.0016706754208176907
+                },
+                "8": {
+                  "gain": 0.31099492533633205,
+                  "correlation": 0.2902899523749909,
+                  "rmse": 0.002301708282577216
+                }
+              }
+            }
+          },
+          "ray_consensus": {
+            "common_pixels": 9751,
+            "coverage": 0.8864545454545455,
+            "ray_depth_rmse": 0.0021603182705771523,
+            "ray_depth_median_bias": -0.00019036371088276827,
+            "inverse_depth_relief_gain": 1.0197743054065935,
+            "inverse_depth_relief_correlation": 0.9273271300638426,
+            "inverse_depth_relief_rmse": 0.0028302527551146424,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.09310114405081844,
+                "correlation": 0.18015571725573687,
+                "rmse": 0.0010760556748188458
+              },
+              "4": {
+                "gain": 0.07195144715769047,
+                "correlation": 0.10101827437268733,
+                "rmse": 0.0016686986436843265
+              },
+              "8": {
+                "gain": 0.31110112106017646,
+                "correlation": 0.29332125271524145,
+                "rmse": 0.002288640230288864
+              }
+            },
+            "fixed_common_ray_metrics": {
+              "common_pixels": 9751,
+              "coverage": 0.8864545454545455,
+              "ray_depth_rmse": 0.0021603182705771523,
+              "ray_depth_median_bias": -0.00019036371088276827,
+              "inverse_depth_relief_gain": 1.0197743054065935,
+              "inverse_depth_relief_correlation": 0.9273271300638426,
+              "inverse_depth_relief_rmse": 0.0028302527551146424,
+              "fine_inverse_depth_relief_by_sigma_pixels": {
+                "2": {
+                  "gain": 0.09310114405081844,
+                  "correlation": 0.18015571725573687,
+                  "rmse": 0.0010760556748188458
+                },
+                "4": {
+                  "gain": 0.07195144715769047,
+                  "correlation": 0.10101827437268733,
+                  "rmse": 0.0016686986436843265
+                },
+                "8": {
+                  "gain": 0.31110112106017646,
+                  "correlation": 0.29332125271524145,
+                  "rmse": 0.002288640230288864
+                }
+              }
+            }
+          }
+        },
+        "eye/view_18": {
+          "supported": {
+            "common_pixels": 19200,
+            "coverage": 1.0,
+            "ray_depth_rmse": 0.0005968144647400508,
+            "ray_depth_median_bias": 0.00022910803646125633,
+            "inverse_depth_relief_gain": 1.0116788166239754,
+            "inverse_depth_relief_correlation": 0.9924697102976077,
+            "inverse_depth_relief_rmse": 0.0005758410017778478,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.810184608186121,
+                "correlation": 0.3443468409211735,
+                "rmse": 0.00011534372550119166
+              },
+              "4": {
+                "gain": 0.8887896358299858,
+                "correlation": 0.4528626855127585,
+                "rmse": 0.00026388496783335283
+              },
+              "8": {
+                "gain": 0.9704406997250499,
+                "correlation": 0.7190339184089601,
+                "rmse": 0.0004051357608048948
+              }
+            },
+            "fixed_common_ray_metrics": {
+              "common_pixels": 19200,
+              "coverage": 1.0,
+              "ray_depth_rmse": 0.0005968144647400508,
+              "ray_depth_median_bias": 0.00022910803646125633,
+              "inverse_depth_relief_gain": 1.0116788166239754,
+              "inverse_depth_relief_correlation": 0.9924697102976077,
+              "inverse_depth_relief_rmse": 0.0005758410017778478,
+              "fine_inverse_depth_relief_by_sigma_pixels": {
+                "2": {
+                  "gain": 0.810184608186121,
+                  "correlation": 0.3443468409211735,
+                  "rmse": 0.00011534372550119166
+                },
+                "4": {
+                  "gain": 0.8887896358299858,
+                  "correlation": 0.4528626855127585,
+                  "rmse": 0.00026388496783335283
+                },
+                "8": {
+                  "gain": 0.9704406997250499,
+                  "correlation": 0.7190339184089601,
+                  "rmse": 0.0004051357608048948
+                }
+              }
+            }
+          },
+          "ray_consensus": {
+            "common_pixels": 19200,
+            "coverage": 1.0,
+            "ray_depth_rmse": 0.0005326224627682644,
+            "ray_depth_median_bias": 0.0001849297078201917,
+            "inverse_depth_relief_gain": 1.0015259156377463,
+            "inverse_depth_relief_correlation": 0.994327574299958,
+            "inverse_depth_relief_rmse": 0.0004919754168299702,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.8317966137004262,
+                "correlation": 0.3347500605252073,
+                "rmse": 0.00012210282986862953
+              },
+              "4": {
+                "gain": 0.9027168813259852,
+                "correlation": 0.5245780289467648,
+                "rmse": 0.00022087879342702423
+              },
+              "8": {
+                "gain": 0.9631502623021869,
+                "correlation": 0.782651972489787,
+                "rmse": 0.00033084037218871653
+              }
+            },
+            "fixed_common_ray_metrics": {
+              "common_pixels": 19200,
+              "coverage": 1.0,
+              "ray_depth_rmse": 0.0005326224627682644,
+              "ray_depth_median_bias": 0.0001849297078201917,
+              "inverse_depth_relief_gain": 1.0015259156377463,
+              "inverse_depth_relief_correlation": 0.994327574299958,
+              "inverse_depth_relief_rmse": 0.0004919754168299702,
+              "fine_inverse_depth_relief_by_sigma_pixels": {
+                "2": {
+                  "gain": 0.8317966137004262,
+                  "correlation": 0.3347500605252073,
+                  "rmse": 0.00012210282986862953
+                },
+                "4": {
+                  "gain": 0.9027168813259852,
+                  "correlation": 0.5245780289467648,
+                  "rmse": 0.00022087879342702423
+                },
+                "8": {
+                  "gain": 0.9631502623021869,
+                  "correlation": 0.782651972489787,
+                  "rmse": 0.00033084037218871653
+                }
+              }
+            }
+          }
+        },
+        "nose/view_18": {
+          "supported": {
+            "common_pixels": 9357,
+            "coverage": 0.8506363636363636,
+            "ray_depth_rmse": 0.0017861799310673993,
+            "ray_depth_median_bias": 9.01969754311116e-05,
+            "inverse_depth_relief_gain": 1.0680603049545334,
+            "inverse_depth_relief_correlation": 0.954838965038667,
+            "inverse_depth_relief_rmse": 0.002259811537754321,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.08231261760809479,
+                "correlation": 0.09508656136465254,
+                "rmse": 0.0007096538080066309
+              },
+              "4": {
+                "gain": 0.19004337613656408,
+                "correlation": 0.18559873671029664,
+                "rmse": 0.0012140826328129988
+              },
+              "8": {
+                "gain": 0.6690179800224607,
+                "correlation": 0.5811598710209931,
+                "rmse": 0.0016765537149151307
+              }
+            },
+            "fixed_common_ray_metrics": {
+              "common_pixels": 9357,
+              "coverage": 0.8506363636363636,
+              "ray_depth_rmse": 0.0017861799310673993,
+              "ray_depth_median_bias": 9.01969754311116e-05,
+              "inverse_depth_relief_gain": 1.0680603049545334,
+              "inverse_depth_relief_correlation": 0.954838965038667,
+              "inverse_depth_relief_rmse": 0.002259811537754321,
+              "fine_inverse_depth_relief_by_sigma_pixels": {
+                "2": {
+                  "gain": 0.08231261760809479,
+                  "correlation": 0.09508656136465254,
+                  "rmse": 0.0007096538080066309
+                },
+                "4": {
+                  "gain": 0.19004337613656408,
+                  "correlation": 0.18559873671029664,
+                  "rmse": 0.0012140826328129988
+                },
+                "8": {
+                  "gain": 0.6690179800224607,
+                  "correlation": 0.5811598710209931,
+                  "rmse": 0.0016765537149151307
+                }
+              }
+            }
+          },
+          "ray_consensus": {
+            "common_pixels": 9357,
+            "coverage": 0.8506363636363636,
+            "ray_depth_rmse": 0.0017646298231236536,
+            "ray_depth_median_bias": 8.467364064446148e-05,
+            "inverse_depth_relief_gain": 1.061250001049679,
+            "inverse_depth_relief_correlation": 0.9557605872155203,
+            "inverse_depth_relief_rmse": 0.002213529410351526,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.10473658075210535,
+                "correlation": 0.11632841623366458,
+                "rmse": 0.000713353339664721
+              },
+              "4": {
+                "gain": 0.20447524051624874,
+                "correlation": 0.2009906942983849,
+                "rmse": 0.001198578244500079
+              },
+              "8": {
+                "gain": 0.6711046803364219,
+                "correlation": 0.5902257302102627,
+                "rmse": 0.0016451738930719228
+              }
+            },
+            "fixed_common_ray_metrics": {
+              "common_pixels": 9357,
+              "coverage": 0.8506363636363636,
+              "ray_depth_rmse": 0.0017646298231236536,
+              "ray_depth_median_bias": 8.467364064446148e-05,
+              "inverse_depth_relief_gain": 1.061250001049679,
+              "inverse_depth_relief_correlation": 0.9557605872155203,
+              "inverse_depth_relief_rmse": 0.002213529410351526,
+              "fine_inverse_depth_relief_by_sigma_pixels": {
+                "2": {
+                  "gain": 0.10473658075210535,
+                  "correlation": 0.11632841623366458,
+                  "rmse": 0.000713353339664721
+                },
+                "4": {
+                  "gain": 0.20447524051624874,
+                  "correlation": 0.2009906942983849,
+                  "rmse": 0.001198578244500079
+                },
+                "8": {
+                  "gain": 0.6711046803364219,
+                  "correlation": 0.5902257302102627,
+                  "rmse": 0.0016451738930719228
+                }
+              }
+            }
+          }
+        },
+        "eye/view_25": {
+          "supported": {
+            "common_pixels": 17726,
+            "coverage": 0.9847777777777778,
+            "ray_depth_rmse": 0.000684590943259033,
+            "ray_depth_median_bias": 0.00023043326459953883,
+            "inverse_depth_relief_gain": 0.9578736674757564,
+            "inverse_depth_relief_correlation": 0.9816793123915949,
+            "inverse_depth_relief_rmse": 0.0008014412900622404,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.5366422356065489,
+                "correlation": 0.2503344170221214,
+                "rmse": 0.00021387357737502223
+              },
+              "4": {
+                "gain": 0.6271358851219889,
+                "correlation": 0.4069916968006374,
+                "rmse": 0.000379688796795571
+              },
+              "8": {
+                "gain": 0.7345291372120025,
+                "correlation": 0.6337537627716271,
+                "rmse": 0.0005787971789214978
+              }
+            },
+            "fixed_common_ray_metrics": {
+              "common_pixels": 17726,
+              "coverage": 0.9847777777777778,
+              "ray_depth_rmse": 0.000684590943259033,
+              "ray_depth_median_bias": 0.00023043326459953883,
+              "inverse_depth_relief_gain": 0.9578736674757564,
+              "inverse_depth_relief_correlation": 0.9816793123915949,
+              "inverse_depth_relief_rmse": 0.0008014412900622404,
+              "fine_inverse_depth_relief_by_sigma_pixels": {
+                "2": {
+                  "gain": 0.5366422356065489,
+                  "correlation": 0.2503344170221214,
+                  "rmse": 0.00021387357737502223
+                },
+                "4": {
+                  "gain": 0.6271358851219889,
+                  "correlation": 0.4069916968006374,
+                  "rmse": 0.000379688796795571
+                },
+                "8": {
+                  "gain": 0.7345291372120025,
+                  "correlation": 0.6337537627716271,
+                  "rmse": 0.0005787971789214978
+                }
+              }
+            }
+          },
+          "ray_consensus": {
+            "common_pixels": 17726,
+            "coverage": 0.9847777777777778,
+            "ray_depth_rmse": 0.0006141169096985815,
+            "ray_depth_median_bias": 0.00023250707645866564,
+            "inverse_depth_relief_gain": 0.9616906306111617,
+            "inverse_depth_relief_correlation": 0.9862291288647099,
+            "inverse_depth_relief_rmse": 0.0006968625369156723,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.5374676187459945,
+                "correlation": 0.24477603176022508,
+                "rmse": 0.00021912035722338618
+              },
+              "4": {
+                "gain": 0.658083270533503,
+                "correlation": 0.4694478409557053,
+                "rmse": 0.00033489466310941966
+              },
+              "8": {
+                "gain": 0.7636212592321969,
+                "correlation": 0.7132813994775281,
+                "rmse": 0.00048714516615987316
+              }
+            },
+            "fixed_common_ray_metrics": {
+              "common_pixels": 17726,
+              "coverage": 0.9847777777777778,
+              "ray_depth_rmse": 0.0006141169096985815,
+              "ray_depth_median_bias": 0.00023250707645866564,
+              "inverse_depth_relief_gain": 0.9616906306111617,
+              "inverse_depth_relief_correlation": 0.9862291288647099,
+              "inverse_depth_relief_rmse": 0.0006968625369156723,
+              "fine_inverse_depth_relief_by_sigma_pixels": {
+                "2": {
+                  "gain": 0.5374676187459945,
+                  "correlation": 0.24477603176022508,
+                  "rmse": 0.00021912035722338618
+                },
+                "4": {
+                  "gain": 0.658083270533503,
+                  "correlation": 0.4694478409557053,
+                  "rmse": 0.00033489466310941966
+                },
+                "8": {
+                  "gain": 0.7636212592321969,
+                  "correlation": 0.7132813994775281,
+                  "rmse": 0.00048714516615987316
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "decision": "Reject as a general production change: all drill F1 thresholds and symmetric mean error worsen. Bunny strict head F1 rises modestly, but fine (sigma2px) inverse-depth relief RMSE worsens in every measured eye/nose crop; paired renders do not restore missing facial features.",
+    "paired_sheets_inspected": true
+  },
+  "subpixel_fusion": {
+    "adopted": false,
+    "method": "Existing fusion_interpolate=true replayed on identical supported-fallback depths. No matching, camera, mask, resolution, truncation or smoothing changes.",
+    "drill_scores": {
+      "supported-native": {
+        "f1": {
+          "0.005": 0.4552856030362358,
+          "0.01": 0.7012771847591814,
+          "0.02": 0.9292513333064463
+        },
+        "symmetric_mean_fraction_diagonal": 0.00829104302342056,
+        "triangles": 721863,
+        "mesh_sha256": "f33d80c38053cb365865209a84a4434ec9689eebde244bca9b8fefbd602f2a96"
+      },
+      "supported-subpixel": {
+        "f1": {
+          "0.005": 0.45546858597841655,
+          "0.01": 0.7006362661426965,
+          "0.02": 0.9292876593107602
+        },
+        "symmetric_mean_fraction_diagonal": 0.008291405828545175,
+        "triangles": 722436,
+        "mesh_sha256": "2090851957bb30e5322fd7597922c0a431361c96292fe58b1e9971e6c13ebc86"
+      }
+    },
+    "bunny_head": {
+      "supported": {
+        "samples": [
+          14590,
+          16386
+        ],
+        "f1": {
+          "0.001": 0.6129534308593221,
+          "0.0025": 0.908724789408348,
+          "0.005": 0.9756325037347493,
+          "0.01": 0.996940634560517,
+          "0.02": 1.0
+        },
+        "symmetric_mean": 0.14443665370923067
+      },
+      "candidate": {
+        "samples": [
+          14641,
+          16386
+        ],
+        "f1": {
+          "0.001": 0.6140348461065702,
+          "0.0025": 0.9093233205754455,
+          "0.005": 0.9743230769058678,
+          "0.01": 0.9964012749768654,
+          "0.02": 1.0
+        },
+        "symmetric_mean": 0.1452379093004212
+      }
+    },
+    "decision": "No meaningful drill repair. Bunny strict F1 rises slightly while symmetric mean error worsens; not sufficient to recommend this compound setting as a quality upgrade. Existing opt-in remains unchanged.",
+    "paired_sheets_inspected": true
+  },
+  "camera_bundle": {
+    "adopted": false,
+    "method": "Original private sparse least-squares control: jointly adjust423 reliable training-track points and59 camera pose deltas, first camera fixed, fixed intrinsics and soft_l1 residuals with camera priors. 250 foreground/173 background training tracks,2807 observations, deterministic selection, reserved components excluded. Evaluation uses fixed baseline eligibility and retriangulates each reserved track independently.",
+    "fit": {
+      "training_tracks": 423,
+      "training_observations": 2807,
+      "foreground_training_tracks": 250,
+      "first_camera_fixed": true,
+      "rotation_prior_sigma_radians": 0.0015,
+      "translation_prior_sigma_own_units": 0.0017104289681456552,
+      "training_median_before_px": 0.2877647353342185,
+      "training_median_after_px": 0.2614476702390403,
+      "optimizer": {
+        "success": true,
+        "status": 2,
+        "message": "`ftol` termination condition is satisfied.",
+        "nfev": 5,
+        "optimality": 0.9132388204879767
+      },
+      "maximum_rotation_change_degrees": 0.036640105335658334,
+      "maximum_translation_change_own_units": 0.001068360679146141,
+      "reserved_tracks_used_in_optimization": false
+    },
+    "baseline": {
+      "schema": "crisp3ds_camera_holdout_v1",
+      "reference_used": false,
+      "training_tracks_must_exclude_reserved_components": true,
+      "reserved_tracks": 183,
+      "failed_triangulations": 0,
+      "behind_camera_observations": 4,
+      "held_out_reprojection_pixels": {
+        "count": 552,
+        "median": 5.312238708212055,
+        "p95": 182.19566432214071,
+        "fraction_below_1px": 0.32608695652173914
+      },
+      "per_view": [
+        {
+          "name": "view_0",
+          "count": 0,
+          "median": null,
+          "p95": null,
+          "fraction_below_1px": null
+        },
+        {
+          "name": "view_1",
+          "count": 15,
+          "median": 1.9019951252395821,
+          "p95": 93.31920658050504,
+          "fraction_below_1px": 0.3333333333333333
+        },
+        {
+          "name": "view_2",
+          "count": 13,
+          "median": 2.5358043084393964,
+          "p95": 116.68828666744204,
+          "fraction_below_1px": 0.3076923076923077
+        },
+        {
+          "name": "view_3",
+          "count": 15,
+          "median": 1.9892000067313438,
+          "p95": 138.14646395884157,
+          "fraction_below_1px": 0.4666666666666667
+        },
+        {
+          "name": "view_4",
+          "count": 7,
+          "median": 0.8166917500023576,
+          "p95": 41.34908997551187,
+          "fraction_below_1px": 0.5714285714285714
+        },
+        {
+          "name": "view_5",
+          "count": 13,
+          "median": 12.05363954315342,
+          "p95": 212.3670453529809,
+          "fraction_below_1px": 0.23076923076923078
+        },
+        {
+          "name": "view_6",
+          "count": 9,
+          "median": 1.0004548379158784,
+          "p95": 123.94553590745898,
+          "fraction_below_1px": 0.4444444444444444
+        },
+        {
+          "name": "view_7",
+          "count": 12,
+          "median": 29.212799556694588,
+          "p95": 177.5274955792341,
+          "fraction_below_1px": 0.25
+        },
+        {
+          "name": "view_8",
+          "count": 8,
+          "median": 12.980197394160943,
+          "p95": 117.41915230264411,
+          "fraction_below_1px": 0.125
+        },
+        {
+          "name": "view_9",
+          "count": 9,
+          "median": 1.2276012305554858,
+          "p95": 96.17787906229408,
+          "fraction_below_1px": 0.4444444444444444
+        },
+        {
+          "name": "view_10",
+          "count": 6,
+          "median": 42.2456677241772,
+          "p95": 291.99991185434766,
+          "fraction_below_1px": 0.3333333333333333
+        },
+        {
+          "name": "view_11",
+          "count": 7,
+          "median": 24.88993853219363,
+          "p95": 102.82890350198258,
+          "fraction_below_1px": 0.2857142857142857
+        },
+        {
+          "name": "view_12",
+          "count": 8,
+          "median": 0.4639984084302664,
+          "p95": 58.38297139631547,
+          "fraction_below_1px": 0.625
+        },
+        {
+          "name": "view_13",
+          "count": 7,
+          "median": 60.205707038975056,
+          "p95": 194.61535683742676,
+          "fraction_below_1px": 0.0
+        },
+        {
+          "name": "view_14",
+          "count": 4,
+          "median": 0.6641251564909929,
+          "p95": 121.73457452759656,
+          "fraction_below_1px": 0.75
+        },
+        {
+          "name": "view_15",
+          "count": 4,
+          "median": 6.465795711764771,
+          "p95": 46.45854123864731,
+          "fraction_below_1px": 0.25
+        },
+        {
+          "name": "view_16",
+          "count": 6,
+          "median": 4.433401340337083,
+          "p95": 30.60840858598456,
+          "fraction_below_1px": 0.3333333333333333
+        },
+        {
+          "name": "view_17",
+          "count": 7,
+          "median": 5.306769204845755,
+          "p95": 312.6548679160386,
+          "fraction_below_1px": 0.42857142857142855
+        },
+        {
+          "name": "view_18",
+          "count": 9,
+          "median": 32.353379289043104,
+          "p95": 304.10115092578394,
+          "fraction_below_1px": 0.1111111111111111
+        },
+        {
+          "name": "view_19",
+          "count": 4,
+          "median": 0.37274628155065453,
+          "p95": 66.4021431647148,
+          "fraction_below_1px": 0.75
+        },
+        {
+          "name": "view_20",
+          "count": 9,
+          "median": 64.36753163349518,
+          "p95": 557.9222622376144,
+          "fraction_below_1px": 0.3333333333333333
+        },
+        {
+          "name": "view_21",
+          "count": 6,
+          "median": 21.565506958031616,
+          "p95": 139.66482158709917,
+          "fraction_below_1px": 0.16666666666666666
+        },
+        {
+          "name": "view_22",
+          "count": 9,
+          "median": 0.9863333927251843,
+          "p95": 104.6480362275944,
+          "fraction_below_1px": 0.5555555555555556
+        },
+        {
+          "name": "view_23",
+          "count": 8,
+          "median": 4.7051198074591545,
+          "p95": 93.61017964687939,
+          "fraction_below_1px": 0.375
+        },
+        {
+          "name": "view_24",
+          "count": 7,
+          "median": 43.377098901990855,
+          "p95": 375.1568127007638,
+          "fraction_below_1px": 0.0
+        },
+        {
+          "name": "view_25",
+          "count": 5,
+          "median": 1.2111053088809278,
+          "p95": 12.586804357862514,
+          "fraction_below_1px": 0.4
+        },
+        {
+          "name": "view_26",
+          "count": 6,
+          "median": 2.849870364626704,
+          "p95": 128.68148905566582,
+          "fraction_below_1px": 0.3333333333333333
+        },
+        {
+          "name": "view_27",
+          "count": 9,
+          "median": 19.822742385841845,
+          "p95": 269.80114105763687,
+          "fraction_below_1px": 0.1111111111111111
+        },
+        {
+          "name": "view_28",
+          "count": 7,
+          "median": 21.10243739011232,
+          "p95": 89.36667851509795,
+          "fraction_below_1px": 0.0
+        },
+        {
+          "name": "view_29",
+          "count": 10,
+          "median": 16.405517490861076,
+          "p95": 105.58526145735921,
+          "fraction_below_1px": 0.3
+        },
+        {
+          "name": "view_30",
+          "count": 9,
+          "median": 6.601083550303046,
+          "p95": 187.88601464421174,
+          "fraction_below_1px": 0.3333333333333333
+        },
+        {
+          "name": "view_31",
+          "count": 11,
+          "median": 19.428136588601504,
+          "p95": 120.42760282484623,
+          "fraction_below_1px": 0.09090909090909091
+        },
+        {
+          "name": "view_32",
+          "count": 13,
+          "median": 5.872790159440858,
+          "p95": 255.88701615184704,
+          "fraction_below_1px": 0.15384615384615385
+        },
+        {
+          "name": "view_33",
+          "count": 8,
+          "median": 2.790756009164229,
+          "p95": 78.7788087996753,
+          "fraction_below_1px": 0.25
+        },
+        {
+          "name": "view_34",
+          "count": 14,
+          "median": 44.850649723421654,
+          "p95": 159.8934992096363,
+          "fraction_below_1px": 0.14285714285714285
+        },
+        {
+          "name": "view_35",
+          "count": 7,
+          "median": 10.005744623533218,
+          "p95": 86.4848463370852,
+          "fraction_below_1px": 0.42857142857142855
+        },
+        {
+          "name": "view_36",
+          "count": 11,
+          "median": 5.658128355851215,
+          "p95": 162.63004174144328,
+          "fraction_below_1px": 0.2727272727272727
+        },
+        {
+          "name": "view_37",
+          "count": 16,
+          "median": 6.341569270570435,
+          "p95": 143.69075637208255,
+          "fraction_below_1px": 0.4375
+        },
+        {
+          "name": "view_38",
+          "count": 4,
+          "median": 0.48355138568988737,
+          "p95": 2.2145686704475507,
+          "fraction_below_1px": 0.75
+        },
+        {
+          "name": "view_39",
+          "count": 12,
+          "median": 34.61969560447989,
+          "p95": 416.9601284272279,
+          "fraction_below_1px": 0.25
+        },
+        {
+          "name": "view_40",
+          "count": 7,
+          "median": 2.3749297804840226,
+          "p95": 95.07682242075214,
+          "fraction_below_1px": 0.2857142857142857
+        },
+        {
+          "name": "view_41",
+          "count": 8,
+          "median": 0.6988005967609907,
+          "p95": 47.48003179893137,
+          "fraction_below_1px": 0.625
+        },
+        {
+          "name": "view_42",
+          "count": 6,
+          "median": 5.960202052198101,
+          "p95": 17.856416395005848,
+          "fraction_below_1px": 0.3333333333333333
+        },
+        {
+          "name": "view_43",
+          "count": 11,
+          "median": 1.18751797224004,
+          "p95": 15.430054984938081,
+          "fraction_below_1px": 0.45454545454545453
+        },
+        {
+          "name": "view_44",
+          "count": 4,
+          "median": 11.232476958353688,
+          "p95": 176.84907861849294,
+          "fraction_below_1px": 0.25
+        },
+        {
+          "name": "view_45",
+          "count": 8,
+          "median": 7.744937602311737,
+          "p95": 72.88446367111324,
+          "fraction_below_1px": 0.375
+        },
+        {
+          "name": "view_46",
+          "count": 9,
+          "median": 75.21375787306776,
+          "p95": 223.40528562349868,
+          "fraction_below_1px": 0.1111111111111111
+        },
+        {
+          "name": "view_47",
+          "count": 9,
+          "median": 10.362052632507183,
+          "p95": 90.62879956575354,
+          "fraction_below_1px": 0.2222222222222222
+        },
+        {
+          "name": "view_48",
+          "count": 9,
+          "median": 27.29045018459304,
+          "p95": 119.86398783089959,
+          "fraction_below_1px": 0.2222222222222222
+        },
+        {
+          "name": "view_49",
+          "count": 6,
+          "median": 4.839055485975276,
+          "p95": 21.505570332115756,
+          "fraction_below_1px": 0.16666666666666666
+        },
+        {
+          "name": "view_50",
+          "count": 14,
+          "median": 41.738791588428896,
+          "p95": 172.6146191659528,
+          "fraction_below_1px": 0.14285714285714285
+        },
+        {
+          "name": "view_51",
+          "count": 10,
+          "median": 3.68691073972645,
+          "p95": 45.657191940606445,
+          "fraction_below_1px": 0.3
+        },
+        {
+          "name": "view_52",
+          "count": 10,
+          "median": 39.74990214568287,
+          "p95": 146.46318983454856,
+          "fraction_below_1px": 0.4
+        },
+        {
+          "name": "view_53",
+          "count": 14,
+          "median": 2.659605572368085,
+          "p95": 69.27545569258461,
+          "fraction_below_1px": 0.42857142857142855
+        },
+        {
+          "name": "view_54",
+          "count": 10,
+          "median": 5.259562442757803,
+          "p95": 90.74164083552509,
+          "fraction_below_1px": 0.3
+        },
+        {
+          "name": "view_55",
+          "count": 13,
+          "median": 1.7549900942416812,
+          "p95": 54.04595795475335,
+          "fraction_below_1px": 0.38461538461538464
+        },
+        {
+          "name": "view_56",
+          "count": 13,
+          "median": 0.9647363737505962,
+          "p95": 186.48217578442637,
+          "fraction_below_1px": 0.5384615384615384
+        },
+        {
+          "name": "view_57",
+          "count": 19,
+          "median": 3.314979997901344,
+          "p95": 168.73960723325223,
+          "fraction_below_1px": 0.42105263157894735
+        },
+        {
+          "name": "view_58",
+          "count": 12,
+          "median": 2.3900703262504193,
+          "p95": 133.91551415032237,
+          "fraction_below_1px": 0.3333333333333333
+        },
+        {
+          "name": "view_59",
+          "count": 16,
+          "median": 1.3771560632464797,
+          "p95": 150.63919965473673,
+          "fraction_below_1px": 0.5
+        }
+      ],
+      "fit_verified_tracks": 34,
+      "fit_verified_held_out_pixels": {
+        "count": 128,
+        "median": 0.3836720856486333,
+        "p95": 1.3193852451395005,
+        "fraction_below_1px": 0.90625
+      },
+      "fit_verified_selection": "fixed selection cameras, fitting observations only",
+      "fit_verified_selected_observations": 128,
+      "fit_verified_invalid_observations": 0,
+      "limits": [
+        "Report is meaningful only when cameras were recovered using the partitioned training cache.",
+        "False feature matches are included; this diagnostic does not establish dense or local facial accuracy.",
+        "Reserved tracks are triangulated using alternating observations; remaining observations score the cameras.",
+        "Both candidate and selection cameras must be recovered using the partitioned training cache. Fixed eligibility uses selection cameras and fitting observations only. Candidate points are retriangulated independently. Compare fixed-subset errors only with zero invalid selected observations; invalid observations must not be silently dropped.",
+        "Foreground/background labels use photo-derived masks only; mask errors can misclassify observations. Groups do not change fitting or track selection."
+      ],
+      "photo_mask_groups": {
+        "foreground": {
+          "held_out_reprojection_pixels": {
+            "count": 195,
+            "median": 1.0004548379158784,
+            "p95": 18.49473891990376,
+            "fraction_below_1px": 0.49743589743589745
+          },
+          "fit_verified_held_out_pixels": {
+            "count": 58,
+            "median": 0.4450166889773105,
+            "p95": 1.5006951049722133,
+            "fraction_below_1px": 0.8448275862068966
+          }
+        },
+        "background": {
+          "held_out_reprojection_pixels": {
+            "count": 357,
+            "median": 27.29045018459304,
+            "p95": 205.33427502661127,
+            "fraction_below_1px": 0.23249299719887956
+          },
+          "fit_verified_held_out_pixels": {
+            "count": 70,
+            "median": 0.3459118456654314,
+            "p95": 0.950941477253062,
+            "fraction_below_1px": 0.9571428571428572
+          }
+        },
+        "outside_mask": {
+          "held_out_reprojection_pixels": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "fraction_below_1px": null
+          },
+          "fit_verified_held_out_pixels": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "fraction_below_1px": null
+          }
+        }
+      }
+    },
+    "candidate": {
+      "schema": "crisp3ds_camera_holdout_v1",
+      "reference_used": false,
+      "training_tracks_must_exclude_reserved_components": true,
+      "reserved_tracks": 183,
+      "failed_triangulations": 0,
+      "behind_camera_observations": 4,
+      "held_out_reprojection_pixels": {
+        "count": 552,
+        "median": 5.355403972588473,
+        "p95": 182.23542397249344,
+        "fraction_below_1px": 0.3242753623188406
+      },
+      "per_view": [
+        {
+          "name": "view_0",
+          "count": 0,
+          "median": null,
+          "p95": null,
+          "fraction_below_1px": null
+        },
+        {
+          "name": "view_1",
+          "count": 15,
+          "median": 1.9015264057590675,
+          "p95": 93.31587990987501,
+          "fraction_below_1px": 0.3333333333333333
+        },
+        {
+          "name": "view_2",
+          "count": 13,
+          "median": 2.479857409350697,
+          "p95": 116.59311365172039,
+          "fraction_below_1px": 0.3076923076923077
+        },
+        {
+          "name": "view_3",
+          "count": 15,
+          "median": 2.026766577718708,
+          "p95": 138.09982034825714,
+          "fraction_below_1px": 0.4666666666666667
+        },
+        {
+          "name": "view_4",
+          "count": 7,
+          "median": 0.8570693883435243,
+          "p95": 41.39328616715292,
+          "fraction_below_1px": 0.5714285714285714
+        },
+        {
+          "name": "view_5",
+          "count": 13,
+          "median": 12.027911136616563,
+          "p95": 212.2135521738956,
+          "fraction_below_1px": 0.23076923076923078
+        },
+        {
+          "name": "view_6",
+          "count": 9,
+          "median": 0.9502539389877936,
+          "p95": 123.91013103752886,
+          "fraction_below_1px": 0.5555555555555556
+        },
+        {
+          "name": "view_7",
+          "count": 12,
+          "median": 29.20293845578084,
+          "p95": 177.50033273249352,
+          "fraction_below_1px": 0.25
+        },
+        {
+          "name": "view_8",
+          "count": 8,
+          "median": 12.972381481919175,
+          "p95": 117.31891531843071,
+          "fraction_below_1px": 0.125
+        },
+        {
+          "name": "view_9",
+          "count": 9,
+          "median": 1.2753046387692233,
+          "p95": 96.23355263702116,
+          "fraction_below_1px": 0.4444444444444444
+        },
+        {
+          "name": "view_10",
+          "count": 6,
+          "median": 42.239015345074264,
+          "p95": 292.2362387237036,
+          "fraction_below_1px": 0.3333333333333333
+        },
+        {
+          "name": "view_11",
+          "count": 7,
+          "median": 24.86980096075939,
+          "p95": 102.8877849470175,
+          "fraction_below_1px": 0.2857142857142857
+        },
+        {
+          "name": "view_12",
+          "count": 8,
+          "median": 0.46449038686957234,
+          "p95": 58.445776021613085,
+          "fraction_below_1px": 0.625
+        },
+        {
+          "name": "view_13",
+          "count": 7,
+          "median": 60.34728754656823,
+          "p95": 194.5137812927144,
+          "fraction_below_1px": 0.0
+        },
+        {
+          "name": "view_14",
+          "count": 4,
+          "median": 0.7017533864756507,
+          "p95": 121.71413091173643,
+          "fraction_below_1px": 0.75
+        },
+        {
+          "name": "view_15",
+          "count": 4,
+          "median": 6.446871010342071,
+          "p95": 46.309729125341256,
+          "fraction_below_1px": 0.25
+        },
+        {
+          "name": "view_16",
+          "count": 6,
+          "median": 4.446901283495687,
+          "p95": 30.495474764156235,
+          "fraction_below_1px": 0.3333333333333333
+        },
+        {
+          "name": "view_17",
+          "count": 7,
+          "median": 5.181249390947413,
+          "p95": 312.64622148824543,
+          "fraction_below_1px": 0.42857142857142855
+        },
+        {
+          "name": "view_18",
+          "count": 9,
+          "median": 32.35730336926626,
+          "p95": 304.16825823645127,
+          "fraction_below_1px": 0.1111111111111111
+        },
+        {
+          "name": "view_19",
+          "count": 4,
+          "median": 0.45774120566305027,
+          "p95": 66.26309492268717,
+          "fraction_below_1px": 0.75
+        },
+        {
+          "name": "view_20",
+          "count": 9,
+          "median": 64.36578545369954,
+          "p95": 558.0871657789571,
+          "fraction_below_1px": 0.3333333333333333
+        },
+        {
+          "name": "view_21",
+          "count": 6,
+          "median": 21.58983658787916,
+          "p95": 139.75753628478756,
+          "fraction_below_1px": 0.16666666666666666
+        },
+        {
+          "name": "view_22",
+          "count": 9,
+          "median": 0.859973954968173,
+          "p95": 104.45434545317741,
+          "fraction_below_1px": 0.5555555555555556
+        },
+        {
+          "name": "view_23",
+          "count": 8,
+          "median": 4.945163502656708,
+          "p95": 93.68448517751673,
+          "fraction_below_1px": 0.375
+        },
+        {
+          "name": "view_24",
+          "count": 7,
+          "median": 43.267863683296035,
+          "p95": 375.24140088402726,
+          "fraction_below_1px": 0.0
+        },
+        {
+          "name": "view_25",
+          "count": 5,
+          "median": 1.2355820075939434,
+          "p95": 12.695280878696833,
+          "fraction_below_1px": 0.4
+        },
+        {
+          "name": "view_26",
+          "count": 6,
+          "median": 2.980150265058353,
+          "p95": 128.68394452402893,
+          "fraction_below_1px": 0.3333333333333333
+        },
+        {
+          "name": "view_27",
+          "count": 9,
+          "median": 19.884486064704415,
+          "p95": 269.8510070854488,
+          "fraction_below_1px": 0.1111111111111111
+        },
+        {
+          "name": "view_28",
+          "count": 7,
+          "median": 20.947332667853363,
+          "p95": 89.42732041510142,
+          "fraction_below_1px": 0.0
+        },
+        {
+          "name": "view_29",
+          "count": 10,
+          "median": 16.381261876312237,
+          "p95": 105.51970472738022,
+          "fraction_below_1px": 0.3
+        },
+        {
+          "name": "view_30",
+          "count": 9,
+          "median": 6.5466321588765,
+          "p95": 187.96544520091976,
+          "fraction_below_1px": 0.3333333333333333
+        },
+        {
+          "name": "view_31",
+          "count": 11,
+          "median": 19.49881924362843,
+          "p95": 120.35034102070802,
+          "fraction_below_1px": 0.09090909090909091
+        },
+        {
+          "name": "view_32",
+          "count": 13,
+          "median": 5.772497981802727,
+          "p95": 255.87296641975405,
+          "fraction_below_1px": 0.15384615384615385
+        },
+        {
+          "name": "view_33",
+          "count": 8,
+          "median": 2.773797585902285,
+          "p95": 78.76724081560033,
+          "fraction_below_1px": 0.375
+        },
+        {
+          "name": "view_34",
+          "count": 14,
+          "median": 44.867977821111054,
+          "p95": 159.91774791187154,
+          "fraction_below_1px": 0.14285714285714285
+        },
+        {
+          "name": "view_35",
+          "count": 7,
+          "median": 9.897045827954537,
+          "p95": 86.36011691571252,
+          "fraction_below_1px": 0.42857142857142855
+        },
+        {
+          "name": "view_36",
+          "count": 11,
+          "median": 5.689558118752646,
+          "p95": 162.57934500904713,
+          "fraction_below_1px": 0.2727272727272727
+        },
+        {
+          "name": "view_37",
+          "count": 16,
+          "median": 6.321907014877086,
+          "p95": 143.75647915671914,
+          "fraction_below_1px": 0.4375
+        },
+        {
+          "name": "view_38",
+          "count": 4,
+          "median": 0.4526307582189559,
+          "p95": 2.1526179057314803,
+          "fraction_below_1px": 0.75
+        },
+        {
+          "name": "view_39",
+          "count": 12,
+          "median": 34.597379723094804,
+          "p95": 417.0066673042964,
+          "fraction_below_1px": 0.25
+        },
+        {
+          "name": "view_40",
+          "count": 7,
+          "median": 2.2404948089202104,
+          "p95": 95.0340497259946,
+          "fraction_below_1px": 0.2857142857142857
+        },
+        {
+          "name": "view_41",
+          "count": 8,
+          "median": 0.7424090960282247,
+          "p95": 47.45214140442787,
+          "fraction_below_1px": 0.5
+        },
+        {
+          "name": "view_42",
+          "count": 6,
+          "median": 5.957003795945429,
+          "p95": 17.749035029096078,
+          "fraction_below_1px": 0.3333333333333333
+        },
+        {
+          "name": "view_43",
+          "count": 11,
+          "median": 1.2476066146627598,
+          "p95": 15.428329498170115,
+          "fraction_below_1px": 0.45454545454545453
+        },
+        {
+          "name": "view_44",
+          "count": 4,
+          "median": 11.17356705647878,
+          "p95": 176.61123291473012,
+          "fraction_below_1px": 0.25
+        },
+        {
+          "name": "view_45",
+          "count": 8,
+          "median": 7.798541816104599,
+          "p95": 72.90473015797167,
+          "fraction_below_1px": 0.375
+        },
+        {
+          "name": "view_46",
+          "count": 9,
+          "median": 75.41860100604896,
+          "p95": 223.3465615633411,
+          "fraction_below_1px": 0.1111111111111111
+        },
+        {
+          "name": "view_47",
+          "count": 9,
+          "median": 9.78549942849729,
+          "p95": 90.17190922950434,
+          "fraction_below_1px": 0.3333333333333333
+        },
+        {
+          "name": "view_48",
+          "count": 9,
+          "median": 27.319371756262257,
+          "p95": 119.87918088301555,
+          "fraction_below_1px": 0.2222222222222222
+        },
+        {
+          "name": "view_49",
+          "count": 6,
+          "median": 4.990834987435307,
+          "p95": 21.587242988344606,
+          "fraction_below_1px": 0.16666666666666666
+        },
+        {
+          "name": "view_50",
+          "count": 14,
+          "median": 41.72814544983407,
+          "p95": 172.50187332276494,
+          "fraction_below_1px": 0.14285714285714285
+        },
+        {
+          "name": "view_51",
+          "count": 10,
+          "median": 3.6818862231415195,
+          "p95": 45.57638991982693,
+          "fraction_below_1px": 0.3
+        },
+        {
+          "name": "view_52",
+          "count": 10,
+          "median": 39.639957978425315,
+          "p95": 146.5078999287376,
+          "fraction_below_1px": 0.4
+        },
+        {
+          "name": "view_53",
+          "count": 14,
+          "median": 2.9279340431051764,
+          "p95": 69.33498045686872,
+          "fraction_below_1px": 0.35714285714285715
+        },
+        {
+          "name": "view_54",
+          "count": 10,
+          "median": 5.270501073986139,
+          "p95": 90.81834442611118,
+          "fraction_below_1px": 0.3
+        },
+        {
+          "name": "view_55",
+          "count": 13,
+          "median": 1.6372841364804414,
+          "p95": 54.08201121718596,
+          "fraction_below_1px": 0.3076923076923077
+        },
+        {
+          "name": "view_56",
+          "count": 13,
+          "median": 0.8311569588232037,
+          "p95": 186.25675700969137,
+          "fraction_below_1px": 0.5384615384615384
+        },
+        {
+          "name": "view_57",
+          "count": 19,
+          "median": 3.436668412226204,
+          "p95": 168.70206283866946,
+          "fraction_below_1px": 0.42105263157894735
+        },
+        {
+          "name": "view_58",
+          "count": 12,
+          "median": 2.2373038822236406,
+          "p95": 133.9573003887329,
+          "fraction_below_1px": 0.25
+        },
+        {
+          "name": "view_59",
+          "count": 16,
+          "median": 1.4446210278182128,
+          "p95": 150.6886297577834,
+          "fraction_below_1px": 0.5
+        }
+      ],
+      "fit_verified_tracks": 34,
+      "fit_verified_held_out_pixels": {
+        "count": 128,
+        "median": 0.3574363754859135,
+        "p95": 1.310825776111893,
+        "fraction_below_1px": 0.9140625
+      },
+      "fit_verified_selection": "fixed selection cameras, fitting observations only",
+      "fit_verified_selected_observations": 128,
+      "fit_verified_invalid_observations": 0,
+      "limits": [
+        "Report is meaningful only when cameras were recovered using the partitioned training cache.",
+        "False feature matches are included; this diagnostic does not establish dense or local facial accuracy.",
+        "Reserved tracks are triangulated using alternating observations; remaining observations score the cameras.",
+        "Both candidate and selection cameras must be recovered using the partitioned training cache. Fixed eligibility uses selection cameras and fitting observations only. Candidate points are retriangulated independently. Compare fixed-subset errors only with zero invalid selected observations; invalid observations must not be silently dropped.",
+        "Foreground/background labels use photo-derived masks only; mask errors can misclassify observations. Groups do not change fitting or track selection."
+      ],
+      "photo_mask_groups": {
+        "foreground": {
+          "held_out_reprojection_pixels": {
+            "count": 195,
+            "median": 1.011646987983377,
+            "p95": 18.48170213815856,
+            "fraction_below_1px": 0.48717948717948717
+          },
+          "fit_verified_held_out_pixels": {
+            "count": 58,
+            "median": 0.5129378120991812,
+            "p95": 1.5206004755580014,
+            "fraction_below_1px": 0.8448275862068966
+          }
+        },
+        "background": {
+          "held_out_reprojection_pixels": {
+            "count": 357,
+            "median": 27.319371756262257,
+            "p95": 205.1666394475917,
+            "fraction_below_1px": 0.23529411764705882
+          },
+          "fit_verified_held_out_pixels": {
+            "count": 70,
+            "median": 0.3121636145992591,
+            "p95": 0.8928361693071674,
+            "fraction_below_1px": 0.9714285714285714
+          }
+        },
+        "outside_mask": {
+          "held_out_reprojection_pixels": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "fraction_below_1px": null
+          },
+          "fit_verified_held_out_pixels": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "fraction_below_1px": null
+          }
+        }
+      }
+    },
+    "decision": "Reject: training median improves but fixed reserved foreground median and p95 both worsen; no dense run with candidate cameras.",
+    "limits": "One prior policy, one training subset and this reused reserved diagnostic; not an unbiased final validation set, global optimizer certificate or proof that unconstrained bundle adjustment cannot help."
+  },
+  "validation": {
+    "own_depth_coverage_and_fallback_invariants": true,
+    "disabled_depth_control_exact": true,
+    "native_replays_complete": true,
+    "fixed_scanner_alignment_used": true,
+    "fixed_camera_holdout_eligibility_used": true,
+    "camera_invalid_selected_observations": [
+      0,
+      0
+    ],
+    "six_object_gate": "Not run for rejected controls; no default or production adoption.",
+    "browser": "Not run for rejected controls; previous engine browser validation unchanged.",
+    "camera_holdout_and_detail_profile_tests_passed": 8,
+    "subpixel_replay_all_depth_arrays_exact": true
+  },
+  "limits": [
+    "Drill remains open/pitted and Bunny eyes/nose remain weak. None of these controls solves the requested shape quality.",
+    "Scanner alignment and scan quality contribute to errors. F1 gains alone do not demonstrate detailed relief recovery.",
+    "Local high-pass profiles measure noisy observed depth relief on common rays; they are not independent feature-recognition ground truth."
+  ],
+  "next_focus": "Correct local photometric correspondence and its view support before additional depth averaging or fusion changes; preserve separate reserved-track camera validation."
+}
