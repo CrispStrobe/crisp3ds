@@ -382,7 +382,11 @@ pub async fn run_fused(
     report["rim_pixels"] = json!(rim);
     report["fused_passes"] = json!([]);
     let observed = fused.weight.iter().filter(|&&w| w > 0.0).count() as f64 / fused.weight.len().max(1) as f64;
-    report["tsdf"] = json!({"hull_voxels": fused.indices.len(), "observed_fraction": observed, "seconds": t.elapsed().as_secs_f64()});
+    report["tsdf"] = json!({
+        "hull_voxels": fused.indices.len(), "observed_fraction": observed,
+        "weight_kind": "signed-distance vote mass including distant occupancy",
+        "seconds": t.elapsed().as_secs_f64(),
+    });
     control.log(format!("tsdf {}", report["tsdf"]));
     events.progress(0.97, "Depth fused")?;
 

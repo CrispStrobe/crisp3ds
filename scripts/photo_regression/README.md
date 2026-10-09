@@ -114,3 +114,49 @@ stages. Filtered depths equal raw values where retained, so on the fixed
 intersection they can have identical errors while coverage falls. Report both.
 Alignment error, crop boundaries and missing data can affect these measures;
 a gain or correlation is not proof that an eye or nose has been recovered.
+
+## Independent stereo and surface evidence controls
+
+`stereo_control.py` runs the installed OpenCV CPU SGBM implementation on pairs
+of original lens-undistorted RGB photos, using your own masks, recovered cameras
+and sparse points. It does not read native stereo depth as search data. OpenCV
+is an optional diagnostic dependency; it is not added to the app. Inputs must
+have a common pinhole canvas and native-resolution crop metadata from
+`CRISP3DS_STAGE_DEPTHS=1`. Keep original RGB paths in the control's
+`cameras.json`, rather than contrast-preprocessed matching images.
+
+```sh
+python scripts/photo_regression/stereo_control.py \
+  --inputs own-original-rgb-inputs \
+  --stage-cameras native-run/stereo/depths-stage-cameras.json \
+  --output new-independent-stereo --pair-gap 4 --threads 2
+```
+
+The output `depths.npz` can be replayed through native fusion with
+`run --reuse-depths new-independent-stereo/depths.npz`. Compare both its depth
+points and its mesh on frozen evaluation alignment. This is two-view SGBM,
+not an external COLMAP MVS or SOTA benchmark; differences in preprocessing,
+regularization and selected source views remain. The original control uses
+one source per reference, a five-pixel block, two-sided disparity verification
+at one pixel, sparse-derived disparity bounds and nearest Z-buffer reprojection.
+An independently generated plane with an eight-pixel disparity tests the
+conversion from rectified disparity to original camera Z.
+
+`surface_support.py` samples a mesh by triangle area and counts its own depth
+observations within the actual fusion truncation. It reads no scanner. Pass
+truncation and behind-band distances in scene units, not voxels:
+
+```sh
+python scripts/photo_regression/surface_support.py \
+  --mesh native-run/mesh/mesh.stl --cameras own-inputs/cameras.json \
+  --stage-cameras native-run/stereo/depths-stage-cameras.json \
+  --depths native-run/stereo/depths.npz \
+  --truncation 0.003 --behind-distance 0.012 --output support.json
+```
+
+Use the run's actual distances. Samples are after mesh smoothing/extrapolation,
+not exact fused voxel centres; mask-rim erosion is omitted, so observations
+are an upper bound on production support. A supporting depth is not proof of
+correct geometry. Far free-space votes, weak behind-surface votes and direct
+near-surface observations are counted separately. No automatic acceptance
+threshold or default change follows from this diagnostic.

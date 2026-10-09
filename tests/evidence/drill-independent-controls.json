@@ -1,0 +1,525 @@
+{
+  "schema": "crisp3ds_drill_independent_controls_v1",
+  "date": "2026-10-09",
+  "conclusion": "Unresolved structural depth reconstruction failure; no tested replacement or confidence/completion control is acceptable. No reconstruction default changed.",
+  "inputs": {
+    "source": "YCB drill NP3, sixty own lens-undistorted RGB photographs; own native SAM masks and own recovered cameras. Supplied lens intrinsics only.",
+    "reference_geometry_poses_depth_masks_used_as_reconstruction_input": false,
+    "reference_mesh_used_only_posthoc": true,
+    "reference_alignment": "Frozen prior distinct-mode baseline reflected scan fit used for all candidates. Near-symmetric ambiguity; not handedness proof. No candidate-specific scanner fit.",
+    "mesh_evaluation_samples": 200000,
+    "mesh_evaluation_seed": 233,
+    "threshold_fractions_reference_diagonal": [
+      0.005,
+      0.01,
+      0.02
+    ]
+  },
+  "surface_support": {
+    "schema": "crisp3ds_surface_support_v1",
+    "reference_used": false,
+    "samples": 100000,
+    "seed": 236,
+    "truncation": 0.003119506303454602,
+    "behind_distance": 0.012478025213818408,
+    "near_surface_views_histogram": {
+      "0": 39246,
+      "1": 4334,
+      "2": 3649,
+      "3": 3573,
+      "4": 3765,
+      "5": 3916,
+      "6": 3829,
+      "7": 3515,
+      "8": 3016,
+      "9": 2809,
+      "10": 2517,
+      "11": 2292,
+      "12": 2113,
+      "13": 2058,
+      "14": 1815,
+      "15": 1658,
+      "16": 1551,
+      "17": 1401,
+      "18": 1341,
+      "19": 1224,
+      "20": 1178,
+      "21": 1052,
+      "22": 1000,
+      "23": 951,
+      "24": 749,
+      "25": 696,
+      "26": 581,
+      "27": 471,
+      "28": 424,
+      "29": 351,
+      "30": 319,
+      "31": 326,
+      "32": 270,
+      "33": 245,
+      "34": 214,
+      "35": 196,
+      "36": 165,
+      "37": 153,
+      "38": 119,
+      "39": 105,
+      "40": 108,
+      "41": 74,
+      "42": 72,
+      "43": 66,
+      "44": 60,
+      "45": 52,
+      "46": 48,
+      "47": 43,
+      "48": 36,
+      "49": 34,
+      "50": 38,
+      "51": 32,
+      "52": 29,
+      "53": 32,
+      "54": 35,
+      "55": 24,
+      "56": 13,
+      "57": 13,
+      "58": 4
+    },
+    "fraction_near_surface_at_least": {
+      "1": 0.60754,
+      "2": 0.5642,
+      "3": 0.52771,
+      "4": 0.49198,
+      "5": 0.45433
+    },
+    "zero_near_but_has_free_space": 0.04286,
+    "zero_near_but_has_behind_votes": 0.08652,
+    "fraction_near_support_on_both_sides": 0.51685,
+    "rim_filter_applied": false,
+    "limits": [
+      "After smoothing/extrapolation, not exact fused voxel centres",
+      "No mask-rim erosion: counted support is an upper bound",
+      "Near-depth support does not establish accuracy; no independent reference is read"
+    ]
+  },
+  "stereo_control": {
+    "library": "Existing OpenCV 4.10.0",
+    "original_RGB_used": true,
+    "pair_gap": 4,
+    "calib_zero_disparity": true,
+    "rectification_alpha": -1,
+    "block_size": 5,
+    "P1": 600,
+    "P2": 2400,
+    "uniqueness_ratio": 10,
+    "speckle_window_size": 100,
+    "speckle_range": 2,
+    "left_right_limit_pixels": 1,
+    "minimum_disparity": "own sparse-derived 1/99 percentiles plus 64 px padding",
+    "native_depths_used_as_search_data": false,
+    "source_control_valid_pixels": 777343,
+    "native_control_valid_pixels": 773806,
+    "public_runner_reproduction": {
+      "arrays": 60,
+      "all_array_values_identical": true,
+      "all_shapes_identical": true
+    },
+    "point_accuracy": {
+      "reference_used_only_posthoc": true,
+      "alignment": "Frozen same prior baseline fit; no candidate-specific fit",
+      "common_pixel_sampling": "Same view/pixel locations, deterministic 2000 samples per view maximum",
+      "accuracy_only": "Point-to-reference-surface distances, not mesh F1 or completeness",
+      "results": {
+        "coherent_all": {
+          "total_valid_pixels": 773806,
+          "sampled_points": 120000,
+          "mean_fraction_diagonal": 0.006514920436420445,
+          "median_fraction_diagonal": 0.005373421153874104,
+          "p95_fraction_diagonal": 0.016102867025652064,
+          "fractions_below": {
+            "0.005": 0.4734333333333333,
+            "0.01": 0.7705333333333333,
+            "0.02": 0.9824083333333333
+          }
+        },
+        "sgbm_all": {
+          "total_valid_pixels": 777343,
+          "sampled_points": 120000,
+          "mean_fraction_diagonal": 0.010835727295950951,
+          "median_fraction_diagonal": 0.006846061174560174,
+          "p95_fraction_diagonal": 0.03294248031884596,
+          "fractions_below": {
+            "0.005": 0.38074166666666664,
+            "0.01": 0.6643416666666667,
+            "0.02": 0.8794916666666667
+          }
+        },
+        "coherent_common_pixels": {
+          "total_valid_pixels": 461392,
+          "sampled_points": 120000,
+          "mean_fraction_diagonal": 0.006676276336220699,
+          "median_fraction_diagonal": 0.005631776027660417,
+          "p95_fraction_diagonal": 0.016063358228877236,
+          "fractions_below": {
+            "0.005": 0.45476666666666665,
+            "0.01": 0.76015,
+            "0.02": 0.98225
+          }
+        },
+        "sgbm_common_pixels": {
+          "total_valid_pixels": 461392,
+          "sampled_points": 120000,
+          "mean_fraction_diagonal": 0.008819502151997817,
+          "median_fraction_diagonal": 0.005882700347175667,
+          "p95_fraction_diagonal": 0.021901363107868974,
+          "fractions_below": {
+            "0.005": 0.4340833333333333,
+            "0.01": 0.7461416666666667,
+            "0.02": 0.9412083333333333
+          }
+        }
+      }
+    },
+    "limits": [
+      "Two-view SGBM, not SOTA multi-view stereo",
+      "Appearance preprocessing, view choice and regularization differ from native",
+      "Not proof that native cameras/masks/matching are correct"
+    ]
+  },
+  "camera_control": {
+    "library": "Existing PyCOLMAP 3.11.1",
+    "lens_fixed": true,
+    "initial_native_or_supplied_poses_used": false,
+    "foreground_only_models": [
+      {
+        "registered": 21,
+        "points3d": 341,
+        "mean_reprojection_error": 0.5402288601672913
+      },
+      {
+        "registered": 12,
+        "points3d": 224,
+        "mean_reprojection_error": 0.5071671677852265
+      },
+      {
+        "registered": 12,
+        "points3d": 223,
+        "mean_reprojection_error": 0.4910740905232451
+      },
+      {
+        "registered": 6,
+        "points3d": 3,
+        "mean_reprojection_error": 1.246328413364358e-06
+      }
+    ],
+    "rotating_table_models": [
+      {
+        "registered": 60,
+        "points3d": 2391,
+        "mean_reprojection_error": 0.5943415018476447
+      }
+    ],
+    "table_feature_mask": "Own SAM foreground union manually selected interior of rotating table from RGB; no board coordinates. Same polygon for all images.",
+    "table_polygon_pixels": [
+      [
+        390,
+        350
+      ],
+      [
+        960,
+        350
+      ],
+      [
+        990,
+        650
+      ],
+      [
+        970,
+        830
+      ],
+      [
+        820,
+        930
+      ],
+      [
+        500,
+        930
+      ],
+      [
+        350,
+        830
+      ],
+      [
+        320,
+        550
+      ]
+    ],
+    "own_gauge_alignment": {
+      "reference_used": false,
+      "alignment": "Positive-scale proper similarity between own native and independent COLMAP camera centres; never fit to reference mesh or supplied extrinsics",
+      "scale": 0.2690994278764752,
+      "rotation": [
+        [
+          0.39694199980416606,
+          -0.5404973495468937,
+          0.7418218545744338
+        ],
+        [
+          0.7644796491537206,
+          0.6419716191435938,
+          0.05867969192111141
+        ],
+        [
+          -0.5079447950528418,
+          0.5438152768605674,
+          0.6680247224705015
+        ]
+      ],
+      "translation": [
+        0.09452874899486861,
+        -0.8106748692070137,
+        0.6019605455556196
+      ],
+      "camera_centre_difference_own_units": {
+        "median": 0.013562504460921332,
+        "p95": 0.0481764947111222,
+        "max": 0.14911778369189288
+      },
+      "camera_rotation_difference_degrees": {
+        "median": 0.4358312852183713,
+        "p95": 1.9625582831614166,
+        "max": 4.975134871439791
+      },
+      "registered": 60,
+      "points3d": 2391,
+      "lens_fixed": true,
+      "matching_images_masks_unchanged": "Native own grayscale inputs and SAM object masks reused; table mask used only for independent SfM feature extraction",
+      "new_sparse_points": "Independent COLMAP points in aligned gauge; hull, support and depth search bounds therefore may differ too"
+    },
+    "limits": [
+      "Native grayscale/object masks reused in dense stage; new camera poses and own sparse points change hull/support/search bounds too",
+      "COLMAP sparse reprojection score is not held-out dense accuracy",
+      "No complete external COLMAP dense workflow run; no full photo-heldout matching control in this follow-up"
+    ]
+  },
+  "fusion_control": {
+    "library": "Open3D 0.19.0 unmodified CPU pybind, loaded without optional visualizer/ML Python packages",
+    "wheel_sha256": "117702467bfb1602e9ae0ee5e2c7bcf573ebcd227b36a26f9f08425b52c89929",
+    "input_depths": "Identical coherent-band final native depths after identical square mask-rim erosion",
+    "rim_pixels": 5,
+    "voxel": 0.001039835434484867,
+    "truncation": 0.003119506303454601,
+    "analytic_plane_max_camera_z_error": 2.2057653242146813e-05,
+    "depth_sampling_stride": 1,
+    "native_hull_completion_support_flattening_smoothing_used": false,
+    "raw_components": 5325,
+    "all_components_triangles": 572820,
+    "largest_component_triangles": 263872,
+    "wider_truncation_voxels": 12,
+    "wider_components": 2074,
+    "limits": [
+      "Largest-component filtering drops disconnected upper-body evidence; all-component result is also scored and reviewed",
+      "Wider-band replay alone does not repair fragmentation",
+      "Same erroneous depth/camera evidence is retained"
+    ]
+  },
+  "poisson_control": {
+    "tool": "Existing PoissonRecon executable, BSD-3-Clause-style licence",
+    "binary_sha256": "e6277380ba8fa2602e4fb5fa458898213c4e0716a8e10097ed9f1217f889728c",
+    "license_sha256": "cace09a0686a7c9031d46845fbe3e88ac3bcab571187d4668e420bebf3d8c841",
+    "input": "Corrected merged own stereo depths; measured point positions unchanged",
+    "normal_estimation": "Normalized inverse depth Gaussian sigma=1 used for normals, measured positions unchanged; validity eroded 2 pixels; sample stride 2; exclude grazing normals (cos<.3)",
+    "depth": 8,
+    "point_weight": 4,
+    "point_count": 80897,
+    "limits": [
+      "Infers and smooths missing surface; does not recover measured detail",
+      "Greater strict F1 while mean error and 2% F1 worsen; not adopted"
+    ]
+  },
+  "mesh_scores": {
+    "coherent-band": {
+      "f1": {
+        "0.005": 0.48137379913931655,
+        "0.01": 0.7203221757902586,
+        "0.02": 0.9402362974828253
+      },
+      "symmetric_mean_fraction_diagonal": 0.007919246297663786,
+      "triangles": 689967,
+      "mesh_sha256": "4ee7183c53e5088ab4678d60900bc7743bf7581e96455f4c75873019682827a3"
+    },
+    "sgbm-native-fusion": {
+      "f1": {
+        "0.005": 0.30889030315235066,
+        "0.01": 0.5057492214491477,
+        "0.02": 0.7080308195030441
+      },
+      "symmetric_mean_fraction_diagonal": 0.014705883993603947,
+      "triangles": 978181,
+      "mesh_sha256": "f7e77b558c517bb529736c1bdaa986fbe479de0330d2109827b6a919ccf91306"
+    },
+    "surface-confidence": {
+      "f1": {
+        "0.005": 0.46226517569270204,
+        "0.01": 0.6929781663423423,
+        "0.02": 0.8957399998325524
+      },
+      "symmetric_mean_fraction_diagonal": 0.009637406416995613,
+      "triangles": 752345,
+      "mesh_sha256": "03841d282cd03824d46e4bb17df634e3990f915bf288ac0a7c2f4cc59aa48aa3"
+    },
+    "surface-confidence-3": {
+      "f1": {
+        "0.005": 0.44812364899768375,
+        "0.01": 0.6794176675022789,
+        "0.02": 0.8899522048648664
+      },
+      "symmetric_mean_fraction_diagonal": 0.010094929812851124,
+      "triangles": 754878,
+      "mesh_sha256": "662d9411edfc301b0cec534d7198f597ae20c47950e086bc4eb0f01617bddafa"
+    },
+    "vote-confidence-3": {
+      "f1": {
+        "0.005": 0.45238557617580427,
+        "0.01": 0.6887765558900334,
+        "0.02": 0.9198641611971289
+      },
+      "symmetric_mean_fraction_diagonal": 0.009065827145521333,
+      "triangles": 710533,
+      "mesh_sha256": "dd59fe15dfc43357101278177d24a46f9d3148d54172e5d46b863aab94bacc6f"
+    },
+    "surface-confidence-complete": {
+      "f1": {
+        "0.005": 0.36902062715095535,
+        "0.01": 0.6028408396041482,
+        "0.02": 0.845928838544158
+      },
+      "symmetric_mean_fraction_diagonal": 0.011172978774680875,
+      "triangles": 1146084,
+      "mesh_sha256": "74d2b28588d3cf71155718dcc8295b89caa3fc546879ce49eeac2755db62476f"
+    },
+    "vote-confidence-complete": {
+      "f1": {
+        "0.005": 0.43634559726538924,
+        "0.01": 0.6916728087124538,
+        "0.02": 0.9432102209668457
+      },
+      "symmetric_mean_fraction_diagonal": 0.007943668634445272,
+      "triangles": 831022,
+      "mesh_sha256": "2df4ac8a8921ec7943090aaa6bbb48793641288d20478bce1013fece5021ca4c"
+    },
+    "colmap-table-stereo": {
+      "f1": {
+        "0.005": 0.48584122448142775,
+        "0.01": 0.760521084038934,
+        "0.02": 0.932740241532043
+      },
+      "symmetric_mean_fraction_diagonal": 0.007682655739822833,
+      "triangles": 936003,
+      "mesh_sha256": "a21b0a19bd6f84d7290a01b7a19176c2f817ee4c6a533e4553f439c633ecea08"
+    },
+    "hull-structure-run": {
+      "f1": {
+        "0.005": 0.046537600299161284,
+        "0.01": 0.20265884172068938,
+        "0.02": 0.7036556848014734
+      },
+      "symmetric_mean_fraction_diagonal": 0.018910945913201617,
+      "triangles": 793128,
+      "mesh_sha256": "4b0d559797aa8881af4cf608e6e2b1c06e63b7dcaa3739335e17e20b55f030ce"
+    },
+    "open3d-fusion": {
+      "f1": {
+        "0.005": 0.3124592152440801,
+        "0.01": 0.4443870105085472,
+        "0.02": 0.5464880315485695
+      },
+      "symmetric_mean_fraction_diagonal": 0.05053393060565223,
+      "triangles": 263872,
+      "mesh_sha256": "3a35e5425d49a7f05d90a93dbae5d7758e82fd0ad50146920be4ceeb5ab3a8ad"
+    },
+    "open3d-wide-fusion": {
+      "f1": {
+        "0.005": 0.357968430600238,
+        "0.01": 0.46725323034654587,
+        "0.02": 0.5541036272023565
+      },
+      "symmetric_mean_fraction_diagonal": 0.04837539608365354,
+      "triangles": 245418,
+      "mesh_sha256": "ec389d3baad7a089948d6fa480f4df9b3c367b1e1df3672431a570567a2f0504"
+    },
+    "open3d-all-components": {
+      "f1": {
+        "0.005": 0.5209643387929144,
+        "0.01": 0.7454280091790443,
+        "0.02": 0.8767676413054525
+      },
+      "symmetric_mean_fraction_diagonal": 0.009615245836945964,
+      "triangles": 572820,
+      "mesh_sha256": "dbfa7ee3b69463f8e51475ff4185a5e3e43ad7d0795605ab0206335577f41031"
+    },
+    "coherent-poisson": {
+      "f1": {
+        "0.005": 0.5309013435588594,
+        "0.01": 0.7619087422818264,
+        "0.02": 0.880042081617478
+      },
+      "symmetric_mean_fraction_diagonal": 0.011959843464415974,
+      "triangles": 152414,
+      "mesh_sha256": "fb88f33d5331b37751ed2ae7823f1f705a22ae3ea64a00b28ae75e15793b76b6"
+    }
+  },
+  "rejected_surface_confidence": {
+    "method": "Count near-surface views independently of distant occupancy weight, preserving original signed-distance average at supported voxels",
+    "default": false,
+    "production_changes_reverted": true,
+    "synthetic_plane_gpu_test_passed": true,
+    "outcome": "Neither direct confidence thresholding nor closed hull completion repairs the drill; all candidate strict F1 values below the coherent baseline",
+    "six_object_default_gate_run": false
+  },
+  "visual_reviews": [
+    "Original RGB / raw / consistent / merged / independent stereo depth sheets in views 0/20/40",
+    "Native vs SGBM vs independent COLMAP-camera mesh",
+    "Near-surface confidence, open and closed completion",
+    "Silhouette-only control",
+    "Open3D original/wider-band largest-component controls, all-component control, and corrected-depth Poisson control"
+  ],
+  "published_changes": [
+    "Original independent OpenCV diagnostic runner and analytic plane/conversion tests",
+    "Original direct surface-depth support audit and tests",
+    "TSDF report distinguishes signed-distance vote mass from surface observation support",
+    "Evidence and documentation only; rejected shader/confidence option not shipped"
+  ],
+  "validation": {
+    "photo_regression_tests": 16,
+    "strict_release_clippy_passed": true,
+    "cargo_format_check_passed": true,
+    "rejected_confidence_experiment_gpu_library_tests": 203,
+    "ordinary_source_algorithm_restored": true,
+    "new_browser_or_device_execution": false,
+    "no_new_production_dependency": true,
+    "no_upstream_algorithm_source_incorporated": true
+  },
+  "sources": [
+    {
+      "url": "https://docs.opencv.org/4.x/d2/d85/classcv_1_1StereoSGBM.html",
+      "role": "Existing independent stereo API; tool execution only"
+    },
+    {
+      "url": "https://colmap.github.io/pycolmap/pycolmap.html",
+      "role": "Existing independent sparse SfM API; tool execution only"
+    },
+    {
+      "url": "https://www.open3d.org/docs/release/tutorial/pipelines/rgbd_integration.html",
+      "role": "Independent TSDF control API"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/isl-org/Open3D/v0.19.0/LICENSE",
+      "role": "MIT tool licence; no production incorporation or patent clearance"
+    }
+  ],
+  "limits": [
+    "No tested control restores acceptable drill structure",
+    "Evidence support is not correctness: direct near-depth counts cannot replace photometric/geometric uncertainty",
+    "Scanner remains evaluation only; no dataset poses/depths/masks entered reconstruction",
+    "No new patent-clearance claim, default adoption or App Store upload"
+  ]
+}

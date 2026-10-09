@@ -183,3 +183,89 @@ all other settings and inputs fixed. Strict drill F1 increases slightly to
 sampling therefore does not remove the combination's broad loss. This one-line
 experiment is reverted; the production coherent band continues using stride 1
 while the separate legacy normal-refinement option is unchanged.
+
+## Independent drill controls, 2026-10-09
+
+Actual independent implementations now test separate stages on the same drill
+photos. They do **not** establish an acceptable repair or an end-to-end external
+SOTA result. Supplied poses, depth and masks remain excluded; the independent
+mesh is consumed only for posthoc scoring with the existing frozen alignment.
+Full records are in [drill-independent-controls.json](../tests/evidence/drill-independent-controls.json).
+
+OpenCV CPU SGBM rectifies original RGB using our recovered pinhole cameras,
+checks left/right disparity and reprojects camera Z into the native crop.
+It produces 777,343 valid pixels versus 773,806 for corrected native stereo.
+On identical common pixel locations, mean point-to-reference surface error is
+.008820 versus .006676 of the reference diagonal. More valid depth therefore
+does not establish better depth. Passing these maps through native fusion
+worsens the drill. The generic diagnostic runner reproduces all 60 privately
+retained control depth arrays exactly, without reading native depth as search
+data. It is two-view regularized stereo, with different appearance processing
+and source selection, not a multi-view stereo quality benchmark.
+
+Independent PyCOLMAP 3.11.1 sparse SfM with fixed intrinsics and our foreground
+masks fragments into four models (largest 21 views). Adding a manually selected
+rotating-table interior from RGB connects all 60 views, with 2,391 sparse points
+and .594 px mean training reprojection error. Its own cameras and sparse points
+also produce a badly pitted mesh through native dense reconstruction. Its
+positive-scale gauge alignment uses only native and COLMAP camera centres,
+never the evaluation scanner or supplied poses. Changed sparse points also
+change the hull, support and depth bounds, so this is not a pure pose ablation.
+Neither training reprojection nor registration count clears local dense accuracy.
+
+Open3D 0.19.0 CPU TSDF receives identical corrected native depths, cropped
+intrinsics and the same five-pixel square mask-rim erosion. An independent
+analytic-plane control checks camera-Z integration (maximum Z error .0000221).
+It bypasses our hull prior, support flattening, field extrapolation and smoothing.
+At the native voxel/truncation it creates 5,325 disconnected components; keeping
+only the largest drops substantial upper-body evidence. The full output is
+therefore also reviewed and scored. Increasing truncation from 3 to 12 voxels
+still fragments it (2,074 components). This control retains the input depths'
+errors; it does not establish an error in TSDF integration alone.
+
+An existing permissively licensed PoissonRecon tool receives measured positions
+from corrected native depths and normals estimated from smoothed inverse depth.
+It improves continuity visually, but does not restore the drill's structures.
+Its strict F1 rises while mean error and broader F1 worsen. It infers missing
+surface and remains rejected as a repair.
+
+| Same frozen evaluation alignment | F1 .5% | F1 1% | F1 2% | Mean symmetric error / diagonal |
+| --- | ---: | ---: | ---: | ---: |
+| Corrected native control | .4814 | .7203 | .9402 | .007919 |
+| Independent SGBM, native fusion | .3089 | .5057 | .7080 | .014706 |
+| Independent COLMAP cameras/sparse, native dense stages | .4858 | .7605 | .9327 | .007683 |
+| Open3D TSDF, all components | .5210 | .7454 | .8768 | .009615 |
+| Poisson from corrected depths | .5309 | .7619 | .8800 | .011960 |
+
+The direct support audit finds **39.25%** of 100,000 area-sampled native mesh
+points have no depth within the fusion truncation. This is support attribution,
+not geometric accuracy: samples are after extrapolation/smoothing, and omitting
+rim erosion makes counted observations an upper bound. The existing TSDF weight
+also includes distant free-space and behind-surface vote mass. A new report
+field `weight_kind` makes that interpretation explicit. Neither the TSDF
+`observed_fraction` nor meshing's `observed_hull_fraction` is a measured surface
+coverage fraction.
+
+A private GPU experiment preserves the signed-distance average but replaces
+confidence with counts of near-surface views. Its analytic plane test passes;
+real drill controls worsen. Closing its gaps with the silhouette prior also
+worsens them. The shader/setting changes are reverted, not shipped as another
+experimental knob. These failures rule out that tested correction, not the need
+for uncertainty-aware fusion.
+
+The next substantive work must attach photometric ambiguity, source-view support
+and geometric uncertainty to each depth estimate, then test consistent surface
+fitting before hull completion. In particular, a broad or correlated match must
+not gain measured-detail credit merely from a high score or several similar
+views. Per-view geometric checks must participate in candidate selection, rather
+than only delete the final pixels. Camera sensitivity and genuinely withheld
+photo evidence still need validation; this follow-up does not provide a full
+photo-heldout experiment. Completing or texturing holes is not detail recovery.
+
+The independent libraries are tools only. Their licenses do not establish
+patent clearance; no upstream algorithm source or production dependency is
+incorporated. The Open3D binary lives in an isolated diagnostic installation.
+See the [OpenCV SGBM API](https://docs.opencv.org/4.x/d2/d85/classcv_1_1StereoSGBM.html),
+[PyCOLMAP API](https://colmap.github.io/pycolmap/pycolmap.html),
+[Open3D TSDF workflow](https://www.open3d.org/docs/release/tutorial/pipelines/rgbd_integration.html)
+and [Open3D MIT license at v0.19.0](https://raw.githubusercontent.com/isl-org/Open3D/v0.19.0/LICENSE).

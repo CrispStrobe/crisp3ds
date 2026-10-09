@@ -402,3 +402,18 @@ WASM build, 18 Studio settings tests and Studio build. No new upstream algorithm
 code/dependency or patent-clearance claim. See
 [coherent-band evidence](../tests/evidence/coherent-band-review.json) and
 [depth quality audit](DEPTH-QUALITY-AUDIT.md).
+
+Independent drill stage controls now execute OpenCV SGBM, PyCOLMAP sparse SfM
+and Open3D TSDF on own photo-derived evidence. A rotating-table feature region
+lets COLMAP register 60/60, but native dense reconstruction still pits the drill.
+SGBM worsens point accuracy on common pixels; Open3D fragments the current depths;
+Poisson improves continuity but worsens mean geometry error. About 39.25% of
+sampled native mesh surface points lack direct depth support within truncation,
+with the audit's stated limits. Near-surface confidence and closed-completion
+prototypes are rejected and reverted. The TSDF report now labels weight as
+signed-distance vote mass, and original repeatable diagnostic runners include
+analytic camera-Z/plane tests (16 photo-regression tests pass; strict release
+clippy and format checks pass). No reconstruction defaults, app dependencies or
+research gates change. The drill remains unresolved; see
+[independent control evidence](../tests/evidence/drill-independent-controls.json)
+and [depth quality audit](DEPTH-QUALITY-AUDIT.md).
