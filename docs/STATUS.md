@@ -261,3 +261,13 @@ from a separate own baseline solve and reports invalid selected observations.
 Both solves must exclude the same reserved training components. Five tests
 cover selection independence, view ordering and invalid observations.
 See [camera subpixel review](../tests/evidence/camera-subpixel-review.json).
+
+A private source-occlusion control rejects samples lying more than 0.5%
+behind our previous-pass source depth. Drill strict F1 changes 0.409 to
+0.422, with pits, false relief and an open mesh still present. Bunny passes
+its numerical regression check; eye-region F1 changes 0.586 to 0.594 while
+mean surface error worsens, and the renders do not show convincing eye/nose
+recovery. Seven synthetic GPU cases pass and the disabled drill control
+reproduces all final depths and the STL exactly. This control remains private:
+no production integration, five other object checks or browser execution.
+See [source visibility evidence](../tests/evidence/source-visibility-review.json).

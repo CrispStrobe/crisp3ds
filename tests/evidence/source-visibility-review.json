@@ -1,0 +1,107 @@
+{
+  "schema": "crisp3ds_source_visibility_review_v1",
+  "date": "2026-10-09",
+  "production_implemented": false,
+  "default_changed": false,
+  "patent_clearance_claimed": false,
+  "third_party_source_or_dependencies_added": false,
+  "method": "At the finest level, freeze own previous-pass depth maps across all views. Reject a warped source sample if its projected depth lies more than 0.5% behind a valid source surface; missing source priors remain accepted. Distinct-mode margin remains .02 for both controls.",
+  "input_rules": "Same own photo-derived masks and recovered cameras; scanner only posthoc evaluation. No supplied geometry/poses/depths enter stereo.",
+  "disabled_control": {
+    "depth_arrays_equal": true,
+    "mesh_sha256": "1ddc563f70f6549559d7f8fa99730e5cc680cd347bb1de2d30687c30ca88a079",
+    "expected_mesh_sha256": "1ddc563f70f6549559d7f8fa99730e5cc680cd347bb1de2d30687c30ca88a079",
+    "mesh_byte_equal": true
+  },
+  "synthetic_gpu_cases_passed": 7,
+  "drill": {
+    "baseline_f1": [
+      0.408711,
+      0.634573,
+      0.818643
+    ],
+    "candidate_threshold_metrics": {
+      "0.005": {
+        "fraction_of_diagonal": 0.005,
+        "distance_reference_units": 0.0013446621890755698,
+        "precision": 0.3513,
+        "recall": 0.5281,
+        "f1": 0.4219275187627929
+      },
+      "0.01": {
+        "fraction_of_diagonal": 0.01,
+        "distance_reference_units": 0.0026893243781511396,
+        "precision": 0.5506666666666666,
+        "recall": 0.7985333333333333,
+        "f1": 0.6518317356787561
+      },
+      "0.02": {
+        "fraction_of_diagonal": 0.02,
+        "distance_reference_units": 0.005378648756302279,
+        "precision": 0.7217333333333333,
+        "recall": 0.9584666666666667,
+        "f1": 0.8234226190003836
+      }
+    },
+    "candidate_open_genus": 239,
+    "baseline_open_genus": 219,
+    "candidate_triangles": 963534,
+    "baseline_triangles": 963904,
+    "mesh_sha256": "386cd986d6bc65b32b4f9626e7bd7fdedd6110b51845c291362da046ee0c2c47",
+    "render_review": "Three identical recovered camera views inspected; some cleaner surfaces, extensive pits and false relief persist. Not an accepted drill reconstruction.",
+    "alignment_limits": "Separate posthoc similarity fits, 60000 samples with held-out scoring half, seed215,24starts; near-symmetric proper/reflected fits ambiguous, not proof of handedness, physical scale or camera accuracy."
+  },
+  "validation_limits": [
+    "No six-object adoption gate or browser execution for visibility. Native private prototype only.",
+    "Modest shape score gain does not establish accurate local detail."
+  ],
+  "bunny": {
+    "whole_and_above_support_against_default": {
+      "all": {
+        "0.005": 0.0006389327673437251,
+        "0.01": 0.0002530529484088273,
+        "0.02": -0.0004203156972095723
+      },
+      "above_support": {
+        "0.005": 0.0011271294170751567,
+        "0.01": 0.0005494751413521737,
+        "0.02": 3.0202190046013655e-05
+      }
+    },
+    "passes_one_object_numeric_gate": true,
+    "distinct_modes_head": {
+      "samples": [
+        14711,
+        16386
+      ],
+      "f1": {
+        "0.001": 0.5863763141109312,
+        "0.0025": 0.8920062651170807,
+        "0.005": 0.968676372138955,
+        "0.01": 0.9953218371179785,
+        "0.02": 1.0
+      },
+      "symmetric_mean": 0.15711111253195675
+    },
+    "visibility_head": {
+      "samples": [
+        14687,
+        16386
+      ],
+      "f1": {
+        "0.001": 0.5936557123908845,
+        "0.0025": 0.8894533295732103,
+        "0.005": 0.9667298318907844,
+        "0.01": 0.9944199103077608,
+        "0.02": 1.0
+      },
+      "symmetric_mean": 0.15806884740373206
+    },
+    "candidate_closed": true,
+    "candidate_genus": 5,
+    "candidate_triangles": 1040120,
+    "seconds": 87.643753,
+    "render_review": "Head and overview inspected in same recovered views. Eyes/nose still weak. Small strict-region F1 gain accompanies worse symmetric mean error and lower wider-region F1."
+  },
+  "decision": "Retain private control; no production integration or default change. Drill modestly improves but remains unacceptable; Bunny local accuracy is mixed. Five other objects and browser have not been evaluated."
+}
