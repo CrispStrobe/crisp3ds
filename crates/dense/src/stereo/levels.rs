@@ -291,7 +291,29 @@ pub async fn match_levels(
             if let Some(coarse) = &coarser {
                 // Keep the finest depth; where it failed its checks, fall back to the
                 // previous level's consistent depth instead of leaving a hole.
-                depths = parallel_map(count, |i| merge_fallback(&level[i], &depths[i], &coarse[i]));
+                if config.fallback_supported {
+                    // Native-resolution pyramids may stop before the configured
+                    // finest level. Gap fills still require its final configured
+                    // policy, rather than the earlier level's acceptance threshold.
+                    let tolerance = *config.tolerances.last().expect("validated nonempty tolerances");
+                    let minimum = *config.min_votes.last().expect("validated nonempty min_votes");
+                    let results = parallel_map(count, |i| {
+                        let merged = merge_fallback(&level[i], &depths[i], &coarse[i]);
+                        let candidates = merged.data.iter().zip(&depths[i].data).filter(|(d, f)| **d > 0.0 && **f <= 0.0).count();
+                        let supported = super::depth::supported_fallback(i, &level, &depths, merged, &voters[i], tolerance, minimum);
+                        let accepted = supported.data.iter().zip(&depths[i].data).filter(|(d, f)| **d > 0.0 && **f <= 0.0).count();
+                        (supported, candidates, accepted)
+                    });
+                    report["fallback_support"] = json!({
+                        "relative_tolerance": tolerance, "minimum_votes": minimum,
+                        "candidates": results.iter().map(|r| r.1).sum::<usize>(),
+                        "accepted": results.iter().map(|r| r.2).sum::<usize>(),
+                        "fine_pixels_unchanged": true,
+                    });
+                    depths = results.into_iter().map(|r| r.0).collect();
+                } else {
+                    depths = parallel_map(count, |i| merge_fallback(&level[i], &depths[i], &coarse[i]));
+                }
                 report["fallback_coverage"] = coverage(&level, &depths);
                 let sheet = output.join("depth-merged.png");
                 depth_sheet(&sheet, &level, &depths, picks)?;

@@ -326,6 +326,13 @@
       "default": true
     },
     {
+      "name": "fallback_supported",
+      "group": "Fusion",
+      "meaning": "Experimental: require fine-view support for coarse gap fills, using the final configured tolerance and minimum votes",
+      "kind": "boolean",
+      "default": false
+    },
+    {
       "name": "rim_fraction",
       "group": "Fusion",
       "meaning": "Silhouette band left to the hull, in matching windows",

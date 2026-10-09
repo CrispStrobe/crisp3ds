@@ -217,6 +217,49 @@ pub fn consistent(level: &[LevelView], depths: &[Plane<f32>], neighbours: &[Vec<
     })
 }
 
+/// Validate only added fallback pixels against immutable finest-depth maps.
+/// Fine pixels survive unchanged; a coarse fill cannot vote for another fill.
+/// Mutates one view's merged plane, avoiding another full set of depth maps.
+pub fn supported_fallback(
+    i: usize,
+    level: &[LevelView],
+    fine: &[Plane<f32>],
+    mut merged: Plane<f32>,
+    neighbours: &[usize],
+    tolerance: f64,
+    minimum: i64,
+) -> Plane<f32> {
+    let tolerance = tolerance as f32;
+    for y in 0..merged.height {
+        for x in 0..merged.width {
+            let p = y * merged.width + x;
+            if fine[i].data[p] > 0.0 {
+                merged.data[p] = fine[i].data[p];
+                continue;
+            }
+            let d = merged.data[p];
+            if !d.is_finite() || d <= 0.0 {
+                merged.data[p] = 0.0;
+                continue;
+            }
+            let world = level[i].unproject(x, y, d);
+            let mut votes = 0i64;
+            for (n, &j) in neighbours.iter().enumerate() {
+                if j == i || neighbours[..n].contains(&j) {
+                    continue;
+                }
+                let (xy, z) = level[j].project(world);
+                let other = lookup(&fine[j], xy);
+                votes += (z > 0.0 && other > 0.0 && (other - z).abs() <= tolerance * z) as i64;
+            }
+            if votes < minimum {
+                merged.data[p] = 0.0;
+            }
+        }
+    }
+    merged
+}
+
 /// `Stereo.hull_front`: depth at which each masked pixel's ray first enters the
 /// hull, marched with two-voxel steps on a pixel grid `stride` times coarser.
 pub fn hull_front(view: &LevelView, hull: &Hull, bounds: (f64, f64), stride: usize) -> Plane<f32> {
@@ -293,6 +336,36 @@ mod tests {
 
     fn plane(width: usize, height: usize, data: &[f32]) -> Plane<f32> {
         Plane { width, height, data: data.to_vec() }
+    }
+
+    #[test]
+    fn fallback_needs_distinct_fine_voters_and_preserves_fine() {
+        use crate::inputs::Camera;
+        let view = LevelView {
+            width: 3,
+            height: 3,
+            camera: Camera { rotation: [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], translation: [0.; 3], k: [10., 10., 1.5, 1.5] },
+            gray: plane(3, 3, &[0.; 9]),
+            mask: Plane { width: 3, height: 3, data: vec![1; 9] },
+        };
+        let mut level = vec![view; 4];
+        let mut fine = vec![plane(3, 3, &[2.; 9]); 4];
+        fine[0].data[4] = 0.0;
+        fine[0].data[0] = 2.1; // An accepted fine value is never reconsidered.
+        let merged = plane(3, 3, &[2.; 9]);
+        let accepted = supported_fallback(0, &level, &fine, merged.clone(), &[1, 2, 3], 0.002, 3);
+        assert_eq!(accepted.data[4], 2.0);
+        assert_eq!(accepted.data[0].to_bits(), fine[0].data[0].to_bits());
+        fine[3].data[4] = 2.02;
+        assert_eq!(supported_fallback(0, &level, &fine, merged.clone(), &[1, 2, 3], 0.002, 3).data[4], 0.0);
+        fine[3].data[4] = 0.0; // Coarse fills in other views cannot supply votes.
+        assert_eq!(supported_fallback(0, &level, &fine, merged.clone(), &[1, 2, 3], 0.002, 3).data[4], 0.0);
+        assert_eq!(supported_fallback(0, &level, &fine, merged.clone(), &[0, 1, 1, 2], 0.002, 3).data[4], 0.0);
+        fine[3].data[4] = 2.0;
+        level[3].camera.translation[0] = 100.0; // A projection outside the source cannot vote.
+        assert_eq!(supported_fallback(0, &level, &fine, merged.clone(), &[1, 2, 3], 0.002, 3).data[4], 0.0);
+        level[3].camera.translation = [0., 0., -4.]; // Nor can a source behind the camera.
+        assert_eq!(supported_fallback(0, &level, &fine, merged, &[1, 2, 3], 0.002, 3).data[4], 0.0);
     }
 
     #[test]

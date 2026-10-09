@@ -301,3 +301,26 @@ all triangle coordinates/winding are byte-equal, source attribution is embedded,
 and Khronos validation reports zero errors/warnings/infos/hints. About one
 third of surface area remains untextured; seams and geometric defects persist.
 This is standalone export/render validation, not browser pipeline adoption.
+
+Supported fallback is now implemented in both engines as an opt-in setting,
+`fallback_supported=true` (default false). It preserves accepted fine pixels
+at the merge and requires added coarse fills to agree with finest maps in
+other views, using the final configured tolerance/minimum votes even when
+native resolution ends the pyramid early. Self/duplicate voters cannot count.
+Native disabled drill depths and STL remain byte-identical. The port accepts
+two extra pixels relative to NumPy near numerical boundaries; its fixed-fit
+drill F1 is 0.455/0.701/0.929, with about 24% lower mean error than ordinary
+fallback, but the mesh remains open and defective.
+
+All six same-input pairs with `fallback_supported=true, peak_min_margin=0.02`
+pass the 0.003 F1 regression rule (whole and above support, 0.5/1/2%); all
+paired sheets were inspected. Worst drop is 0.00279 on Happy Buddha.
+Bunny eye/brow strict F1 improves 0.582 to 0.613 and local mean error falls
+about 8%, but missing eye/nose relief is not convincingly restored. Both
+settings remain off by default. The final native suite passes 201 tests,
+Studio settings 18; Studio and threaded WASM builds pass. A full 60-photo
+browser run confirms supported fallback executes and exports original-RGB
+GLB: 75.5 seconds, 1.24 GiB WASM high water with two workers. These are one-run
+execution measurements, not a controlled speed comparison or total browser
+memory. An earlier browser attempt stopped at the 8.8 GiB disk floor; verified
+SSD moves restored about 12 GiB before the successful retry.

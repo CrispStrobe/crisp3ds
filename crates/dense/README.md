@@ -1753,3 +1753,23 @@ remain. SAM can use `--sam-prompt-mask background` to seed prompts from RGB
 backdrop contrast. Defaults remain unchanged. See
 [texture limits](../../docs/TEXTURED-MESH.md) and
 [reserved-track/local-relief diagnostics](../../scripts/photo_regression/README.md).
+
+
+Supported coarse fallback (experimental, default off): `fallback_supported=true`
+requires coarse gap fills to agree with finest accepted depth maps in other
+views. Fine pixels remain unchanged at the merge; coarse fills cannot vote for
+one another. The final entries in `tolerances` and `min_votes` set this policy,
+even when native image resolution stops the pyramid early. Angular voters use
+`vote_neighbours`, `minimum_angle` and `maximum_angle` as usual. The option has
+no effect when `fallback_level=false`. It changes depth reliability rather than
+adding smoothing or inferring missing detail. Native and browser engines share
+the implementation; ordinary defaults remain unchanged.
+
+```sh
+crisp3ds-dense run --inputs recovered-inputs --output supported-fallback \
+  --set fallback_supported=true --set peak_min_margin=0.02
+```
+
+The distinct-mode setting is a separate opt-in control; it is not required by
+the fallback algorithm. See [supported fallback evidence](../../tests/evidence/supported-fallback-review.json)
+for native/browser validation and remaining shape/coverage limitations.

@@ -2,12 +2,11 @@
   "schema": "crisp3ds_supported_fallback_review_v1",
   "date": "2026-10-09",
   "default_changed": false,
-  "production_implemented": false,
+  "production_implemented": true,
   "reference_used_only_posthoc": true,
   "third_party_source_or_dependencies_added": false,
   "patent_clearance_claimed": false,
   "inputs": "Same own drill RGB-derived masks, recovered cameras, own sparse points, same .02 distinct-mode stereo depths. Dataset scan is evaluation only; no supplied poses/masks/depths or geometry used for reconstruction.",
-  "method": "Preserve all finest accepted depths. Consider existing coarse fallback only in fine gaps, require agreement within .002 relative depth in at least three finest depth maps among the nearest ten own cameras in 3..40 degree angular range. Coarse fallback cannot vote for itself. Private NumPy replay prototype, not production integration.",
   "replay_control": {
     "replay_mesh_byte_equal": true,
     "baseline_sha256": "1ddc563f70f6549559d7f8fa99730e5cc680cd347bb1de2d30687c30ca88a079",
@@ -86,7 +85,6 @@
   "limits": [
     "Fixed prior baseline scanner similarity, including reflection, identical for all three candidates; near-symmetric shape fit is not proof of handedness or scale.",
     "200000 samples per surface, seed233, all-object scoring only; no separate support removal. Values differ from historical independently fitted 60000-sample evaluations and must not be mixed.",
-    "No other-object gate, native implementation parity, browser or textured export for supported fallback yet.",
     "Runtime under concurrent system/SSD load; no controlled speed comparison."
   ],
   "texture": {
@@ -108,6 +106,625 @@
       "truncated": false
     },
     "browser_parsed_and_rendered": true,
-    "limits": "Standalone GLB exported and parsed/rendered in local Three.js, same grey/photo views; not Studio reconstruction/browser execution or device sharing validation. Grey unseen patches and seams remain; texture does not repair geometry."
+    "limits": "Standalone GLB exported and parsed/rendered in local Three.js, same grey/photo views; not Studio reconstruction/browser execution or device sharing validation. Grey unseen patches and seams remain; texture does not repair geometry.",
+    "mesh_variant": "Private supported-fallback prototype, not the native mesh (two depth pixels differ)"
+  },
+  "prototype_method": "Preserve all finest accepted depths. Consider existing coarse fallback only in fine gaps, require agreement within .002 relative depth in at least three finest depth maps among the nearest ten own cameras in 3..40 degree angular range. Coarse fallback cannot vote for itself. Private NumPy replay prototype, not production integration.",
+  "method": "Opt-in fallback_supported: keep finest accepted depths unchanged at the merge and require added coarse gap fills to be supported by immutable finest maps in other angular voters. Use final configured tolerance/min_votes even when native resolution stops the pyramid early; prevent self/duplicate voting.",
+  "setting": {
+    "fallback_supported": {
+      "default": false
+    },
+    "tested_with": {
+      "fallback_supported": true,
+      "peak_min_margin": 0.02
+    },
+    "default_changed": false
+  },
+  "native_parity": {
+    "accepted": 45499,
+    "candidates": 295747,
+    "fine_pixels_unchanged": true,
+    "minimum_votes": 3,
+    "relative_tolerance": 0.002,
+    "disabled_all_depth_arrays_equal": true,
+    "disabled_stl_byte_equal": true,
+    "fine_stage_arrays_equal": true,
+    "accepted_fine_pixels_unchanged": true,
+    "prototype_differing_pixels": 2,
+    "prototype_all_depth_arrays_equal": false,
+    "prototype_stl_byte_equal": false,
+    "native_extra": 2,
+    "python_extra": 0,
+    "limits": "Two additional accepted coarse pixels relative to NumPy prototype near numerical acceptance boundaries; native STL is not byte-equal to prototype. Disabled depths/STL are exact; accepted fine pixels unchanged.",
+    "final_binary_disabled_verification": {
+      "all_depth_arrays_equal": true,
+      "array_count": 60,
+      "stl_sha256": "1ddc563f70f6549559d7f8fa99730e5cc680cd347bb1de2d30687c30ca88a079",
+      "stl_byte_equal": true
+    }
+  },
+  "native_binary_sha256": "e5e13dc23f7382b929a2a5d0562dfe8226ae1390e1247d32f9db735c35dafc95",
+  "validation": {
+    "native_library_tests": 201,
+    "gpu_checks_enabled": true,
+    "studio_settings_tests": 18,
+    "threaded_wasm_build": true,
+    "studio_build": true,
+    "cargo_fmt_check": true,
+    "clippy_all_targets_capi_warnings_denied": true,
+    "lint_cleanup": "Existing formatting and eight warnings corrected without changing reconstruction policy; post-cleanup release library suite rerun."
+  },
+  "six_object_gate": {
+    "max_permitted_f1_drop": 0.003,
+    "threshold_fractions": [
+      0.005,
+      0.01,
+      0.02
+    ],
+    "regions": [
+      "all",
+      "above_support"
+    ],
+    "comparison": "Current default vs .02 distinct modes plus supported fallback, identical recovered RGB-derived inputs. Frozen historical scanner fit transferred only by own camera centres, not candidate fitting. Scanner evaluation only.",
+    "samples_per_surface": 200000,
+    "seed": 233,
+    "all_pass": true,
+    "paired_sheets_inspected": true,
+    "objects": {
+      "bunny": {
+        "object": "bunny",
+        "variant": "supported-native",
+        "reference_used_only_posthoc": true,
+        "adopted": false,
+        "margin": 0.02,
+        "alignment": "Frozen historical scanner fit transferred only through own camera-centre similarity, identical for both candidates; no current candidate-to-reference fitting",
+        "camera_mapping_relative_rms": 1.8780587196909495e-16,
+        "metrics": {
+          "baseline": {
+            "all": {
+              "0.005": 0.9043777613012031,
+              "0.01": 0.9389483794424458,
+              "0.02": 0.9553517330714748
+            },
+            "above_support": {
+              "0.005": 0.964872367203772,
+              "0.01": 0.9953015659181709,
+              "0.02": 0.999897194622674
+            }
+          },
+          "confidence": {
+            "all": {
+              "0.005": 0.9076935719886818,
+              "0.01": 0.9397871513287825,
+              "0.02": 0.9549723720820869
+            },
+            "above_support": {
+              "0.005": 0.9689316545454333,
+              "0.01": 0.9968564760621171,
+              "0.02": 1.0
+            }
+          }
+        },
+        "f1_deltas": {
+          "all": {
+            "0.005": 0.0033158106874787707,
+            "0.01": 0.0008387718863367422,
+            "0.02": -0.0003793609893879557
+          },
+          "above_support": {
+            "0.005": 0.004059287341661277,
+            "0.01": 0.0015549101439462643,
+            "0.02": 0.00010280537732598738
+          }
+        },
+        "passes_numeric_gate": true,
+        "head": {
+          "baseline": {
+            "samples": [
+              14788,
+              16386
+            ],
+            "f1": {
+              "0.001": 0.5821332305667315,
+              "0.0025": 0.8872483716046821,
+              "0.005": 0.9691963116783837,
+              "0.01": 0.9965393227929701,
+              "0.02": 1.0
+            },
+            "symmetric_mean": 0.15633425118909025
+          },
+          "confidence": {
+            "samples": [
+              14590,
+              16386
+            ],
+            "f1": {
+              "0.001": 0.6129534308593221,
+              "0.0025": 0.908724789408348,
+              "0.005": 0.9756325037347493,
+              "0.01": 0.996940634560517,
+              "0.02": 1.0
+            },
+            "symmetric_mean": 0.14443665370923067
+          }
+        },
+        "hashes": {
+          "baseline": "ce80282cbaa6adc7a3877e07bb03e0fbc901d0815b88ee0a7c853a707a449431",
+          "confidence": "f37a0739122fab5def55c64cdbd10af879f2440402df6fbcd772f3266c2ac14a"
+        },
+        "triangles": {
+          "baseline": 1040560,
+          "confidence": 1039060
+        },
+        "seconds_before_render": 18.036758999995072,
+        "fallback_support": {
+          "accepted": 1526651,
+          "candidates": 3317596,
+          "fine_pixels_unchanged": true,
+          "minimum_votes": 3,
+          "relative_tolerance": 0.002
+        },
+        "tested_settings": {
+          "peak_min_margin": 0.02,
+          "fallback_supported": true
+        }
+      },
+      "armadillo": {
+        "object": "armadillo",
+        "variant": "supported-native",
+        "reference_used_only_posthoc": true,
+        "adopted": false,
+        "margin": 0.02,
+        "alignment": "Frozen historical scanner fit transferred only through own camera-centre similarity, identical for both candidates; no current candidate-to-reference fitting",
+        "camera_mapping_relative_rms": 2.758023121295757e-16,
+        "metrics": {
+          "baseline": {
+            "all": {
+              "0.005": 0.9267945136921879,
+              "0.01": 0.9746217275601008,
+              "0.02": 0.9904292694746194
+            },
+            "above_support": {
+              "0.005": 0.9510585211176158,
+              "0.01": 0.9963961458082088,
+              "0.02": 0.9999283347758257
+            }
+          },
+          "confidence": {
+            "all": {
+              "0.005": 0.931261527708116,
+              "0.01": 0.9755843871678298,
+              "0.02": 0.9902763613598957
+            },
+            "above_support": {
+              "0.005": 0.9544548168509989,
+              "0.01": 0.9965006161249713,
+              "0.02": 1.0
+            }
+          }
+        },
+        "f1_deltas": {
+          "all": {
+            "0.005": 0.0044670140159280836,
+            "0.01": 0.0009626596077290106,
+            "0.02": -0.00015290811472368215
+          },
+          "above_support": {
+            "0.005": 0.00339629573338307,
+            "0.01": 0.00010447031676252827,
+            "0.02": 7.166522417434429e-05
+          }
+        },
+        "passes_numeric_gate": true,
+        "head": {},
+        "hashes": {
+          "baseline": "c8663aafc9074d4b1b0a236d28e6345036a403930c3cd83bb7f2e225508dfe64",
+          "confidence": "58e6429f4f627077d176171a1db88a67ea295a12f312bfe1846e6c47702e025f"
+        },
+        "triangles": {
+          "baseline": 746840,
+          "confidence": 752402
+        },
+        "seconds_before_render": 12.111952874998678,
+        "fallback_support": {
+          "accepted": 863353,
+          "candidates": 1907984,
+          "fine_pixels_unchanged": true,
+          "minimum_votes": 3,
+          "relative_tolerance": 0.002
+        },
+        "tested_settings": {
+          "peak_min_margin": 0.02,
+          "fallback_supported": true
+        }
+      },
+      "dragon": {
+        "object": "dragon",
+        "variant": "supported-native",
+        "reference_used_only_posthoc": true,
+        "adopted": false,
+        "margin": 0.02,
+        "alignment": "Frozen historical scanner fit transferred only through own camera-centre similarity, identical for both candidates; no current candidate-to-reference fitting",
+        "camera_mapping_relative_rms": 2.5807870720845893e-16,
+        "metrics": {
+          "baseline": {
+            "all": {
+              "0.005": 0.8061477145158255,
+              "0.01": 0.9329137600701604,
+              "0.02": 0.9820877691250572
+            },
+            "above_support": {
+              "0.005": 0.8511981981876474,
+              "0.01": 0.9655718569116013,
+              "0.02": 0.9951430725345345
+            }
+          },
+          "confidence": {
+            "all": {
+              "0.005": 0.8039056392435603,
+              "0.01": 0.9306446497866775,
+              "0.02": 0.9834971915169383
+            },
+            "above_support": {
+              "0.005": 0.8512552817591401,
+              "0.01": 0.9645309238406758,
+              "0.02": 0.9957509344752447
+            }
+          }
+        },
+        "f1_deltas": {
+          "all": {
+            "0.005": -0.002242075272265165,
+            "0.01": -0.002269110283482867,
+            "0.02": 0.0014094223918810211
+          },
+          "above_support": {
+            "0.005": 5.7083571492699825e-05,
+            "0.01": -0.0010409330709254538,
+            "0.02": 0.0006078619407101638
+          }
+        },
+        "passes_numeric_gate": true,
+        "head": {},
+        "hashes": {
+          "baseline": "39c80e5b43cb29ef212b2aecb14fb80c803aed45f579225fb3910d4832780d02",
+          "confidence": "c771459fa9ce96389d9b63baff1737647ad17ec8525609314a7f424eb2e23739"
+        },
+        "triangles": {
+          "baseline": 930322,
+          "confidence": 941828
+        },
+        "seconds_before_render": 13.808193999997457,
+        "fallback_support": {
+          "accepted": 1384103,
+          "candidates": 4004640,
+          "fine_pixels_unchanged": true,
+          "minimum_votes": 3,
+          "relative_tolerance": 0.002
+        },
+        "tested_settings": {
+          "peak_min_margin": 0.02,
+          "fallback_supported": true
+        }
+      },
+      "lucy": {
+        "object": "lucy",
+        "variant": "supported-native",
+        "reference_used_only_posthoc": true,
+        "adopted": false,
+        "margin": 0.02,
+        "alignment": "Frozen historical scanner fit transferred only through own camera-centre similarity, identical for both candidates; no current candidate-to-reference fitting",
+        "camera_mapping_relative_rms": 4.414216307698287e-16,
+        "metrics": {
+          "baseline": {
+            "all": {
+              "0.005": 0.8456148395771705,
+              "0.01": 0.9432104860620212,
+              "0.02": 0.9675082522768106
+            },
+            "above_support": {
+              "0.005": 0.8819736855130265,
+              "0.01": 0.9835478112910413,
+              "0.02": 0.9993847084404445
+            }
+          },
+          "confidence": {
+            "all": {
+              "0.005": 0.8455185206422019,
+              "0.01": 0.9428854667390641,
+              "0.02": 0.9677485964699476
+            },
+            "above_support": {
+              "0.005": 0.8810296950060652,
+              "0.01": 0.9824847922156672,
+              "0.02": 0.9993534021994754
+            }
+          }
+        },
+        "f1_deltas": {
+          "all": {
+            "0.005": -9.631893496864219e-05,
+            "0.01": -0.00032501932295703195,
+            "0.02": 0.00024034419313700983
+          },
+          "above_support": {
+            "0.005": -0.0009439905069612564,
+            "0.01": -0.0010630190753740942,
+            "0.02": -3.130624096903123e-05
+          }
+        },
+        "passes_numeric_gate": true,
+        "head": {},
+        "hashes": {
+          "baseline": "f86e1f3f871484ae29e62621befa577d7bfcf29c89b7802053a8d1ef78db115e",
+          "confidence": "59d038b5e7a1a98af3d501dfda3e339a8d9008ae5d8cfdb7aca29936cf651c6e"
+        },
+        "triangles": {
+          "baseline": 379384,
+          "confidence": 381654
+        },
+        "seconds_before_render": 11.327360416995361,
+        "fallback_support": {
+          "accepted": 813544,
+          "candidates": 1497928,
+          "fine_pixels_unchanged": true,
+          "minimum_votes": 3,
+          "relative_tolerance": 0.002
+        },
+        "tested_settings": {
+          "peak_min_margin": 0.02,
+          "fallback_supported": true
+        }
+      },
+      "thai_statue": {
+        "object": "thai_statue",
+        "variant": "supported-native",
+        "reference_used_only_posthoc": true,
+        "adopted": false,
+        "margin": 0.02,
+        "alignment": "Frozen historical scanner fit transferred only through own camera-centre similarity, identical for both candidates; no current candidate-to-reference fitting",
+        "camera_mapping_relative_rms": 6.352519710848839e-16,
+        "metrics": {
+          "baseline": {
+            "all": {
+              "0.005": 0.8830922209535408,
+              "0.01": 0.932272337918745,
+              "0.02": 0.9524572733510368
+            },
+            "above_support": {
+              "0.005": 0.9472214415044168,
+              "0.01": 0.9952174448843083,
+              "0.02": 1.0
+            }
+          },
+          "confidence": {
+            "all": {
+              "0.005": 0.8822522353246591,
+              "0.01": 0.9322982720627525,
+              "0.02": 0.9524161212683098
+            },
+            "above_support": {
+              "0.005": 0.9458411695123177,
+              "0.01": 0.9949419816231235,
+              "0.02": 1.0
+            }
+          }
+        },
+        "f1_deltas": {
+          "all": {
+            "0.005": -0.0008399856288816565,
+            "0.01": 2.5934144007533355e-05,
+            "0.02": -4.115208272703619e-05
+          },
+          "above_support": {
+            "0.005": -0.0013802719920991136,
+            "0.01": -0.0002754632611847718,
+            "0.02": 0.0
+          }
+        },
+        "passes_numeric_gate": true,
+        "head": {},
+        "hashes": {
+          "baseline": "57040cc19b777ba3a25f1a307e0ac5f4ba79d4f40000f4213fcdd5f293a8dbae",
+          "confidence": "a08f2b736a8a7ad7b518f24dbea19b1b8fd90e110ba849a6bf025a41397e05c0"
+        },
+        "triangles": {
+          "baseline": 483868,
+          "confidence": 485192
+        },
+        "seconds_before_render": 12.033220458004507,
+        "fallback_support": {
+          "accepted": 607418,
+          "candidates": 1009387,
+          "fine_pixels_unchanged": true,
+          "minimum_votes": 3,
+          "relative_tolerance": 0.002
+        },
+        "tested_settings": {
+          "peak_min_margin": 0.02,
+          "fallback_supported": true
+        }
+      },
+      "happy": {
+        "object": "happy",
+        "variant": "supported-native",
+        "reference_used_only_posthoc": true,
+        "adopted": false,
+        "margin": 0.02,
+        "alignment": "Frozen historical scanner fit transferred only through own camera-centre similarity, identical for both candidates; no current candidate-to-reference fitting",
+        "camera_mapping_relative_rms": 8.149002810749376e-16,
+        "metrics": {
+          "baseline": {
+            "all": {
+              "0.005": 0.7951878117085831,
+              "0.01": 0.9080344902338436,
+              "0.02": 0.9716584792502314
+            },
+            "above_support": {
+              "0.005": 0.8356887609143892,
+              "0.01": 0.9413841642950503,
+              "0.02": 0.9906133442322393
+            }
+          },
+          "confidence": {
+            "all": {
+              "0.005": 0.7939122996709329,
+              "0.01": 0.9096691789634238,
+              "0.02": 0.975110511859247
+            },
+            "above_support": {
+              "0.005": 0.8328986420280924,
+              "0.01": 0.941020180727021,
+              "0.02": 0.993735216387359
+            }
+          }
+        },
+        "f1_deltas": {
+          "all": {
+            "0.005": -0.001275512037650195,
+            "0.01": 0.0016346887295801693,
+            "0.02": 0.0034520326090156095
+          },
+          "above_support": {
+            "0.005": -0.0027901188862967663,
+            "0.01": -0.00036398356802935794,
+            "0.02": 0.0031218721551196094
+          }
+        },
+        "passes_numeric_gate": true,
+        "head": {},
+        "hashes": {
+          "baseline": "5d17c306401f87fde3b9b55af97b0ca3214fb00295e3ef9508aa8710b00150c6",
+          "confidence": "1a8408da027884106e8205a78461b4174e6031e80ddbe034c6115ba44e47c0ef"
+        },
+        "triangles": {
+          "baseline": 601302,
+          "confidence": 599274
+        },
+        "seconds_before_render": 11.97871991599095,
+        "fallback_support": {
+          "accepted": 1124638,
+          "candidates": 2165937,
+          "fine_pixels_unchanged": true,
+          "minimum_votes": 3,
+          "relative_tolerance": 0.002
+        },
+        "tested_settings": {
+          "peak_min_margin": 0.02,
+          "fallback_supported": true
+        }
+      }
+    }
+  },
+  "bunny_local_review": {
+    "head_metrics": {
+      "baseline": {
+        "samples": [
+          14788,
+          16386
+        ],
+        "f1": {
+          "0.001": 0.5821332305667315,
+          "0.0025": 0.8872483716046821,
+          "0.005": 0.9691963116783837,
+          "0.01": 0.9965393227929701,
+          "0.02": 1.0
+        },
+        "symmetric_mean": 0.15633425118909025
+      },
+      "confidence": {
+        "samples": [
+          14590,
+          16386
+        ],
+        "f1": {
+          "0.001": 0.6129534308593221,
+          "0.0025": 0.908724789408348,
+          "0.005": 0.9756325037347493,
+          "0.01": 0.996940634560517,
+          "0.02": 1.0
+        },
+        "symmetric_mean": 0.14443665370923067
+      }
+    },
+    "render_review": "Eye/brow region somewhat cleaner, eyes/nose still weak; no convincing restoration of missing relief. Whole-object and local scanner improvements are not proof of detailed visual recovery."
+  },
+  "native_drill_evaluation": {
+    "schema": "crisp3ds_drill_frozen_visibility_eval_v1",
+    "reference_used_only_posthoc": true,
+    "samples_per_surface": 200000,
+    "seed": 233,
+    "alignment": "Frozen prior distinct-modes baseline scan fit for every candidate; reflected baseline fit, near-symmetric ambiguity; not handedness proof",
+    "threshold_fractions": [
+      0.005,
+      0.01,
+      0.02
+    ],
+    "results": {
+      "peak-modes": {
+        "f1": {
+          "0.005": 0.41076337010296665,
+          "0.01": 0.6370422750206125,
+          "0.02": 0.8210319974230263
+        },
+        "symmetric_mean_fraction_diagonal": 0.010863818761675605,
+        "triangles": 963904,
+        "mesh_sha256": "1ddc563f70f6549559d7f8fa99730e5cc680cd347bb1de2d30687c30ca88a079"
+      },
+      "supported-fallback": {
+        "f1": {
+          "0.005": 0.4555655274190111,
+          "0.01": 0.7015243515871661,
+          "0.02": 0.9293090654313652
+        },
+        "symmetric_mean_fraction_diagonal": 0.00828705345941101,
+        "triangles": 721863,
+        "mesh_sha256": "48e1bd9f169f58ecc40a1ea2796dcb5928f51abbee3db0e43db4240bb80672f3"
+      },
+      "supported-native": {
+        "f1": {
+          "0.005": 0.4552856030362358,
+          "0.01": 0.7012771847591814,
+          "0.02": 0.9292513333064463
+        },
+        "symmetric_mean_fraction_diagonal": 0.00829104302342056,
+        "triangles": 721863,
+        "mesh_sha256": "f33d80c38053cb365865209a84a4434ec9689eebde244bca9b8fefbd602f2a96"
+      }
+    }
+  },
+  "browser": {
+    "full_photo_pipeline_completed": true,
+    "camera_rows": 60,
+    "seconds": 75.54687999999523,
+    "peak_wasm_bytes": 1335689216,
+    "wasm_high_water_gib": 1.24395751953125,
+    "fallback_support": {
+      "accepted": 45566,
+      "candidates": 295889,
+      "fine_pixels_unchanged": true,
+      "minimum_votes": 3,
+      "relative_tolerance": 0.002
+    },
+    "closed": false,
+    "genus": 55,
+    "triangles": 722217,
+    "glb_bytes": 30882564,
+    "original_rgb_rows": 60,
+    "original_rgb_selected_views": 12,
+    "reference_used": false,
+    "after_dispose": {
+      "wasm": 1335689216,
+      "files": 11890356
+    },
+    "limits": "One Chrome/Metal run, 2 workers. WASM linear-memory high water, not browser/GPU RSS or controlled speed/memory comparison. Full browser output not independently scanner-scored or device-sharing validated."
+  },
+  "browser_resource_control": {
+    "first_attempt_stopped_by_disk_guard": true,
+    "guard_floor_gib": 8.8,
+    "retry_after_checksum_verified_ssd_moves": true,
+    "root_free_after_moves_gib_approx": 12,
+    "earlier_crash_cause_established": false
   }
 }

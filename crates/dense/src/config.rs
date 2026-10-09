@@ -46,6 +46,7 @@ pub struct DenseConfig {
     pub fused_passes: i64,
     pub fused_band: i64,
     pub fallback_level: bool,
+    pub fallback_supported: bool,
     pub rim_fraction: f64,
     pub fusion_interpolate: bool,
     pub truncation_voxels: f64,
@@ -112,6 +113,7 @@ impl Default for DenseConfig {
             fused_passes: 0,
             fused_band: 4,
             fallback_level: true,
+            fallback_supported: false,
             rim_fraction: 0.55,
             fusion_interpolate: false,
             truncation_voxels: 3.0,
@@ -159,7 +161,8 @@ impl DenseConfig {
 
 /// Settings this crate has and the Python reference does not. The reference is
 /// no longer extended; new behaviour is developed here.
-pub const NATIVE_ONLY: [&str; 14] = [
+pub const NATIVE_ONLY: [&str; 15] = [
+    "fallback_supported",
     "peak_min_margin",
     "native_level",
     "match_sharpening",
