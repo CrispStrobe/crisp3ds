@@ -347,3 +347,24 @@ controls were not taken through six-object/browser adoption gates. See
 [detail reliability controls](../tests/evidence/detail-reliability-controls-review.json).
 The remaining detail problem needs better local photo correspondence and
 view support; these results do not establish a single root cause.
+
+
+Source-selection controls (2026-10-09) remain private. Holding the initial
+surface's best reliable source views fixed across each band search improves
+Bunny strict eye/brow F1 0.613 to 0.637 and mean head error about 6%, but all
+three drill F1 thresholds worsen, including 2% F1 0.929 to 0.898. The smaller
+hole count does not imply a better shape. A .02 preference penalty instead of
+strict locking also worsens drill and gives no Bunny head improvement.
+
+A further control locks views only after an ordinary finest-depth pass.
+First-pass raw/filtered arrays match its ordinary control exactly. Drill needs
+no additional pass at its native resolution; Bunny uses two finest passes in
+both comparison arms. This also worsens drill; Bunny head F1 is 0.605 for
+ordinary extra refinement and 0.605 with view selection, below 0.613 baseline.
+All paired sheets and five local eye/nose depth profiles were reviewed. Two
+CPU/GPU matching parity checks pass; disabling the initial experiment produces
+exact baseline drill depths/STL. The production matcher, shader and level driver
+are restored, and the shared native CLI is rebuilt from that original source.
+No defaults, production policy or dependency changed; no six-object/browser
+adoption gate was attempted for these rejected general controls. See
+[source-selection evidence](../tests/evidence/source-selection-review.json).

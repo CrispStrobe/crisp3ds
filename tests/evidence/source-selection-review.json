@@ -1,0 +1,1717 @@
+{
+  "schema": "crisp3ds_source_selection_review_v1",
+  "date": "2026-10-09",
+  "baseline_revision": "3de1973f99c6734f1fa827caddb0596ae6dab9d6",
+  "production_implementation": false,
+  "default_changed": false,
+  "third_party_source_or_dependencies_added": false,
+  "patent_clearance_claimed": false,
+  "inputs": "Own recovered RGB-derived cameras, photo-derived masks and sparse points; same retained drill/Bunny inputs. No dataset poses/masks/depths or reference geometry enters reconstruction. Independent scanner is posthoc evaluation only.",
+  "common_settings": {
+    "peak_min_margin": 0.02,
+    "fallback_supported": true,
+    "other_dense_settings": "unchanged except explicitly controlled pass count"
+  },
+  "baseline": {
+    "drill": {
+      "f1": {
+        "0.005": 0.4552856030362358,
+        "0.01": 0.7012771847591814,
+        "0.02": 0.9292513333064463
+      },
+      "symmetric_mean_fraction_diagonal": 0.00829104302342056,
+      "triangles": 721863,
+      "mesh_sha256": "f33d80c38053cb365865209a84a4434ec9689eebde244bca9b8fefbd602f2a96"
+    },
+    "bunny_head": {
+      "samples": [
+        14590,
+        16386
+      ],
+      "f1": {
+        "0.001": 0.6129534308593221,
+        "0.0025": 0.908724789408348,
+        "0.005": 0.9756325037347493,
+        "0.01": 0.996940634560517,
+        "0.02": 1.0
+      },
+      "symmetric_mean": 0.14443665370923067
+    }
+  },
+  "evaluation": {
+    "drill_surface_samples": 200000,
+    "bunny_surface_samples": 200000,
+    "seed": 233,
+    "drill_f1_threshold_fractions": [
+      0.005,
+      0.01,
+      0.02
+    ],
+    "bunny_strict_head_threshold_fraction": 0.001,
+    "alignment": "Frozen prior scanner alignment, camera-centre-only transfer for Bunny, identical for all candidates. No candidate-to-reference fitting. Prior drill reflected fit is ambiguous on near-symmetry and not handedness proof.",
+    "local_profiles": "Same frozen Bunny reference fit/cameras and previously photo-corrected five eye/nose crop definitions; paired coverage and common-ray metrics reported separately. Local absolute values include alignment/scan error; mean head error is in reference coordinates, not independently verified physical units."
+  },
+  "variants": {
+    "fixed_sources": {
+      "method": "In every band-refine call, score the initial surface once. Select up to best_of3 source IDs with anchor NCC>=.55. Where at least2 qualify, hold those IDs fixed across hypotheses and require every selected view to remain NCC-valid. Otherwise ordinary best-of scoring. Sweep unchanged. Original private implementation; no source copied.",
+      "drill": {
+        "f1": {
+          "0.005": 0.4539776007023512,
+          "0.01": 0.6978553946737989,
+          "0.02": 0.8978789940520425
+        },
+        "symmetric_mean_fraction_diagonal": 0.008575523724684155,
+        "triangles": 712162,
+        "mesh_sha256": "878e679d3a648011ad3b26c7aa1cb703a97cff81f58ac79cfd761bc99c3b5681"
+      },
+      "bunny_head": {
+        "samples": [
+          14610,
+          16386
+        ],
+        "f1": {
+          "0.001": 0.6368464585208233,
+          "0.0025": 0.9199265952619744,
+          "0.005": 0.977493944854479,
+          "0.01": 0.9980454685731921,
+          "0.02": 1.0
+        },
+        "symmetric_mean": 0.13599911733722198
+      },
+      "bunny_whole_and_above_support": {
+        "baseline": {
+          "all": {
+            "0.005": 0.9043777613012031,
+            "0.01": 0.9389483794424458,
+            "0.02": 0.9553517330714748
+          },
+          "above_support": {
+            "0.005": 0.964872367203772,
+            "0.01": 0.9953015659181709,
+            "0.02": 0.999897194622674
+          }
+        },
+        "confidence": {
+          "all": {
+            "0.005": 0.9085390746184424,
+            "0.01": 0.9396767874262928,
+            "0.02": 0.9549259565040183
+          },
+          "above_support": {
+            "0.005": 0.9700269512802553,
+            "0.01": 0.9970678213149796,
+            "0.02": 1.0
+          }
+        }
+      },
+      "decision": "Keep private, reject as a general adoption: all drill thresholds and mean error worsen. Bunny local eye/brow F1 and mean error improve, with mixed five-crop relief and no convincing visual restoration of missing features. Bunny alone is insufficient.",
+      "binary_sha256": "65f434f3b434b9bbf5d7cf4698775452e04a5435065d762137d096b3b7cb8492"
+    },
+    "soft_sources": {
+      "method": "Same anchor IDs; allow other sources with a .02 score penalty before best-of ranking. Require at least2 valid views as before, without requiring all anchor-selected views. Ordinary scoring where fewer than2 reliable anchor sources.",
+      "drill": {
+        "f1": {
+          "0.005": 0.44979423885981124,
+          "0.01": 0.6973708949007354,
+          "0.02": 0.9267025666529197
+        },
+        "symmetric_mean_fraction_diagonal": 0.008374621426284793,
+        "triangles": 723154,
+        "mesh_sha256": "11b8e1cd0eb1902bc964a88b51dd886968efe62ef2fd6908a7ccc23b64f11a75"
+      },
+      "bunny_head": {
+        "samples": [
+          14594,
+          16386
+        ],
+        "f1": {
+          "0.001": 0.6116973807105068,
+          "0.0025": 0.9079693338212954,
+          "0.005": 0.974514369967749,
+          "0.01": 0.9974582675001717,
+          "0.02": 1.0
+        },
+        "symmetric_mean": 0.14455763846278274
+      },
+      "decision": "Reject: all drill thresholds and mean error worsen, Bunny head F1 and mean error slightly worsen.",
+      "binary_sha256": "ddbd18821d9a0f2a33456857c6a017778325dd3e18a7b0dca90ec927d1b32f73"
+    },
+    "fine_anchor": {
+      "method": "Select and hold sources only on subsequent passes at the final actual pyramid level. Earlier passes use ordinary scoring. passes=1,2,2: Bunny has2 finest passes rather than1; drill ends at level1, which already has2 passes. Compare against the same ordinary pass schedule, not only the original one-pass Bunny.",
+      "drill": {
+        "supported-native": {
+          "f1": {
+            "0.005": 0.4552856030362358,
+            "0.01": 0.7012771847591814,
+            "0.02": 0.9292513333064463
+          },
+          "symmetric_mean_fraction_diagonal": 0.00829104302342056,
+          "triangles": 721863,
+          "mesh_sha256": "f33d80c38053cb365865209a84a4434ec9689eebde244bca9b8fefbd602f2a96"
+        },
+        "two-pass-control": {
+          "f1": {
+            "0.005": 0.4552856030362358,
+            "0.01": 0.7012771847591814,
+            "0.02": 0.9292513333064463
+          },
+          "symmetric_mean_fraction_diagonal": 0.00829104302342056,
+          "triangles": 721863,
+          "mesh_sha256": "f33d80c38053cb365865209a84a4434ec9689eebde244bca9b8fefbd602f2a96"
+        },
+        "fine-anchor": {
+          "f1": {
+            "0.005": 0.44626347235769187,
+            "0.01": 0.6922102343058285,
+            "0.02": 0.9244391316970675
+          },
+          "symmetric_mean_fraction_diagonal": 0.008556685575053895,
+          "triangles": 731852,
+          "mesh_sha256": "05acb07335bfc70e41f842a8ea08cb4e03e712d33c0f2fe3ce52e0fa398809ae"
+        }
+      },
+      "bunny_head": {
+        "supported-native": {
+          "samples": [
+            14590,
+            16386
+          ],
+          "f1": {
+            "0.001": 0.6129534308593221,
+            "0.0025": 0.908724789408348,
+            "0.005": 0.9756325037347493,
+            "0.01": 0.996940634560517,
+            "0.02": 1.0
+          },
+          "symmetric_mean": 0.14443665370923067
+        },
+        "two-pass-control": {
+          "samples": [
+            14710,
+            16386
+          ],
+          "f1": {
+            "0.001": 0.6050728998725942,
+            "0.0025": 0.9063199110775016,
+            "0.005": 0.9721326157801257,
+            "0.01": 0.9953558257068708,
+            "0.02": 1.0
+          },
+          "symmetric_mean": 0.14941112297341397
+        },
+        "fine-anchor": {
+          "samples": [
+            14666,
+            16386
+          ],
+          "f1": {
+            "0.001": 0.6045885732527898,
+            "0.0025": 0.9047264086863596,
+            "0.005": 0.974548879686102,
+            "0.01": 0.996167008898015,
+            "0.02": 1.0
+          },
+          "symmetric_mean": 0.14753711559444654
+        }
+      },
+      "provenance": {
+        "drill_two_pass_control": {
+          "depth_arrays_equal": true,
+          "mesh_byte_equal": true,
+          "reason": "Drill native-resolution pyramid ends at level1, whose existing pass count is already2. passes=1,2,2 adds no drill pass."
+        },
+        "drill": {
+          "first_finest_pass_arrays_equal_to_two_pass_control": {
+            "depths-pass-0-raw.npz": true,
+            "depths-pass-0-consistent.npz": true
+          }
+        },
+        "bunny": {
+          "first_finest_pass_arrays_equal_to_two_pass_control": {
+            "depths-pass-0-raw.npz": true,
+            "depths-pass-0-consistent.npz": true
+          }
+        }
+      },
+      "decision": "Reject: all drill thresholds and mean error worsen. Bunny fine-anchor and ordinary extra-pass head F1 both below supported baseline; ordinary extra pass worsens mean error, candidate still worse than baseline.",
+      "binary_sha256": "9bccd1c93a5aa993b91478be1a8566879a4626902e671b6c3b757bb0a153c29b"
+    }
+  },
+  "profiles_all_refine": {
+    "evaluation_only": true,
+    "reference_used_for_reconstruction": false,
+    "region_definitions": [
+      {
+        "name": "eye",
+        "view": "view_10",
+        "crop": [
+          1048,
+          505,
+          90,
+          90
+        ]
+      },
+      {
+        "name": "nose",
+        "view": "view_10",
+        "crop": [
+          905,
+          600,
+          110,
+          100
+        ]
+      },
+      {
+        "name": "eye",
+        "view": "view_18",
+        "crop": [
+          805,
+          485,
+          160,
+          120
+        ]
+      },
+      {
+        "name": "nose",
+        "view": "view_18",
+        "crop": [
+          670,
+          590,
+          110,
+          100
+        ]
+      },
+      {
+        "name": "eye",
+        "view": "view_25",
+        "crop": [
+          590,
+          485,
+          150,
+          120
+        ]
+      }
+    ],
+    "limits": [
+      "Reference must already be aligned independently; this script does not align it.",
+      "Relief uses separately fitted inverse-depth planes on common rays; also inspect absolute error and coverage.",
+      "Pointwise metrics can include scan alignment error. Correlation alone is not feature recovery."
+    ],
+    "regions": {
+      "eye/view_10": {
+        "supported": {
+          "pairwise_coverage": 0.962716049382716,
+          "fixed_common": {
+            "common_pixels": 7728,
+            "coverage": 0.962716049382716,
+            "ray_depth_rmse": 0.001198600727901821,
+            "ray_depth_median_bias": 6.159910426972726e-05,
+            "inverse_depth_relief_gain": 1.0723123197385374,
+            "inverse_depth_relief_correlation": 0.9811894583673217,
+            "inverse_depth_relief_rmse": 0.0012924513324866994,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.3662799386562577,
+                "correlation": 0.4892170496706917,
+                "rmse": 0.00038143941655797726
+              },
+              "4": {
+                "gain": 0.36400115538564026,
+                "correlation": 0.39061149868053463,
+                "rmse": 0.0007251188510496564
+              },
+              "8": {
+                "gain": 0.747815363400979,
+                "correlation": 0.6791963739852617,
+                "rmse": 0.0010244996681767616
+              }
+            }
+          }
+        },
+        "fixed_sources_consistent": {
+          "pairwise_coverage": 0.9637037037037037,
+          "fixed_common": {
+            "common_pixels": 7728,
+            "coverage": 0.9637037037037037,
+            "ray_depth_rmse": 0.0011754673255257484,
+            "ray_depth_median_bias": 6.551006877525412e-05,
+            "inverse_depth_relief_gain": 1.0653982656407377,
+            "inverse_depth_relief_correlation": 0.9812896623740068,
+            "inverse_depth_relief_rmse": 0.0012693123481271485,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.37483925181320615,
+                "correlation": 0.4870351494941975,
+                "rmse": 0.00038481582895026015
+              },
+              "4": {
+                "gain": 0.36422163186982737,
+                "correlation": 0.39732167229515863,
+                "rmse": 0.0007160070457270105
+              },
+              "8": {
+                "gain": 0.7461089750067204,
+                "correlation": 0.6814033395859156,
+                "rmse": 0.0010173534706890666
+              }
+            }
+          }
+        },
+        "fixed_sources_merged": {
+          "pairwise_coverage": 0.9665432098765432,
+          "fixed_common": {
+            "common_pixels": 7728,
+            "coverage": 0.9665432098765432,
+            "ray_depth_rmse": 0.0011754673255257484,
+            "ray_depth_median_bias": 6.551006877525412e-05,
+            "inverse_depth_relief_gain": 1.0653982656407377,
+            "inverse_depth_relief_correlation": 0.9812896623740068,
+            "inverse_depth_relief_rmse": 0.0012693123481271485,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.37483925181320615,
+                "correlation": 0.4870351494941975,
+                "rmse": 0.00038481582895026015
+              },
+              "4": {
+                "gain": 0.36422163186982737,
+                "correlation": 0.39732167229515863,
+                "rmse": 0.0007160070457270105
+              },
+              "8": {
+                "gain": 0.7461089750067204,
+                "correlation": 0.6814033395859156,
+                "rmse": 0.0010173534706890666
+              }
+            }
+          }
+        },
+        "soft_sources_consistent": {
+          "pairwise_coverage": 0.9597530864197531,
+          "fixed_common": {
+            "common_pixels": 7728,
+            "coverage": 0.9597530864197531,
+            "ray_depth_rmse": 0.0012057927139445639,
+            "ray_depth_median_bias": 5.996942176006437e-05,
+            "inverse_depth_relief_gain": 1.069513839143162,
+            "inverse_depth_relief_correlation": 0.9804344986438878,
+            "inverse_depth_relief_rmse": 0.0013079692629158002,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.3819088384848986,
+                "correlation": 0.5008349346743511,
+                "rmse": 0.0003790642632990068
+              },
+              "4": {
+                "gain": 0.3710882279705674,
+                "correlation": 0.3970500875076177,
+                "rmse": 0.0007222423575541866
+              },
+              "8": {
+                "gain": 0.7474459669616366,
+                "correlation": 0.6733914729112593,
+                "rmse": 0.0010390364698243475
+              }
+            }
+          }
+        },
+        "soft_sources_merged": {
+          "pairwise_coverage": 0.9612345679012345,
+          "fixed_common": {
+            "common_pixels": 7728,
+            "coverage": 0.9612345679012345,
+            "ray_depth_rmse": 0.0012057927139445639,
+            "ray_depth_median_bias": 5.996942176006437e-05,
+            "inverse_depth_relief_gain": 1.069513839143162,
+            "inverse_depth_relief_correlation": 0.9804344986438878,
+            "inverse_depth_relief_rmse": 0.0013079692629158002,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.3819088384848986,
+                "correlation": 0.5008349346743511,
+                "rmse": 0.0003790642632990068
+              },
+              "4": {
+                "gain": 0.3710882279705674,
+                "correlation": 0.3970500875076177,
+                "rmse": 0.0007222423575541866
+              },
+              "8": {
+                "gain": 0.7474459669616366,
+                "correlation": 0.6733914729112593,
+                "rmse": 0.0010390364698243475
+              }
+            }
+          }
+        }
+      },
+      "nose/view_10": {
+        "supported": {
+          "pairwise_coverage": 0.8864545454545455,
+          "fixed_common": {
+            "common_pixels": 8180,
+            "coverage": 0.8864545454545455,
+            "ray_depth_rmse": 0.0020992427600684156,
+            "ray_depth_median_bias": -0.00022274390665993904,
+            "inverse_depth_relief_gain": 1.0150167985926815,
+            "inverse_depth_relief_correlation": 0.9314837457640265,
+            "inverse_depth_relief_rmse": 0.002766734142451643,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.131464225518207,
+                "correlation": 0.2983972635798788,
+                "rmse": 0.001063610640387216
+              },
+              "4": {
+                "gain": 0.10810951583952853,
+                "correlation": 0.1874537140011661,
+                "rmse": 0.001649125150011815
+              },
+              "8": {
+                "gain": 0.23359269021440907,
+                "correlation": 0.22679710868410125,
+                "rmse": 0.0022222309603921646
+              }
+            }
+          }
+        },
+        "fixed_sources_consistent": {
+          "pairwise_coverage": 0.8161818181818182,
+          "fixed_common": {
+            "common_pixels": 8180,
+            "coverage": 0.8161818181818182,
+            "ray_depth_rmse": 0.0020760117966525573,
+            "ray_depth_median_bias": -0.00020636914248772786,
+            "inverse_depth_relief_gain": 1.0086250915504504,
+            "inverse_depth_relief_correlation": 0.9319831220782911,
+            "inverse_depth_relief_rmse": 0.0027368589208612067,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.12829663751249445,
+                "correlation": 0.32644103716117245,
+                "rmse": 0.001044609064266954
+              },
+              "4": {
+                "gain": 0.10623065636931793,
+                "correlation": 0.19753791141433355,
+                "rmse": 0.0016211043584542224
+              },
+              "8": {
+                "gain": 0.22835940964924725,
+                "correlation": 0.22734831826451235,
+                "rmse": 0.002195697281962063
+              }
+            }
+          }
+        },
+        "fixed_sources_merged": {
+          "pairwise_coverage": 0.9243636363636364,
+          "fixed_common": {
+            "common_pixels": 8180,
+            "coverage": 0.9243636363636364,
+            "ray_depth_rmse": 0.0020760117966525573,
+            "ray_depth_median_bias": -0.00020636914248772786,
+            "inverse_depth_relief_gain": 1.0086250915504504,
+            "inverse_depth_relief_correlation": 0.9319831220782911,
+            "inverse_depth_relief_rmse": 0.0027368589208612067,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.12829663751249445,
+                "correlation": 0.32644103716117245,
+                "rmse": 0.001044609064266954
+              },
+              "4": {
+                "gain": 0.10623065636931793,
+                "correlation": 0.19753791141433355,
+                "rmse": 0.0016211043584542224
+              },
+              "8": {
+                "gain": 0.22835940964924725,
+                "correlation": 0.22734831826451235,
+                "rmse": 0.002195697281962063
+              }
+            }
+          }
+        },
+        "soft_sources_consistent": {
+          "pairwise_coverage": 0.7738181818181818,
+          "fixed_common": {
+            "common_pixels": 8180,
+            "coverage": 0.7738181818181818,
+            "ray_depth_rmse": 0.002104110010139922,
+            "ray_depth_median_bias": -0.00021093545271655412,
+            "inverse_depth_relief_gain": 1.0156152555989277,
+            "inverse_depth_relief_correlation": 0.9313892082168623,
+            "inverse_depth_relief_rmse": 0.0027706435702200944,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.13169419584530462,
+                "correlation": 0.3182803925604467,
+                "rmse": 0.0010503341121098175
+              },
+              "4": {
+                "gain": 0.10999792369339607,
+                "correlation": 0.19658204626048265,
+                "rmse": 0.0016333966507060922
+              },
+              "8": {
+                "gain": 0.22718681256308929,
+                "correlation": 0.22383790462390754,
+                "rmse": 0.0022119742667928806
+              }
+            }
+          }
+        },
+        "soft_sources_merged": {
+          "pairwise_coverage": 0.9021818181818182,
+          "fixed_common": {
+            "common_pixels": 8180,
+            "coverage": 0.9021818181818182,
+            "ray_depth_rmse": 0.002104110010139922,
+            "ray_depth_median_bias": -0.00021093545271655412,
+            "inverse_depth_relief_gain": 1.0156152555989277,
+            "inverse_depth_relief_correlation": 0.9313892082168623,
+            "inverse_depth_relief_rmse": 0.0027706435702200944,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.13169419584530462,
+                "correlation": 0.3182803925604467,
+                "rmse": 0.0010503341121098175
+              },
+              "4": {
+                "gain": 0.10999792369339607,
+                "correlation": 0.19658204626048265,
+                "rmse": 0.0016333966507060922
+              },
+              "8": {
+                "gain": 0.22718681256308929,
+                "correlation": 0.22383790462390754,
+                "rmse": 0.0022119742667928806
+              }
+            }
+          }
+        }
+      },
+      "eye/view_18": {
+        "supported": {
+          "pairwise_coverage": 1.0,
+          "fixed_common": {
+            "common_pixels": 19153,
+            "coverage": 1.0,
+            "ray_depth_rmse": 0.0005970131716619934,
+            "ray_depth_median_bias": 0.00022869296897753966,
+            "inverse_depth_relief_gain": 1.0116151290292468,
+            "inverse_depth_relief_correlation": 0.9924687398491778,
+            "inverse_depth_relief_rmse": 0.0005754790360502491,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.813687485263599,
+                "correlation": 0.34824689798773323,
+                "rmse": 0.00011477068358283374
+              },
+              "4": {
+                "gain": 0.8908214073603348,
+                "correlation": 0.4552479614091428,
+                "rmse": 0.0002636101675628198
+              },
+              "8": {
+                "gain": 0.970881017004939,
+                "correlation": 0.7207439663419256,
+                "rmse": 0.0004050178427792814
+              }
+            }
+          }
+        },
+        "fixed_sources_consistent": {
+          "pairwise_coverage": 0.99890625,
+          "fixed_common": {
+            "common_pixels": 19153,
+            "coverage": 0.99890625,
+            "ray_depth_rmse": 0.0006042910844965528,
+            "ray_depth_median_bias": 0.0002296048115467686,
+            "inverse_depth_relief_gain": 1.0099190598963836,
+            "inverse_depth_relief_correlation": 0.9926854437552847,
+            "inverse_depth_relief_rmse": 0.0005654970043980317,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.8247613126558375,
+                "correlation": 0.3815255701568796,
+                "rmse": 0.00010471227917262372
+              },
+              "4": {
+                "gain": 0.8894094824292404,
+                "correlation": 0.4769819344650947,
+                "rmse": 0.00024794735705103874
+              },
+              "8": {
+                "gain": 0.9613103487406107,
+                "correlation": 0.7310475303693025,
+                "rmse": 0.0003891486531251215
+              }
+            }
+          }
+        },
+        "fixed_sources_merged": {
+          "pairwise_coverage": 1.0,
+          "fixed_common": {
+            "common_pixels": 19153,
+            "coverage": 1.0,
+            "ray_depth_rmse": 0.0006042910844965528,
+            "ray_depth_median_bias": 0.0002296048115467686,
+            "inverse_depth_relief_gain": 1.0099190598963836,
+            "inverse_depth_relief_correlation": 0.9926854437552847,
+            "inverse_depth_relief_rmse": 0.0005654970043980317,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.8247613126558375,
+                "correlation": 0.3815255701568796,
+                "rmse": 0.00010471227917262372
+              },
+              "4": {
+                "gain": 0.8894094824292404,
+                "correlation": 0.4769819344650947,
+                "rmse": 0.00024794735705103874
+              },
+              "8": {
+                "gain": 0.9613103487406107,
+                "correlation": 0.7310475303693025,
+                "rmse": 0.0003891486531251215
+              }
+            }
+          }
+        },
+        "soft_sources_consistent": {
+          "pairwise_coverage": 0.9980729166666666,
+          "fixed_common": {
+            "common_pixels": 19153,
+            "coverage": 0.9980729166666666,
+            "ray_depth_rmse": 0.0006032978707374202,
+            "ray_depth_median_bias": 0.0002268335575519309,
+            "inverse_depth_relief_gain": 1.0105048252135673,
+            "inverse_depth_relief_correlation": 0.9925970616947598,
+            "inverse_depth_relief_rmse": 0.0005694681258429534,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.8225751040064023,
+                "correlation": 0.3754463010276984,
+                "rmse": 0.00010641125969097502
+              },
+              "4": {
+                "gain": 0.8894386011714446,
+                "correlation": 0.4723713350604849,
+                "rmse": 0.00025108200859292647
+              },
+              "8": {
+                "gain": 0.9624822056660965,
+                "correlation": 0.7281855496980475,
+                "rmse": 0.00039288905062514004
+              }
+            }
+          }
+        },
+        "soft_sources_merged": {
+          "pairwise_coverage": 0.9998958333333333,
+          "fixed_common": {
+            "common_pixels": 19153,
+            "coverage": 0.9998958333333333,
+            "ray_depth_rmse": 0.0006032978707374202,
+            "ray_depth_median_bias": 0.0002268335575519309,
+            "inverse_depth_relief_gain": 1.0105048252135673,
+            "inverse_depth_relief_correlation": 0.9925970616947598,
+            "inverse_depth_relief_rmse": 0.0005694681258429534,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.8225751040064023,
+                "correlation": 0.3754463010276984,
+                "rmse": 0.00010641125969097502
+              },
+              "4": {
+                "gain": 0.8894386011714446,
+                "correlation": 0.4723713350604849,
+                "rmse": 0.00025108200859292647
+              },
+              "8": {
+                "gain": 0.9624822056660965,
+                "correlation": 0.7281855496980475,
+                "rmse": 0.00039288905062514004
+              }
+            }
+          }
+        }
+      },
+      "nose/view_18": {
+        "supported": {
+          "pairwise_coverage": 0.8506363636363636,
+          "fixed_common": {
+            "common_pixels": 8473,
+            "coverage": 0.8506363636363636,
+            "ray_depth_rmse": 0.001673886740059105,
+            "ray_depth_median_bias": 0.00011247411938419827,
+            "inverse_depth_relief_gain": 1.054119859597932,
+            "inverse_depth_relief_correlation": 0.9552871515780196,
+            "inverse_depth_relief_rmse": 0.002133228690586081,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.12855113098773155,
+                "correlation": 0.16217990050392342,
+                "rmse": 0.0006874927840861966
+              },
+              "4": {
+                "gain": 0.25814016328625256,
+                "correlation": 0.2781951127647744,
+                "rmse": 0.0011669896106515137
+              },
+              "8": {
+                "gain": 0.7092057636075689,
+                "correlation": 0.6504524547712857,
+                "rmse": 0.0016018421042269999
+              }
+            }
+          }
+        },
+        "fixed_sources_consistent": {
+          "pairwise_coverage": 0.8100909090909091,
+          "fixed_common": {
+            "common_pixels": 8473,
+            "coverage": 0.8100909090909091,
+            "ray_depth_rmse": 0.0016411635967701877,
+            "ray_depth_median_bias": 9.619960770756997e-05,
+            "inverse_depth_relief_gain": 1.0393831193595133,
+            "inverse_depth_relief_correlation": 0.9550243253897277,
+            "inverse_depth_relief_rmse": 0.0020970179843936704,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.1688150596966244,
+                "correlation": 0.24402366850573845,
+                "rmse": 0.0006272206245503438
+              },
+              "4": {
+                "gain": 0.26224711778211035,
+                "correlation": 0.31544846609193433,
+                "rmse": 0.001087104564905927
+              },
+              "8": {
+                "gain": 0.6859912469887294,
+                "correlation": 0.6560879333986283,
+                "rmse": 0.0015498902025268592
+              }
+            }
+          }
+        },
+        "fixed_sources_merged": {
+          "pairwise_coverage": 0.8736363636363637,
+          "fixed_common": {
+            "common_pixels": 8473,
+            "coverage": 0.8736363636363637,
+            "ray_depth_rmse": 0.0016411635967701877,
+            "ray_depth_median_bias": 9.619960770756997e-05,
+            "inverse_depth_relief_gain": 1.0393831193595133,
+            "inverse_depth_relief_correlation": 0.9550243253897277,
+            "inverse_depth_relief_rmse": 0.0020970179843936704,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.1688150596966244,
+                "correlation": 0.24402366850573845,
+                "rmse": 0.0006272206245503438
+              },
+              "4": {
+                "gain": 0.26224711778211035,
+                "correlation": 0.31544846609193433,
+                "rmse": 0.001087104564905927
+              },
+              "8": {
+                "gain": 0.6859912469887294,
+                "correlation": 0.6560879333986283,
+                "rmse": 0.0015498902025268592
+              }
+            }
+          }
+        },
+        "soft_sources_consistent": {
+          "pairwise_coverage": 0.7997272727272727,
+          "fixed_common": {
+            "common_pixels": 8473,
+            "coverage": 0.7997272727272727,
+            "ray_depth_rmse": 0.001660490601397709,
+            "ray_depth_median_bias": 0.00011290983535938715,
+            "inverse_depth_relief_gain": 1.0491565184285767,
+            "inverse_depth_relief_correlation": 0.9553194116834597,
+            "inverse_depth_relief_rmse": 0.002117626407458293,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.11988545221767158,
+                "correlation": 0.16490712148943826,
+                "rmse": 0.0006665563083253901
+              },
+              "4": {
+                "gain": 0.241677923759719,
+                "correlation": 0.2713621321404539,
+                "rmse": 0.0011517707983715417
+              },
+              "8": {
+                "gain": 0.6967751249971723,
+                "correlation": 0.6488579844560092,
+                "rmse": 0.0015905679996326527
+              }
+            }
+          }
+        },
+        "soft_sources_merged": {
+          "pairwise_coverage": 0.8567272727272728,
+          "fixed_common": {
+            "common_pixels": 8473,
+            "coverage": 0.8567272727272728,
+            "ray_depth_rmse": 0.001660490601397709,
+            "ray_depth_median_bias": 0.00011290983535938715,
+            "inverse_depth_relief_gain": 1.0491565184285767,
+            "inverse_depth_relief_correlation": 0.9553194116834597,
+            "inverse_depth_relief_rmse": 0.002117626407458293,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.11988545221767158,
+                "correlation": 0.16490712148943826,
+                "rmse": 0.0006665563083253901
+              },
+              "4": {
+                "gain": 0.241677923759719,
+                "correlation": 0.2713621321404539,
+                "rmse": 0.0011517707983715417
+              },
+              "8": {
+                "gain": 0.6967751249971723,
+                "correlation": 0.6488579844560092,
+                "rmse": 0.0015905679996326527
+              }
+            }
+          }
+        }
+      },
+      "eye/view_25": {
+        "supported": {
+          "pairwise_coverage": 0.9847777777777778,
+          "fixed_common": {
+            "common_pixels": 17184,
+            "coverage": 0.9847777777777778,
+            "ray_depth_rmse": 0.000622370309289241,
+            "ray_depth_median_bias": 0.00023188184448236226,
+            "inverse_depth_relief_gain": 0.96716332864486,
+            "inverse_depth_relief_correlation": 0.9848717556215143,
+            "inverse_depth_relief_rmse": 0.000722936666924266,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.6722792627708557,
+                "correlation": 0.3264432137542501,
+                "rmse": 0.0001888352397582551
+              },
+              "4": {
+                "gain": 0.6786412397318422,
+                "correlation": 0.4408570885781688,
+                "rmse": 0.0003600041983740698
+              },
+              "8": {
+                "gain": 0.7863709613169901,
+                "correlation": 0.6650973000401854,
+                "rmse": 0.0005516021520359722
+              }
+            }
+          }
+        },
+        "fixed_sources_consistent": {
+          "pairwise_coverage": 0.9717222222222223,
+          "fixed_common": {
+            "common_pixels": 17184,
+            "coverage": 0.9717222222222223,
+            "ray_depth_rmse": 0.0006017149213171797,
+            "ray_depth_median_bias": 0.0002367506377791151,
+            "inverse_depth_relief_gain": 0.967015332408774,
+            "inverse_depth_relief_correlation": 0.9862568409941688,
+            "inverse_depth_relief_rmse": 0.000689614340459911,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.7122006349645023,
+                "correlation": 0.45141260167110386,
+                "rmse": 0.0001374726856233798
+              },
+              "4": {
+                "gain": 0.7082817168335671,
+                "correlation": 0.5069646097933701,
+                "rmse": 0.00031447653478522083
+              },
+              "8": {
+                "gain": 0.79818413707173,
+                "correlation": 0.7003896356372511,
+                "rmse": 0.0005089068655532038
+              }
+            }
+          }
+        },
+        "fixed_sources_merged": {
+          "pairwise_coverage": 0.9954444444444445,
+          "fixed_common": {
+            "common_pixels": 17184,
+            "coverage": 0.9954444444444445,
+            "ray_depth_rmse": 0.0006017149213171797,
+            "ray_depth_median_bias": 0.0002367506377791151,
+            "inverse_depth_relief_gain": 0.967015332408774,
+            "inverse_depth_relief_correlation": 0.9862568409941688,
+            "inverse_depth_relief_rmse": 0.000689614340459911,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.7122006349645023,
+                "correlation": 0.45141260167110386,
+                "rmse": 0.0001374726856233798
+              },
+              "4": {
+                "gain": 0.7082817168335671,
+                "correlation": 0.5069646097933701,
+                "rmse": 0.00031447653478522083
+              },
+              "8": {
+                "gain": 0.79818413707173,
+                "correlation": 0.7003896356372511,
+                "rmse": 0.0005089068655532038
+              }
+            }
+          }
+        },
+        "soft_sources_consistent": {
+          "pairwise_coverage": 0.9617777777777777,
+          "fixed_common": {
+            "common_pixels": 17184,
+            "coverage": 0.9617777777777777,
+            "ray_depth_rmse": 0.0005992164084894851,
+            "ray_depth_median_bias": 0.00023571661001214883,
+            "inverse_depth_relief_gain": 0.9663698026579837,
+            "inverse_depth_relief_correlation": 0.9862794091881888,
+            "inverse_depth_relief_rmse": 0.0006891605181546641,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.7682138814217604,
+                "correlation": 0.4619096098318438,
+                "rmse": 0.0001428596119092865
+              },
+              "4": {
+                "gain": 0.7181736730005133,
+                "correlation": 0.506843554787731,
+                "rmse": 0.00031815862261767245
+              },
+              "8": {
+                "gain": 0.8047590838451407,
+                "correlation": 0.700344405086634,
+                "rmse": 0.0005119701198736524
+              }
+            }
+          }
+        },
+        "soft_sources_merged": {
+          "pairwise_coverage": 0.9897222222222222,
+          "fixed_common": {
+            "common_pixels": 17184,
+            "coverage": 0.9897222222222222,
+            "ray_depth_rmse": 0.0005992164084894851,
+            "ray_depth_median_bias": 0.00023571661001214883,
+            "inverse_depth_relief_gain": 0.9663698026579837,
+            "inverse_depth_relief_correlation": 0.9862794091881888,
+            "inverse_depth_relief_rmse": 0.0006891605181546641,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.7682138814217604,
+                "correlation": 0.4619096098318438,
+                "rmse": 0.0001428596119092865
+              },
+              "4": {
+                "gain": 0.7181736730005133,
+                "correlation": 0.506843554787731,
+                "rmse": 0.00031815862261767245
+              },
+              "8": {
+                "gain": 0.8047590838451407,
+                "correlation": 0.700344405086634,
+                "rmse": 0.0005119701198736524
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "profiles_fine_anchor": {
+    "evaluation_only": true,
+    "reference_used_for_reconstruction": false,
+    "region_definitions": [
+      {
+        "name": "eye",
+        "view": "view_10",
+        "crop": [
+          1048,
+          505,
+          90,
+          90
+        ]
+      },
+      {
+        "name": "nose",
+        "view": "view_10",
+        "crop": [
+          905,
+          600,
+          110,
+          100
+        ]
+      },
+      {
+        "name": "eye",
+        "view": "view_18",
+        "crop": [
+          805,
+          485,
+          160,
+          120
+        ]
+      },
+      {
+        "name": "nose",
+        "view": "view_18",
+        "crop": [
+          670,
+          590,
+          110,
+          100
+        ]
+      },
+      {
+        "name": "eye",
+        "view": "view_25",
+        "crop": [
+          590,
+          485,
+          150,
+          120
+        ]
+      }
+    ],
+    "limits": [
+      "Reference must already be aligned independently; this script does not align it.",
+      "Relief uses separately fitted inverse-depth planes on common rays; also inspect absolute error and coverage.",
+      "Pointwise metrics can include scan alignment error. Correlation alone is not feature recovery."
+    ],
+    "regions": {
+      "eye/view_10": {
+        "supported": {
+          "pairwise_coverage": 0.962716049382716,
+          "fixed_common": {
+            "common_pixels": 7748,
+            "coverage": 0.962716049382716,
+            "ray_depth_rmse": 0.0011806439525862628,
+            "ray_depth_median_bias": 6.080477102493598e-05,
+            "inverse_depth_relief_gain": 1.068076650952946,
+            "inverse_depth_relief_correlation": 0.9815330092688569,
+            "inverse_depth_relief_rmse": 0.0012746166713683165,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.34812002033717415,
+                "correlation": 0.435504027610987,
+                "rmse": 0.00039691059377863097
+              },
+              "4": {
+                "gain": 0.3618729785287105,
+                "correlation": 0.3804256247269231,
+                "rmse": 0.0007255446410197006
+              },
+              "8": {
+                "gain": 0.7607741087444025,
+                "correlation": 0.6932894186315269,
+                "rmse": 0.0010113346825498556
+              }
+            }
+          }
+        },
+        "ordinary_two_pass": {
+          "pairwise_coverage": 0.971358024691358,
+          "fixed_common": {
+            "common_pixels": 7748,
+            "coverage": 0.971358024691358,
+            "ray_depth_rmse": 0.0011950402550880096,
+            "ray_depth_median_bias": 8.604270070150521e-05,
+            "inverse_depth_relief_gain": 1.0759306885659077,
+            "inverse_depth_relief_correlation": 0.9821683477924968,
+            "inverse_depth_relief_rmse": 0.0012774910968182535,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.31747574499875325,
+                "correlation": 0.4257502785679851,
+                "rmse": 0.0003923295577996531
+              },
+              "4": {
+                "gain": 0.3687577408758648,
+                "correlation": 0.37175185834160485,
+                "rmse": 0.0007453296205185044
+              },
+              "8": {
+                "gain": 0.7869449082764315,
+                "correlation": 0.7011204176656773,
+                "rmse": 0.0010139209944815205
+              }
+            }
+          }
+        },
+        "fine_anchor_consistent": {
+          "pairwise_coverage": 0.9687654320987654,
+          "fixed_common": {
+            "common_pixels": 7748,
+            "coverage": 0.9687654320987654,
+            "ray_depth_rmse": 0.0011922316989187922,
+            "ray_depth_median_bias": 8.311760729440287e-05,
+            "inverse_depth_relief_gain": 1.074786354728229,
+            "inverse_depth_relief_correlation": 0.9823234202313479,
+            "inverse_depth_relief_rmse": 0.0012689688870296592,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.3170619943905619,
+                "correlation": 0.44568388740211967,
+                "rmse": 0.0003817256286442465
+              },
+              "4": {
+                "gain": 0.3674754001958976,
+                "correlation": 0.37789102538741853,
+                "rmse": 0.0007345675410345869
+              },
+              "8": {
+                "gain": 0.7851496401823878,
+                "correlation": 0.703596553233914,
+                "rmse": 0.0010057717660546476
+              }
+            }
+          }
+        },
+        "fine_anchor_merged": {
+          "pairwise_coverage": 0.9718518518518519,
+          "fixed_common": {
+            "common_pixels": 7748,
+            "coverage": 0.9718518518518519,
+            "ray_depth_rmse": 0.0011922316989187922,
+            "ray_depth_median_bias": 8.311760729440287e-05,
+            "inverse_depth_relief_gain": 1.074786354728229,
+            "inverse_depth_relief_correlation": 0.9823234202313479,
+            "inverse_depth_relief_rmse": 0.0012689688870296592,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.3170619943905619,
+                "correlation": 0.44568388740211967,
+                "rmse": 0.0003817256286442465
+              },
+              "4": {
+                "gain": 0.3674754001958976,
+                "correlation": 0.37789102538741853,
+                "rmse": 0.0007345675410345869
+              },
+              "8": {
+                "gain": 0.7851496401823878,
+                "correlation": 0.703596553233914,
+                "rmse": 0.0010057717660546476
+              }
+            }
+          }
+        }
+      },
+      "nose/view_10": {
+        "supported": {
+          "pairwise_coverage": 0.8864545454545455,
+          "fixed_common": {
+            "common_pixels": 8715,
+            "coverage": 0.8864545454545455,
+            "ray_depth_rmse": 0.002025074713360277,
+            "ray_depth_median_bias": -0.0002096117014528387,
+            "inverse_depth_relief_gain": 1.0109160053125827,
+            "inverse_depth_relief_correlation": 0.9337982630917268,
+            "inverse_depth_relief_rmse": 0.0026748676587274654,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.12150042379698862,
+                "correlation": 0.24555474441144753,
+                "rmse": 0.0009722071702406856
+              },
+              "4": {
+                "gain": 0.0643950944646066,
+                "correlation": 0.09853684764377624,
+                "rmse": 0.0015554043599360714
+              },
+              "8": {
+                "gain": 0.28300277386868633,
+                "correlation": 0.27290236672994617,
+                "rmse": 0.002124109253026375
+              }
+            }
+          }
+        },
+        "ordinary_two_pass": {
+          "pairwise_coverage": 0.903090909090909,
+          "fixed_common": {
+            "common_pixels": 8715,
+            "coverage": 0.903090909090909,
+            "ray_depth_rmse": 0.002004536722958505,
+            "ray_depth_median_bias": -0.0001861999994990926,
+            "inverse_depth_relief_gain": 1.005641470315044,
+            "inverse_depth_relief_correlation": 0.9343089668001516,
+            "inverse_depth_relief_rmse": 0.0026487635690846463,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.1224299655546598,
+                "correlation": 0.2569551277106202,
+                "rmse": 0.0009626180786544788
+              },
+              "4": {
+                "gain": 0.07360568878603728,
+                "correlation": 0.108912428768171,
+                "rmse": 0.0015632320671321444
+              },
+              "8": {
+                "gain": 0.2982502225832504,
+                "correlation": 0.28292078381157676,
+                "rmse": 0.002131996255429926
+              }
+            }
+          }
+        },
+        "fine_anchor_consistent": {
+          "pairwise_coverage": 0.8394545454545455,
+          "fixed_common": {
+            "common_pixels": 8715,
+            "coverage": 0.8394545454545455,
+            "ray_depth_rmse": 0.002010602276748879,
+            "ray_depth_median_bias": -0.0001880938866820614,
+            "inverse_depth_relief_gain": 1.006431017723948,
+            "inverse_depth_relief_correlation": 0.9341832860488151,
+            "inverse_depth_relief_rmse": 0.0026537330399213624,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.11533123007132932,
+                "correlation": 0.26562125869477693,
+                "rmse": 0.0009507237717946083
+              },
+              "4": {
+                "gain": 0.06551897496263795,
+                "correlation": 0.09826100926810714,
+                "rmse": 0.0015637233696556626
+              },
+              "8": {
+                "gain": 0.2917156769395924,
+                "correlation": 0.2768005780460781,
+                "rmse": 0.00213859025896484
+              }
+            }
+          }
+        },
+        "fine_anchor_merged": {
+          "pairwise_coverage": 0.9234545454545454,
+          "fixed_common": {
+            "common_pixels": 8715,
+            "coverage": 0.9234545454545454,
+            "ray_depth_rmse": 0.002010602276748879,
+            "ray_depth_median_bias": -0.0001880938866820614,
+            "inverse_depth_relief_gain": 1.006431017723948,
+            "inverse_depth_relief_correlation": 0.9341832860488151,
+            "inverse_depth_relief_rmse": 0.0026537330399213624,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.11533123007132932,
+                "correlation": 0.26562125869477693,
+                "rmse": 0.0009507237717946083
+              },
+              "4": {
+                "gain": 0.06551897496263795,
+                "correlation": 0.09826100926810714,
+                "rmse": 0.0015637233696556626
+              },
+              "8": {
+                "gain": 0.2917156769395924,
+                "correlation": 0.2768005780460781,
+                "rmse": 0.00213859025896484
+              }
+            }
+          }
+        }
+      },
+      "eye/view_18": {
+        "supported": {
+          "pairwise_coverage": 1.0,
+          "fixed_common": {
+            "common_pixels": 19191,
+            "coverage": 1.0,
+            "ray_depth_rmse": 0.0005968731295298806,
+            "ray_depth_median_bias": 0.00022921774334294653,
+            "inverse_depth_relief_gain": 1.0115788118235132,
+            "inverse_depth_relief_correlation": 0.9924689392323587,
+            "inverse_depth_relief_rmse": 0.0005756661355037633,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.8100888246981824,
+                "correlation": 0.3445602318724847,
+                "rmse": 0.000115272733384645
+              },
+              "4": {
+                "gain": 0.8880989395284231,
+                "correlation": 0.45262723188924103,
+                "rmse": 0.00026386157821216906
+              },
+              "8": {
+                "gain": 0.9704496221018677,
+                "correlation": 0.7191309272488837,
+                "rmse": 0.000405146263483044
+              }
+            }
+          }
+        },
+        "ordinary_two_pass": {
+          "pairwise_coverage": 1.0,
+          "fixed_common": {
+            "common_pixels": 19191,
+            "coverage": 1.0,
+            "ray_depth_rmse": 0.0006018269336811418,
+            "ray_depth_median_bias": 0.0002225833894778928,
+            "inverse_depth_relief_gain": 1.0111298451056934,
+            "inverse_depth_relief_correlation": 0.9921381105379253,
+            "inverse_depth_relief_rmse": 0.000587773150547344,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.8402542712121759,
+                "correlation": 0.32757953563351694,
+                "rmse": 0.00012640993327195387
+              },
+              "4": {
+                "gain": 0.9114137630341974,
+                "correlation": 0.43972422599612443,
+                "rmse": 0.0002806103152730777
+              },
+              "8": {
+                "gain": 0.9815262534589887,
+                "correlation": 0.7115061541951805,
+                "rmse": 0.00041879549626358076
+              }
+            }
+          }
+        },
+        "fine_anchor_consistent": {
+          "pairwise_coverage": 0.99953125,
+          "fixed_common": {
+            "common_pixels": 19191,
+            "coverage": 0.99953125,
+            "ray_depth_rmse": 0.0005979728475260405,
+            "ray_depth_median_bias": 0.00022008020771802084,
+            "inverse_depth_relief_gain": 1.0109338510876806,
+            "inverse_depth_relief_correlation": 0.992337193123167,
+            "inverse_depth_relief_rmse": 0.0005800635382608796,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.8372884826397597,
+                "correlation": 0.34536696612201234,
+                "rmse": 0.00011870707435105826
+              },
+              "4": {
+                "gain": 0.9105930207388128,
+                "correlation": 0.45210053962140434,
+                "rmse": 0.00027079913366275025
+              },
+              "8": {
+                "gain": 0.980531249747107,
+                "correlation": 0.7189157388127438,
+                "rmse": 0.000409543146157386
+              }
+            }
+          }
+        },
+        "fine_anchor_merged": {
+          "pairwise_coverage": 1.0,
+          "fixed_common": {
+            "common_pixels": 19191,
+            "coverage": 1.0,
+            "ray_depth_rmse": 0.0005979728475260405,
+            "ray_depth_median_bias": 0.00022008020771802084,
+            "inverse_depth_relief_gain": 1.0109338510876806,
+            "inverse_depth_relief_correlation": 0.992337193123167,
+            "inverse_depth_relief_rmse": 0.0005800635382608796,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.8372884826397597,
+                "correlation": 0.34536696612201234,
+                "rmse": 0.00011870707435105826
+              },
+              "4": {
+                "gain": 0.9105930207388128,
+                "correlation": 0.45210053962140434,
+                "rmse": 0.00027079913366275025
+              },
+              "8": {
+                "gain": 0.980531249747107,
+                "correlation": 0.7189157388127438,
+                "rmse": 0.000409543146157386
+              }
+            }
+          }
+        }
+      },
+      "nose/view_18": {
+        "supported": {
+          "pairwise_coverage": 0.8506363636363636,
+          "fixed_common": {
+            "common_pixels": 8480,
+            "coverage": 0.8506363636363636,
+            "ray_depth_rmse": 0.0016762865777398973,
+            "ray_depth_median_bias": 0.00011942408308451835,
+            "inverse_depth_relief_gain": 1.0639169067064258,
+            "inverse_depth_relief_correlation": 0.9561489320559046,
+            "inverse_depth_relief_rmse": 0.002128370502012256,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.12358021806145685,
+                "correlation": 0.16623813998624515,
+                "rmse": 0.0006775866573311407
+              },
+              "4": {
+                "gain": 0.23609433460032225,
+                "correlation": 0.261025131168146,
+                "rmse": 0.001151265494262729
+              },
+              "8": {
+                "gain": 0.6964619496398975,
+                "correlation": 0.6408618267241114,
+                "rmse": 0.0015810435148948079
+              }
+            }
+          }
+        },
+        "ordinary_two_pass": {
+          "pairwise_coverage": 0.8527272727272728,
+          "fixed_common": {
+            "common_pixels": 8480,
+            "coverage": 0.8527272727272728,
+            "ray_depth_rmse": 0.001619527153015018,
+            "ray_depth_median_bias": 0.0001143276991359965,
+            "inverse_depth_relief_gain": 1.0770540410372567,
+            "inverse_depth_relief_correlation": 0.960435814815058,
+            "inverse_depth_relief_rmse": 0.002061603901573337,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.13624867624977915,
+                "correlation": 0.1864631626235047,
+                "rmse": 0.0006661398404980845
+              },
+              "4": {
+                "gain": 0.2796795032048327,
+                "correlation": 0.3104157489752853,
+                "rmse": 0.0011106570921384882
+              },
+              "8": {
+                "gain": 0.7333554732467491,
+                "correlation": 0.6762406343450181,
+                "rmse": 0.0014999325123132212
+              }
+            }
+          }
+        },
+        "fine_anchor_consistent": {
+          "pairwise_coverage": 0.8087272727272727,
+          "fixed_common": {
+            "common_pixels": 8480,
+            "coverage": 0.8087272727272727,
+            "ray_depth_rmse": 0.0016200405736506575,
+            "ray_depth_median_bias": 0.00011901483541121305,
+            "inverse_depth_relief_gain": 1.0749411194657659,
+            "inverse_depth_relief_correlation": 0.9602162212248067,
+            "inverse_depth_relief_rmse": 0.0020603037603749764,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.12656611149340788,
+                "correlation": 0.2028655288241615,
+                "rmse": 0.000632191014354833
+              },
+              "4": {
+                "gain": 0.2655815721378449,
+                "correlation": 0.303513979479245,
+                "rmse": 0.0011026657075251176
+              },
+              "8": {
+                "gain": 0.7277521933833614,
+                "correlation": 0.6743531033653344,
+                "rmse": 0.0014997438570541852
+              }
+            }
+          }
+        },
+        "fine_anchor_merged": {
+          "pairwise_coverage": 0.8716363636363637,
+          "fixed_common": {
+            "common_pixels": 8480,
+            "coverage": 0.8716363636363637,
+            "ray_depth_rmse": 0.0016200405736506575,
+            "ray_depth_median_bias": 0.00011901483541121305,
+            "inverse_depth_relief_gain": 1.0749411194657659,
+            "inverse_depth_relief_correlation": 0.9602162212248067,
+            "inverse_depth_relief_rmse": 0.0020603037603749764,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.12656611149340788,
+                "correlation": 0.2028655288241615,
+                "rmse": 0.000632191014354833
+              },
+              "4": {
+                "gain": 0.2655815721378449,
+                "correlation": 0.303513979479245,
+                "rmse": 0.0011026657075251176
+              },
+              "8": {
+                "gain": 0.7277521933833614,
+                "correlation": 0.6743531033653344,
+                "rmse": 0.0014997438570541852
+              }
+            }
+          }
+        }
+      },
+      "eye/view_25": {
+        "supported": {
+          "pairwise_coverage": 0.9847777777777778,
+          "fixed_common": {
+            "common_pixels": 17435,
+            "coverage": 0.9847777777777778,
+            "ray_depth_rmse": 0.0006478741502480322,
+            "ray_depth_median_bias": 0.00023180514668674768,
+            "inverse_depth_relief_gain": 0.9619755015700182,
+            "inverse_depth_relief_correlation": 0.9835030170369762,
+            "inverse_depth_relief_rmse": 0.0007548114547415524,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.5689266240818751,
+                "correlation": 0.27081712410618575,
+                "rmse": 0.0002081437057299227
+              },
+              "4": {
+                "gain": 0.6432083082328207,
+                "correlation": 0.4010411136969931,
+                "rmse": 0.00037064838794326476
+              },
+              "8": {
+                "gain": 0.763013679264415,
+                "correlation": 0.6393474937006838,
+                "rmse": 0.0005578820094040675
+              }
+            }
+          }
+        },
+        "ordinary_two_pass": {
+          "pairwise_coverage": 0.9950555555555556,
+          "fixed_common": {
+            "common_pixels": 17435,
+            "coverage": 0.9950555555555556,
+            "ray_depth_rmse": 0.0006519729455914576,
+            "ray_depth_median_bias": 0.00020333121207483096,
+            "inverse_depth_relief_gain": 0.966395291026805,
+            "inverse_depth_relief_correlation": 0.9833246709751065,
+            "inverse_depth_relief_rmse": 0.0007585129449988868,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.5164775966141887,
+                "correlation": 0.2519238534824837,
+                "rmse": 0.0002055417147734033
+              },
+              "4": {
+                "gain": 0.6757369490745085,
+                "correlation": 0.394976401921871,
+                "rmse": 0.000393404377342904
+              },
+              "8": {
+                "gain": 0.8043942190845137,
+                "correlation": 0.6396689356905972,
+                "rmse": 0.0005805314094435452
+              }
+            }
+          }
+        },
+        "fine_anchor_consistent": {
+          "pairwise_coverage": 0.9818333333333333,
+          "fixed_common": {
+            "common_pixels": 17435,
+            "coverage": 0.9818333333333333,
+            "ray_depth_rmse": 0.0006398818564408618,
+            "ray_depth_median_bias": 0.00020978923141001804,
+            "inverse_depth_relief_gain": 0.9672353376572208,
+            "inverse_depth_relief_correlation": 0.9840875682094442,
+            "inverse_depth_relief_rmse": 0.0007411152753539213,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.5860115020972599,
+                "correlation": 0.3193861205149623,
+                "rmse": 0.0001799272780675367
+              },
+              "4": {
+                "gain": 0.7037772713131877,
+                "correlation": 0.4297121763821954,
+                "rmse": 0.00036980126061683514
+              },
+              "8": {
+                "gain": 0.8107838317492008,
+                "correlation": 0.6570196834580824,
+                "rmse": 0.0005589555868057913
+              }
+            }
+          }
+        },
+        "fine_anchor_merged": {
+          "pairwise_coverage": 0.9966111111111111,
+          "fixed_common": {
+            "common_pixels": 17435,
+            "coverage": 0.9966111111111111,
+            "ray_depth_rmse": 0.0006398818564408618,
+            "ray_depth_median_bias": 0.00020978923141001804,
+            "inverse_depth_relief_gain": 0.9672353376572208,
+            "inverse_depth_relief_correlation": 0.9840875682094442,
+            "inverse_depth_relief_rmse": 0.0007411152753539213,
+            "fine_inverse_depth_relief_by_sigma_pixels": {
+              "2": {
+                "gain": 0.5860115020972599,
+                "correlation": 0.3193861205149623,
+                "rmse": 0.0001799272780675367
+              },
+              "4": {
+                "gain": 0.7037772713131877,
+                "correlation": 0.4297121763821954,
+                "rmse": 0.00036980126061683514
+              },
+              "8": {
+                "gain": 0.8107838317492008,
+                "correlation": 0.6570196834580824,
+                "rmse": 0.0005589555868057913
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "validation": {
+    "hard_gpu_cpu_matching_parity_test_passed": true,
+    "soft_gpu_cpu_matching_parity_test_passed": true,
+    "targeted_tests": 2,
+    "gpu_checks_enabled": true,
+    "hard_disabled_control": {
+      "all_60_depth_arrays_equal": true,
+      "mesh_byte_equal": true,
+      "mesh_sha256": "f33d80c38053cb365865209a84a4434ec9689eebde244bca9b8fefbd602f2a96"
+    },
+    "native_reconstructions_complete": true,
+    "all_six_paired_render_sheets_inspected": true,
+    "original_matcher_shader_levels_restored_exactly_to_git_HEAD": true,
+    "restored_native_cli_build": true,
+    "six_object_gate": "Not run; general controls rejected on drill/local evidence and no adoption or defaults changed.",
+    "browser": "No execution for rejected controls; previous production browser evidence unchanged.",
+    "restored_native_cli_sha256": "6b446a3cdc7f60f23bf794c4fc090233c8f74eafe60f7326048e0749c0cd5d6d",
+    "restored_source_fmt_check": true,
+    "restored_source_clippy_all_targets_capi_warnings_denied": true
+  },
+  "private_patch_sha256": {
+    "all_refine": "651470b58c2efebcef739afcd1dcfeee0fb513d5b7519bcf7240f215e57aa313",
+    "including_fine_anchor": "4583c279c613c44f79da4bb6cedac88c44bb64cc6c00f8806c936171e1c6dced"
+  },
+  "conclusion": "No general source-selection policy adopted. Strict anchoring is a promising Bunny-only measurement, but missing eyes/nose are not convincingly restored and all three policies damage drill geometry. Source switching is allowed by current best-of code; these experiments do not establish it as the cause of all false peaks or prove source selection cannot help.",
+  "next_focus": "Source reliability must accommodate depth/camera uncertainty and changing visibility. Avoid another blind fixed-view or constant-preference policy; investigate local photometric patch support and the errors it induces before a new adoption."
+}
