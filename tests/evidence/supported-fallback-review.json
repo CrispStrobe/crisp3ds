@@ -1,0 +1,113 @@
+{
+  "schema": "crisp3ds_supported_fallback_review_v1",
+  "date": "2026-10-09",
+  "default_changed": false,
+  "production_implemented": false,
+  "reference_used_only_posthoc": true,
+  "third_party_source_or_dependencies_added": false,
+  "patent_clearance_claimed": false,
+  "inputs": "Same own drill RGB-derived masks, recovered cameras, own sparse points, same .02 distinct-mode stereo depths. Dataset scan is evaluation only; no supplied poses/masks/depths or geometry used for reconstruction.",
+  "method": "Preserve all finest accepted depths. Consider existing coarse fallback only in fine gaps, require agreement within .002 relative depth in at least three finest depth maps among the nearest ten own cameras in 3..40 degree angular range. Coarse fallback cannot vote for itself. Private NumPy replay prototype, not production integration.",
+  "replay_control": {
+    "replay_mesh_byte_equal": true,
+    "baseline_sha256": "1ddc563f70f6549559d7f8fa99730e5cc680cd347bb1de2d30687c30ca88a079",
+    "replay_sha256": "1ddc563f70f6549559d7f8fa99730e5cc680cd347bb1de2d30687c30ca88a079"
+  },
+  "evaluation": {
+    "schema": "crisp3ds_drill_frozen_visibility_eval_v1",
+    "reference_used_only_posthoc": true,
+    "samples_per_surface": 200000,
+    "seed": 233,
+    "alignment": "Frozen prior distinct-modes baseline scan fit for every candidate; reflected baseline fit, near-symmetric ambiguity; not handedness proof",
+    "threshold_fractions": [
+      0.005,
+      0.01,
+      0.02
+    ],
+    "results": {
+      "peak-modes": {
+        "f1": {
+          "0.005": 0.41076337010296665,
+          "0.01": 0.6370422750206125,
+          "0.02": 0.8210319974230263
+        },
+        "symmetric_mean_fraction_diagonal": 0.010863818761675605,
+        "triangles": 963904,
+        "mesh_sha256": "1ddc563f70f6549559d7f8fa99730e5cc680cd347bb1de2d30687c30ca88a079"
+      },
+      "finest-only": {
+        "f1": {
+          "0.005": 0.4525699401138332,
+          "0.01": 0.6987849930943909,
+          "0.02": 0.9254692008261451
+        },
+        "symmetric_mean_fraction_diagonal": 0.00835709565479623,
+        "triangles": 722424,
+        "mesh_sha256": "74b1344a3f2f24ae1c6cf18debd7bdff4dc687160a458f3d569a7b251cdcac6a"
+      },
+      "supported-fallback": {
+        "f1": {
+          "0.005": 0.4555655274190111,
+          "0.01": 0.7015243515871661,
+          "0.02": 0.9293090654313652
+        },
+        "symmetric_mean_fraction_diagonal": 0.00828705345941101,
+        "triangles": 721863,
+        "mesh_sha256": "48e1bd9f169f58ecc40a1ea2796dcb5928f51abbee3db0e43db4240bb80672f3"
+      }
+    }
+  },
+  "fallback_pixels": {
+    "candidates": 295747,
+    "supported": 45497,
+    "fine_pixels_unchanged": true
+  },
+  "mesh": {
+    "baseline": {
+      "closed": false,
+      "genus": 219,
+      "triangles": 963904
+    },
+    "finest_only": {
+      "closed": false,
+      "genus": 56,
+      "triangles": 722424
+    },
+    "supported_fallback": {
+      "closed": false,
+      "genus": 59,
+      "triangles": 721863
+    }
+  },
+  "review": {
+    "three_same_camera_views_inspected": true,
+    "finding": "Less damaging coarse-depth evidence, but extensive pits and false relief remain. Neither candidate is an accepted drill reconstruction."
+  },
+  "limits": [
+    "Fixed prior baseline scanner similarity, including reflection, identical for all three candidates; near-symmetric shape fit is not proof of handedness or scale.",
+    "200000 samples per surface, seed233, all-object scoring only; no separate support removal. Values differ from historical independently fitted 60000-sample evaluations and must not be mixed.",
+    "No other-object gate, native implementation parity, browser or textured export for supported fallback yet.",
+    "Runtime under concurrent system/SSD load; no controlled speed comparison."
+  ],
+  "texture": {
+    "geometry_changed": false,
+    "original_rgb_views": 12,
+    "attribution_embedded": true,
+    "untextured_area_fraction": 0.33535454347033683,
+    "glb_bytes": 30638124,
+    "geometry_verification": {
+      "triangle_coordinates_and_winding_byte_equal": true,
+      "triangles": 721863
+    },
+    "validator_issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "browser_parsed_and_rendered": true,
+    "limits": "Standalone GLB exported and parsed/rendered in local Three.js, same grey/photo views; not Studio reconstruction/browser execution or device sharing validation. Grey unseen patches and seams remain; texture does not repair geometry."
+  }
+}

@@ -282,3 +282,22 @@ all three drill thresholds and mean error. Both visibility variants are
 rejected for integration. Bunny's conservative variant has only tiny local
 changes, without convincing eye/nose restoration. Its prior-validity test
 passes; no other-object or browser gate was run for these rejected controls.
+
+A stronger drill lead is confidence for coarse fallback. On the same own depths,
+replaying finest accepted depths alone changes fixed-alignment F1 at
+0.5/1/2% from 0.411/0.637/0.821 to 0.453/0.699/0.925. Replaying merged
+depths reproduces the baseline STL byte for byte. A private control keeps
+coarse gap fills only when three finest-depth voters agree, preserving all
+fine pixels and retaining 45,497 of 295,747 fallback candidates. Its F1 is
+0.456/0.702/0.929 and symmetric mean surface error is about 24% lower than
+ordinary fallback. Three identical-view renders were inspected. The meshes
+remain open and visibly defective; this is a useful reliability lead, not an
+accepted drill reconstruction. No default or app setting changes were made;
+other-object validation, native parity and browser execution remain required.
+See [supported fallback evidence](../tests/evidence/supported-fallback-review.json).
+
+The supported-fallback STL also has a locally inspected original-RGB GLB;
+all triangle coordinates/winding are byte-equal, source attribution is embedded,
+and Khronos validation reports zero errors/warnings/infos/hints. About one
+third of surface area remains untextured; seams and geometric defects persist.
+This is standalone export/render validation, not browser pipeline adoption.
