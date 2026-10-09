@@ -252,3 +252,12 @@ depth normals beyond 60 degrees (333,764 of 1,114,571 valid depth pixels),
 then repeats fusion on the same own inputs; it also leaves extensive defects.
 Neither control is adopted. No reference F1 or six-object gate was measured
 for the grazing-normal control.
+
+Subpixel refinement of own drill feature matches was rejected: on a fixed
+held-out foreground subset, median residual changes 0.445 to 0.422 pixels,
+but p95 worsens 1.501 to 1.542 pixels and the full foreground median worsens
+1.000 to 1.023 pixels. The camera diagnostic now supports fixed eligibility
+from a separate own baseline solve and reports invalid selected observations.
+Both solves must exclude the same reserved training components. Five tests
+cover selection independence, view ordering and invalid observations.
+See [camera subpixel review](../tests/evidence/camera-subpixel-review.json).

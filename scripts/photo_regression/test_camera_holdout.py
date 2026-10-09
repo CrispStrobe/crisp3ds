@@ -1,7 +1,46 @@
 import unittest
 from camera_holdout import partition, evaluate
 import numpy as np
+import copy
 class HoldoutTests(unittest.TestCase):
+    def camera_fixture(self):
+        lens=dict(fx=100,fy=100,cx=0,cy=0,k1=0,k2=0,k3=0)
+        rows=[];points=[]
+        for i in range(8):
+            translation=[(i-3.5)*.1,0,0]
+            rows.append({'name':str(i),'rotation':np.eye(3).tolist(),'translation':translation})
+            q=np.array([.1,.2,2])+translation
+            points.append([(q[:2]/q[2]*100).tolist()])
+        return {'keypoints':points},{'tracks':[[[i,0] for i in range(8)]]},rows,lens
+
+    def test_fixed_selection_does_not_hide_candidate_fit_failures(self):
+        matches,held,baseline,lens=self.camera_fixture()
+        candidate=copy.deepcopy(baseline)
+        candidate[2]['translation'][1]+=.2
+        dynamic=evaluate(matches,held,candidate,lens)
+        fixed=evaluate(matches,held,candidate,lens,selection_rows=baseline)
+        self.assertEqual(dynamic['fit_verified_tracks'],0)
+        self.assertEqual(fixed['fit_verified_tracks'],1)
+        self.assertEqual(fixed['fit_verified_selected_observations'],4)
+        self.assertEqual(fixed['fit_verified_held_out_pixels']['count'],4)
+        self.assertGreater(fixed['fit_verified_held_out_pixels']['median'],1)
+        self.assertEqual(fixed['fit_verified_invalid_observations'],0)
+        # Held-out camera errors must not change baseline eligibility.
+        baseline[1]['translation'][0]+=100
+        again=evaluate(matches,held,candidate,lens,selection_rows=baseline)
+        self.assertEqual(again['fit_verified_tracks'],1)
+        reordered=list(reversed(baseline))
+        with self.assertRaisesRegex(ValueError,'ordered view names'):
+            evaluate(matches,held,candidate,lens,selection_rows=reordered)
+
+    def test_invalid_fixed_observations_are_reported(self):
+        matches,held,baseline,lens=self.camera_fixture()
+        candidate=copy.deepcopy(baseline)
+        candidate[1]['translation'][2]=-5
+        fixed=evaluate(matches,held,candidate,lens,selection_rows=baseline)
+        self.assertEqual(fixed['fit_verified_selected_observations'],4)
+        self.assertEqual(fixed['fit_verified_invalid_observations'],1)
+        self.assertEqual(fixed['fit_verified_held_out_pixels']['count'],3)
     def test_transitive_track_edges_cannot_leak_into_training(self):
         matches={'keypoints':[[]]*4,'pairs':[{'first':0,'second':1,'matches':[[i,i] for i in range(20)]},{'first':1,'second':2,'matches':[[i,i] for i in range(20)]},{'first':2,'second':3,'matches':[[i,i] for i in range(20)]}]}
         train,held=partition(matches)

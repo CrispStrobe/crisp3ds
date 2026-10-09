@@ -71,6 +71,24 @@ object observations cannot establish accuracy everywhere, and incorrect masks
 can misclassify observations. Points beyond the mask bounds form a separate
 group rather than being counted as background.
 
+When comparing recovered cameras, add
+`--selection-cameras baseline/cameras.json` to **both** evaluations. This freezes
+verified-track eligibility using the baseline's fitting observations, without
+looking at the held-out observations. Candidate points are still triangulated
+with candidate cameras. Use only your own recovered baseline cameras; supplied
+dataset poses must not select the subset. The ordered view names must match.
+Both baseline and candidate cameras must have been recovered with the same
+partitioned training cache, excluding all reserved components. A baseline
+recovered with the original full cache would leak the held-out observations.
+
+Report `fit_verified_selected_observations` and
+`fit_verified_invalid_observations` alongside the errors. A candidate with
+behind-camera or untriangulatable selected observations must not gain credit
+by dropping those observations from its percentiles. Fixed-subset comparisons
+require zero invalid selected observations. The full reserved-track and
+foreground reports remain necessary: a better selected median with a worse
+tail or full foreground error does not establish better cameras for stereo.
+
 ## Local relief through the stages
 
 `detail_profiles.py --spec regions.json --output new-folder` compares raw,

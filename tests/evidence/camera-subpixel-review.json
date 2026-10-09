@@ -1,0 +1,122 @@
+{
+  "schema": "crisp3ds_camera_subpixel_review_v1",
+  "date": "2026-10-09",
+  "adopted": false,
+  "default_changed": false,
+  "reference_geometry_or_supplied_poses_used": false,
+  "method": "Bidirectional pyramidal LK seeded by existing SIFT matches, roundtrip <.35px, shift <2px, gray error <15, median coordinate update with at least two proposals; edges unchanged. Reserved connected components excluded from training and left unchanged.",
+  "opencv": "Existing scientific OpenCV 4.10.0, Apache-2.0; no production dependency or upstream source import",
+  "sources": [
+    "https://opencv.org/license/",
+    "https://docs.opencv.org/4.10.0/dc/d6b/group__video__track.html"
+  ],
+  "patent_clearance_claimed": false,
+  "comparison": "Both camera solves use the same partitioned training cache. Eligibility frozen using baseline fitting observations only, candidate points independently retriangulated; held-out coordinates unchanged.",
+  "controls": {
+    "count": 60,
+    "same_lens_and_dimensions": true,
+    "image_bytes_equal": true,
+    "mask_bytes_equal": true,
+    "edges_unchanged": true,
+    "reserved_track_coordinates_unchanged": true
+  },
+  "results": {
+    "baseline": {
+      "fit_verified_selected_observations": 128,
+      "fit_verified_invalid_observations": 0,
+      "photo_mask_groups": {
+        "foreground": {
+          "held_out_reprojection_pixels": {
+            "count": 195,
+            "median": 1.0004548379158784,
+            "p95": 18.49473891990376,
+            "fraction_below_1px": 0.49743589743589745
+          },
+          "fit_verified_held_out_pixels": {
+            "count": 58,
+            "median": 0.4450166889773105,
+            "p95": 1.5006951049722133,
+            "fraction_below_1px": 0.8448275862068966
+          }
+        },
+        "background": {
+          "held_out_reprojection_pixels": {
+            "count": 357,
+            "median": 27.29045018459304,
+            "p95": 205.33427502661127,
+            "fraction_below_1px": 0.23249299719887956
+          },
+          "fit_verified_held_out_pixels": {
+            "count": 70,
+            "median": 0.3459118456654314,
+            "p95": 0.950941477253062,
+            "fraction_below_1px": 0.9571428571428572
+          }
+        },
+        "outside_mask": {
+          "held_out_reprojection_pixels": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "fraction_below_1px": null
+          },
+          "fit_verified_held_out_pixels": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "fraction_below_1px": null
+          }
+        }
+      }
+    },
+    "subpixel": {
+      "fit_verified_selected_observations": 128,
+      "fit_verified_invalid_observations": 0,
+      "photo_mask_groups": {
+        "foreground": {
+          "held_out_reprojection_pixels": {
+            "count": 195,
+            "median": 1.0226004491166705,
+            "p95": 18.501705057713725,
+            "fraction_below_1px": 0.48205128205128206
+          },
+          "fit_verified_held_out_pixels": {
+            "count": 58,
+            "median": 0.4218207728242902,
+            "p95": 1.542229500609658,
+            "fraction_below_1px": 0.8448275862068966
+          }
+        },
+        "background": {
+          "held_out_reprojection_pixels": {
+            "count": 357,
+            "median": 27.296070542658224,
+            "p95": 204.50351861885858,
+            "fraction_below_1px": 0.226890756302521
+          },
+          "fit_verified_held_out_pixels": {
+            "count": 70,
+            "median": 0.3560035271452402,
+            "p95": 0.9847318386016755,
+            "fraction_below_1px": 0.9571428571428572
+          }
+        },
+        "outside_mask": {
+          "held_out_reprojection_pixels": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "fraction_below_1px": null
+          },
+          "fit_verified_held_out_pixels": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "fraction_below_1px": null
+          }
+        }
+      }
+    }
+  },
+  "decision": "Reject camera change: selected foreground median improves slightly, but p95 and full foreground residuals worsen. Keep fixed-subset diagnostic only."
+}
