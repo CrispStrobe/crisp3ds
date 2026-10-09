@@ -1128,8 +1128,14 @@ mod tests {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
         let sink = seen.clone();
         let observer: Observer = Arc::new(move |event: &Value| sink.lock().unwrap().push(event.clone()));
-        let options =
-            RunOptions { output: root.join("run"), inputs: Some(root.join("inputs")), overrides: overrides.clone(), texture: true, attribution: Some("Synthetic research capture".into()), ..Default::default() };
+        let options = RunOptions {
+            output: root.join("run"),
+            inputs: Some(root.join("inputs")),
+            overrides: overrides.clone(),
+            texture: true,
+            attribution: Some("Synthetic research capture".into()),
+            ..Default::default()
+        };
         let report = run(&options, Some(observer), None).unwrap();
         assert_eq!(report["status"], "complete");
         assert_eq!(report["closed"], true);
@@ -1146,8 +1152,8 @@ mod tests {
             assert!(run_directory.join(file).is_file(), "{file}");
         }
         assert!(run_directory.join("texture/mesh.glb").is_file());
-        assert_eq!(report["texture"]["attribution_embedded"],true);
-        assert!(report["texture"]["untextured_area_fraction"].as_f64().unwrap()<0.4);
+        assert_eq!(report["texture"]["attribution_embedded"], true);
+        assert!(report["texture"]["untextured_area_fraction"].as_f64().unwrap() < 0.4);
         assert!(!run_directory.join("stereo/volume.npz").exists());
         assert!(std::fs::read_dir(run_directory.join("stereo/preview"))
             .unwrap()

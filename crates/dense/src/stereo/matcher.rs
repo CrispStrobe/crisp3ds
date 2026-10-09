@@ -669,7 +669,7 @@ mod tests {
         for _ in 0..256 {
             for row in &mut volume {
                 seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
-                row.push(if seed % 13 == 0 { -2.0 } else { (seed >> 8) as f32 / 16777216.0 });
+                row.push(if seed.is_multiple_of(13) { -2.0 } else { (seed >> 8) as f32 / 16777216.0 });
             }
         }
         let pixels = volume[0].len();

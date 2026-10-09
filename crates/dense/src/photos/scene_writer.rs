@@ -240,7 +240,7 @@ mod tests {
         assert!(original.pixels().all(|pixel| pixel.0 == [19, 67, 183]));
         assert!(inputs.rows[0].texture_image.is_none()); // Old scenes remain valid.
         let colour_inputs = crate::inputs::Inputs::load(&root.join("colour-scene"), &config).unwrap();
-        assert!(colour_inputs.gray.iter().zip(&inputs.gray).all(|(a,b)| a.data == b.data));
+        assert!(colour_inputs.gray.iter().zip(&inputs.gray).all(|(a, b)| a.data == b.data));
         assert!(write_scene(&solution, &root.join("photos"), None, &root.join("masks"), &root.join("scene"), 2, &mut |_| Ok(())).is_err());
         std::fs::remove_dir_all(&root).unwrap();
     }

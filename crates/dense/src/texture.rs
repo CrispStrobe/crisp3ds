@@ -694,7 +694,7 @@ mod tests {
         let far = [[0., 0., 4.], [4., 0., 4.], [0., 4., 4.]];
         let near = [[0., 0., 1.], [4., 0., 2.], [0., 4., 2.]];
         let z = zbuffer(&[far, near], 5, 5);
-        assert!((z[1 * 5 + 1] - 4. / 3.).abs() < 1e-12);
+        assert!((z[6] - 4. / 3.).abs() < 1e-12);
         assert!(z[24].is_infinite());
     }
     #[test]
@@ -726,8 +726,8 @@ mod tests {
         crate::storage::write(root.join("cameras.json"), serde_json::to_vec(&originals).unwrap()).unwrap();
         let original_report = run(root, &root.join("mesh.stl"), &root.join("original-output"), 4, 128).unwrap();
         let atlas = Rgb::open(&root.join("original-output/atlas.png")).unwrap();
-        assert!(atlas.data.chunks_exact(3).any(|pixel| pixel == [19, 67, 183]));
-        assert!(!atlas.data.chunks_exact(3).any(|pixel| pixel == [210, 30, 20]));
+        assert!(atlas.data.as_chunks::<3>().0.contains(&[19, 67, 183]));
+        assert!(!atlas.data.as_chunks::<3>().0.contains(&[210, 30, 20]));
         assert_eq!(original_report["untextured_triangles"], report["untextured_triangles"]);
         assert_eq!(before, crate::storage::read(root.join("mesh.stl")).unwrap());
         assert!(run(root, &root.join("mesh.stl"), &root.join("output"), 4, 128).is_err());

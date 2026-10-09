@@ -176,6 +176,23 @@ impl MaskProvider for ExternalSam {
     }
 }
 
+/// Background separation is written by staging, beside the original photos.
+pub struct BackgroundMasks;
+impl MaskProvider for BackgroundMasks {
+    fn info(&self) -> &'static Provider {
+        &super::providers::MASKS_BACKGROUND
+    }
+    fn check(&self, _: &Options) -> anyhow::Result<()> {
+        Ok(())
+    }
+    fn segment(&self, run: &mut Run, _: &Value, _: f64, _: f64) -> anyhow::Result<PathBuf> {
+        Ok(run.out.join("work/coarse-masks"))
+    }
+    fn dropped_warning(&self) -> Option<&'static str> {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -259,22 +276,5 @@ mod tests {
             .to_string()
             .contains("no mask for photo thing_10.jpg"));
         std::fs::remove_dir_all(&root).unwrap();
-    }
-}
-
-/// Background separation is written by staging, beside the original photos.
-pub struct BackgroundMasks;
-impl MaskProvider for BackgroundMasks {
-    fn info(&self) -> &'static Provider {
-        &super::providers::MASKS_BACKGROUND
-    }
-    fn check(&self, _: &Options) -> anyhow::Result<()> {
-        Ok(())
-    }
-    fn segment(&self, run: &mut Run, _: &Value, _: f64, _: f64) -> anyhow::Result<PathBuf> {
-        Ok(run.out.join("work/coarse-masks"))
-    }
-    fn dropped_warning(&self) -> Option<&'static str> {
-        None
     }
 }

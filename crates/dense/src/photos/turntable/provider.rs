@@ -150,7 +150,7 @@ impl CameraProvider for Turntable {
             }
         };
         if options.keep_intermediates {
-            crate::photos::fs::create_dir_all(&out.join("sfm"))?;
+            crate::photos::fs::create_dir_all(out.join("sfm"))?;
             util::write_json(
                 &out.join("sfm/photo-matches.json"),
                 &json!({"schema":"crisp3ds_turntable_matches_v1","keypoints":matches.keypoints,"pairs":matches.pairs.iter().map(|(i,j,list)|json!({"first":i,"second":j,"matches":list})).collect::<Vec<_>>()}),

@@ -145,7 +145,7 @@ pub fn estimate(matches: &Matches, inside: &[Vec<bool>], camera: &Camera) -> Res
     let p = best.1;
     let (n, c) = frame(&p);
     let residual = errors(&p, &longer, nominal, focal);
-    let inlier_fraction = residual.chunks_exact(2).filter(|r| r[0].hypot(r[1]) < 2.).count() as f64 / (residual.len() / 2) as f64;
+    let inlier_fraction = residual.as_chunks::<2>().0.iter().filter(|r| r[0].hypot(r[1]) < 2.).count() as f64 / (residual.len() / 2) as f64;
     ensure!(inlier_fraction >= 0.25, "rotating plane fit has too little image support ({:.1}%)", inlier_fraction * 100.);
     let typical = nominal * p[4];
     let mut steps = vec![typical; count];

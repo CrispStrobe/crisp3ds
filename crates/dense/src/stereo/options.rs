@@ -152,8 +152,7 @@ mod tests {
         assert!(set(&["grid"]).is_err());
         assert!(set(&["peak_min_margin=-0.01"]).is_err());
         assert!(set(&["peak_min_margin=1.01"]).is_err());
-        let mut invalid = DenseConfig::default();
-        invalid.peak_min_margin = f64::NAN;
+        let mut invalid = DenseConfig { peak_min_margin: f64::NAN, ..Default::default() };
         assert!(validate(&invalid).is_err());
         invalid.peak_min_margin = f64::INFINITY;
         assert!(validate(&invalid).is_err());
