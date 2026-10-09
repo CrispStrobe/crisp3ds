@@ -15,7 +15,9 @@ MAX_SCORE_VERTICES = 1_000_000
 MAX_SCORE_FACES = 2_000_000
 MAX_SAMPLES = 4096
 SCALARS = {"char": "b", "uchar": "B", "short": "h", "ushort": "H",
-           "int": "i", "uint": "I", "float": "f", "double": "d"}
+           "int": "i", "uint": "I", "float": "f", "double": "d",
+           "int8": "b", "uint8": "B", "int16": "h", "uint16": "H",
+           "int32": "i", "uint32": "I", "float32": "f", "float64": "d"}
 
 
 def inspect_ply(path: Path, *, geometry: bool = False):
@@ -63,10 +65,13 @@ def inspect_ply(path: Path, *, geometry: bool = False):
         if not all(name in names for name in ("x", "y", "z")) or len(names) != len(set(names)):
             raise ValueError("missing or duplicate coordinate property")
         vertex_fmt = struct.Struct("<" + "".join(SCALARS[p[0]] for p in properties))
-        if face["properties"] not in ([["list", "uchar", "uint", "vertex_indices"]],
-                                        [["list", "uchar", "int", "vertex_indices"]]):
+        face_properties = face["properties"]
+        if (len(face_properties) != 1 or len(face_properties[0]) != 4 or
+                face_properties[0][0] != "list" or face_properties[0][3] != "vertex_indices" or
+                SCALARS.get(face_properties[0][1]) != "B" or
+                SCALARS.get(face_properties[0][2]) not in ("i", "I")):
             raise ValueError("unsupported face representation")
-        index_format = "I" if face["properties"][0][2] == "uint" else "i"
+        index_format = SCALARS[face_properties[0][2]]
         coordinate_indices = [names.index(name) for name in ("x", "y", "z")]
         bounds_min = [math.inf] * 3
         bounds_max = [-math.inf] * 3

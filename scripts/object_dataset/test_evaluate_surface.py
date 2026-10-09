@@ -30,6 +30,33 @@ def transform_record(reference, output, matrix=None, basis="external-calibration
 
 
 class SurfaceComparisonTests(unittest.TestCase):
+    def test_explicit_width_ply_types_preserve_geometry(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            legacy = write_triangle(root / "legacy.ply", z=2.0)
+            aliases = root / "aliases.ply"
+            aliases.write_bytes(legacy.read_bytes().replace(b"property float ", b"property float32 ")
+                                .replace(b"list uchar int ", b"list uint8 int32 "))
+            _, lv, lf = evaluate.inspect_ply(legacy, geometry=True)
+            report, av, af = evaluate.inspect_ply(aliases, geometry=True)
+            import numpy as np
+            np.testing.assert_array_equal(av, [[0, 0, 2], [1, 0, 2], [0, 1, 2]])
+            np.testing.assert_array_equal(af, [[0, 1, 2]])
+            np.testing.assert_array_equal(av, lv)
+            np.testing.assert_array_equal(af, lf)
+            self.assertEqual(report["zero_area_triangle_faces"], 0)
+
+    def test_explicit_width_face_indices_keep_bounds_checks(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = write_triangle(Path(temporary) / "mesh.ply")
+            original = path.read_bytes()
+            for name, payload in [(b"int32", struct.pack("<Biii", 3, 0, 1, -1)),
+                                  (b"uint32", struct.pack("<BIII", 3, 0, 1, 2**32-1))]:
+                header_and_vertices = original[:-13].replace(b"list uchar int ", b"list uint8 " + name + b" ")
+                path.write_bytes(header_and_vertices + payload)
+                with self.assertRaisesRegex(ValueError, "face index exceeds"):
+                    evaluate.inspect_ply(path, geometry=True)
+
     def test_identical_mesh_samples_are_deterministically_zero(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
