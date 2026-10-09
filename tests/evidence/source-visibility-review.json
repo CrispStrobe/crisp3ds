@@ -1,5 +1,5 @@
 {
-  "schema": "crisp3ds_source_visibility_review_v1",
+  "schema": "crisp3ds_source_visibility_review_v2",
   "date": "2026-10-09",
   "production_implemented": false,
   "default_changed": false,
@@ -103,5 +103,145 @@
     "seconds": 87.643753,
     "render_review": "Head and overview inspected in same recovered views. Eyes/nose still weak. Small strict-region F1 gain accompanies worse symmetric mean error and lower wider-region F1."
   },
-  "decision": "Retain private control; no production integration or default change. Drill modestly improves but remains unacceptable; Bunny local accuracy is mixed. Five other objects and browser have not been evaluated."
+  "decision": "Reject both visibility variants for production integration. With frozen baseline scan alignment, strict drill F1 fails to improve; coherent variant worsens all three thresholds and mean error. Earlier independently fitted scores overstated the apparent strict gain. Bunny local differences remain small; no convincing detail restoration.",
+  "fixed_alignment_followup": {
+    "schema": "crisp3ds_drill_frozen_visibility_eval_v1",
+    "reference_used_only_posthoc": true,
+    "samples_per_surface": 200000,
+    "seed": 233,
+    "alignment": "Frozen prior distinct-modes baseline scan fit for every candidate; reflected baseline fit, near-symmetric ambiguity; not handedness proof",
+    "threshold_fractions": [
+      0.005,
+      0.01,
+      0.02
+    ],
+    "results": {
+      "peak-modes": {
+        "f1": {
+          "0.005": 0.41076337010296665,
+          "0.01": 0.6370422750206125,
+          "0.02": 0.8210319974230263
+        },
+        "symmetric_mean_fraction_diagonal": 0.010863818761675605,
+        "triangles": 963904,
+        "mesh_sha256": "1ddc563f70f6549559d7f8fa99730e5cc680cd347bb1de2d30687c30ca88a079"
+      },
+      "visibility005": {
+        "f1": {
+          "0.005": 0.40892126251052285,
+          "0.01": 0.6411988443133325,
+          "0.02": 0.8230213449946147
+        },
+        "symmetric_mean_fraction_diagonal": 0.010850464096096238,
+        "triangles": 963534,
+        "mesh_sha256": "386cd986d6bc65b32b4f9626e7bd7fdedd6110b51845c291362da046ee0c2c47"
+      },
+      "visibility-coherent": {
+        "f1": {
+          "0.005": 0.40968060395289174,
+          "0.01": 0.6353190563815971,
+          "0.02": 0.8194067295490444
+        },
+        "symmetric_mean_fraction_diagonal": 0.01093137493025819,
+        "triangles": 962393,
+        "mesh_sha256": "4d4f7fa68d2a822525c8767ea0fa311ef544bf7fe3fc66fdfc8278b3a61ca875"
+      }
+    }
+  },
+  "coherent_prior": {
+    "method": "Nearest-resample only previously accepted depths, require valid masked finite positive 3x3 footprint with max/min spread <=1%; use farthest depth as conservative occluder. No smoothing/hole filling for visibility. Tolerance remains .005, NCC mode margin .02.",
+    "prior_validity_test_passed": true,
+    "production_implemented": false,
+    "bunny": {
+      "object": "bunny",
+      "variant": "visibility-coherent",
+      "reference_used_only_posthoc": true,
+      "adopted": false,
+      "margin": 0.02,
+      "alignment": "Frozen historical scanner fit transferred only through own camera-centre similarity, identical for both candidates; no current candidate-to-reference fitting",
+      "camera_mapping_relative_rms": 1.8780587196909495e-16,
+      "metrics": {
+        "baseline": {
+          "all": {
+            "0.005": 0.9043777613012031,
+            "0.01": 0.9389483794424458,
+            "0.02": 0.9553517330714748
+          },
+          "above_support": {
+            "0.005": 0.964872367203772,
+            "0.01": 0.9953015659181709,
+            "0.02": 0.999897194622674
+          }
+        },
+        "confidence": {
+          "all": {
+            "0.005": 0.9051165067922569,
+            "0.01": 0.9391420631409184,
+            "0.02": 0.9550761096438638
+          },
+          "above_support": {
+            "0.005": 0.9664678211577057,
+            "0.01": 0.9962506791053198,
+            "0.02": 0.9999455403606438
+          }
+        }
+      },
+      "f1_deltas": {
+        "all": {
+          "0.005": 0.0007387454910537938,
+          "0.01": 0.00019368369847261313,
+          "0.02": -0.0002756234276110048
+        },
+        "above_support": {
+          "0.005": 0.0015954539539336787,
+          "0.01": 0.0009491131871489644,
+          "0.02": 4.834573796974606e-05
+        }
+      },
+      "passes_numeric_gate": true,
+      "head": {
+        "baseline": {
+          "samples": [
+            14788,
+            16386
+          ],
+          "f1": {
+            "0.001": 0.5821332305667315,
+            "0.0025": 0.8872483716046821,
+            "0.005": 0.9691963116783837,
+            "0.01": 0.9965393227929701,
+            "0.02": 1.0
+          },
+          "symmetric_mean": 0.15633425118909025
+        },
+        "confidence": {
+          "samples": [
+            14755,
+            16386
+          ],
+          "f1": {
+            "0.001": 0.5873314810662065,
+            "0.0025": 0.8926748109687428,
+            "0.005": 0.9689961951813826,
+            "0.01": 0.9957803035459062,
+            "0.02": 1.0
+          },
+          "symmetric_mean": 0.15671524057571745
+        }
+      },
+      "hashes": {
+        "baseline": "ce80282cbaa6adc7a3877e07bb03e0fbc901d0815b88ee0a7c853a707a449431",
+        "confidence": "b5c3b8bf29ffa12ed9e240efcb367390263a2a4a477ab984ce7e281fd4990c82"
+      },
+      "triangles": {
+        "baseline": 1040560,
+        "confidence": 1037248
+      },
+      "seconds_before_render": 17.991999208003108
+    },
+    "drill_open_genus": 216,
+    "drill_triangles": 962393,
+    "render_reviewed": true,
+    "render_finding": "Neither drill view nor Bunny eyes/nose show convincing recovery."
+  }
 }

@@ -263,11 +263,22 @@ cover selection independence, view ordering and invalid observations.
 See [camera subpixel review](../tests/evidence/camera-subpixel-review.json).
 
 A private source-occlusion control rejects samples lying more than 0.5%
-behind our previous-pass source depth. Drill strict F1 changes 0.409 to
-0.422, with pits, false relief and an open mesh still present. Bunny passes
+behind our previous-pass source depth. Separately fitted drill strict F1 changes 0.409 to
+0.422, but the fixed-alignment follow-up below does not confirm that gain;
+pits, false relief and an open mesh persist. Bunny passes
 its numerical regression check; eye-region F1 changes 0.586 to 0.594 while
 mean surface error worsens, and the renders do not show convincing eye/nose
 recovery. Seven synthetic GPU cases pass and the disabled drill control
 reproduces all final depths and the STL exactly. This control remains private:
 no production integration, five other object checks or browser execution.
 See [source visibility evidence](../tests/evidence/source-visibility-review.json).
+
+Fixed-alignment follow-up corrects the interpretation of that visibility gain:
+with one baseline scan fit and 200,000 samples per surface, strict drill F1
+is 0.4108 for distinct modes, 0.4089 for visibility and 0.4097 for a new
+conservative visibility control. The latter uses only accepted depths with
+full coherent 3x3 support, never hole-filled initial surfaces; it worsens
+all three drill thresholds and mean error. Both visibility variants are
+rejected for integration. Bunny's conservative variant has only tiny local
+changes, without convincing eye/nose restoration. Its prior-validity test
+passes; no other-object or browser gate was run for these rejected controls.
